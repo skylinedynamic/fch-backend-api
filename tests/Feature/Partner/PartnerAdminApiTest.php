@@ -42,13 +42,27 @@ class PartnerAdminApiTest extends TestCase
             'full_name' => 'Pat Partner',
             'company_name' => 'Pat Co ' . uniqid(),
             'email' => 'pat-' . uniqid() . '@example.test',
-            'phone_number' => '(555) 123-4567',
+            'phone_number' => '(555) 234-5678',
             'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
             'country' => 'United States',
             'partner_domain' => 'pat' . uniqid(),
             'is_free_trail' => true,
             'free_trail_end_date' => now()->addDays(14)->format('Y-m-d'),
         ], $overrides);
+    }
+
+    #[Test]
+    public function a_partners_phone_zip_and_tax_id_are_checked_against_the_shared_formats(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners', $this->newPartnerPayload([
+            'phone_number' => '(124) 982-7457', 'zip_code' => '1234', 'tax_id' => 'not an ein',
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'phone_number' => __('embed_form.phone_invalid'),
+            'zip_code' => __('common.postal_code_invalid'),
+            'tax_id' => __('common.business_ein_invalid'),
+        ]);
     }
 
     public static function partnerRoutes(): array

@@ -81,7 +81,7 @@ class MyApplicationsApiTest extends TestCase
             'role' => 'Partner',
             'ownership' => 25,
             'email' => 'co@example.org',
-            'mobile_phone' => '(555) 010-0100',
+            'mobile_phone' => '(555) 210-0100',
             'date_of_birth' => '1980-02-03',
             'ssn' => '123456789',
             'street_address' => '1 Main St',
@@ -106,7 +106,7 @@ class MyApplicationsApiTest extends TestCase
     {
         $coBorrower = [
             'first_name' => 'Co', 'last_name' => 'Owner', 'role' => 'Partner', 'ownership' => 25,
-            'email' => 'co@example.org', 'mobile_phone' => '(555) 010-0100', 'date_of_birth' => '1980-02-03',
+            'email' => 'co@example.org', 'mobile_phone' => '(555) 210-0100', 'date_of_birth' => '1980-02-03',
             'ssn' => '123456789', 'street_address' => '1 Main St', 'country' => 'United States',
             'state' => 'TX', 'city' => 'Austin', 'zip_code' => '73301',
         ];

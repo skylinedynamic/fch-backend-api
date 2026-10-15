@@ -13,6 +13,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
  * rules - ten digits, and neither the area code nor the exchange starting with
  * 0 or 1 - so the rule and the stored value can never disagree about what counts
  * as valid.
+ *
+ * It is the single phone definition for every request, so - as with Ssn and
+ * BusinessEin - a value carrying anything other than digits and the usual
+ * separators is a different value, not a writing of a phone number: "tel
+ * 813-391-3333" must not pass by having its letters quietly discarded.
  */
 class UsPhoneNumber implements ValidationRule
 {
@@ -27,7 +32,7 @@ class UsPhoneNumber implements ValidationRule
             return;
         }
 
-        if (normalizePhoneE164((string) $value) === null) {
+        if (preg_match('/[^\d\s().+-]/', (string) $value) || normalizePhoneE164((string) $value) === null) {
             $fail(__('embed_form.phone_invalid'));
         }
     }

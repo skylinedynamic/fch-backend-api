@@ -116,6 +116,16 @@ class BorrowerProfileApiTest extends TestCase
     }
 
     #[Test]
+    public function business_phone_and_duns_must_be_in_their_shared_formats(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/profile/business-info', $this->business(['business_phone' => '(124) 982-7457', 'duns_number' => '12345678']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['business_phone' => __('embed_form.phone_invalid'), 'duns_number' => __('common.duns_number_invalid')]);
+    }
+
+    #[Test]
     public function a_borrower_syncs_their_bank_accounts_and_cannot_touch_anyone_elses(): void
     {
         $kept = BorrowerBankAccount::create(['borrower_id' => $this->me->entity_id, 'bank_name' => 'Old Bank']);

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Global\Website\PreQualification;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPhoneNumber;
 
 class StorePreQualificationRequest extends BaseApiRequest
 {
@@ -26,7 +27,7 @@ class StorePreQualificationRequest extends BaseApiRequest
             'phone_number' => [
                 'required',
                 'string',
-                'regex:/^(\(\d{3}\) \d{3}-\d{4}|\d{10})$/',
+                new UsPhoneNumber(),
             ],
             'business_website' => ['nullable', 'string', 'max:255'],
             'state_of_incorporation' => ['required', 'string', 'max:255'],

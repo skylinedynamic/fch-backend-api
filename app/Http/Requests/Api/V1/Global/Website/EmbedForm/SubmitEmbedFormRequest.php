@@ -13,6 +13,7 @@ use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\Ssn;
 
 /**
  * Validation for the public embedded funding application.
@@ -91,8 +92,10 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     {
         $merge = [];
 
+        // Only a writing of an SSN is reduced; one carrying letters is left for
+        // the Ssn rule to refuse rather than passing with them stripped.
         if ($this->filled('ssn')) {
-            $merge['ssn'] = preg_replace('/\D/', '', (string) $this->input('ssn'));
+            $merge['ssn'] = Ssn::canonical($this->input('ssn'));
         }
 
         // Currency inputs arrive with the thousands separators the form renders.
@@ -106,7 +109,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
         if (is_array($coBorrowers)) {
             foreach ($coBorrowers as $index => $coBorrower) {
                 if (!empty($coBorrower['ssn'])) {
-                    $coBorrowers[$index]['ssn'] = preg_replace('/\D/', '', (string) $coBorrower['ssn']);
+                    $coBorrowers[$index]['ssn'] = Ssn::canonical($coBorrower['ssn']);
                 }
             }
             $merge['co_borrowers'] = $coBorrowers;
@@ -183,7 +186,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
                 'before:today',
                 'before_or_equal:' . now()->subYears((int) config('funding_application.embed_form.minimum_age', 18))->toDateString(),
             ],
-            'ssn' => ['required', 'string', 'digits:9'],
+            'ssn' => ['required', 'string', new Ssn()],
             'citizenship_status' => ['required', 'string', 'max:255'],
             'street_address' => ['required', 'string', 'max:255'],
             'country' => ['nullable', 'string', 'max:255'],
@@ -219,7 +222,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
                 'before:today',
                 'before_or_equal:' . now()->subYears((int) config('funding_application.embed_form.minimum_age', 18))->toDateString(),
             ],
-            'co_borrowers.*.ssn' => ['nullable', 'string', 'digits:9'],
+            'co_borrowers.*.ssn' => ['nullable', 'string', new Ssn()],
             'co_borrowers.*.street_address' => ['nullable', 'string', 'max:255'],
             'co_borrowers.*.country' => ['nullable', 'string', 'max:255'],
             'co_borrowers.*.city' => ['nullable', 'string', 'max:255'],

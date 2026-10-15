@@ -8,6 +8,8 @@ use Illuminate\Validation\Rule;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\Ssn;
 
 class StoreBorrowerRequest extends BaseApiRequest
 {
@@ -34,7 +36,7 @@ class StoreBorrowerRequest extends BaseApiRequest
                 Rule::unique('borrowers', 'email')->whereNull('deleted_at'),
                 Rule::unique('users', 'email')->whereNull('deleted_at'),
             ],
-            'phone_number'         => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'phone_number'         => ['required', 'string', new UsPhoneNumber()],
             'country'              => ['required', 'string', 'max:255'],
             'state'                => ['nullable', 'string', 'max:255'],
             'city'                 => ['nullable', 'string', 'max:255'],
@@ -44,8 +46,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'home_address'         => ['nullable', 'string', 'max:255'],
             'date_of_birth'        => ['nullable'],
             'last_4_ssn'           => ['nullable', 'string', 'max:4'],
-            'ssn'                  => ['nullable', 'string', 'regex:/^\d{3}-?\d{2}-?\d{4}$/'],
-
+            'ssn'                  => ['nullable', 'string', new Ssn()],
             // ── Business Info ───────────────────────────────────────────────
             'business_name'        => ['nullable', 'string', 'max:255'],
             'business_ein'         => ['nullable', 'string', new BusinessEin()],
@@ -56,8 +57,8 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_state'       => ['nullable', 'string', 'max:255'],
             'business_city'        => ['nullable', 'string', 'max:255'],
             'business_other_city'  => ['required_if:business_city,Others', 'nullable', 'string', 'max:255'],
-            'business_postal_code' => ['nullable', 'string', 'max:20'],
-            'business_phone'       => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'business_postal_code' => ['nullable', 'string', new UsPostalCode()],
+            'business_phone'       => ['nullable', 'string', new UsPhoneNumber()],
             'business_entity_type' => ['nullable', 'string', 'max:255'],
             'business_entity_type_note' => ['required_if:business_entity_type,' . config('borrower.entity_type_other'), 'nullable', 'string', 'max:255'],
             'business_industry_type' => ['nullable', 'string', 'max:255'],

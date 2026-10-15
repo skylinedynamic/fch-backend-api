@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Lender;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lender\Lender;
+use App\Rules\UsPhoneNumber;
 
 class UpdateLenderRequest extends BaseApiRequest
 {
@@ -31,7 +32,7 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_title' => 'required|string|max:255',
             'contact_email' => 'required|email|max:255',
             // Not unique: lenders share support lines, and create never required it (O31).
-            'contact_phone' => ['required', 'string', 'max:20'],
+            'contact_phone' => ['required', 'string', new UsPhoneNumber()],
             'website' => 'nullable|max:255',
             'submission_method' => 'nullable|string|max:255',
             'submission_email' => 'nullable|email|max:255',

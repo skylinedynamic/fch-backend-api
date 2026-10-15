@@ -105,8 +105,4 @@ class DatabaseSeeder extends Seeder
     }
 }
 
-
-
-// php artisan db:seed --class=SmsConfigurationPermissionSeeder
-// php artisan db:seed --class=LinkUsersToEmployeesSeeder
-
+// set "SEED_DRY_RUN=false" && php artisan db:seed --class=InvoiceCustomerNameRepairSeeder

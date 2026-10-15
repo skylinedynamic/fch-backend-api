@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Borrower\Borrower;
 use App\Rules\Ssn;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
 
 class UpdatePersonalProfileRequest extends BaseApiRequest
 {
@@ -39,14 +40,14 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
                 'email',
                 Rule::unique('users', 'email')->ignore(Auth::id())->whereNull('deleted_at')
             ],
-            'phone_number' => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'country' => 'required|string|max:255',
             'country_code' => 'required|string|max:5',
             'state' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
-            'home_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
             // The full SSN, never echoed back - so a blank field means "keep
             // the one on file", and it is only required while there is no full
             // SSN on file (none at all, or just the last four from before).

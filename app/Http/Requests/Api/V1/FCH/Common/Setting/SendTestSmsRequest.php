@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPhoneNumber;
 
 class SendTestSmsRequest extends BaseApiRequest
 {
@@ -14,7 +15,7 @@ class SendTestSmsRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', 'regex:/^\+[1-9]\d{6,14}$/'],
+            'phone' => ['required', 'string', 'regex:/^\+[1-9]\d{6,14}$/', new UsPhoneNumber()],
         ];
     }
 

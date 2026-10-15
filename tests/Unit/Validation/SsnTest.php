@@ -165,4 +165,36 @@ class SsnTest extends TestCase
         $this->assertSame('***-**-6789', Ssn::mask('123456789'));
         $this->assertNull(Ssn::mask(''));
     }
+
+    /**
+     * What a request hands the rule: a writing of an SSN becomes its nine
+     * digits, so the column holds one form; anything else is left exactly as
+     * sent, so the rule still sees - and refuses - the letters normalize()
+     * would have stripped.
+     */
+    #[Test]
+    #[DataProvider('canonicalForms')]
+    public function it_reduces_only_a_writing_of_an_ssn_before_validation(mixed $given, mixed $expected): void
+    {
+        $this->assertSame($expected, Ssn::canonical($given));
+    }
+
+    public static function canonicalForms(): array
+    {
+        return [
+            'written' => ['123-45-6789', '123456789'],
+            'spaced' => [' 123 45 6789 ', '123456789'],
+            'bare' => ['123456789', '123456789'],
+            'letters are kept for the rule to refuse' => ['123-45-6789abc', '123-45-6789abc'],
+            'empty' => ['', ''],
+            'null' => [null, null],
+            'not a string' => [['123456789'], ['123456789']],
+        ];
+    }
+
+    #[Test]
+    public function a_value_left_as_sent_is_still_refused(): void
+    {
+        $this->assertTrue($this->fails(Ssn::canonical('123-45-6789abc')));
+    }
 }

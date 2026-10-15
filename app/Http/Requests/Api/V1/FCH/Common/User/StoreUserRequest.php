@@ -10,6 +10,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 use App\Models\Employee\Employee;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPhoneNumber;
 
 class StoreUserRequest extends  BaseApiRequest
 {
@@ -24,7 +25,7 @@ class StoreUserRequest extends  BaseApiRequest
             'name'         => ['required', 'string', 'max:255'],
             'email'        => ['required', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'user_id'      => ['nullable', 'string', 'max:255'],
-            'phone_number' => ['nullable', 'string', 'max:50', Rule::unique('users', 'phone_number')->whereNull('deleted_at')],
+            'phone_number' => ['nullable', 'string', new UsPhoneNumber(), Rule::unique('users', 'phone_number')->whereNull('deleted_at')],
             'password'     => ['required', 'string', 'min:6'],
             'role_id'      => ['required', 'exists:roles,id'],
             'employee_id'  => [

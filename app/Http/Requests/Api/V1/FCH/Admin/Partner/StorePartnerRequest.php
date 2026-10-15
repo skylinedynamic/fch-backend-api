@@ -11,6 +11,8 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\BusinessEin;
 
 class StorePartnerRequest extends BaseApiRequest
 {
@@ -49,10 +51,10 @@ class StorePartnerRequest extends BaseApiRequest
                 Rule::unique('partners', 'email')->whereNull('deleted_at'),
                 Rule::unique('users', 'email')->whereNull('deleted_at'),
             ],
-            'phone_number' => ['required', 'string', 'max:50'],
+            'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'status' => ['nullable', 'string', 'max:255'],
             'contact_person' => ['nullable', 'string', 'max:255'],
-            'contact_person_phone_number' => ['nullable', 'string', 'max:50'],
+            'contact_person_phone_number' => ['nullable', 'string', new UsPhoneNumber()],
             'contact_person_email' => ['nullable', 'email', 'max:255'],
             'contact_person_relation' => ['nullable', 'string', 'max:255'],
             'partner_type' => ['required', 'string', 'max:255'],
@@ -62,7 +64,7 @@ class StorePartnerRequest extends BaseApiRequest
             'zip_code' => ['nullable', 'string', new UsPostalCode()],
             'address_line_1' => ['nullable', 'string', 'max:255'],
             'address_line_2' => ['nullable', 'string', 'max:255'],
-            'tax_id' => ['nullable', 'string', 'max:100'],
+            'tax_id' => ['nullable', 'string', new BusinessEin()],
             'website' => ['nullable', 'string'],
             'joining_date' => ['nullable', 'date'],
             'company_logo' => ['nullable'],

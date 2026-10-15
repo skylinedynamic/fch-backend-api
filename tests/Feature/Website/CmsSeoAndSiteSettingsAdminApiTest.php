@@ -78,7 +78,7 @@ class CmsSeoAndSiteSettingsAdminApiTest extends TestCase
         $this->postJson('/api/v1/admin/cms/site-settings', [
             'site_name' => 'Four Corner',
             'address' => '1 Main St',
-            'phone_number' => '+1 (555) 010-0100',
+            'phone_number' => '+1 (555) 210-0100',
             'email' => 'hello@example.org',
             'map_iframe' => '<iframe src="https://maps.example.org"></iframe>',
             'social_links' => [['platform' => 'X', 'url' => ' https://x.example.org/fc ']],

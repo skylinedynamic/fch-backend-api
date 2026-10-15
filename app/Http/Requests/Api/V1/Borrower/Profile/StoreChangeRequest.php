@@ -7,6 +7,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\DunsNumber;
 
 class StoreChangeRequest extends BaseApiRequest
 {
@@ -46,9 +48,9 @@ class StoreChangeRequest extends BaseApiRequest
             // Business Info
             'business_name' => 'required|string|max:255',
             'business_ein' => ['required', new BusinessEin()],
-            'business_phone' => 'nullable|string|max:20',
+            'business_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'business_email' => 'required|email|max:255',
-            'duns_number' => 'nullable|string|size:9',
+            'duns_number' => ['nullable', 'string', new DunsNumber()],
             'business_address' => 'required|string|max:255',
             'business_country' => 'required|string|max:255',
             'business_country_code' => 'required|string|max:5',
@@ -82,14 +84,14 @@ class StoreChangeRequest extends BaseApiRequest
                 'email',
                 Rule::unique('users', 'email')->ignore(Auth::id())->whereNull('deleted_at')
             ],
-            'phone_number' => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'country' => 'required|string|max:255',
             'country_code' => 'required|string|max:5',
             'state' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
-            'home_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'last_4_ssn' => 'required|string|size:4',
             'date_of_birth' => 'required|date_format:Y-m-d|before:today',
         ];

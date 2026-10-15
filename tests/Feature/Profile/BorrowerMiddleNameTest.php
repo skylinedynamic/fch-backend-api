@@ -77,7 +77,7 @@ class BorrowerMiddleNameTest extends TestCase
             'middle_name' => 'Alan',
             'last_name' => 'Rice',
             'email' => 'craig@example.test',
-            'phone_number' => '5551234567',
+            'phone_number' => '5552345678',
             'country' => 'United States',
             'country_code' => '+1',
             'state' => 'Texas',

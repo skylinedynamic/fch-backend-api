@@ -11,6 +11,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
 
 class UpdateEmployeeRequest extends BaseApiRequest
 {
@@ -42,17 +43,17 @@ class UpdateEmployeeRequest extends BaseApiRequest
             'job_status'     => ['nullable', 'string', 'max:255'],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'emergency_phone'   => ['nullable', 'string', 'max:50'],
+            'emergency_phone'   => ['nullable', 'string', new UsPhoneNumber()],
             'phone_number_1' => [
                 'sometimes',
                 'required',
                 'string',
-                'max:50',
+                new UsPhoneNumber(),
                 Rule::unique('employees')
                     ->ignore($employeeId)
                     ->where(fn($q) => $q->where('partner_id', $partnerId)->whereNull('deleted_at')),
             ],
-            'phone_number_2' => ['nullable', 'string', 'max:20'],
+            'phone_number_2' => ['nullable', 'string', new UsPhoneNumber()],
             'passport_number'=> ['nullable', 'string', 'max:255'],
             // Not required on update; unique only where it doubles as a login (above).
             'email' => $emailRules,

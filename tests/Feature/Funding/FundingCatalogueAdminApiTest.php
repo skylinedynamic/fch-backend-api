@@ -55,7 +55,7 @@ class FundingCatalogueAdminApiTest extends TestCase
             'contact_name' => 'Lee Lender',
             'contact_title' => 'Partnerships',
             'contact_email' => 'lee@acme.example.org',
-            'contact_phone' => '5550100',
+            'contact_phone' => '5552340100',
             'status' => Lender::STATUS_ACTIVE,
         ], $overrides);
     }
@@ -282,7 +282,7 @@ class FundingCatalogueAdminApiTest extends TestCase
     public function a_lenders_visibility_rules_are_replaced_one_lender_at_a_time(): void
     {
         $a = Lender::create($this->lender(['name' => 'A']));
-        $b = Lender::create($this->lender(['name' => 'B', 'contact_phone' => '5550101']));
+        $b = Lender::create($this->lender(['name' => 'B', 'contact_phone' => '5552340101']));
         $this->actingAsUser($this->admin);
         $data = $this->sequence();
         $category = $data['funding_type_id'];

@@ -71,7 +71,7 @@ class UserManagementApiTest extends TestCase
         return array_merge([
             'name' => $user->name,
             'email' => $user->email,
-            'phone_number' => '555-' . random_int(1000000, 9999999),
+            'phone_number' => '555-' . random_int(2000000, 9999999), // exchange must not start with 0 or 1
             'role_id' => $this->salesRole->id,
             'status' => User::STATUS['active'],
         ], $overrides);

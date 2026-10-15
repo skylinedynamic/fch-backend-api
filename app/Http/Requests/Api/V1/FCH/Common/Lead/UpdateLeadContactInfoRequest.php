@@ -5,6 +5,9 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\BusinessEin;
+use App\Rules\DunsNumber;
+use App\Rules\UsPhoneNumber;
 
 class UpdateLeadContactInfoRequest extends BaseApiRequest
 {
@@ -20,7 +23,7 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'phone_number' => [
                 'required',
                 'string',
-                'regex:/^(\(\d{3}\) \d{3}-\d{4})$/',
+                new UsPhoneNumber(),
             ],
             'email' => [
                 'required',
@@ -32,16 +35,16 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
                 )->whereNull('deleted_at'),
             ],
             'legal_business_name' => ['nullable', 'string', 'max:255'],
-            'business_ein' => ['nullable', 'string', 'max:20'],
+            'business_ein' => ['nullable', 'string', new BusinessEin()],
             'state_file_number' => ['nullable', 'string', 'max:255'],
-            'duns_number' => ['nullable', 'string', 'max:20'],
+            'duns_number' => ['nullable', 'string', new DunsNumber()],
             'business_address' => ['nullable', 'string', 'max:500'],
             'country' => ['required', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'other_city' => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', new UsPostalCode()],
-            'business_phone' => ['nullable', 'string', 'max:20'],
+            'business_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'entity_type' => ['nullable', 'string', 'max:255'],
             'entity_type_note' => ['required_if:entity_type,Other,Other / Unknown', 'nullable', 'string'],
             'industry_type' => ['nullable', 'string', 'max:255'],

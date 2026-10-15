@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
 
 class StoreEmployeeRequest extends BaseApiRequest
 {
@@ -29,12 +30,12 @@ class StoreEmployeeRequest extends BaseApiRequest
             'job_status'     => ['nullable', 'string', 'max:255'],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'emergency_phone' => ['nullable', 'string', 'max:50'],
-            'phone_number_2' => ['nullable'],
+            'emergency_phone' => ['nullable', 'string', new UsPhoneNumber()],
+            'phone_number_2' => ['nullable', 'string', new UsPhoneNumber()],
             'phone_number_1'   => [
                 'required',
                 'string',
-                'max:50',
+                new UsPhoneNumber(),
                 Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)->whereNull('deleted_at')),
             ],
             'email' => [
