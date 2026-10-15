@@ -130,7 +130,9 @@ class CommissionPayoutService
                 'borrower_id' => $commission->borrower_id,
                 'entity_type' => $entityType,
                 'entity_id' => $payee['id'],
-                'customer_name' => $partner ? ($partner->full_name ?? $partner->company_name) : $payee['name'],
+                // The person paid, never the company: a partner payee's name is
+                // its company, so a partner is named by its owner only.
+                'customer_name' => $partner ? $partner->full_name : $payee['name'],
                 'email' => $payee['email'],
                 'country' => $partner?->country,
                 'payment_amount' => $payout['amount'],
