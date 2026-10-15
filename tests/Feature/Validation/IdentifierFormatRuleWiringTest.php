@@ -11,6 +11,11 @@ use App\Http\Requests\Api\V1\Borrower\Profile\StoreCreditProfileRequestRequest;
 use App\Http\Requests\Api\V1\Borrower\Profile\UpdateBusinessInfoRequest;
 use App\Http\Requests\Api\V1\Borrower\Profile\UpdatePersonalProfileRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\CMS\UpdateSiteSettingsRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\StoreCreditAccountRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\UpdateCreditAccountRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\StoreFundingSequencingRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingVisibilityRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\DemoRequest\DemoRequestStoreOrUpdateRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Lender\StoreLenderRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Lender\UpdateLenderRequest;
@@ -18,9 +23,12 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\AuthProfile\UpdateProfileRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\StoreBorrowerRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Contact\StoreContactRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Contact\UpdateContactRequest;
+use App\Http\Requests\Api\V1\FCH\Common\CreditBuilder\CapitalAccess\StoreCapitalAccessRequest;
+use App\Http\Requests\Api\V1\FCH\Common\CreditBuilder\CapitalAccess\UpdateCapitalAccessRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadRequest;
@@ -36,8 +44,10 @@ use App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest;
 use App\Http\Requests\Api\V1\Global\Website\Lead\StoreLeadRequest as WebsiteStoreLeadRequest;
 use App\Http\Requests\Api\V1\Global\Website\PreQualification\StorePreQualificationRequest;
 use App\Models\User\User;
+use App\Rules\BusinessCreditScore;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
+use App\Rules\FicoScore;
 use App\Rules\Ssn;
 use App\Rules\UsPhoneNumber;
 use App\Rules\UsPostalCode;
@@ -50,8 +60,11 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * That every request taking a zip code, phone number, SSN, EIN or DUNS number
- * validates it with the one shared rule for that format.
+ * That every request taking a zip code, phone number, SSN, EIN or DUNS number,
+ * or a typed-in credit score, validates it with the one shared rule for that
+ * format (FicoScore: a whole number 300-850; BusinessCreditScore: a whole
+ * number of 0 or more). Credit score dropdowns (the self-reported ranges and
+ * pre-qualification bands) are not covered: they keep their own option rules.
  *
  * Each format has a single definition in app/Rules (5-digit ZIP, NANP phone,
  * SSA-issuable SSN, 9-digit EIN and DUNS), but most requests carried their own
@@ -163,6 +176,28 @@ class IdentifierFormatRuleWiringTest extends TestCase
             ],
         ];
 
+        $wired[FicoScore::class] = [
+            StoreBorrowerRequest::class => ['fico_score'],
+            UpdateBorrowerRequest::class => ['fico_score'],
+            UpdateBorrowerBusinessFinancialsRequest::class => ['fico_score'],
+            SubmitEmbedFormRequest::class => ['credit_score'],
+            StoreFundingSequencingRequest::class => ['lender_visibilities.*.min_fico'],
+            UpdateFundingSequencingRequest::class => ['lender_visibilities.*.min_fico'],
+            UpdateFundingSequencingVisibilityRequest::class => ['lender_visibilities.*.min_fico'],
+            StoreCreditAccountRequest::class => ['typical_personal_fico_min'],
+            UpdateCreditAccountRequest::class => ['typical_personal_fico_min'],
+            StoreCapitalAccessRequest::class => ['minimum_fico_requirement', 'credit_accounts.*.minimum_fico_requirement'],
+            UpdateCapitalAccessRequest::class => ['minimum_fico_requirement', 'credit_accounts.*.minimum_fico_requirement'],
+        ];
+        $wired[BusinessCreditScore::class] = [
+            StoreBorrowerRequest::class => ['paydex_score'],
+            UpdateBorrowerRequest::class => ['paydex_score'],
+            UpdateBorrowerBusinessFinancialsRequest::class => ['paydex_score'],
+            StoreFundingSequencingRequest::class => ['lender_visibilities.*.min_business_credit_score'],
+            UpdateFundingSequencingRequest::class => ['lender_visibilities.*.min_business_credit_score'],
+            UpdateFundingSequencingVisibilityRequest::class => ['lender_visibilities.*.min_business_credit_score'],
+        ];
+
         foreach ($wired as $rule => $requests) {
             foreach ($requests as $request => $keys) {
                 foreach ($keys as $key) {
@@ -184,6 +219,7 @@ class IdentifierFormatRuleWiringTest extends TestCase
             'home_phone' => UsPhoneNumber::class,
             'business_ein' => BusinessEin::class,
             'duns_number' => DunsNumber::class,
+            'personal_credit_score' => FicoScore::class,
         ];
 
         foreach ($changeRequest as $field => $rule) {

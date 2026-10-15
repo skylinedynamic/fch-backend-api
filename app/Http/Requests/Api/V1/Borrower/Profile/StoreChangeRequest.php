@@ -9,6 +9,7 @@ use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\DunsNumber;
+use App\Rules\FicoScore;
 
 class StoreChangeRequest extends BaseApiRequest
 {
@@ -61,8 +62,7 @@ class StoreChangeRequest extends BaseApiRequest
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
             'business_start_date' => 'required|date',
-            'personal_credit_score' => 'required|integer',
-
+            'personal_credit_score' => ['required', new FicoScore()],
             // Financial Info
             'currency' => 'required|string|max:10',
             'years_in_business' => 'required|string',

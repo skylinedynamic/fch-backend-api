@@ -12,6 +12,8 @@ use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\Ssn;
+use App\Rules\FicoScore;
+use App\Rules\BusinessCreditScore;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -90,8 +92,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'assign_id'        => ['nullable', 'integer', 'exists:users,id'],
             'notes'            => ['nullable', 'string'],
             'additional_data'  => ['nullable', 'json'],
-            'fico_score'       => ['nullable', 'numeric'],
-            'paydex_score'     => ['nullable', 'numeric'],
+            'fico_score'       => ['nullable', new FicoScore()],
+            'paydex_score'     => ['nullable', new BusinessCreditScore()],
             'is_free_trail'    => ['nullable', 'boolean'],
             'free_trail_end_date' => ['nullable'],
 

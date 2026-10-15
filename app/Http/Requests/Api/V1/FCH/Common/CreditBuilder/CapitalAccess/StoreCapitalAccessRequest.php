@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\CreditBuilder\CapitalAccess;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\CreditBuilder\CapitalAccess;
+use App\Rules\FicoScore;
 
 class StoreCapitalAccessRequest extends BaseApiRequest
 {
@@ -35,7 +36,7 @@ class StoreCapitalAccessRequest extends BaseApiRequest
             'pre_flight_checklist' => 'required|array|min:1',
             'pre_flight_checklist.*' => 'required|string|min:1',
             'status' => 'required|string|in:' . CapitalAccess::STATUS_ACTIVE . ',' . CapitalAccess::STATUS_INACTIVE,
-            'minimum_fico_requirement' => 'nullable|integer|min:0',
+            'minimum_fico_requirement' => ['nullable', new FicoScore()],
             'maximum_utilization_threshold' => 'nullable|numeric|min:0|max:100',
             'difficulty_modifier' => 'nullable|numeric',
             'allow_recent_late_payment' => 'nullable|boolean',
@@ -51,7 +52,7 @@ class StoreCapitalAccessRequest extends BaseApiRequest
             'credit_accounts.*.access_time' => 'nullable|string',
             'credit_accounts.*.access_day' => 'nullable|integer|min:1|max:400',
             'credit_accounts.*.access_day_time' => 'nullable|string',
-            'credit_accounts.*.minimum_fico_requirement' => 'nullable|integer',
+            'credit_accounts.*.minimum_fico_requirement' => ['nullable', new FicoScore()],
             'credit_accounts.*.maximum_utilization_threshold' => 'nullable|numeric',
             'credit_accounts.*.difficulty_modifier' => 'nullable|numeric',
         ];

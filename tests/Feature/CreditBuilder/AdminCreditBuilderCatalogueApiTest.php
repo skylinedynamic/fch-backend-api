@@ -187,6 +187,49 @@ class AdminCreditBuilderCatalogueApiTest extends TestCase
         $this->getJson("/api/v1/admin/credit-builder/tier-related-api/{$tier->id}")->assertOk();
     }
 
+    /**
+     * A card's typical minimum FICO is compared with a borrower's FICO, so it
+     * must be a FICO score itself. Digits-only let 0 through (one is stored).
+     *
+     * @return iterable<string, array{mixed}>
+     */
+    public static function badFicoMinimums(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'below the scale' => [299];
+        yield 'above the scale' => [851];
+        yield 'a fraction' => ['650.5'];
+    }
+
+    #[Test]
+    #[DataProvider('badFicoMinimums')]
+    public function a_credit_accounts_typical_fico_minimum_must_be_a_fico_score(mixed $minimum): void
+    {
+        $account = DB::table('credit_accounts')->insertGetId(['card_name' => 'Card', 'status' => 'Active', 'typical_personal_fico_min' => 650, 'created_at' => now(), 'updated_at' => now()]);
+        $this->actingAsUser($this->hostAdmin);
+        $message = __('common.fico_score_invalid', ['min' => 300, 'max' => 850]);
+
+        $this->postJson('/api/v1/admin/credit-builder/credit-accounts', ['typical_personal_fico_min' => $minimum])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['typical_personal_fico_min' => $message]);
+        $this->putJson("/api/v1/admin/credit-builder/credit-accounts/{$account}", ['typical_personal_fico_min' => $minimum])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['typical_personal_fico_min' => $message]);
+
+        $this->assertSame(650, (int) DB::table('credit_accounts')->where('id', $account)->value('typical_personal_fico_min'));
+    }
+
+    #[Test]
+    public function a_credit_accounts_typical_fico_minimum_on_the_scale_passes_its_own_check(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+
+        // The rest of the form is missing, so the request still fails - but not on this field.
+        $this->postJson('/api/v1/admin/credit-builder/credit-accounts', ['typical_personal_fico_min' => '640'])
+            ->assertStatus(422)
+            ->assertJsonMissingValidationErrors(['typical_personal_fico_min']);
+    }
+
     #[Test]
     public function a_credit_account_is_switched_between_active_and_inactive_only(): void
     {

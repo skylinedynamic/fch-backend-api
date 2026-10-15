@@ -142,6 +142,22 @@ class BorrowerRecordsApiTest extends TestCase
     }
 
     #[Test]
+    public function a_new_clients_credit_scores_must_be_a_fico_score_and_a_whole_business_score(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['fico_score' => 9000, 'paydex_score' => -5]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'fico_score' => __('common.fico_score_invalid', ['min' => 300, 'max' => 850]),
+                'paydex_score' => __('common.business_credit_score_invalid'),
+            ]);
+
+        $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['fico_score' => 720, 'paydex_score' => 0]))
+            ->assertSuccessful();
+    }
+
+    #[Test]
     public function a_white_label_partner_must_finish_branding_and_email_setup_before_adding_clients(): void
     {
         $this->actingAsUser($this->makePartnerAdmin($this->makeWhiteLabelPartner()));

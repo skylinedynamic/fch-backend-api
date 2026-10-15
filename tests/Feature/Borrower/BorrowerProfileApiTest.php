@@ -186,6 +186,20 @@ class BorrowerProfileApiTest extends TestCase
     }
 
     #[Test]
+    public function a_personal_credit_score_change_request_must_be_a_fico_score(): void
+    {
+        $this->actingAsUser($this->me);
+
+        foreach ([299, 851, 0, '720.5'] as $score) {
+            $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'personal_credit_score', 'new_value' => $score])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['new_value' => __('common.fico_score_invalid', ['min' => 300, 'max' => 850])]);
+        }
+
+        $this->assertDatabaseMissing('borrower_change_requests', ['field_name' => 'personal_credit_score']);
+    }
+
+    #[Test]
     public function a_bank_account_change_request_names_one_of_my_accounts(): void
     {
         $mine = BorrowerBankAccount::create(['borrower_id' => $this->me->entity_id, 'bank_name' => 'My Bank']);

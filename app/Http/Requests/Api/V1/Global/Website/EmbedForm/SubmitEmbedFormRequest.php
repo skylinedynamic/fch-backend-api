@@ -14,6 +14,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
 use App\Rules\Ssn;
+use App\Rules\FicoScore;
 
 /**
  * Validation for the public embedded funding application.
@@ -250,12 +251,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             // bureau-verified figure.
             // Optional: an applicant who does not know their score should not be
             // blocked from applying over a figure that is self-reported anyway.
-            'credit_score' => [
-                'nullable',
-                'integer',
-                'min:' . (int) config('funding_application.credit_score.min', 300),
-                'max:' . (int) config('funding_application.credit_score.max', 850),
-            ],
+            'credit_score' => ['nullable', new FicoScore()],
             'self_reported_business_credit_score' => [
                 'nullable',
                 'string',

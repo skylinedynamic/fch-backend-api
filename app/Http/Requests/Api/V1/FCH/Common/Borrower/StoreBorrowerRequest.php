@@ -10,6 +10,8 @@ use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\Ssn;
+use App\Rules\FicoScore;
+use App\Rules\BusinessCreditScore;
 
 class StoreBorrowerRequest extends BaseApiRequest
 {
@@ -69,8 +71,8 @@ class StoreBorrowerRequest extends BaseApiRequest
 
             // ── Other ───────────────────────────────────────────────────────
             'notes'          => ['nullable'],
-            'fico_score'     => ['nullable', 'numeric'],
-            'paydex_score'   => ['nullable', 'numeric'],
+            'fico_score'     => ['nullable', new FicoScore()],
+            'paydex_score'   => ['nullable', new BusinessCreditScore()],
             'is_free_trail'  => ['nullable', 'boolean'],
             'assign_id'      => ['nullable', 'integer', 'exists:users,id'],
             'partner_id'     => ['nullable', 'integer', 'exists:partners,id'],

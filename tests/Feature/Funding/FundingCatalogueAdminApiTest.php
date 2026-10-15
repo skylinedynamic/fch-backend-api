@@ -279,6 +279,36 @@ class FundingCatalogueAdminApiTest extends TestCase
     }
 
     #[Test]
+    public function a_lenders_minimum_scores_must_be_a_fico_score_and_a_whole_business_score(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'Scored']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $category = $data['funding_type_id'];
+
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category, ['min_fico' => 299, 'min_business_credit_score' => -1])];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'lender_visibilities.0.min_fico' => __('common.fico_score_invalid', ['min' => 300, 'max' => 850]),
+                'lender_visibilities.0.min_business_credit_score' => __('common.business_credit_score_invalid'),
+            ]);
+
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category, ['min_fico' => 851, 'min_business_credit_score' => 12.5])];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['lender_visibilities.0.min_fico', 'lender_visibilities.0.min_business_credit_score']);
+
+        // The bounds themselves, and a business score of 0, are valid.
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category, ['min_fico' => 300, 'min_business_credit_score' => 0])];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/visibility", [
+            'lender_visibilities' => [$this->visibility($lender->id, $category, ['min_fico' => 900])],
+        ])->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.min_fico']);
+    }
+
+    #[Test]
     public function a_lenders_visibility_rules_are_replaced_one_lender_at_a_time(): void
     {
         $a = Lender::create($this->lender(['name' => 'A']));
@@ -290,7 +320,8 @@ class FundingCatalogueAdminApiTest extends TestCase
         $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->json('data.id');
 
         $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$a->id}/visibility", [
-            'lender_visibilities' => [$this->visibility($a->id, $category, ['min_fico' => 700]), $this->visibility($b->id, $category, ['min_fico' => 1])],
+            // B's 610 is a valid FICO (300-850) but must be ignored: only A is named.
+            'lender_visibilities' => [$this->visibility($a->id, $category, ['min_fico' => 700]), $this->visibility($b->id, $category, ['min_fico' => 610])],
         ])->assertOk();
 
         $rules = FundingSequencing::find($id)->lenderVisibilities()->get()->keyBy('lender_id');
