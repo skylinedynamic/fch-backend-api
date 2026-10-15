@@ -210,6 +210,28 @@ class BorrowerCreditProfileApiTest extends TestCase
         $this->assertStringNotContainsString('personal_info', $all);
     }
 
+    /**
+     * Each parse wrote half a dozen INFO lines - text length, parser mode, line
+     * count, per-strategy trade counts - that nobody read and that buried the
+     * lines that matter. A parse that works is not news; only problems are logged.
+     */
+    #[Test]
+    public function a_successful_parse_logs_nothing(): void
+    {
+        $logged = [];
+        Log::listen(function ($message) use (&$logged) {
+            $logged[] = $message->level . ': ' . $message->message;
+        });
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->post('/api/v1/common/borrowers/parse-credit-profile', [
+            'borrower_id' => $this->borrower->id,
+            'pdf' => $this->reportPdf(),
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        $this->assertSame([], array_values(array_filter($logged, fn ($line) => str_starts_with($line, 'info:'))));
+    }
+
     #[Test]
     public function parsing_needs_a_pdf(): void
     {

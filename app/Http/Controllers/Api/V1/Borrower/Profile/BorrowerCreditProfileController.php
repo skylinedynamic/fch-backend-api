@@ -83,6 +83,8 @@ class BorrowerCreditProfileController extends Controller
                     $borrower = $creditProfileRequest?->borrower;
 
                     app(Notifier::class)->send('host.credit_profile.update_requested', $host, [
+                        // Links the bell to the borrower's request details.
+                        'id' => $creditProfileRequest?->id,
                         'borrower' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name),
                     ], mail: $host->email ? (new UpdateCreditProfileRequestMail($creditProfileRequest))->to($host->email) : null);
                 } catch (\Throwable $mailException) {

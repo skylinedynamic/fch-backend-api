@@ -429,7 +429,8 @@ return [
             'channels' => $bellAndMail,
             'title' => 'Credit profile update requested',
             'body' => '{{borrower}} asked to update their credit profile.',
-            'url' => '/intake-review/credit-profile-requests',
+            // The borrower's request; the list when they have none on file.
+            'url' => '/intake-review/credit-profile-requests/{{id}}',
         ],
 
         'partner.documents.uploaded' => [

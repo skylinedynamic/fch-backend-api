@@ -521,13 +521,8 @@ class BorrowerController extends Controller
         ]);
 
         try {
-            // A consumer report is FCRA material: log that a parse happened,
-            // never what the report says.
-            Log::info('parseCreditProfile start', [
-                'borrower_id' => (int) $request->input('borrower_id'),
-                'has_pdf' => $request->hasFile('pdf'),
-            ]);
-
+            // A parse that works is not logged. A consumer report is FCRA
+            // material, so a failure logs what went wrong, never what it says.
             $borrowerId = (int) $request->input('borrower_id');
             $borrower = Borrower::visibleTo(auth()->user())->find($borrowerId);
             if (!$borrower) {
@@ -546,11 +541,6 @@ class BorrowerController extends Controller
                 return ApiResponse::error('The uploaded PDF does not contain selectable text (it might be scanned). Please upload a digital PDF report.');
             }
 
-            Log::info('parseCreditProfile: raw PDF text extracted', [
-                'text_length' => strlen($text),
-                'text_lines_count' => count(explode("\n", $text)),
-            ]);
-
             // Determine parser mode from app_configurations
             // Try partner-specific config first, then fall back to host (partner_id=null or host partner) config
             $partnerId = $borrower->partner_id;
@@ -565,20 +555,8 @@ class BorrowerController extends Controller
                 $parserMode = 'manual';
             }
 
-            Log::info('parseCreditProfile: parser mode resolved', [
-                'parser_mode' => $parserMode,
-                'partner_id' => $partnerId,
-                'borrower_partner_id' => $borrower->partner_id,
-            ]);
-
             $parserService = $this->getParserService($parserMode, $partnerId);
             $extractedData = $parserService->parse($text);
-
-            Log::info('parseCreditProfile: parsed data result', [
-                'trade_accounts_count' => count($extractedData['trade_accounts'] ?? []),
-                'addresses_count' => count($extractedData['addresses'] ?? []),
-                'inquiries_count' => count($extractedData['inquiries'] ?? []),
-            ]);
 
             // Store PDF in public storage under borrowers/{borrower_id}
             $fileName = 'credit_report_' . time() . '.pdf';
@@ -878,11 +856,6 @@ class BorrowerController extends Controller
                 Log::warning('OpenAI parser selected but no API key configured, falling back to manual parser');
                 return new \App\Services\FCH\Common\Borrower\IsoftpullParserService();
             }
-
-            Log::info('parseCreditProfile: using OpenAI parser', [
-                'model' => $model,
-                'api_key_prefix' => substr($apiKey, 0, 7) . '...',
-            ]);
 
             return new \App\Services\FCH\Common\Borrower\OpenAiParserService($apiKey, $model);
         }
