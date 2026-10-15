@@ -28,11 +28,21 @@ class CreditProfileRequestService
 
             $borrowerId = $user->entity_id;
 
-            // Save the details in the database
-            $creditProfileRequest = CreditProfileRequest::updateOrCreate(
+            // One request per borrower (borrower_id is unique): submitting again
+            // updates it. withTrashed() so a soft-deleted request is brought back
+            // rather than a second row added beside it; updateOrCreate() falls
+            // back to the existing row if a simultaneous submission inserted first.
+            $creditProfileRequest = CreditProfileRequest::withTrashed()->updateOrCreate(
                 ['borrower_id' => $borrowerId],
-                $data
+                $data + ['deleted_at' => null]
             );
+
+            // A resubmission is the latest request even when nothing in it
+            // changed, so the Request Credit Profile list (newest first) shows it
+            // at the top.
+            if (!$creditProfileRequest->wasRecentlyCreated) {
+                $creditProfileRequest->touch();
+            }
 
             // Set the borrower's credit_profile_updated to true
             $borrower = Borrower::find($borrowerId);
