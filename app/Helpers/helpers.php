@@ -310,10 +310,13 @@ if (!function_exists('normalizePhoneE164')) {
 
 if (!function_exists('formatPhoneDisplay')) {
     /**
-     * Render a stored phone number the way people read it: (555) 123-4567.
+     * Render a phone number the way people read it: (555) 123-4567.
      *
-     * Display form only - never store this. A non-US or unparseable number is
-     * returned unchanged rather than mangled into a US shape.
+     * Also the form the borrower and partner portals store a US phone in, so
+     * the embedded form normalises to it too (see SubmitEmbedFormRequest and
+     * EmbedFormService::portalPhone). Dialling uses normalizePhoneE164(). A
+     * non-US or unparseable number is returned unchanged rather than mangled
+     * into a US shape.
      */
     function formatPhoneDisplay(?string $phone): ?string
     {

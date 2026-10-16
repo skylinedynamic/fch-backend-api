@@ -13,6 +13,7 @@ use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFinancialInfoRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingApplicationDocumentRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingRequestRequest;
+use App\Services\FCH\Common\Application\SignatureRecorder;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
 use App\Http\Resources\Borrower\FundApplication\AttestationAndAuthorizationResource;
 use App\Http\Resources\Borrower\FundApplication\BusinessResource;
@@ -399,35 +400,6 @@ class FundingApplicationController extends Controller
                 ? ((bool) $priorState->requires_resign || ! empty($priorState->signature_data))
                 : false;
 
-            // Extract agent info
-            $agent = $request->userAgent();
-            $os = 'Unknown';
-            if (preg_match('/windows|win32|macintosh|mac os x|linux|android|iphone|ipad/i', $agent, $matches)) {
-                $os = $matches[0];
-            }
-            $browser = 'Unknown';
-            if (preg_match('/chrome|firefox|safari|edge|opera|msie|trident/i', $agent, $matches)) {
-                $browser = $matches[0];
-            }
-            
-            // Extract Browser Version
-            $browserVersion = 'Unknown';
-            if ($browser !== 'Unknown') {
-                if (preg_match('/version[\/ ]([\d.]+)/i', $agent, $matches)) {
-                    $browserVersion = $matches[1];
-                } else if (preg_match('/' . preg_quote($browser, '/') . '[\/ ]([\d.]+)/i', $agent, $matches)) {
-                    $browserVersion = $matches[1];
-                }
-            }
-            
-            // Extract Device Type
-            $deviceType = 'Desktop';
-            if (preg_match('/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i', $agent)) {
-                $deviceType = 'Tablet';
-            } else if (preg_match('/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/i', $agent)) {
-                $deviceType = 'Mobile';
-            }
-
             // Typed name or e-signature - one or the other, never both. An
             // e-signature carries no typed name, so the account holder's name is
             // recorded as the printed name beside the image.
@@ -438,36 +410,17 @@ class FundingApplicationController extends Controller
                     ?: trim((string) ($priorState?->full_name ?? ''))
                     ?: 'Borrower';
             }
-            $signatureImage = $isEsign ? ($validated['signature_image'] ?? null) : null;
-            // The date the borrower put in the signature block. `signed_at`
-            // below stays the server's own record of when it was submitted.
-            $signatureDate = $isEsign ? ($validated['signature_date'] ?? null) : null;
-            // Not columns; they live inside signature_data below.
-            unset($validated['signature_image'], $validated['signature_type'], $validated['signature_date']);
 
-            $validated['signature_data'] = [
-                'signature_name' => $validated['signature_name'] ?? null,
-                'signature_type' => $isEsign ? 'esign' : 'typed',
-                'signature_image' => $signatureImage,
-                'signature_date' => $signatureDate,
-                'ip_address' => $request->ip(),
-                'user_agent' => $agent,
-                'browser_name' => $browser,
-                'browser_version' => $browserVersion,
-                'operating_system' => $os,
-                'device_type' => $deviceType,
-                'timezone' => $validated['timezone'] ?? null,
-                'esign_consent' => $validated['esign_consent'] ?? false,
-                'terms_consent' => $validated['terms_consent'] ?? false,
-                'credit_consent' => $validated['credit_consent'] ?? false,
-                'legal_binding_consent' => $validated['legal_binding_consent'] ?? false,
-                'terms_version' => $validated['terms_version'] ?? '1.0',
-                'privacy_version' => $validated['privacy_version'] ?? '1.0',
-                'credit_auth_version' => $validated['credit_auth_version'] ?? '1.0',
-                'application_version' => $validated['application_version'] ?? '1.0',
-                'consents_data' => isset($validated['consents_data']) ? json_decode($validated['consents_data'], true) : null,
-                'signed_at' => now()->toDateTimeString(),
-            ];
+            // Who signed, how, from where and when, and the policy versions in
+            // force - recorded the same way in every portal.
+            $validated['signature_data'] = SignatureRecorder::record(
+                $request,
+                SignatureRecorder::METHOD_BORROWER_PORTAL,
+                $validated,
+                Auth::user()
+            );
+            // Not columns; they live inside signature_data.
+            unset($validated['signature_image'], $validated['signature_type'], $validated['signature_date']);
 
             // Set old attestation_authorization to true for backward compatibility
             $validated['attestation_authorization'] = true;

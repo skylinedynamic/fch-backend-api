@@ -82,6 +82,7 @@ class FundingApplicationResource extends JsonResource
             'purpose_of_funds' => $this->purpose_of_funds,
             'purpose_note' => $this->purpose_note,
             'preferred_funding_type' => $this->preferred_funding_type,
+            'additional_funding_types' => $this->additional_funding_types ?? [],
             'timeframe_needed' => $this->timeframe_needed,
             'collateral_available' => $this->collateral_available,
             'funding_sequence_name' => $this->fundingSequence ? $this->fundingSequence->name : null,

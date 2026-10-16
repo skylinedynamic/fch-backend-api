@@ -213,6 +213,86 @@ class EmbedFormLocationTest extends TestCase
         }
     }
 
+    // -- Local: the form is served by this API -------------------------
+    //
+    // On a developer's machine neither BASE_WEBSITE nor a partner's domain
+    // serves /form/*, so the link points at BASE_API_URL, where the page is
+    // rendered - the one address that opens. Only `local`: staging keeps the
+    // published address (tests above run as `testing`).
+
+    private function inEnvironment(string $environment, callable $assertions): void
+    {
+        $original = app()->environment();
+        app()['env'] = $environment;
+
+        try {
+            $assertions();
+        } finally {
+            app()['env'] = $original;
+        }
+    }
+
+    #[Test]
+    public function locally_the_host_and_certified_partners_use_the_api_url(): void
+    {
+        config(['domains.reserved.base_reserved_api_portal' => 'http://127.0.0.1:8000']);
+
+        $this->inEnvironment('local', function () {
+            foreach ([['is_host' => true], []] as $attributes) {
+                $location = EmbedFormLocation::forPartner($this->partner(Partner::PARTNER_TYPE_CERTIFIED, $attributes));
+
+                $this->assertSame('http://127.0.0.1:8000', $location->baseUrl());
+                $this->assertSame('http://127.0.0.1:8000/form/abc123', $location->formUrl('abc123'));
+            }
+        });
+    }
+
+    #[Test]
+    public function locally_the_api_url_is_used_even_without_a_base_website(): void
+    {
+        config(['domains.reserved.base_reserved_api_portal' => 'http://127.0.0.1:8000', 'app.base_website' => null]);
+
+        $this->inEnvironment('local', function () {
+            $location = EmbedFormLocation::forPartner($this->partner(Partner::PARTNER_TYPE_CERTIFIED, ['is_host' => true]));
+
+            $this->assertTrue($location->isAvailable());
+            $this->assertSame('http://127.0.0.1:8000/form/abc123', $location->formUrl('abc123'));
+        });
+    }
+
+    #[Test]
+    public function locally_a_white_label_partner_uses_the_api_url_once_it_has_a_domain(): void
+    {
+        config(['domains.reserved.base_reserved_api_portal' => 'http://127.0.0.1:8000']);
+
+        $this->inEnvironment('local', function () {
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_WHITE_LABEL,
+                ['partner_domain' => 'admin.northwind.com']
+            ));
+            $this->assertSame('http://127.0.0.1:8000/form/abc123', $location->formUrl('abc123'));
+
+            // The domain is still required: it is a data rule, not a routing one.
+            $none = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_WHITE_LABEL,
+                ['partner_domain' => null, 'partner_subdomain' => null]
+            ));
+            $this->assertFalse($none->isAvailable());
+        });
+    }
+
+    #[Test]
+    public function staging_keeps_the_published_address(): void
+    {
+        config(['domains.reserved.base_reserved_api_portal' => 'https://api.skylinedynamic.dev']);
+
+        $this->inEnvironment('staging', function () {
+            $location = EmbedFormLocation::forPartner($this->partner(Partner::PARTNER_TYPE_CERTIFIED));
+
+            $this->assertSame('https://' . self::BASE_WEBSITE, $location->baseUrl());
+        });
+    }
+
     // -- Nothing configured at all -------------------------------------
 
     #[Test]

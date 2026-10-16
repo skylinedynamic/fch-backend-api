@@ -30,93 +30,74 @@ class FundingApplicationDocumentService
     }
 
     /**
-     * Generate and lock the final PDF documents for a funding application.
+     * Keep the application exactly as signed, with its certificate.
      *
-     * @param FundingApplication $application
-     * @param array $signatureData
-     * @return void
+     * Every signing is a new version of the application - 1, 2, 3 - with its own
+     * folder, funding-applications/{id}/signed/v{n}-{certificate id}/, holding
+     * the application PDF as signed and the certificate for it. A later edit
+     * and re-signing adds the next version; nothing already signed is ever
+     * overwritten. The signature record carries the version, the SHA-256 of the
+     * signed application PDF, both paths, and who the application was for and
+     * its status at that moment, so the certificate does not follow later edits.
      */
     public function generateAndLockFinalDocuments(FundingApplication $application, array &$signatureData)
     {
         try {
             $brandingData = self::getBrandingData($application);
-            
-            // 1. Generate Application PDF
-            $appPdf = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData));
-            $appPdfBinary = $appPdf->output();
-            
-            // 2. Calculate SHA-256
+
+            $version = DownloadHistory::where('funding_application_id', $application->id)
+                ->where('file_type', 'application_pdf')
+                ->where('action', 'generated')
+                ->count() + 1;
+            $certId = (string) Str::uuid();
+            $folder = "funding-applications/{$application->id}/signed/v{$version}-{$certId}";
+
+            // The application as signed.
+            $appPdfBinary = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData))->output();
             $appSha256 = hash('sha256', $appPdfBinary);
-            
-            // 3. Save Application PDF
-            $appPdfPath = 'funding-applications/' . $application->id . '/application-' . $application->application_number . '.pdf';
+            $appPdfPath = "{$folder}/application.pdf";
             Storage::disk('public')->put($appPdfPath, $appPdfBinary);
 
             $user = Auth::user();
-            $userName = $user ? trim($user->name) : '';
-            if (!$userName) $userName = '';
-            $userType = $user->user_type ?? '';
-
-            // 4. Set Certificate ID
-            $certId = (string) Str::uuid();
-
-            // Log document generation history
-            DownloadHistory::create([
-                'user_id' => $user ? $user->id : null,
-                'user_name' => $userName,
-                'user_type' => $userType,
+            $history = [
+                'user_id' => $user?->id,
+                'user_name' => $user ? trim((string) $user->name) : '',
+                'user_type' => $user->user_type ?? '',
                 'funding_application_id' => $application->id,
                 'application_number' => $application->application_number,
-                'application_version' => $application->application_version ?? '1.0',
+                'application_version' => (string) $version,
                 'certificate_id' => $certId,
-                'file_type' => 'application_pdf',
                 'action' => 'generated',
-                'sha256_hash' => $appSha256,
                 'ip_address' => request()->ip(),
                 'downloaded_at' => now(),
-            ]);
+            ];
+            DownloadHistory::create($history + ['file_type' => 'application_pdf', 'sha256_hash' => $appSha256]);
 
-            // No activity-log entry for generating the PDF: it happens on every
+            // No activity-log entry for generating the PDFs: it happens on every
             // submission, and the submit / re-submit entry already says so. The
-            // generation itself is still recorded in the download history above.
+            // generation itself is recorded in the download history.
 
-            // Update signature data with SHA-256 and Cert ID for the template
-            $signatureData['sha256'] = $appSha256;
-            $signatureData['certificate_id'] = $certId;
-            $signatureData['application_version'] = $application->application_version ?? '1.0';
-
-            // 5. Generate Signature Certificate
-            $templateData = SignatureCertificateService::getTemplateData($application, $brandingData, $signatureData);
-            $certPdf = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData));
-            $certPdfBinary = $certPdf->output();
-            
-            $pdfPath = 'funding-applications/' . $application->id . '/signature-certificate-' . $application->application_number . '.pdf';
-            Storage::disk('public')->put($pdfPath, $certPdfBinary);
-            
-            $certSha256 = hash('sha256', $certPdfBinary);
-            
-            DownloadHistory::create([
-                'user_id' => $user ? $user->id : null,
-                'user_name' => $userName,
-                'user_type' => $userType,
-                'funding_application_id' => $application->id,
-                'application_number' => $application->application_number,
-                'application_version' => $application->application_version ?? '1.0',
+            $signatureData = array_merge($signatureData, [
+                'application_version' => $version,
                 'certificate_id' => $certId,
-                'file_type' => 'signature_certificate',
-                'action' => 'generated',
-                'sha256_hash' => $certSha256,
-                'ip_address' => request()->ip(),
-                'downloaded_at' => now(),
+                'sha256' => $appSha256,
+                'signed_application_path' => $appPdfPath,
+                // Frozen with the signature, so the certificate does not follow
+                // later edits to the application.
+                'borrower_name' => personName($application->first_name, $application->middle_name ?? null, $application->last_name) ?: null,
+                'business_name' => $application->business_name,
+                'status_at_signing' => $application->status,
             ]);
 
-            // Likewise no activity-log entry for generating the certificate; it
-            // is in the download history above.
+            // The certificate for that signed version.
+            $templateData = SignatureCertificateService::getTemplateData($application, $brandingData, $signatureData);
+            $certPdfBinary = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData))->output();
+            $certPath = "{$folder}/signature-certificate.pdf";
+            Storage::disk('public')->put($certPath, $certPdfBinary);
+            DownloadHistory::create($history + ['file_type' => 'signature_certificate', 'sha256_hash' => hash('sha256', $certPdfBinary)]);
 
-            // Update application with certificate path in signature_data
-            $signatureData['certificate_path'] = $pdfPath;
+            $signatureData['certificate_path'] = $certPath;
             $application->update(['signature_data' => $signatureData]);
-
         } catch (\Exception $e) {
             Log::error('PDF Generation failed: ' . $e->getMessage());
         }
@@ -176,7 +157,7 @@ class FundingApplicationDocumentService
             'user_type' => $userType,
             'funding_application_id' => $application->id,
             'application_number' => $application->application_number,
-            'application_version' => $application->application_version ?? '1.0',
+            'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
             'certificate_id' => $brandingData['certId'] ?? null,
             'file_type' => 'application_pdf',
             'action' => !empty($password) ? 'downloaded_with_password' : 'downloaded_without_password',
@@ -254,7 +235,7 @@ class FundingApplicationDocumentService
             'user_type' => $userType,
             'funding_application_id' => $application->id,
             'application_number' => $application->application_number,
-            'application_version' => $application->application_version ?? '1.0',
+            'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
             'certificate_id' => $brandingData['certId'] ?? null,
             'file_type' => 'signature_certificate',
             'action' => !empty($password) ? 'downloaded_with_password' : 'downloaded_without_password',
@@ -369,7 +350,7 @@ class FundingApplicationDocumentService
             'user_type' => $userType,
             'funding_application_id' => $application->id,
             'application_number' => $application->application_number,
-            'application_version' => $application->application_version ?? '1.0',
+            'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
             'certificate_id' => $brandingData['certId'] ?? null,
             'file_type' => 'application_zip',
             'action' => !empty($password) ? 'downloaded_with_password' : 'downloaded_without_password',
@@ -456,12 +437,12 @@ class FundingApplicationDocumentService
     /**
      * Whose brand goes on this document, and which logo file represents it.
      *
-     * White-Label partners issue documents under their OWN brand - that is the
-     * product they are paying for - so a WL partner's application and signature
-     * certificate carry their logo. Certified partners operate under the host's
-     * brand, so their documents carry the HOST logo even when they have uploaded
-     * one of their own; the brand partner is forced to the host rather than left
-     * to inheritance, which would otherwise hand a Certified partner their own.
+     * Always the host admin's: the funding application PDF and the electronic
+     * signature certificate are the host's records, so they carry the host's
+     * logo and company name whichever partner the application came through -
+     * Certified and White-Label alike, even when the partner has uploaded a logo
+     * of its own. The brand partner is forced to the host rather than left to
+     * inheritance, which would otherwise hand a partner its own branding.
      *
      * The logo itself is logo_document - the key that means "the logo for a white
      * page". Falling back to logo_sidebar when it is absent is explicit here as
@@ -471,14 +452,8 @@ class FundingApplicationDocumentService
     {
         $appConfigService = new AppConfigurationService();
 
-        $hostPartner = Partner::host();
-        $partner = $application->partner_id ? Partner::find($application->partner_id) : null;
-
-        $isWhiteLabel = $partner
-            && !$partner->is_host
-            && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL;
-
-        $brandPartner = $isWhiteLabel ? $partner : ($hostPartner ?? $partner);
+        $brandPartner = Partner::host()
+            ?? ($application->partner_id ? Partner::find($application->partner_id) : null);
         $brandPartnerId = $brandPartner->id ?? null;
 
         // Resolves each surface logo through its fallback chain, exhausting the
@@ -494,12 +469,8 @@ class FundingApplicationDocumentService
         // last resort the brief asks for when no document logo is set.
         $logoKey = $branding['logo_document'] ?? $branding['logo_sidebar'] ?? null;
 
-        // A white-label partner must never be handed the host's logo as a stand-in:
-        // that is the exact branding leak this change exists to stop. If their file
-        // is missing the logo comes back empty and the template falls through to
-        // their company name. Host-branded documents may still use the packaged
-        // logo files, since that IS their brand.
-        [$logoBase64, $logoWidth, $logoHeight] = self::resolveDocumentLogo($logoKey, !$isWhiteLabel);
+        // The packaged logo files are the host's, so they are a valid last resort.
+        [$logoBase64, $logoWidth, $logoHeight] = self::resolveDocumentLogo($logoKey);
 
         return [
             'primaryColor' => $branding['primary_color'] ?? '#2563a2',
@@ -586,7 +557,7 @@ class FundingApplicationDocumentService
         $businessZipCode = ($borrower ? $borrower->business_postal_code : null) ?: ($application->zip_code ?: 'N/A');
         
         $rawStartDate = ($borrower ? $borrower->business_start_date : null) ?: ($application->business_start_date ?? null);
-        $businessStartDate = !empty($rawStartDate) ? Carbon::parse($rawStartDate)->format('M j, Y') : 'N/A';
+        $businessStartDate = toDateOnly($rawStartDate, 'M j, Y') ?? 'N/A';
         $timeInBusinessCount = calculateTimeInBusiness($rawStartDate);
         
         $businessCreditScore = $application->self_reported_business_credit_score ?: 'N/A';
@@ -604,9 +575,9 @@ class FundingApplicationDocumentService
         $homePhone = ($borrower ? $borrower->home_phone : null) ?: ($application->home_phone ?: 'N/A');
         
         $rawDob = ($borrower ? $borrower->date_of_birth : null) ?: ($application->date_of_birth ?? null);
-        $dateOfBirth = !empty($rawDob) ? Carbon::parse($rawDob)->format('M j, Y') : 'N/A';
+        $dateOfBirth = toDateOnly($rawDob, 'M j, Y') ?? 'N/A';
         
-        $last4SSN = ($borrower ? $borrower->last_4_ssn : null) ?: (!empty($application->ssn) ? substr($application->ssn, -4) : 'N/A');
+        $ssn = self::ssnForDocument($application, $borrower);
 
         $fundingUses = $application->uses ?: (optional($application->fundingSequence)->uses ?: 'N/A');
         if (is_array($fundingUses)) {
@@ -638,10 +609,29 @@ class FundingApplicationDocumentService
             'homeCountry' => $homeCountry,
             'homePhone' => $homePhone,
             'dateOfBirth' => $dateOfBirth,
-            'last4SSN' => $last4SSN,
+            'ssn' => $ssn,
             'fundingUses' => $fundingUses,
             'timeInBusinessCount' => $timeInBusinessCount,
         ];
+    }
+
+    /**
+     * The applicant's full SSN, written XXX-XX-XXXX: the application's own,
+     * else the borrower's. An older account holding only the last four shows
+     * those as ***-**-1234 - there is no full number to show.
+     */
+    private static function ssnForDocument($application, $borrower): string
+    {
+        foreach ([$application->ssn ?? null, $borrower?->ssn] as $candidate) {
+            $digits = preg_replace('/\D/', '', (string) $candidate);
+            if (strlen($digits) === 9) {
+                return substr($digits, 0, 3) . '-' . substr($digits, 3, 2) . '-' . substr($digits, 5);
+            }
+        }
+
+        $lastFour = preg_replace('/\D/', '', (string) ($borrower?->last_4_ssn ?? ''));
+
+        return strlen($lastFour) === 4 ? '***-**-' . $lastFour : 'N/A';
     }
 
     private static function getApplicationSignatureInfo($application, $primaryColor, $firstName, $lastName)

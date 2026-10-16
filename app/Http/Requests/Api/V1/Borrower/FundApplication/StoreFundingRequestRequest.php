@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Validation\Rule;
 
 class StoreFundingRequestRequest extends BaseApiRequest
 {
@@ -30,6 +31,15 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'approved_funding' => 'required|string|max:255',
             'purpose_note' => 'nullable|string|max:500',
             'preferred_funding_type' => 'required|string|max:255',
+            // The other funding types the applicant would also consider - never
+            // the preferred one again, each once, from the same list.
+            'additional_funding_types' => ['nullable', 'array'],
+            'additional_funding_types.*' => [
+                'string',
+                'distinct',
+                Rule::in(config('funding_application.options.funding_types', [])),
+                'different:preferred_funding_type',
+            ],
             'timeframe_needed' => 'nullable|string|max:255',
             'collateral_available' => 'nullable|string|max:500',
         ];
@@ -54,6 +64,9 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'purpose_note.max' => __('borrower_validation.purpose_note_max'),
             'preferred_funding_type.string' => __('borrower_validation.preferred_funding_type_string'),
             'preferred_funding_type.max' => __('borrower_validation.preferred_funding_type_max'),
+            'additional_funding_types.*.in' => __('borrower_validation.additional_funding_type_invalid'),
+            'additional_funding_types.*.distinct' => __('borrower_validation.additional_funding_type_invalid'),
+            'additional_funding_types.*.different' => __('borrower_validation.additional_funding_type_preferred'),
             'timeframe_needed.string' => __('borrower_validation.timeframe_needed_string'),
             'timeframe_needed.max' => __('borrower_validation.timeframe_needed_max'),
             'collateral_available.string' => __('borrower_validation.collateral_available_string'),

@@ -3,6 +3,7 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormSubmission;
@@ -111,15 +112,73 @@ class EmbedFormConversionDocumentsTest extends TestCase
     }
 
     #[Test]
-    public function the_embedded_form_copy_is_deleted_so_each_file_is_kept_once(): void
+    public function the_embedded_form_copy_is_deleted_so_each_file_is_kept_once_per_place(): void
     {
+        // Once on the funding application, once in the client's documents -
+        // and no longer in the embedded form's folder.
         $original = $this->attachment('bank-statement.pdf')->file_path;
 
         $this->convert();
 
         Storage::disk('public')->assertMissing($original);
         $this->assertSame([], Storage::disk('public')->allFiles("embed_forms/{$this->partner->id}/{$this->submission->id}"));
-        $this->assertCount(1, Storage::disk('public')->allFiles());
+        $this->assertCount(1, Storage::disk('public')->allFiles('funding-application'));
+        $this->assertCount(1, Storage::disk('public')->allFiles('borrowers'));
+        $this->assertCount(2, Storage::disk('public')->allFiles());
+    }
+
+    // -- Clients > Details > Documents ------------------------------------
+
+    #[Test]
+    public function each_document_is_also_in_the_clients_documents(): void
+    {
+        $type = \App\Models\Borrower\BorrowerDocType::create(['name' => 'Bank Statements']);
+        $attachment = $this->attachment('bank-statement.pdf', 'statement');
+        $attachment->update(['borrower_doc_type_id' => $type->id]);
+
+        $applicationId = $this->convert();
+
+        $document = BorrowerDocument::where('borrower_id', $this->borrower->id)->sole();
+        $stored = $document->getRawOriginal('file_path');
+        // Stored as the file name, in borrowers/{id}/ - as an upload from the Documents tab is.
+        $this->assertStringNotContainsString('/', $stored);
+        $this->assertSame('statement', Storage::disk('public')->get("borrowers/{$this->borrower->id}/{$stored}"));
+        $this->assertSame('bank-statement.pdf', $document->file_name);
+        $this->assertSame($type->id, $document->document_type_id);
+        $this->assertSame($applicationId, (int) $document->application_id);
+        $this->assertSame(BorrowerDocument::STATUS_UPLOADED, $document->status);
+    }
+
+    #[Test]
+    public function the_clients_documents_tab_lists_them(): void
+    {
+        $this->attachment('bank-statement.pdf');
+        $this->attachment('tax-return.pdf');
+
+        $this->convert();
+
+        $listed = collect(app(\App\Services\FCH\Common\Borrower\BorrowerService::class)->getBorrowerDocuments($this->borrower->id))
+            ->pluck('document_name')->sort()->values()->all();
+        $this->assertSame(['bank-statement.pdf', 'tax-return.pdf'], $listed);
+    }
+
+    #[Test]
+    public function a_failure_on_the_clients_copy_rolls_back_both_copies(): void
+    {
+        $original = $this->attachment('bank-statement.pdf')->file_path;
+        BorrowerDocument::creating(fn () => throw new \RuntimeException('database down'));
+
+        try {
+            $this->convert();
+            $this->fail('the conversion should have failed');
+        } catch (\Throwable) {
+            // expected
+        }
+
+        Storage::disk('public')->assertExists($original);
+        $this->assertSame([], Storage::disk('public')->allFiles('funding-application'));
+        $this->assertSame([], Storage::disk('public')->allFiles('borrowers'));
+        $this->assertSame(0, BorrowerDocument::count());
     }
 
     #[Test]
@@ -178,5 +237,6 @@ class EmbedFormConversionDocumentsTest extends TestCase
         Storage::disk('public')->assertExists($original);
         $this->assertSame($original, EmbedFormAttachment::sole()->file_path);
         $this->assertSame([], Storage::disk('public')->allFiles('funding-application'));
+        $this->assertSame([], Storage::disk('public')->allFiles('borrowers'));
     }
 }

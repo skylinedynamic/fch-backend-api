@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Models\User\User;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
+use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
@@ -14,6 +15,9 @@ use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
+use App\Rules\BusinessEin;
+use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
+use App\Services\FCH\Common\Application\SignatureRecorder;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
@@ -22,6 +26,7 @@ use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -344,9 +349,8 @@ class EmbedFormService
             'full_name' => $data['full_name'] ?? null,
             'business_name' => $data['business_name'] ?? null,
             'business_email' => $data['business_email'] ?? null,
-            // Stored E.164 so the same number is one value however it was typed.
-            'business_phone_no' => normalizePhoneE164($data['business_phone_no'] ?? null)
-                ?: ($data['business_phone_no'] ?? null),
+            // As the borrower and partner portals store a phone: (512) 234-5678.
+            'business_phone_no' => $this->portalPhone($data['business_phone_no'] ?? null),
             'business_country' => $data['business_country'] ?? null,
             'business_country_code' => $data['business_country_code'] ?? null,
             'business_address' => $data['business_address'] ?? null,
@@ -355,7 +359,8 @@ class EmbedFormService
             'business_postal_code' => $data['business_postal_code'] ?? null,
             'industry_type' => $data['industry_type'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
-            'years_in_business' => $data['years_in_business'] ?? null,
+            // Nine digits, as the borrower profile keeps an EIN.
+            'business_ein' => BusinessEin::normalize($data['business_ein'] ?? null),
             'number_of_employees' => $data['number_of_employees'] ?? null,
         ];
     }
@@ -372,7 +377,7 @@ class EmbedFormService
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
             'email' => $data['email'],
-            'phone' => normalizePhoneE164($data['phone'] ?? null) ?: ($data['phone'] ?? null),
+            'phone' => $this->portalPhone($data['phone'] ?? null),
             'date_of_birth' => $data['date_of_birth'] ?? null,
             'ssn_encrypted' => !empty($data['ssn']) ? Crypt::encryptString($data['ssn']) : null,
             'citizenship_status' => $data['citizenship_status'] ?? null,
@@ -397,7 +402,10 @@ class EmbedFormService
             'monthly_revenue' => $data['monthly_revenue'] ?? null,
             'annual_revenue' => $data['annual_revenue'] ?? null,
             'business_bank_name' => $data['business_bank_name'] ?? null,
+            // Shown on the form as the Business Start Date.
             'business_checking_start_date' => $data['business_checking_start_date'] ?? null,
+            // Not asked: it follows from when the business started.
+            'years_in_business' => $this->yearsInBusiness($data['business_checking_start_date'] ?? null),
             // The applicant gives one number. It is stored as the number, and
             // mirrored into the column the portal's funding application reads,
             // so the conversion has the string that side requires without the
@@ -415,18 +423,45 @@ class EmbedFormService
     }
 
     /**
+     * How long the business has run, as one of the portal's years-in-business
+     * options, so it reads the same as a value picked from that list.
+     */
+    protected function yearsInBusiness(?string $startDate): ?string
+    {
+        if (!$startDate) {
+            return null;
+        }
+
+        [$underSix, $underYear, $oneToTwo, $twoToThree, $threePlus] = config('funding_application.options.years_in_business');
+        $months = (int) Carbon::parse($startDate)->startOfDay()->diffInMonths(now()->startOfDay());
+
+        return match (true) {
+            $months < 6 => $underSix,
+            $months < 12 => $underYear,
+            $months < 24 => $oneToTwo,
+            $months < 36 => $twoToThree,
+            default => $threePlus,
+        };
+    }
+
+    /**
      * Funding Request step.
      */
     protected function fundingRequestAttributes(array $data): array
     {
         return [
             'requested_amount' => $data['requested_amount'] ?? null,
+            // A form loaded before the choice existed showed dollars.
+            'currency' => $data['currency'] ?? $this->defaultCurrency(),
             'purpose_of_funds' => $data['purpose_of_funds'] ?? null,
             'purpose_note' => $data['purpose_note'] ?? null,
             // Left for a partner to set during review - a public applicant has
             // no approved funding to name.
             'approved_funding' => null,
             'preferred_funding_type' => $data['preferred_funding_type'] ?? null,
+            'additional_funding_types' => !empty($data['additional_funding_types'])
+                ? array_values($data['additional_funding_types'])
+                : null,
             'timeframe_needed' => $data['timeframe_needed'] ?? null,
             'collateral_available' => $data['collateral_available'] ?? null,
         ];
@@ -496,29 +531,21 @@ class EmbedFormService
             $allAccepted = $allAccepted && $accepted;
         }
 
-        // consents_data carries the per-checkbox timestamps the form recorded as
-        // the applicant ticked them. It is applicant-supplied, so it is decoded
-        // defensively and the server's own view of the signing is added
-        // alongside rather than trusting it wholesale.
-        $clientConsents = null;
-        if (!empty($data['consents_data'])) {
-            $decoded = json_decode((string) $data['consents_data'], true);
-            $clientConsents = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
-        }
-
         $attributes['signature_name'] = $data['signature_name'] ?? null;
         $attributes['attestation_authorization'] = $allAccepted;
         $attributes['application_version'] = $data['application_version'] ?? null;
         $attributes['submission_timezone'] = $data['timezone'] ?? null;
-        $attributes['signature_data'] = [
-            'signature_name' => $data['signature_name'] ?? null,
-            'signed_at' => now()->toIso8601String(),
-            'timezone' => $data['timezone'] ?? null,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'application_version' => $data['application_version'] ?? null,
-            'client_consents' => $clientConsents,
-        ];
+        // Signed on the public form: no account was signed in, so the applicant
+        // is known by the email they gave - and the certificate says exactly
+        // that. consents_data (the browser's per-checkbox timestamps) is decoded
+        // defensively inside, being applicant-supplied.
+        $attributes['signature_data'] = SignatureRecorder::record(
+            $request,
+            SignatureRecorder::METHOD_EMBEDDED_FORM,
+            $data,
+            null,
+            $data['email'] ?? null
+        );
 
         return $attributes;
     }
@@ -560,10 +587,8 @@ class EmbedFormService
                 'title_role' => $coBorrower['title_role'] ?? null,
                 'ownership_percentage' => $coBorrower['ownership_percentage'] ?? null,
                 'email' => $coBorrower['email'] ?? null,
-                'mobile_phone' => normalizePhoneE164($coBorrower['mobile_phone'] ?? null)
-                    ?: ($coBorrower['mobile_phone'] ?? null),
-                'home_phone' => normalizePhoneE164($coBorrower['home_phone'] ?? null)
-                    ?: ($coBorrower['home_phone'] ?? null),
+                'mobile_phone' => $this->portalPhone($coBorrower['mobile_phone'] ?? null),
+                'home_phone' => $this->portalPhone($coBorrower['home_phone'] ?? null),
                 'date_of_birth' => $coBorrower['date_of_birth'] ?? null,
                 'ssn_encrypted' => !empty($coBorrower['ssn']) ? Crypt::encryptString($coBorrower['ssn']) : null,
                 'street_address' => $coBorrower['street_address'] ?? null,
@@ -844,27 +869,8 @@ class EmbedFormService
             }
 
             // Embed form conversions are always free trial enrollments with no expiry.
-            //
-            // The business and address fields fall back to their pre-rewrite
-            // consumer counterparts so a submission taken before the funding
-            // application rewrite still converts with the data it does have.
-            $borrowerData = [
-                'first_name' => $submission->first_name,
-                'last_name' => $submission->last_name,
-                'email' => $submission->email,
-                'phone_number' => $submission->phone,
-                'business_name' => $submission->business_name
-                    ?: ($submission->employer_name ?: "{$submission->first_name} {$submission->last_name}"),
-                'business_email' => $submission->business_email ?: $submission->email,
-                'business_phone' => $submission->business_phone_no
-                    ?: ($submission->employer_phone ?: $submission->phone),
-                'home_address' => $submission->street_address ?: $submission->home_address,
-                'city' => $submission->city,
-                'state' => $submission->state,
-                'postal_code' => $submission->zip_code ?: $submission->postal_code,
-                'country' => $submission->country ?: 'United States',
-                'country_code' => 'US',
-                'last_4_ssn' => $ssnDecrypted ? substr($ssnDecrypted, -4) : null,
+            $profile = $this->borrowerProfileFrom($submission, $ssnDecrypted);
+            $borrowerData = $profile + [
                 'status' => Borrower::STATUS_ACTIVE,
                 'partner_id' => $submission->partner_id ?: (auth()->user()?->partner_id ?? null),
                 'plan_id' => null,
@@ -875,7 +881,10 @@ class EmbedFormService
             ];
 
             if ($existingBorrower) {
-                // The borrower already exists: only the funding application is new.
+                // The borrower already exists: only the funding application is
+                // new. Their profile is filled where it is blank - what they or
+                // the partner already entered is never overwritten.
+                $this->fillBlankProfileFields($existingBorrower, $profile);
                 $borrower = $existingBorrower;
                 $borrowerId = $existingBorrower->id;
             } else {
@@ -901,6 +910,14 @@ class EmbedFormService
 
             // Only now that the application holds them: each upload is kept once.
             $this->deleteMovedOriginals($submission);
+
+            // The applicant signed on the public form: keep the application as
+            // signed, with its certificate, as a signing in the portals does.
+            // Failures are logged inside; they never undo the conversion.
+            if ($fundingApplication && !empty($fundingApplication->signature_data)) {
+                $signature = $fundingApplication->signature_data;
+                app(FundingApplicationDocumentService::class)->generateAndLockFinalDocuments($fundingApplication, $signature);
+            }
 
             // Notified only after the transaction has landed, so nobody is told
             // about a conversion that then rolled back.
@@ -928,6 +945,172 @@ class EmbedFormService
             Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    /**
+     * The borrower profile the submission's answers fill in.
+     *
+     * Every field with a counterpart on the profile is carried across, so the
+     * borrower does not open a half-empty profile after answering the same
+     * questions on the public form. The business and address fields fall back to
+     * their pre-rewrite consumer counterparts so a submission taken before the
+     * funding application rewrite still converts with the data it does have.
+     *
+     * Not carried, because the profile has no true counterpart:
+     *   years_in_business  - the profile derives it from business_start_date;
+     *                        the form only has a range ("2-3 years").
+     *   business credit    - a range ("50-64"); the profile's PAYDEX is one number.
+     */
+    protected function borrowerProfileFrom(EmbedFormSubmission $submission, ?string $ssn): array
+    {
+        $phone = $this->portalPhone($submission->phone);
+
+        return [
+            'first_name' => $submission->first_name,
+            'middle_name' => $submission->middle_name,
+            'last_name' => $submission->last_name,
+            'email' => $submission->email,
+            'phone_number' => $phone,
+            // What the portals store and what SMS dials with (country code + phone).
+            'country_code' => '+1',
+            'date_of_birth' => $submission->date_of_birth ? substr((string) $submission->getRawOriginal('date_of_birth'), 0, 10) : null,
+            // The whole SSN, encrypted by the Borrower model - not just the last four.
+            'ssn' => strlen((string) $this->ssnDigits($ssn)) === 9 ? $this->ssnDigits($ssn) : null,
+            'home_address' => $submission->street_address ?: $submission->home_address,
+            'city' => $submission->city,
+            'state' => $submission->state,
+            'postal_code' => $submission->zip_code ?: $submission->postal_code,
+            'country' => $submission->country ?: 'United States',
+
+            'business_name' => $submission->business_name
+                ?: ($submission->employer_name ?: "{$submission->first_name} {$submission->last_name}"),
+            'business_email' => $submission->business_email ?: $submission->email,
+            'business_phone' => $this->portalPhone($submission->business_phone_no ?: $submission->employer_phone) ?: $phone,
+            'business_address' => $submission->business_address,
+            'business_city' => $submission->business_city,
+            'business_state' => $submission->business_state,
+            'business_postal_code' => $submission->business_postal_code,
+            'business_country' => $submission->business_country,
+            'business_country_code' => $submission->business_country_code,
+            'business_ein' => $submission->business_ein,
+            // The form's "Business Start Date"; the profile works years in business out from it.
+            'business_start_date' => $submission->business_checking_start_date
+                ? substr((string) $submission->getRawOriginal('business_checking_start_date'), 0, 10)
+                : null,
+            'currency' => $submission->currency,
+            'business_entity_type' => $submission->entity_type,
+            'business_industry_type' => $submission->industry_type,
+            'number_of_employees' => $submission->number_of_employees,
+
+            'monthly_revenue' => $submission->monthly_revenue,
+            'annual_revenue' => $submission->annual_revenue,
+            'current_business_debt' => $submission->has_business_debt ? $submission->debt_balance : null,
+            'annual_personal_income' => $submission->annual_income,
+            'fico_score' => $this->ficoScore($submission->self_reported_personal_credit_score)
+                ?? $this->ficoScore($submission->credit_score),
+        ];
+    }
+
+    /**
+     * Fill only the blanks of an existing borrower's profile, quietly: this is
+     * the conversion completing a record, not someone editing it.
+     */
+    protected function fillBlankProfileFields(Borrower $borrower, array $profile): void
+    {
+        $blanks = $this->blankProfileFields($borrower, $profile);
+
+        if ($blanks !== []) {
+            $borrower->forceFill($blanks)->save();
+        }
+    }
+
+    /**
+     * Fill the blanks of the converted borrower's profile from the submission -
+     * for submissions converted before conversions did this. Returns the names
+     * of the fields filled (or that would be, on a dry run), never their values.
+     *
+     * @return list<string>
+     */
+    public function completeConvertedBorrowerProfile(EmbedFormSubmission $submission, bool $dryRun = false): array
+    {
+        $borrower = $submission->converted_borrower_id ? Borrower::find($submission->converted_borrower_id) : null;
+        if (!$borrower) {
+            return [];
+        }
+
+        $ssn = null;
+        if ($submission->ssn_encrypted) {
+            try {
+                $ssn = Crypt::decryptString($submission->ssn_encrypted);
+            } catch (Throwable $e) {
+                $ssn = null;
+            }
+        }
+
+        $blanks = $this->blankProfileFields($borrower, $this->borrowerProfileFrom($submission, $ssn));
+        if (!$dryRun && $blanks !== []) {
+            $borrower->forceFill($blanks)->save();
+        }
+
+        return array_keys($blanks);
+    }
+
+    /** The profile values whose field on the borrower is still blank. */
+    private function blankProfileFields(Borrower $borrower, array $profile): array
+    {
+        $blanks = [];
+        foreach ($profile as $field => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $current = $field === 'ssn' ? $borrower->ssn : $borrower->getAttribute($field);
+            // Only the last four of an SSN (older accounts) is not an SSN on file.
+            $partialSsn = $field === 'ssn' && strlen((string) $this->ssnDigits($current)) !== 9;
+            if ($current === null || $current === '' || $partialSsn || ($field === 'fico_score' && (int) $current === 0)) {
+                $blanks[$field] = $value;
+            }
+        }
+
+        return $blanks;
+    }
+
+    /** An SSN as its digits; older submissions hold it written 123-45-6789. */
+    private function ssnDigits(?string $ssn): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $ssn);
+
+        return $digits === '' ? null : $digits;
+    }
+
+    /** The currency of a requested amount given without one: the form's first. */
+    private function defaultCurrency(): string
+    {
+        return array_key_first(config('funding_application.embed_form.currencies'));
+    }
+
+    /** A FICO score is one number from 300 to 850; a range or anything else is not used. */
+    private function ficoScore(mixed $value): ?int
+    {
+        $value = trim((string) $value);
+
+        return preg_match('/^\d{3}$/', $value) && (int) $value >= 300 && (int) $value <= 850 ? (int) $value : null;
+    }
+
+    /**
+     * A US phone the way the borrower and partner portals store it,
+     * (512) 234-5678, whatever shape the public form sent (it sends
+     * +15122345678). Anything that is not a US number is kept as it came.
+     */
+    private function portalPhone(?string $phone): ?string
+    {
+        $phone = trim((string) $phone);
+
+        if ($phone === '') {
+            return null;
+        }
+
+        return normalizePhoneE164($phone) ? formatPhoneDisplay($phone) : $phone;
     }
 
     /**
@@ -966,7 +1149,7 @@ class EmbedFormService
 
             // Funding Request
             'requested_amount', 'purpose_of_funds', 'purpose_note', 'approved_funding',
-            'preferred_funding_type', 'timeframe_needed', 'collateral_available',
+            'preferred_funding_type', 'additional_funding_types', 'timeframe_needed', 'collateral_available',
 
             // Disclosures and consent
             'credit_pull_authorization', 'terms_conditions_acceptance',
@@ -993,8 +1176,13 @@ class EmbedFormService
 
             // phone_number and ssn are the two columns whose names differ, and
             // the SSN is the one value that has to be decrypted on the way out.
-            'phone_number' => $submission->phone,
-            'ssn' => $ssnDecrypted,
+            // Phones in the portals' (512) 234-5678 form, not the form's +1....
+            'phone_number' => $this->portalPhone($submission->phone),
+            'business_phone_no' => $this->portalPhone($submission->business_phone_no),
+            // Nine digits, as the portals' own applications hold it.
+            'ssn' => $this->ssnDigits($ssnDecrypted),
+            'currency' => $submission->currency ?: $this->defaultCurrency(),
+            'currency_symbol' => config('funding_application.embed_form.currencies.' . ($submission->currency ?: $this->defaultCurrency())),
 
             'is_business_info_saved' => true,
             'is_ownership_info_saved' => true,
@@ -1087,10 +1275,10 @@ class EmbedFormService
                 'title_role' => $coBorrower->title_role,
                 'ownership_percentage' => $coBorrower->ownership_percentage,
                 'email' => $coBorrower->email,
-                'mobile_phone' => $coBorrower->mobile_phone,
-                'home_phone' => $coBorrower->home_phone,
+                'mobile_phone' => $this->portalPhone($coBorrower->mobile_phone),
+                'home_phone' => $this->portalPhone($coBorrower->home_phone),
                 'date_of_birth' => $coBorrower->date_of_birth,
-                'ssn' => $ssn,
+                'ssn' => $this->ssnDigits($ssn),
                 'street_address' => $coBorrower->street_address,
                 'city' => $coBorrower->city,
                 'state' => $coBorrower->state,
@@ -1155,7 +1343,66 @@ class EmbedFormService
                 'mime' => $attachment->mime_type,
                 'size' => $attachment->file_size,
             ]);
+
+            $document = $this->addToClientDocuments(
+                $destination, $attachment->original_name, $attachment->borrower_doc_type_id, $application->id, $borrowerId
+            );
+            $this->movedDocuments[array_key_last($this->movedDocuments)]['client']
+                = "borrowers/{$borrowerId}/" . $document->getRawOriginal('file_path');
         }
+    }
+
+    /**
+     * Put a document in the client's own documents (Clients > Details >
+     * Documents), as an upload from that tab would be: the file copied to
+     * borrowers/{borrower}/, the row holding just its name. Its own copy, so
+     * deleting it from one place leaves the other. If the row cannot be
+     * written, the copy is removed again.
+     *
+     * Also used by embed-form:relocate-converted-documents for submissions
+     * converted before conversions did this.
+     */
+    public function addToClientDocuments(
+        string $source,
+        string $originalName,
+        ?int $documentTypeId,
+        int $applicationId,
+        int $borrowerId
+    ): BorrowerDocument {
+        $disk = Storage::disk('public');
+        $extension = pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($source, PATHINFO_EXTENSION);
+        $fileName = Str::uuid() . ($extension ? '.' . $extension : '');
+        $path = "borrowers/{$borrowerId}/{$fileName}";
+
+        if (!$disk->copy($source, $path)) {
+            throw new \RuntimeException("Could not copy {$source} to the client's documents.");
+        }
+
+        try {
+            return BorrowerDocument::create([
+                'borrower_id' => $borrowerId,
+                'application_id' => $applicationId,
+                'document_type_id' => $documentTypeId,
+                'file_name' => $originalName,
+                'file_path' => $fileName,
+                'file_size' => $this->readableSize((int) $disk->size($path)),
+                'status' => BorrowerDocument::STATUS_UPLOADED,
+                'created_by' => auth()->id(),
+            ]);
+        } catch (Throwable $e) {
+            $disk->delete($path);
+            throw $e;
+        }
+    }
+
+    /** The size the Documents tab shows, as BorrowerDocumentService writes it. */
+    private function readableSize(int $bytes): string
+    {
+        if ($bytes >= 1048576) {
+            return round($bytes / 1048576, 2) . ' MB';
+        }
+
+        return $bytes >= 1024 ? round($bytes / 1024, 2) . ' KB' : $bytes . ' bytes';
     }
 
     /**
@@ -1190,7 +1437,7 @@ class EmbedFormService
         $disk = Storage::disk('public');
 
         foreach ($this->movedDocuments as $moved) {
-            $disk->delete($moved['to']);
+            $disk->delete(array_filter([$moved['to'], $moved['client'] ?? null]));
         }
 
         $this->movedDocuments = [];

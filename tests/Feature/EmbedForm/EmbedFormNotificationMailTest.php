@@ -357,6 +357,15 @@ class EmbedFormNotificationMailTest extends TestCase
         Mail::assertNotQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => !str_contains($mail->envelope()->subject, 'Embedded Form'));
     }
 
+    #[Test]
+    public function the_requested_amount_is_mailed_in_its_currency(): void
+    {
+        $this->notify($this->host, [], ['requested_amount' => 150000, 'currency' => 'GBP']);
+
+        Mail::assertQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => str_contains($mail->render(), '£150,000.00')
+            && !str_contains($mail->render(), '$150,000.00'));
+    }
+
     /**
      * The channel names (database, broadcast, sms) the notification goes out on.
      * via() returns Laravel's channels - SmsChannel's class for `sms` - so they
@@ -401,7 +410,7 @@ class EmbedFormNotificationMailTest extends TestCase
      *
      * @param  array<string, mixed>  $configAttributes
      */
-    private function notify(Partner $partner, array $configAttributes = []): EmbedFormSubmission
+    private function notify(Partner $partner, array $configAttributes = [], array $submissionAttributes = []): EmbedFormSubmission
     {
         $config = EmbedFormConfig::create(array_merge([
             'partner_id' => $partner->id,
@@ -410,7 +419,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'is_active' => true,
         ], $configAttributes));
 
-        $submission = EmbedFormSubmission::create([
+        $submission = EmbedFormSubmission::create(array_merge([
             'submission_uid' => (string) Str::uuid(),
             'partner_id' => $partner->id,
             'form_config_id' => $config->id,
@@ -418,7 +427,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'first_name' => 'Johnathan',
             'last_name' => 'Smithfield',
             'email' => 'applicant@example.test',
-        ]);
+        ], $submissionAttributes));
 
         $service = new class extends EmbedFormService {
             public function notifyNow(EmbedFormSubmission $submission, EmbedFormConfig $config): void

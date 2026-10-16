@@ -75,6 +75,8 @@ class EmbedFormPageController extends Controller
             // The funding application's own dropdowns and document buckets, so
             // the public form asks for exactly what the portal's wizard does.
             'options' => config('funding_application.options'),
+            // Code => symbol; the first is preselected.
+            'currencies' => config('funding_application.embed_form.currencies'),
             'locations' => config('locations'),
             'docTypes' => BorrowerDocType::query()
                 ->orderBy('sort_order')

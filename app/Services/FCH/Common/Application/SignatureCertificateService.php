@@ -2,14 +2,36 @@
 
 namespace App\Services\FCH\Common\Application;
 
-use Carbon\Carbon;
 use App\Models\Borrower\FundingApplication;
+use Carbon\Carbon;
+use Throwable;
 
+/**
+ * What the electronic signature certificate shows, taken from the signature
+ * record (see SignatureRecorder) - never filled in with a plausible default.
+ * Anything a signature from before a field was recorded does not carry shows
+ * as "Not recorded" rather than as an invented value.
+ */
 class SignatureCertificateService
 {
+    public const NOT_RECORDED = 'Not recorded';
+
+    private const METHODS = [
+        SignatureRecorder::METHOD_BORROWER_PORTAL => [
+            'label' => 'Borrower portal',
+            'authentication' => "Signed in to the borrower's own account",
+        ],
+        SignatureRecorder::METHOD_PARTNER_PORTAL => [
+            'label' => 'Partner portal',
+            'authentication' => "Signed in to a partner user's account and submitted on the borrower's behalf",
+        ],
+        SignatureRecorder::METHOD_EMBEDDED_FORM => [
+            'label' => 'Public embedded form',
+            'authentication' => 'No account sign-in - the signer is identified by the email address given',
+        ],
+    ];
+
     /**
-     * Get all pre-calculated variables and SVG icons required for the signature certificate PDF.
-     *
      * @param FundingApplication $application
      * @param array $brandingData
      * @param array|null $signatureData
@@ -17,134 +39,137 @@ class SignatureCertificateService
      */
     public static function getTemplateData($application, $brandingData, $signatureData = null)
     {
-        $tz = $brandingData['tz'] ?? 'UTC';
-        $primaryColor = $brandingData['primaryColor'] ?? '#0056b3';
-
         $rawSigData = $signatureData ?? $application->signature_data ?? [];
         $sigData = is_string($rawSigData) ? json_decode($rawSigData, true) : $rawSigData;
-        if (!is_array($sigData)) $sigData = [];
-        
-        $appId = $application->application_number ?? ('FUND-'.str_pad($application->id, 6, '0', STR_PAD_LEFT));
-        $borrowerName = personName($application->first_name ?? null, $application->middle_name ?? null, $application->last_name ?? null);
-        $businessName = $application->business_name ?? 'N/A';
-        $rawStatus = $application->status ?? FundingApplication::PENDING;
-        $status = FundingApplication::STATUS[$rawStatus] ?? ucfirst(str_replace('_', ' ', $rawStatus));
-        
-        $ip = $sigData['ip_address'] ?? '127.0.0.1';
-        $browser = $sigData['browser_name'] ?? 'Chrome';
-        $os = $sigData['operating_system'] ?? 'Windows';
-        $device = $sigData['device_type'] ?? 'Desktop';
-        
-        $sigName = $sigData['signature_name'] ?? $borrowerName;
-        if (empty($sigName)) $sigName = 'N/A';
-        
-        $sigTime = !empty($sigData['signed_at']) ? Carbon::parse($sigData['signed_at'])->timezone($tz) : now()->timezone($tz);
-        $sigDateStr = $sigTime->format('M j, Y');
-        $sigTimeStr = $sigTime->format('h:i:s A');
-        $timezone = $sigTime->format('e') . ' (UTC' . $sigTime->format('P') . ')';
-        
-        $formatConsent = function($versionKey, $consentKey) use ($sigData) {
-            // Check for explicit boolean consent first
-            if (isset($sigData[$consentKey])) {
-                return $sigData[$consentKey] ? 'Agreed' : 'Not Agreed';
-            }
-            // Fallback to older versioning logic if passed as 1 or 0
-            if (isset($sigData[$versionKey])) {
-                return (in_array($sigData[$versionKey], ['1', 1, '1.0', true], true)) ? 'Checked' : 'Unchecked';
-            }
-            return 'Agreed';
-        };
-
-        $termsVer = $formatConsent('terms_version', 'terms_consent');
-        $privacyVer = $formatConsent('privacy_version', 'terms_consent'); // Assuming privacy is bundled with terms
-        $creditVer = $formatConsent('credit_auth_version', 'credit_consent');
-        $sha = $sigData['sha256'] ?? 'N/A';
-        $certId = $sigData['certificate_id'] ?? ($brandingData['certId'] ?? 'N/A');
-        $appVersion = $sigData['application_version'] ?? 'N/A';
-        
-        // Helper: create inline SVG icon base64 with dynamic fill color
-        $icon_white = function(string $path, string $viewBox = '0 0 512 512') {
-            return 'data:image/svg+xml;base64,' . base64_encode(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="#ffffff" d="' . $path . '"/></svg>'
-            );
-        };
-        $icon_primary = function(string $path, string $viewBox = '0 0 512 512') use ($primaryColor) {
-            return 'data:image/svg+xml;base64,' . base64_encode(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="' . $primaryColor . '" d="' . $path . '"/></svg>'
-            );
-        };
-        $icon_dark = function(string $path, string $viewBox = '0 0 512 512') {
-            return 'data:image/svg+xml;base64,' . base64_encode(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="#555555" d="' . $path . '"/></svg>'
-            );
-        };
-
-        // --- ICON PATHS ---
-        $p_file = 'M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm64 236c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v8zm0-64c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v8zm0-72v8c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12zm96-114.1v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9z';
-        $p_cal = 'M0 464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V192H0v272zm320-196c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm-128-128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm-128-128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-40zM400 64h-48V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H160V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H48C21.5 64 0 85.5 0 112v48h448v-48c0-26.5-21.5-48-48-48z';
-        $p_doc = 'M384 121.9v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9zM248 160c13.2 0 24-10.8 24-24V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248z';
-        $p_pen = 'M290.7 93.2l128 128-278 278-114.1 12.6C12.4 513.4 0 500.9 0 486.7l12.6-114.1 278.1-279.4zm173.3-71.2l35.3 35.3c21.9 21.9 21.9 57.3 0 79.2l-35.3 35.3L336 44l35.3-35.3c21.9-21.9 57.3-21.9 79.2 0z';
-        $p_check = 'M173.898 439.404l-166.4-166.4c-9.997-9.997-9.997-26.206 0-36.204l36.203-36.204c9.997-9.998 26.207-9.998 36.204 0L192 312.69 432.095 72.596c9.997-9.997 26.207-9.997 36.204 0l36.203 36.204c9.997 9.997 9.997 26.206 0 36.204l-294.4 294.401c-9.998 9.997-26.207 9.997-36.204-.001z';
-        $p_monitor = 'M528 0H48C21.5 0 0 21.5 0 48v320c0 26.5 21.5 48 48 48h192l-16 48h-72c-13.3 0-24 10.7-24 24v16c0 4.4 3.6 8 8 8h272c4.4 0 8-3.6 8-8v-16c0-13.3-10.7-24-24-24h-72l-16-48h192c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48zm-16 352H64V64h448v288z';
-        $p_shield = 'M466.5 83.7l-192-80a48.15 48.15 0 0 0-36.9 0l-192 80C27.7 91.1 16 108.6 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C381.5 463.7 496 326.5 496 128c0-19.4-11.7-36.9-29.5-44.3zM256 464C161 423.5 64 304.7 64 128l192-80 192 80c0 176.7-97 295.5-192 336z';
-        $p_info = 'M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm0 110c22.1 0 40 17.9 40 40s-17.9 40-40 40-40-17.9-40-40 17.9-40 40-40zm40 258c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12V240c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v168z';
-        $p_badge = 'M256 0L83.2 64v102.4c0 102.4 83.2 204.8 172.8 256 89.6-51.2 172.8-153.6 172.8-256V64L256 0zm0 332.8c-44.2 0-80-35.8-80-80s35.8-80 80-80 80 35.8 80 80-35.8 80-80 80z';
-        $p_lock = 'M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z';
-        $p_clock = 'M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-140c-6.6 0-12-5.4-12-12V140c0-6.6 5.4-12 12-12h32c6.6 0 12 5.4 12 12v92h96c6.6 0 12 5.4 12 12v32z';
-
-        // Generate variables
-        $fa_doc_white  = $icon_white($p_file, '0 0 384 512');
-        $fa_cal_white  = $icon_white($p_cal);
-        $fa_doc        = $icon_primary($p_doc, '0 0 384 512');
-        $fa_users      = $icon_primary($p_pen); 
-        $fa_check      = $icon_white($p_check);
-        $fa_check_green= 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#00a65a" d="' . $p_check . '"/></svg>');
-        $fa_monitor    = $icon_primary($p_monitor, '0 0 576 512');
-        $fa_shield     = $icon_primary($p_shield);
-        $fa_info       = $icon_primary($p_info);
-        $fa_badge      = $icon_primary($p_badge);
-        $fa_lock       = $icon_white($p_lock, '0 0 448 512');
-        $fa_lock_primary = $icon_primary($p_lock, '0 0 448 512');
-        $fa_cal_dark   = $icon_dark($p_cal);
-        $fa_clock_dark = $icon_dark($p_clock);
-        $fa_globe_dark = $icon_dark($p_lock, '0 0 448 512');
-
-        $points = 28;
-        $rOuter = 52;
-        $rInner = 45;
-        $cx = 60;
-        $cy = 60;
-        $starPath = "";
-        for ($i = 0; $i < $points * 2; $i++) {
-            $angle = $i * M_PI / $points;
-            $r = ($i % 2 === 0) ? $rOuter : $rInner;
-            $x = $cx + $r * cos($angle);
-            $y = $cy + $r * sin($angle);
-            $starPath .= ($i === 0 ? "M" : "L") . round($x, 2) . " " . round($y, 2);
+        if (!is_array($sigData)) {
+            $sigData = [];
         }
-        $starPath .= "Z";
 
-        $custom_seal = 'data:image/svg+xml;base64,' . base64_encode(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="70" height="70">' .
-            '<path fill="' . $primaryColor . '" d="' . $starPath . '"/>' .
-            '<circle cx="60" cy="60" r="42" fill="' . $primaryColor . '" stroke="#ffffff" stroke-width="1.5"/>' .
-            '<circle cx="60" cy="60" r="37" fill="none" stroke="#ffffff" stroke-width="1" stroke-dasharray="3,2"/>' .
-            '<path fill="#ffffff" d="M53 62v-5a7 7 0 0 1 14 0v5h-3v-5a4 4 0 0 0-8 0v5z"/>' .
-            '<path fill="#ffffff" d="M50 62h20a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H50a2 2 0 0 1-2-2V64a2 2 0 0 1 2-2z"/>' .
-            '<circle cx="60" cy="69" r="2.2" fill="' . $primaryColor . '"/>' .
-            '<path fill="' . $primaryColor . '" d="M59 69h2l0.8 7h-3.6z"/>' .
-            '<text x="60" y="38" fill="#ffffff" font-size="5.5" font-family="\'DejaVu Sans\', Arial, sans-serif" font-weight="bold" text-anchor="middle">ESIGN &amp; UETA</text>' .
-            '<text x="60" y="90" fill="#ffffff" font-size="5.5" font-family="\'DejaVu Sans\', Arial, sans-serif" font-weight="bold" text-anchor="middle">COMPLIANT</text>' .
-            '</svg>'
-        );
+        $appId = $application->application_number ?? ('FUND-' . str_pad($application->id, 6, '0', STR_PAD_LEFT));
+
+        // Who the application was for, as it stood when signed.
+        $borrowerName = ($sigData['borrower_name'] ?? null)
+            ?: personName($application->first_name ?? null, $application->middle_name ?? null, $application->last_name ?? null)
+            ?: self::NOT_RECORDED;
+        $businessName = ($sigData['business_name'] ?? null) ?: ($application->business_name ?: self::NOT_RECORDED);
+        // Only what was recorded at signing: today's status is not the status then.
+        $rawStatus = $sigData['status_at_signing'] ?? null;
+        $status = $rawStatus
+            ? (FundingApplication::STATUS[$rawStatus] ?? ucfirst(str_replace('_', ' ', (string) $rawStatus)))
+            : self::NOT_RECORDED;
+
+        // Who signed, and how.
+        $signedName = trim((string) ($sigData['signature_name'] ?? '')) ?: self::NOT_RECORDED;
+        $nameMismatch = $signedName !== self::NOT_RECORDED && $borrowerName !== self::NOT_RECORDED
+            && self::normalName($signedName) !== self::normalName($borrowerName);
+
+        $method = self::METHODS[$sigData['signing_method'] ?? ''] ?? null;
+        $signingMethod = $method['label'] ?? self::NOT_RECORDED;
+        $authentication = $method['authentication'] ?? self::NOT_RECORDED;
+
+        $account = $sigData['signer_account'] ?? null;
+        if (is_array($account) && !empty($account['name'])) {
+            $signerAccount = $account['name'] . (!empty($account['email']) ? " ({$account['email']})" : '');
+        } elseif (($sigData['signing_method'] ?? null) === SignatureRecorder::METHOD_EMBEDDED_FORM) {
+            $signerAccount = 'None' . (!empty($sigData['signer_email']) ? " - email given: {$sigData['signer_email']}" : '');
+        } else {
+            $signerAccount = self::NOT_RECORDED;
+        }
+
+        // From where.
+        $ip = ($sigData['ip_address'] ?? null) ?: self::NOT_RECORDED;
+        $browser = self::recorded($sigData['browser_name'] ?? null);
+        if ($browser !== self::NOT_RECORDED && !empty($sigData['browser_version']) && $sigData['browser_version'] !== 'Unknown') {
+            $browser .= ' ' . $sigData['browser_version'];
+        }
+        $os = self::recorded($sigData['operating_system'] ?? null);
+        $device = self::recorded($sigData['device_type'] ?? null);
+
+        // When: the exact moment, in the signer's own timezone and in UTC.
+        [$signedAtLocal, $signedAtUtc, $signedOn, $signerTimezone] = self::signingMoment($sigData);
+
+        // What was accepted.
+        $policies = null;
+        if (!empty($sigData['policy_versions']) && is_array($sigData['policy_versions'])) {
+            $policies = array_map(fn ($policy) => [
+                'label' => $policy['label'] ?? '',
+                'version' => 'v' . ($policy['version'] ?? '?'),
+                'url' => $policy['url'] ?? null,
+                'status' => self::consent($policy['accepted'] ?? null),
+            ], array_values($sigData['policy_versions']));
+        }
+        $consents = [
+            'esign' => self::consent($sigData['esign_consent'] ?? null),
+            'terms' => self::consent($sigData['terms_consent'] ?? null),
+            'credit' => self::consent($sigData['credit_consent'] ?? null),
+            'legal' => self::consent($sigData['legal_binding_consent'] ?? null),
+        ];
+
+        // Which signed version of the application this certifies.
+        $appVersion = $sigData['application_version'] ?? null;
+        $appVersion = is_int($appVersion) || ctype_digit((string) $appVersion) ? 'Version ' . $appVersion : self::NOT_RECORDED;
+        $sha = ($sigData['sha256'] ?? null) ?: self::NOT_RECORDED;
+        $certId = ($sigData['certificate_id'] ?? null) ?: self::NOT_RECORDED;
 
         return compact(
-            'application', 'sigData', 'appId', 'borrowerName', 'businessName', 'rawStatus', 'status',
-            'ip', 'browser', 'os', 'device', 'sigName', 'sigDateStr', 'sigTimeStr', 'timezone',
-            'termsVer', 'privacyVer', 'creditVer', 'sha', 'certId', 'appVersion',
-            'fa_doc_white', 'fa_cal_white', 'fa_doc', 'fa_users', 'fa_check', 'fa_check_green',
-            'fa_monitor', 'fa_shield', 'fa_info', 'fa_badge', 'fa_lock', 'fa_lock_primary',
-            'fa_cal_dark', 'fa_clock_dark', 'fa_globe_dark', 'custom_seal'
+            'application', 'sigData', 'appId', 'certId', 'appVersion', 'sha',
+            'borrowerName', 'businessName', 'rawStatus', 'status',
+            'signedName', 'nameMismatch', 'signingMethod', 'authentication', 'signerAccount',
+            'ip', 'browser', 'os', 'device',
+            'signedAtLocal', 'signedAtUtc', 'signedOn', 'signerTimezone',
+            'policies', 'consents'
         );
+    }
+
+    /**
+     * The moment of signing as [in the signer's timezone, in UTC, the date, the
+     * timezone]. signed_at is stored in UTC; older records hold it without an
+     * offset, in the app's timezone (UTC).
+     *
+     * @return array{0: string|null, 1: string, 2: string, 3: string|null}
+     */
+    private static function signingMoment(array $sigData): array
+    {
+        if (empty($sigData['signed_at'])) {
+            return [null, self::NOT_RECORDED, self::NOT_RECORDED, null];
+        }
+
+        try {
+            $utc = Carbon::parse($sigData['signed_at'], config('app.timezone', 'UTC'))->utc();
+        } catch (Throwable $e) {
+            return [null, self::NOT_RECORDED, self::NOT_RECORDED, null];
+        }
+
+        $timezone = $sigData['timezone'] ?? null;
+        $local = null;
+        if (is_string($timezone) && in_array($timezone, \DateTimeZone::listIdentifiers(), true)) {
+            $inZone = $utc->copy()->setTimezone($timezone);
+            $local = $inZone->format('M j, Y g:i:s A T') . ' (UTC' . $inZone->format('P') . ')';
+        } else {
+            $timezone = null;
+        }
+
+        $signedOn = $timezone ? $utc->copy()->setTimezone($timezone)->format('M j, Y') : $utc->format('M j, Y');
+
+        return [$local, $utc->format('M j, Y g:i:s A') . ' UTC', $signedOn, $timezone];
+    }
+
+    private static function consent(mixed $value): string
+    {
+        if ($value === null) {
+            return self::NOT_RECORDED;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'Accepted' : 'Not accepted';
+    }
+
+    private static function recorded(mixed $value): string
+    {
+        return is_string($value) && $value !== '' && $value !== 'Unknown' ? $value : self::NOT_RECORDED;
+    }
+
+    private static function normalName(string $name): string
+    {
+        return strtolower(preg_replace('/\s+/', ' ', trim($name)));
     }
 }
