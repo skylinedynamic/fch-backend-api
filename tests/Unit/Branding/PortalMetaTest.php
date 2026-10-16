@@ -15,7 +15,7 @@ class PortalMetaTest extends TestCase
     public function the_title_names_the_tenant_and_the_portal(): void
     {
         $this->assertSame('Acme | Borrower Portal', PortalMeta::build(['site_name' => 'Acme'], PortalMeta::PORTAL_BORROWER, null)['title']);
-        $this->assertSame('Acme | Partner Dashboard', PortalMeta::build(['site_name' => 'Acme'], PortalMeta::PORTAL_PARTNER, null)['title']);
+        $this->assertSame('Acme | Partner Portal', PortalMeta::build(['site_name' => 'Acme'], PortalMeta::PORTAL_PARTNER, null)['title']);
     }
 
     #[Test]

@@ -22,8 +22,8 @@ final class PortalMeta
             'description' => 'Sign in to the %s borrower portal to apply for funding and track your applications.',
         ],
         self::PORTAL_PARTNER => [
-            'label' => 'Partner Dashboard',
-            'description' => 'Sign in to the %s partner dashboard to manage your borrowers and their funding.',
+            'label' => 'Partner Portal',
+            'description' => 'Sign in to the %s partner portal to manage your borrowers and their funding.',
         ],
     ];
 

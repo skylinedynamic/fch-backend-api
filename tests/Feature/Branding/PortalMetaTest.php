@@ -126,8 +126,8 @@ class PortalMetaTest extends TestCase
         $response = $this->meta('acme.fch.test', 'partner');
 
         $response->assertOk();
-        $response->assertSee('<title>Acme Capital | Partner Dashboard</title>', false);
-        $response->assertSee('<meta property="og:title" content="Acme Capital | Partner Dashboard">', false);
+        $response->assertSee('<title>Acme Capital | Partner Portal</title>', false);
+        $response->assertSee('<meta property="og:title" content="Acme Capital | Partner Portal">', false);
     }
 
     #[Test]
@@ -187,7 +187,7 @@ class PortalMetaTest extends TestCase
         $this->meta('apply.acme.test')
             ->assertSee('<meta name="description" content="Sign in to the Acme Capital borrower portal to apply for funding and track your applications.">', false);
         $this->meta('apply.acme.test', 'partner')
-            ->assertSee('<meta name="description" content="Sign in to the Acme Capital partner dashboard to manage your borrowers and their funding.">', false);
+            ->assertSee('<meta name="description" content="Sign in to the Acme Capital partner portal to manage your borrowers and their funding.">', false);
     }
 
     #[Test]
@@ -305,7 +305,7 @@ class PortalMetaTest extends TestCase
         $this->brand($partner, ['site_name' => 'Acme Capital']);
 
         $this->withHeader('X-Portal-Host', 'admin.acme.test')->get('/api/portal-meta')
-            ->assertSee('<title>Acme Capital | Partner Dashboard</title>', false);
+            ->assertSee('<title>Acme Capital | Partner Portal</title>', false);
     }
 
     #[Test]
@@ -315,7 +315,7 @@ class PortalMetaTest extends TestCase
         $this->brand($partner, ['site_name' => 'Acme Capital']);
 
         $this->withHeader('X-Portal-Host', 'www.acme.fch.test')->get('/api/portal-meta')
-            ->assertSee('<title>Acme Capital | Partner Dashboard</title>', false);
+            ->assertSee('<title>Acme Capital | Partner Portal</title>', false);
     }
 
     #[Test]
