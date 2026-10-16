@@ -28,11 +28,11 @@ final class PortalMeta
     ];
 
     /**
-     * Logos tried for the preview image, in order. The light-surface logos come
-     * first: previews are drawn on a light card, and the sidebar logo is the one
-     * made for a dark background.
+     * Logos tried for the preview image, in order. The sidebar logo comes first -
+     * it is the tenant's main mark, the one the settings form asks for first -
+     * and the others stand in when it is missing or an SVG.
      */
-    private const IMAGE_KEYS = ['logo_document', 'logo_mail', 'logo_mobile', 'logo_sidebar'];
+    private const IMAGE_KEYS = ['logo_sidebar', 'logo_document', 'logo_mail', 'logo_mobile'];
 
     /** The placeholder service's SVG default, which previews cannot show. */
     private const PLACEHOLDER_PATTERN = '#^(https://placehold\.co/\d+x\d+)(?=\?|$)#';

@@ -191,19 +191,34 @@ class PortalMetaTest extends TestCase
     }
 
     #[Test]
+    public function the_partners_sidebar_logo_is_its_preview_image(): void
+    {
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['borrower_domain' => 'apply.acme.test']);
+        $this->brand($partner, [
+            'site_name' => 'Acme Capital',
+            'logo_sidebar' => 'partners/acme/sidebar.png',
+            'logo_document' => 'partners/acme/doc.png',
+        ]);
+
+        $this->meta('apply.acme.test')
+            ->assertSee('<meta property="og:image" content="' . self::API_BASE . '/storage/partners/acme/sidebar.png">', false)
+            ->assertSee('<meta name="twitter:image" content="' . self::API_BASE . '/storage/partners/acme/sidebar.png">', false);
+    }
+
+    #[Test]
     public function an_svg_logo_is_skipped_for_one_link_previews_can_show(): void
     {
         $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['borrower_domain' => 'apply.acme.test']);
         $this->brand($partner, [
             'site_name' => 'Acme Capital',
-            'logo_document' => 'partners/acme/doc.svg',
-            'logo_sidebar' => 'partners/acme/sidebar.png',
+            'logo_sidebar' => 'partners/acme/sidebar.svg',
+            'logo_document' => 'partners/acme/doc.png',
         ]);
 
         $response = $this->meta('apply.acme.test');
 
-        $response->assertSee('<meta property="og:image" content="' . self::API_BASE . '/storage/partners/acme/sidebar.png">', false);
-        $response->assertDontSee('doc.svg', false);
+        $response->assertSee('<meta property="og:image" content="' . self::API_BASE . '/storage/partners/acme/doc.png">', false);
+        $response->assertDontSee('sidebar.svg', false);
     }
 
     #[Test]

@@ -27,14 +27,27 @@ class PortalMetaTest extends TestCase
     }
 
     #[Test]
-    public function the_light_surface_logos_come_before_the_sidebar_one(): void
+    public function the_sidebar_logo_is_the_preview_image(): void
     {
         $meta = PortalMeta::build([
             'logo_sidebar_full_url' => 'https://api.test/storage/sidebar.png',
+            'logo_document_full_url' => 'https://api.test/storage/doc.png',
             'logo_mail_full_url' => 'https://api.test/storage/mail.png',
         ], 'borrower', null);
 
-        $this->assertSame('https://api.test/storage/mail.png', $meta['image']);
+        $this->assertSame('https://api.test/storage/sidebar.png', $meta['image']);
+    }
+
+    #[Test]
+    public function without_a_usable_sidebar_logo_the_document_logo_is_next(): void
+    {
+        $meta = PortalMeta::build([
+            'logo_sidebar_full_url' => 'https://api.test/storage/sidebar.svg',
+            'logo_document_full_url' => 'https://api.test/storage/doc.png',
+            'logo_mail_full_url' => 'https://api.test/storage/mail.png',
+        ], 'borrower', null);
+
+        $this->assertSame('https://api.test/storage/doc.png', $meta['image']);
     }
 
     #[Test]
