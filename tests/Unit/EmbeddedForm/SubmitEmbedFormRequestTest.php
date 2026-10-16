@@ -280,6 +280,13 @@ class SubmitEmbedFormRequestTest extends TestCase
     private function stepRules(string $method): array
     {
         $request = new class extends \App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest {
+            // No database here: the form's partner is looked up only by the
+            // email rule, which these tests do not exercise.
+            protected function embedFormConfig(): ?\App\Models\EmbedForm\EmbedFormConfig
+            {
+                return null;
+            }
+
             public function step(string $method): array
             {
                 return $this->{$method}();

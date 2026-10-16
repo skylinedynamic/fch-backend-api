@@ -143,4 +143,36 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
         $this->assertSame($this->borrower->id, $this->submission->fresh()->converted_borrower_id);
         $this->assertCount(1, Storage::disk('public')->allFiles("funding-application/{$this->borrower->id}/FA-{$applicationId}"));
     }
+    // -- Only the form's own partner's borrower -------------------------------
+
+    #[Test]
+    public function another_partners_borrower_cannot_be_converted_onto(): void
+    {
+        $other = Partner::create([
+            'is_host' => false,
+            'status' => Partner::STATUS_ACTIVE,
+            'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
+            'company_name' => 'Other Lending',
+            'full_name' => 'Other Lending',
+            'email' => 'other@example.test',
+        ]);
+        $this->borrower->update(['partner_id' => $other->id]);
+
+        $this->convert(['confirm_existing_borrower' => true])
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('embed_form.borrower_other_partner'));
+
+        $this->assertSame(0, FundingApplication::count());
+        $this->assertNull($this->submission->fresh()->converted_borrower_id);
+    }
+
+    #[Test]
+    public function a_borrower_with_no_partner_is_not_this_partners_borrower(): void
+    {
+        $this->borrower->forceFill(['partner_id' => null])->save();
+
+        $this->convert(['confirm_existing_borrower' => true])->assertStatus(422);
+
+        $this->assertSame(0, FundingApplication::count());
+    }
 }

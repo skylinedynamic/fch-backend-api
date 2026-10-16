@@ -60,23 +60,28 @@ class SubmitEmbedFormRequest extends BaseApiRequest
         );
     }
 
+    private ?EmbedFormConfig $resolvedConfig = null;
+
+    private bool $configResolved = false;
+
     /**
      * The form this submission is for, resolved once per request.
+     *
+     * Kept on this request object, not in a static: under Octane one worker
+     * serves many requests, and a static would hand every later request the
+     * first form's allow-list and partner.
      */
     protected function embedFormConfig(): ?EmbedFormConfig
     {
-        static $config;
-        static $resolved = false;
-
-        if (!$resolved) {
-            $config = EmbedFormConfig::query()
+        if (!$this->configResolved) {
+            $this->resolvedConfig = EmbedFormConfig::query()
                 ->where('public_key', (string) $this->route('key'))
                 ->where('is_active', true)
                 ->first();
-            $resolved = true;
+            $this->configResolved = true;
         }
 
-        return $config;
+        return $this->resolvedConfig;
     }
 
     /**
@@ -189,8 +194,9 @@ class SubmitEmbedFormRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                // Free, or already a Borrower; never a Partner/Employee/User.
-                new EmbedFormApplicantEmail(),
+                // Free, or already this form's partner's Borrower; never another
+                // partner's borrower, nor a Partner/Employee/User.
+                new EmbedFormApplicantEmail($this->embedFormConfig()?->partner_id),
             ],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
             // An applicant must be an adult, and cannot be born in the future.

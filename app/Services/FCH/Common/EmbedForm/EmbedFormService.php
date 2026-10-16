@@ -93,6 +93,16 @@ class EmbedFormService
     }
 
     /**
+     * Whether an existing borrower is someone other than this partner's client -
+     * including a borrower with no partner at all. A borrower's email may only
+     * be used on, and converted through, their own partner's embedded form.
+     */
+    public function belongsToAnotherPartner(?Borrower $borrower, ?int $partnerId): bool
+    {
+        return $borrower !== null && (int) $borrower->partner_id !== (int) $partnerId;
+    }
+
+    /**
      * What the partner is shown before agreeing to reuse an existing borrower.
      */
     public function existingBorrowerSummary(Borrower $borrower): array
@@ -846,8 +856,9 @@ class EmbedFormService
             $existingBorrower = $match['borrower'];
 
             if ($existingBorrower) {
-                if ($submission->partner_id && $existingBorrower->partner_id
-                    && (int) $existingBorrower->partner_id !== (int) $submission->partner_id) {
+                // Only the form's own partner's client - checked again here for
+                // submissions taken before the form refused it.
+                if ($this->belongsToAnotherPartner($existingBorrower, $submission->partner_id)) {
                     throw new \InvalidArgumentException(__('embed_form.borrower_other_partner'));
                 }
 
