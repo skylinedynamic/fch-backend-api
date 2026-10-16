@@ -76,6 +76,11 @@ Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck'
 // before the app boots, on a cold visit with no token and no localStorage.
 Route::get('/branding.css', [BrandingController::class, 'css']);
 
+// Tenant title, description, Open Graph tags and favicon as an HTML fragment,
+// included into each portal's index.html by Nginx (SSI) so link previews -
+// which never run JavaScript - show the partner's own name and logo.
+Route::get('/portal-meta', [BrandingController::class, 'meta']);
+
 // Email change links — confirm (sent to the new address), cancel and undo (sent
 // to the old one). Public: each link's signature is the authority (checked in
 // the controller). Opening a link (GET) only shows a page; its form POSTs back
