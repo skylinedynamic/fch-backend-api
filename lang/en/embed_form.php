@@ -54,7 +54,7 @@ return [
     'email_required' => 'Email address is required.',
     'email_invalid' => 'Please enter a valid email address.',
     'email_already_registered' => 'This email address is already registered in our system.',
-    'email_registered_with_other_partner' => 'This email is already registered with another partner. Please use a different email.',
+    'email_registered_with_other_partner' => 'This email already exists.',
     'ssn_format' => 'SSN must be 9 digits, in the format XXX-XX-XXXX.',
     'currency_invalid' => 'Select the currency of the requested amount: USD, EUR or GBP.',
     'additional_funding_type_invalid' => 'Select additional funding types from the list, each once.',
