@@ -9,7 +9,6 @@
     .rows .status { width: 16%; text-align: right; }
     .rows .version { width: 12%; }
     .rows .head td { color: #6b7280; }
-    .flag { margin-top: 6px; padding: 5px 8px; background-color: #fff7ed; border-left: 3px solid #f59e0b; color: #92400e; }
     .signature-box { border: 1px solid #d1d5db; padding: 12px 14px; }
     .signature-name { font-size: 12px; color: #111827; padding-bottom: 4px; border-bottom: 1px solid #d1d5db; margin-bottom: 8px; }
     .signature-box td { padding: 2px 0; }
@@ -45,9 +44,6 @@
     'Signer Account' => $signerAccount,
     'Authentication' => $authentication,
 ]])
-@if($nameMismatch)
-    <div class="flag">The name signed differs from the borrower on the application.</div>
-@endif
 
 @include('pdf.partials.fields', ['title' => 'Signing Time & Device', 'wide' => ['Signed At (Signer)', 'Signed At (UTC)'], 'fields' => [
     'Signed At (Signer)' => $signedAtLocal ?? "Not recorded - the signer's timezone was not captured",

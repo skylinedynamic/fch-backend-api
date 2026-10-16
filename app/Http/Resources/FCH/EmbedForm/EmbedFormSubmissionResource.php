@@ -213,6 +213,9 @@ class EmbedFormSubmissionResource extends JsonResource
                     'id' => $this->partner?->id,
                     'full_name' => $this->partner?->full_name,
                     'company_name' => $this->partner?->company_name,
+                    // So the host, who sees every partner's applications, can tell whose each is.
+                    'partner_type' => $this->partner?->partner_type,
+                    'is_host' => (bool) $this->partner?->is_host,
                 ];
             }),
 

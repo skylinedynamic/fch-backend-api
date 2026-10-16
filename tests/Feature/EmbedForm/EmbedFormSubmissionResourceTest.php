@@ -77,4 +77,31 @@ class EmbedFormSubmissionResourceTest extends TestCase
         ])['additional_funding_types']);
         $this->assertSame([], $this->resource([])['additional_funding_types']);
     }
+
+    #[Test]
+    public function the_partner_it_came_through_is_named_with_its_type(): void
+    {
+        // So the host, who sees every partner's applications, can tell whose each is.
+        $partner = Partner::create([
+            'is_host' => false,
+            'status' => Partner::STATUS_ACTIVE,
+            'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
+            'company_name' => 'Acme Lending',
+            'full_name' => 'Pat Partner',
+            'email' => 'acme@example.test',
+        ]);
+        $submission = EmbedFormSubmission::create([
+            'submission_uid' => (string) Str::uuid(),
+            'partner_id' => $partner->id,
+            'first_name' => 'Odessa',
+            'last_name' => 'Mccall',
+            'email' => 'odessa@example.test',
+        ]);
+
+        $data = (new EmbedFormSubmissionResource($submission->load('partner')))->resolve(Request::create('/'));
+
+        $this->assertSame('Acme Lending', $data['partner']['company_name']);
+        $this->assertSame(Partner::PARTNER_TYPE_WHITE_LABEL, $data['partner']['partner_type']);
+        $this->assertFalse($data['partner']['is_host']);
+    }
 }

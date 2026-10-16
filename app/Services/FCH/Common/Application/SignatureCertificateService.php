@@ -60,8 +60,6 @@ class SignatureCertificateService
 
         // Who signed, and how.
         $signedName = trim((string) ($sigData['signature_name'] ?? '')) ?: self::NOT_RECORDED;
-        $nameMismatch = $signedName !== self::NOT_RECORDED && $borrowerName !== self::NOT_RECORDED
-            && self::normalName($signedName) !== self::normalName($borrowerName);
 
         $method = self::METHODS[$sigData['signing_method'] ?? ''] ?? null;
         $signingMethod = $method['label'] ?? self::NOT_RECORDED;
@@ -114,7 +112,7 @@ class SignatureCertificateService
         return compact(
             'application', 'sigData', 'appId', 'certId', 'appVersion', 'sha',
             'borrowerName', 'businessName', 'rawStatus', 'status',
-            'signedName', 'nameMismatch', 'signingMethod', 'authentication', 'signerAccount',
+            'signedName', 'signingMethod', 'authentication', 'signerAccount',
             'ip', 'browser', 'os', 'device',
             'signedAtLocal', 'signedAtUtc', 'signedOn', 'signerTimezone',
             'policies', 'consents'
@@ -166,10 +164,5 @@ class SignatureCertificateService
     private static function recorded(mixed $value): string
     {
         return is_string($value) && $value !== '' && $value !== 'Unknown' ? $value : self::NOT_RECORDED;
-    }
-
-    private static function normalName(string $name): string
-    {
-        return strtolower(preg_replace('/\s+/', ' ', trim($name)));
     }
 }

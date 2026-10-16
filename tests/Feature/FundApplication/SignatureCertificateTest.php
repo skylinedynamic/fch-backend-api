@@ -132,13 +132,14 @@ class SignatureCertificateTest extends TestCase
     // -- 6. Who signed, and how ---------------------------------------------------
 
     #[Test]
-    public function the_borrower_and_the_name_signed_are_shown_apart_and_a_mismatch_is_flagged(): void
+    public function the_borrower_and_the_name_signed_are_shown_apart(): void
     {
         $text = $this->certificate($this->signed(['signature_name' => 'Awlad Hossain']));
 
         $this->assertStringContainsString('Ava Ortiz', $text);
         $this->assertStringContainsString('Awlad Hossain', $text);
-        $this->assertStringContainsString('The name signed differs from the borrower on the application.', $text);
+        // Shown side by side; no separate warning when they differ.
+        $this->assertStringNotContainsString('differs from the borrower', $text);
     }
 
     #[Test]
