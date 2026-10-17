@@ -25,7 +25,7 @@ class EmployeeResource extends JsonResource
             'phone_number_1' => $this->phone_number_1,
             'phone_number_2' => $this->phone_number_2,
 
-            'date_of_birth' => $this->date_of_birth?->format('Y-m-d'),
+            'date_of_birth' => toDateOnly($this->date_of_birth),
             'gender' => $this->gender,
             'address' => $this->address,
             'city' => $this->city,
