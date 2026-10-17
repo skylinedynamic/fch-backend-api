@@ -215,10 +215,14 @@ class FundingApplicationPdfTest extends TestCase
         $application = $this->application($this->host, [], ['business_start_date' => '2019-10-02']);
 
         $text = strip_tags($this->pdfHtml($application));
+        // Worked out while the clock is still frozen, as the PDF was - otherwise
+        // the expected value moves on with the real date and the test only
+        // passes on the day it was written.
+        $expected = calculateTimeInBusiness('2019-10-02');
         \Illuminate\Support\Carbon::setTestNow();
 
         $this->assertStringContainsString('Time in Business', $text);
-        $this->assertStringContainsString(calculateTimeInBusiness('2019-10-02'), $text);
+        $this->assertStringContainsString($expected, $text);
     }
 
     #[Test]

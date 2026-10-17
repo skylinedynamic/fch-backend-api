@@ -20,7 +20,7 @@ class BorrowerCreditProfileResource extends JsonResource
                 'name' => $this->borrower?->first_name . ' ' . $this->borrower?->last_name,
                 // A date of birth is a calendar date, not a moment: converting it to a
                 // viewer's timezone moves it back a day for anyone behind UTC.
-                'dob' => toDateOnly($this->borrower?->date_of_birth),
+                'dob' => toDateOnly($this->borrower?->date_of_birth, 'F j, Y'),
                 'ssn' => $this->borrower?->last_4_ssn,
                 'email' => $this->borrower?->email,
                 'phone' => $this->borrower?->phone_number,

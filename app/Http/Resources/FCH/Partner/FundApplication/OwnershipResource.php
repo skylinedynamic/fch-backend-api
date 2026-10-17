@@ -25,14 +25,14 @@ class OwnershipResource extends JsonResource
             $email = $owner->email ?? $borrower?->email ?? null;
             $mobilePhone = $owner->mobile_phone ?? $this->phone_number ?? $borrower?->phone_number ?? null;
             $homePhone = $owner->home_phone ?? null;
-            $dob = $owner->date_of_birth ? date('Y-m-d', strtotime($owner->date_of_birth)) : null;
+            $dob = toDateOnly($owner->date_of_birth);
             if (!$dob) {
                 $dobRaw = $this->date_of_birth ?? $borrower?->date_of_birth;
                 if ($dobRaw) {
                     if ($dobRaw instanceof \DateTimeInterface) {
-                        $dob = $dobRaw->format('Y-m-d');
+                        $dob = toDateOnly($dobRaw);
                     } else {
-                        $dob = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dobRaw) ? $dobRaw : date('Y-m-d', strtotime($dobRaw));
+                        $dob = toDateOnly($dobRaw);
                     }
                 }
             }
@@ -60,9 +60,9 @@ class OwnershipResource extends JsonResource
             $dob = null;
             if ($dobRaw) {
                 if ($dobRaw instanceof \DateTimeInterface) {
-                    $dob = $dobRaw->format('Y-m-d');
+                    $dob = toDateOnly($dobRaw);
                 } else {
-                    $dob = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dobRaw) ? $dobRaw : date('Y-m-d', strtotime($dobRaw));
+                    $dob = toDateOnly($dobRaw);
                 }
             }
                 
