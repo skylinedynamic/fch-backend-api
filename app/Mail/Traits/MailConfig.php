@@ -2,8 +2,8 @@
 
 namespace App\Mail\Traits;
 
-use App\Models\Common\AppConfiguration;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
+use App\Support\Mail\MailSenderName;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +33,19 @@ trait MailConfig
      * a sender that retries the send itself (see EmailChangeService).
      */
     protected bool $rethrowTransportFailures = false;
+
+    /**
+     * Settings to send with instead of resolving the tenant's - for the code
+     * that verifies a mail configuration, which has to go out through exactly
+     * that configuration, verified or not. See useMailSettings().
+     */
+    protected ?\stdClass $forcedMailSettings = null;
+
+    /**
+     * Let any failure through instead of logging it - only for a send whose
+     * caller needs to know (the verification code), never for business mail.
+     */
+    protected bool $throwOnSendFailure = false;
 
     /**
      * Transports that carry no credentials and address no one.
@@ -110,6 +123,17 @@ trait MailConfig
     }
 
     /**
+     * Send through these settings, and let a failure through to the caller.
+     */
+    public function useMailSettings(\stdClass $settings): self
+    {
+        $this->forcedMailSettings = $settings;
+        $this->throwOnSendFailure = true;
+
+        return $this;
+    }
+
+    /**
      * Apply the sending tenant's mail configuration, then send.
      */
     public function send($mailer)
@@ -122,7 +146,8 @@ trait MailConfig
             return $this->deliver($mailer, $partnerId);
         }
 
-        $config = app(EmailConfigurationService::class)->resolveFor($partnerId);
+        $config = $this->forcedMailSettings
+            ?? app(EmailConfigurationService::class)->resolveFor($partnerId);
 
         if (!$config) {
             // Deliberately not sent. See the class docblock: delivering this
@@ -158,15 +183,16 @@ trait MailConfig
     private function apply(\stdClass $config, ?int $partnerId)
     {
         $driver = ($config->email_provider ?? 'smtp') === 'aws_ses' ? 'ses' : 'smtp';
-        $siteName = AppConfiguration::get('site_name', '', AppConfiguration::MODULE_BRANDING, $partnerId);
+        // The partner's own name, through its own settings or the fallback.
+        $siteName = MailSenderName::for($partnerId);
 
         Config::set('mail.default', $driver);
 
         if ($driver === 'smtp') {
-            // smtp_port comes from a free-text settings field (see
-            // StoreEmailConfigurationRequest), so guard against non-numeric
-            // legacy values reaching Symfony's Dsn, which requires a strict
-            // ?int and throws a TypeError otherwise.
+            // smtp_port came from a free-text field on the old settings
+            // screen, so guard against non-numeric legacy values reaching
+            // Symfony's Dsn, which requires a strict ?int and throws a
+            // TypeError otherwise.
             $port = $config->smtp_port ?? null;
             $port = (is_numeric($port) && (int) $port == $port) ? (int) $port : null;
 
@@ -218,6 +244,10 @@ trait MailConfig
         try {
             return parent::send($mailer);
         } catch (TransportExceptionInterface $e) {
+            if ($this->throwOnSendFailure) {
+                throw $e;
+            }
+
             // The mail server was reached and refused this attempt: a rate
             // limit, a timeout, a dropped connection. Retrying is the correct
             // response, and swallowing it here is what turned a "too many
@@ -241,6 +271,10 @@ trait MailConfig
 
             return null;
         } catch (\Throwable $e) {
+            if ($this->throwOnSendFailure) {
+                throw $e;
+            }
+
             // Misconfiguration and our own guard rails - an invalid SMTP port
             // surfaces as a \TypeError from Symfony's transport factory, which
             // \Exception does not catch. No number of retries makes these

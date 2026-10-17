@@ -675,6 +675,14 @@ return [
             'channels' => ['mail'],
         ],
 
+        // The code that verifies a mail configuration, sent through the
+        // settings being verified.
+        'settings.mail_configuration_code' => [
+            'name' => 'Mail configuration verification code',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
     ],
 
 ];

@@ -3,7 +3,7 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Mail\EmbedForm\NewSubmissionMail;
-use App\Models\Setting\EmailConfiguration;
+use App\Models\Setting\MailConfiguration;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
@@ -56,9 +56,11 @@ class EmbedFormNotificationMailTest extends TestCase
             'email' => 'host-' . uniqid() . '@example.test',
         ]);
 
-        // The host is configured, so any host fallback would succeed and be
-        // visible - which is what makes the white-label cases below meaningful.
+        // The host and the platform fallback are configured, so any fallback
+        // would succeed and be visible - which is what makes the white-label
+        // cases below meaningful.
         $this->mailConfig($this->host);
+        $this->mailConfig(null);
     }
 
     #[Test]
@@ -442,25 +444,35 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     /**
+     * A verified SMTP configuration - the partner's default, or with no partner
+     * the platform fallback. `enable_custom_configuration` => '0' leaves it
+     * saved but not the default; blank host/username leave it incomplete.
+     *
      * @param  array<string, string>  $overrides
      */
-    private function mailConfig(Partner $partner, array $overrides = []): void
+    private function mailConfig(?Partner $partner, array $overrides = []): void
     {
         $values = array_merge([
             'enable_custom_configuration' => '1',
-            'email_provider' => 'smtp',
             'smtp_host' => 'smtp.example.test',
             'smtp_username' => 'mailer@example.test',
-            'smtp_password' => 'secret',
         ], $overrides);
 
-        foreach ($values as $key => $value) {
-            EmailConfiguration::create([
-                'partner_id' => $partner->id,
-                'key' => $key,
-                'value' => $value,
-            ]);
-        }
+        $config = MailConfiguration::create([
+            'partner_id' => $partner?->id,
+            'provider' => MailConfiguration::PROVIDER_SMTP,
+            'from_address' => 'mail@example.test',
+            'credentials' => [
+                'smtp_host' => $values['smtp_host'] ?: null,
+                'smtp_port' => 587,
+                'smtp_encryption' => 'tls',
+                'smtp_username' => $values['smtp_username'] ?: null,
+                'smtp_password' => 'secret',
+            ],
+            'is_default' => $partner !== null && $values['enable_custom_configuration'] === '1',
+        ]);
+
+        $config->forceFill(['verified_at' => now(), 'verified_fingerprint' => $config->fingerprint()])->save();
     }
 
     /**

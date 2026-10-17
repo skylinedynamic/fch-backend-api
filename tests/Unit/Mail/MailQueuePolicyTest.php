@@ -43,6 +43,9 @@ class MailQueuePolicyTest extends TestCase
         \App\Mail\Account\EmailChangeConfirmationMail::class,
         \App\Mail\Account\EmailChangeRequestedMail::class,
         \App\Mail\Account\EmailChangedMail::class,
+        // The code that verifies a mail configuration: the settings screen waits
+        // on it, and has to learn at once whether it went out.
+        \App\Mail\Setting\MailConfigurationVerificationMail::class,
     ];
 
     public static function mailables(): array

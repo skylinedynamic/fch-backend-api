@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
-use App\Models\Setting\EmailConfiguration;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
 abstract class Controller
@@ -20,8 +20,7 @@ abstract class Controller
         if ($user && $user->partner && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
             $partnerId = $user->partner_id;
 
-            $isEmailFresh = EmailConfiguration::where('partner_id', $partnerId)
-                ->where('key', 'is_active')->where('value', '1')->exists();
+            $isEmailFresh = app(EmailConfigurationService::class)->hasAnyConfiguration($partnerId);
 
             $isBrandingFresh = AppConfiguration::where('partner_id', $partnerId)
                 ->where('module', AppConfiguration::MODULE_BRANDING)

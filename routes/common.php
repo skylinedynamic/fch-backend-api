@@ -46,7 +46,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PreQualificationAgentConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\FallbackMailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\MailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\SmsConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -477,11 +478,27 @@ Route::prefix('v1')->group(function () {
                 Route::delete('sessions', [WlpAssistantController::class, 'destroy']);
             });
 
-            // 📧 Email Configurations
-            Route::prefix('email-configurations')->group(function () {
-                Route::get('/', [EmailConfigurationController::class, 'index']);
-                Route::post('/', [EmailConfigurationController::class, 'store']);
-                Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
+            // Mail configuration: a partner's providers, each verified with a
+            // code, and the one platform-wide fallback the host partner keeps.
+            Route::prefix('mail-configurations')->group(function () {
+                // Host partner's own account only - checked in the controller.
+                Route::prefix('fallback')->controller(FallbackMailConfigurationController::class)->group(function () {
+                    Route::get('/', 'index');
+                    Route::post('/', 'store');
+                    Route::post('/send-code', 'sendCode');
+                    Route::post('/verify', 'verify')->middleware('throttle:20,1');
+                });
+
+                Route::middleware('permission:update email configuration settings')
+                    ->controller(MailConfigurationController::class)
+                    ->group(function () {
+                        Route::get('/', 'index');
+                        Route::post('/', 'store');
+                        Route::delete('/{mailConfiguration}', 'destroy')->whereNumber('mailConfiguration');
+                        Route::post('/{mailConfiguration}/default', 'makeDefault')->whereNumber('mailConfiguration');
+                        Route::post('/{mailConfiguration}/send-code', 'sendCode')->whereNumber('mailConfiguration');
+                        Route::post('/{mailConfiguration}/verify', 'verify')->whereNumber('mailConfiguration')->middleware('throttle:20,1');
+                    });
             });
 
             // SMS Configuration (host and white-label partners)

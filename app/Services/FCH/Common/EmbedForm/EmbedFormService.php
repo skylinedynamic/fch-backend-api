@@ -764,21 +764,12 @@ class EmbedFormService
     }
 
     /**
-     * Whether this partner can send mail under its own credentials.
-     *
-     * Mirrors the first branch of EmailConfigurationService::resolveFor() - a row
-     * exists as soon as the settings screen is opened, so having rows is not the
-     * same as being able to connect, and the partner must have switched its own
-     * configuration on.
+     * Whether this partner sends mail under its own credentials - a verified
+     * default provider - rather than the platform fallback.
      */
     protected function hasOwnMailConfiguration(Partner $partner): bool
     {
-        $emailConfigurations = app(EmailConfigurationService::class);
-        $own = $emailConfigurations->getConfigurations($partner->id)->first();
-
-        return $own
-            && !empty($own->enable_custom_configuration)
-            && $emailConfigurations->isUsable($own);
+        return app(EmailConfigurationService::class)->usesOwnConfiguration($partner->id);
     }
 
     /**

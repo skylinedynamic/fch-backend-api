@@ -12,8 +12,9 @@ use Tests\TestCase;
 /**
  * Mail credentials are tenant data, never environment configuration.
  *
- * Every partner sends through their own mail server, and a partner without one
- * sends through the host's. Both live in `email_configurations`. The environment
+ * Every partner sends through its own verified mail server, and a partner
+ * without one sends through the platform fallback. Both live in
+ * `mail_configurations`. The environment
  * used to hold a set of credentials behind all of that, which meant an
  * unconfigured partner's mail went out through whatever mailbox the deployment
  * happened to point at - under someone else's credentials, with nothing to
