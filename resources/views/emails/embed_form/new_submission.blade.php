@@ -1,13 +1,17 @@
 @extends('emails.layouts.mail')
 
-@section('title', 'New Funding Application — ' . $submission->first_name . ' ' . $submission->last_name)
+@section('title', 'New Embedded Form Application — ' . $submission->first_name . ' ' . $submission->last_name)
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
         <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
 
         <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
-            A new funding application has been submitted through your embedded form. Please review the applicant details below.
+            @if (!empty($hostCopy))
+                A new funding application has been submitted through {{ $formPartnerName ?: 'a partner' }}'s embedded form. Please review the applicant details below.
+            @else
+                A new funding application has been submitted through your embedded form. Please review the applicant details below.
+            @endif
         </p>
 
         {{-- Applicant Details --}}
@@ -26,7 +30,7 @@
                     @if($submission->requested_amount)
                     <tr>
                         <td style="padding: 9px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; padding-left: 10px;">Requested Amount</td>
-                        <td style="padding: 9px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0e9f6e; text-align: right; padding-right: 10px;">${{ number_format($submission->requested_amount, 2) }}</td>
+                        <td style="padding: 9px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0e9f6e; text-align: right; padding-right: 10px;">{{ config('funding_application.embed_form.currencies.' . ($submission->currency ?: 'USD'), '$') }}{{ number_format($submission->requested_amount, 2) }}</td>
                     </tr>
                     @endif
                     @if($submission->preferred_funding_type)

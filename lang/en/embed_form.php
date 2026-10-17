@@ -44,7 +44,7 @@ return [
     'unauthorized_attachment' => 'You do not have permission to access this attachment.',
 
     // Email & Notifications
-    'new_submission_mail_subject' => 'New Funding Application — :name',
+    'new_submission_mail_subject' => 'New Embedded Form Application — :name',
     'converted_mail_subject' => 'Your funding application is in review — :site',
     'converted_staff_mail_subject' => 'Applicant converted to a client — :name',
 
@@ -54,7 +54,11 @@ return [
     'email_required' => 'Email address is required.',
     'email_invalid' => 'Please enter a valid email address.',
     'email_already_registered' => 'This email address is already registered in our system.',
+    'email_registered_with_other_partner' => 'This email already exists.',
     'ssn_format' => 'SSN must be 9 digits, in the format XXX-XX-XXXX.',
+    'currency_invalid' => 'Select the currency of the requested amount: USD, EUR or GBP.',
+    'additional_funding_type_invalid' => 'Select additional funding types from the list, each once.',
+    'additional_funding_type_preferred' => 'The preferred funding type cannot also be an additional funding type.',
     'honeypot_triggered' => 'Submission rejected.',
     'phone_required' => 'A phone number is required.',
     'phone_invalid' => 'Enter a valid 10-digit US phone number, e.g. (555) 234-5678.',

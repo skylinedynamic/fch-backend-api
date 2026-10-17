@@ -38,6 +38,9 @@ class FundingApplicationEditLockTest extends TestCase
     {
         parent::setUp();
 
+        // Signing writes the signed copy and its certificate; never into real storage.
+        \Illuminate\Support\Facades\Storage::fake('public');
+
         $this->partnerId = DB::table('partners')->insertGetId([
             'full_name' => 'Pat Partner',
             'company_name' => 'Partner Co',

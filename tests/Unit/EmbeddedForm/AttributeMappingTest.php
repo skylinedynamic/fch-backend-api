@@ -83,7 +83,7 @@ class AttributeMappingTest extends TestCase
     // ── Ownership ─────────────────────────────────────────────────────
 
     #[Test]
-    public function the_owner_phone_is_stored_in_e164(): void
+    public function the_owner_phone_is_stored_the_way_the_portals_store_it(): void
     {
         $attributes = $this->invokeMapper('ownershipAttributes', [
             'first_name' => 'Marcus',
@@ -92,7 +92,7 @@ class AttributeMappingTest extends TestCase
             'phone' => '(813) 391-3333',
         ]);
 
-        $this->assertSame('+18133913333', $attributes['phone']);
+        $this->assertSame('(813) 391-3333', $attributes['phone']);
     }
 
     #[Test]
@@ -226,7 +226,7 @@ class AttributeMappingTest extends TestCase
             'consents_data' => '{not valid json',
         ]);
 
-        $this->assertNull($attributes['signature_data']['client_consents']);
+        $this->assertNull($attributes['signature_data']['consents_data']);
         // The server's own record of the signing survives regardless.
         $this->assertNotEmpty($attributes['signature_data']['signed_at']);
     }
@@ -241,18 +241,116 @@ class AttributeMappingTest extends TestCase
 
         $this->assertSame(
             ['esign_consent' => '2026-09-10T12:00:00Z'],
-            $attributes['signature_data']['client_consents']
+            $attributes['signature_data']['consents_data']
         );
+    }
+
+    #[Test]
+    public function an_embedded_form_signature_says_it_was_signed_on_the_public_form(): void
+    {
+        // No account was signed in: the applicant is known only by the email given.
+        $attributes = $this->attestation([
+            'email' => 'marcus@example.test',
+            'signature_name' => 'Marcus A Webb',
+            'esign_consent' => '1', 'terms_consent' => '1',
+            'credit_consent' => '1', 'legal_binding_consent' => '1',
+        ]);
+        $signature = $attributes['signature_data'];
+
+        $this->assertSame(\App\Services\FCH\Common\Application\SignatureRecorder::METHOD_EMBEDDED_FORM, $signature['signing_method']);
+        $this->assertNull($signature['signer_account']);
+        $this->assertSame('marcus@example.test', $signature['signer_email']);
+        $this->assertTrue($signature['credit_consent']);
+        $this->assertSame(array_keys(config('funding_application.signing.policies')), array_keys($signature['policy_versions']));
+    }
+
+    #[Test]
+    public function the_forms_own_build_number_is_not_mistaken_for_the_application_version(): void
+    {
+        // application_version is the signed version number, set when the signed
+        // copy is kept; what the form posts is its build.
+        $signature = $this->attestation([
+            'signature_name' => 'Marcus A Webb',
+            'application_version' => '2026.09.03',
+        ])['signature_data'];
+
+        $this->assertSame('2026.09.03', $signature['form_version']);
+        $this->assertArrayNotHasKey('application_version', $signature);
     }
 
     // ── Business ──────────────────────────────────────────────────────
 
     #[Test]
-    public function the_business_phone_is_stored_in_e164(): void
+    public function the_business_phone_is_stored_the_way_the_portals_store_it(): void
     {
-        $attributes = $this->invokeMapper('businessInfoAttributes', ['business_phone_no' => '813.391.3333']);
+        $attributes = $this->invokeMapper('businessInfoAttributes', ['business_phone_no' => '+18133913333']);
 
-        $this->assertSame('+18133913333', $attributes['business_phone_no']);
+        $this->assertSame('(813) 391-3333', $attributes['business_phone_no']);
+    }
+
+    #[Test]
+    public function the_ein_is_stored_as_its_nine_digits(): void
+    {
+        // As the borrower profile stores it; XX-XXXXXXX is only how it is written.
+        $attributes = $this->invokeMapper('businessInfoAttributes', ['business_ein' => '12-3456789']);
+
+        $this->assertSame('123456789', $attributes['business_ein']);
+    }
+
+    #[Test]
+    public function years_in_business_is_worked_out_from_the_business_start_date(): void
+    {
+        // The form no longer asks for it: it follows from when the business started.
+        \Illuminate\Support\Carbon::setTestNow('2026-10-16');
+
+        $cases = [
+            '2026-06-01' => 'Under 6 months',
+            '2026-04-16' => '6-12 months',
+            '2025-10-17' => '6-12 months',
+            '2025-10-16' => '1-2 years',
+            '2024-10-16' => '2-3 years',
+            '2023-10-16' => '3+ years',
+        ];
+
+        foreach ($cases as $started => $expected) {
+            $attributes = $this->invokeMapper('financialAttributes', ['business_checking_start_date' => $started]);
+            $this->assertSame($expected, $attributes['years_in_business'], "started {$started}");
+        }
+
+        $this->assertNull($this->invokeMapper('financialAttributes', [])['years_in_business']);
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function the_years_in_business_labels_are_the_configured_options(): void
+    {
+        // So the value reads the same as one picked from the portal's list.
+        foreach (['2026-06-01', '2026-01-01', '2025-01-01', '2024-01-01', '2020-01-01'] as $started) {
+            $label = $this->invokeMapper('financialAttributes', ['business_checking_start_date' => $started])['years_in_business'];
+            $this->assertContains($label, config('funding_application.options.years_in_business'));
+        }
+    }
+
+    // ── Funding request ───────────────────────────────────────────────
+
+    #[Test]
+    public function the_currency_is_kept_with_the_requested_amount(): void
+    {
+        $this->assertSame('EUR', $this->invokeMapper('fundingRequestAttributes', ['currency' => 'EUR'])['currency']);
+        // A form loaded before the field existed posts none: the amount was in dollars.
+        $this->assertSame('USD', $this->invokeMapper('fundingRequestAttributes', [])['currency']);
+    }
+
+    #[Test]
+    public function the_additional_funding_types_are_kept_as_a_list(): void
+    {
+        $attributes = $this->invokeMapper('fundingRequestAttributes', [
+            'preferred_funding_type' => 'Term Loan',
+            'additional_funding_types' => ['SBA Loan', 'Line of Credit'],
+        ]);
+
+        $this->assertSame(['SBA Loan', 'Line of Credit'], $attributes['additional_funding_types']);
+        $this->assertNull($this->invokeMapper('fundingRequestAttributes', [])['additional_funding_types']);
     }
 
     #[Test]
