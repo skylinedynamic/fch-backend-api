@@ -80,11 +80,17 @@ class BorrowerCreditProfileController extends Controller
             if ($host) {
                 try {
                     $creditProfileRequest = CreditProfileRequest::where('borrower_id', $user->entity_id)->first();
-                    $borrower = $creditProfileRequest?->borrower;
+                    $borrower = $creditProfileRequest?->borrower ?? $creditProfile->borrower;
 
+                    // The bell opens the borrower's request, like the first
+                    // request's does. A report saved without one has no request
+                    // page (the link falls back to the list) and no request mail.
                     app(Notifier::class)->send('host.credit_profile.update_requested', $host, [
+                        'id' => $creditProfileRequest?->id,
                         'borrower' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name),
-                    ], mail: $host->email ? (new UpdateCreditProfileRequestMail($creditProfileRequest))->to($host->email) : null);
+                    ], mail: $host->email && $creditProfileRequest
+                        ? (new UpdateCreditProfileRequestMail($creditProfileRequest))->to($host->email)
+                        : null);
                 } catch (\Throwable $mailException) {
                     Log::error(__('credit_profile_request.log_update_email_failed', ['error' => $mailException->getMessage()]));
                 }

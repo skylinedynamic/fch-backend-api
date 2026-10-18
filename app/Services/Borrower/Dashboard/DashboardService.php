@@ -25,15 +25,7 @@ class DashboardService
     public function getStats()
     {
         $user = Auth::user();
-       
-
-        // Get Borrower Profile
-        $borrower = Borrower::where('id', $user->entity_id)
-            ->first();
-
-        if (!$borrower) {
-             throw new \Exception(__('borrower.borrower_not_found'));
-        }
+        $borrower = $this->currentBorrower();
 
         $data = [];
 
@@ -106,7 +98,38 @@ class DashboardService
 
         $data['fico_score'] = $borrower->credit_profile_updated ? ($borrower->fico_score) : null;
 
-        // Fetch the latest active approved funding request (Not Started Funding Application)
+        // The approved requests not yet started come from
+        // getActiveApprovedFundingRequests(): the portal loads them on every page.
+
+        return $data;
+    }
+
+    /**
+     * The signed-in borrower's approved funding requests that no application
+     * has been started for: what the layout's banner and sidebar badge show on
+     * every page, without loading the rest of the dashboard.
+     */
+    public function getActiveApprovedFundingRequests(): array
+    {
+        return $this->activeApprovedFundingRequests($this->currentBorrower());
+    }
+
+    private function currentBorrower(): Borrower
+    {
+        $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
+
+        if (!$borrower) {
+            throw new \Exception(__('borrower.borrower_not_found'));
+        }
+
+        return $borrower;
+    }
+
+    /**
+     * Approved requests with no application on them (Not Started), latest first.
+     */
+    private function activeApprovedFundingRequests(Borrower $borrower): array
+    {
         $activeApprovedRequestsQuery = FundingRequest::with('fundingSequence')
             ->where('borrower_id', $borrower->id)
             ->where('status', FundingRequest::STATUS_APPROVED)
@@ -127,28 +150,31 @@ class DashboardService
         $activeApprovedRequestCount = $activeApprovedRequestsQuery->count();
         $activeApprovedRequests = $activeApprovedRequestsQuery->latest()->orderBy('id', 'desc')->get();
 
-        if ($activeApprovedRequests->isNotEmpty()) {
-            $data['active_approved_funding_requests'] = $activeApprovedRequests->map(function ($req) {
-                $estimatedRange = formatAmountRange($req->fundingSequence?->amount_range) 
-                    ?? ($req->requested_amount ? currencyFormat($req->requested_amount, 0) : null);
-
-                return [
-                    'id' => $req->id,
-                    'requested_amount' => $req->requested_amount,
-                    'estimated_funding_range' => $estimatedRange,
-                    'funding_type' => $req->funding_type,
-                ];
-            })->toArray();
-            
-            // For backward compatibility / quick access to the latest one
-            $data['active_approved_funding_request'] = $data['active_approved_funding_requests'][0];
-            $data['active_approved_funding_request_count'] = $activeApprovedRequestCount;
-        } else {
-            $data['active_approved_funding_requests'] = [];
-            $data['active_approved_funding_request'] = null;
-            $data['active_approved_funding_request_count'] = 0;
+        if ($activeApprovedRequests->isEmpty()) {
+            return [
+                'active_approved_funding_requests' => [],
+                'active_approved_funding_request' => null,
+                'active_approved_funding_request_count' => 0,
+            ];
         }
 
-        return $data;
+        $requests = $activeApprovedRequests->map(function ($req) {
+            $estimatedRange = formatAmountRange($req->fundingSequence?->amount_range)
+                ?? ($req->requested_amount ? currencyFormat($req->requested_amount, 0) : null);
+
+            return [
+                'id' => $req->id,
+                'requested_amount' => $req->requested_amount,
+                'estimated_funding_range' => $estimatedRange,
+                'funding_type' => $req->funding_type,
+            ];
+        })->toArray();
+
+        return [
+            'active_approved_funding_requests' => $requests,
+            // For backward compatibility / quick access to the latest one
+            'active_approved_funding_request' => $requests[0],
+            'active_approved_funding_request_count' => $activeApprovedRequestCount,
+        ];
     }
 }

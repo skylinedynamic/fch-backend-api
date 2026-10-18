@@ -53,6 +53,7 @@ Route::prefix('v1/borrower')->group(function () {
 
             // 📊 Dashboard
             Route::get('/dashboard', [DashboardController::class, 'index']);
+            Route::get('/active-funding-requests', [DashboardController::class, 'activeFundingRequests']);
 
             // Pre-Qualification
             Route::get('/pre-qualification', [PreQualificationController::class, 'index']);
