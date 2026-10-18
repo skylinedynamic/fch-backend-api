@@ -26,23 +26,27 @@ class FundingRequestResource extends JsonResource
                 $nameSmart = str_replace("'", "’", $name);
                 $nameStraight = str_replace(['’', '‘'], "'", $name);
                 
-                $matchingDoc = $allBorrowerDocs->filter(function($doc) use ($name, $nameSmart, $nameStraight) {
+                // Every file of this type, newest first - not just the latest one,
+                // so three bank statements show as three files.
+                $matchingDocs = $allBorrowerDocs->filter(function($doc) use ($name, $nameSmart, $nameStraight) {
                     if (!$doc->documentType) return false;
                     $docName = $doc->documentType->name;
                     return $docName === $name || $docName === $nameSmart || $docName === $nameStraight;
-                })->sortByDesc('id')->first();
-                
-                if ($matchingDoc) {
-                    $actualDocs[] = [
-                        'id' => $matchingDoc->id,
-                        'document_name' => $name,
-                        'file_name' => $matchingDoc->file_name,
-                        'file_path' => $matchingDoc->file_path,
-                        'document_url' => $matchingDoc->url,
-                        'status' => $matchingDoc->status,
-                        'created_at' => $matchingDoc->created_at,
-                        'rejection_reason' => $matchingDoc->rejection_reason,
-                    ];
+                })->sortByDesc('id');
+
+                if ($matchingDocs->isNotEmpty()) {
+                    foreach ($matchingDocs as $matchingDoc) {
+                        $actualDocs[] = [
+                            'id' => $matchingDoc->id,
+                            'document_name' => $name,
+                            'file_name' => $matchingDoc->file_name,
+                            'file_path' => $matchingDoc->file_path,
+                            'document_url' => $matchingDoc->url,
+                            'status' => $matchingDoc->status,
+                            'created_at' => $matchingDoc->created_at,
+                            'rejection_reason' => $matchingDoc->rejection_reason,
+                        ];
+                    }
                 } else {
                     $actualDocs[] = [
                         'id' => 'missing_' . $idx,

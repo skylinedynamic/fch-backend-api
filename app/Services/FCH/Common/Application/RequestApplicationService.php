@@ -154,7 +154,7 @@ class RequestApplicationService
             
             $query = FundingApplication::query()
                 ->with(['borrower', 'fundingSequence'])
-                ->where('status', '!=', FundingApplication::ON_HOLD)
+                // ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                     $query->where('partner_id', $authUser->partner_id);
                 });
@@ -493,8 +493,9 @@ class RequestApplicationService
     {
         $authUser = Auth::user();
 
-        $baseQuery = FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)
-            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+        $baseQuery = FundingApplication::
+        // ::where('status', '!=', FundingApplication::ON_HOLD)
+            when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                 $query->where('partner_id', $authUser->partner_id);
             });
 

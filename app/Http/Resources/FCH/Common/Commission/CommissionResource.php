@@ -16,8 +16,8 @@ class CommissionResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'borrower' => $this->fundingApplication->full_name,
-            'partner' => $this->partner->full_name,
+            'borrower' => $this->fundingApplication?->full_name,
+            'partner' => $this->partner?->full_name,
             'funding_application_id' => $this->funding_application_id,
             'total_commission' => $this->total_commission,
             'admin_commission' => $this->admin_commission,
@@ -26,8 +26,8 @@ class CommissionResource extends JsonResource
             'admin_commission_amount' => $this->admin_commission_amount,
             'partner_commission_amount' => $this->partner_commission_amount,
             'commission_status' => $this->commission_status,
-            'requested_amount' => $this->fundingApplication->requested_amount,
-            'funded_amount' => $this->fundingApplication->total_funded_amount,
+            'requested_amount' => $this->fundingApplication?->requested_amount,
+            'funded_amount' => $this->fundingApplication?->total_funded_amount,
             'payment_status' => $this->payment_status,
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,
