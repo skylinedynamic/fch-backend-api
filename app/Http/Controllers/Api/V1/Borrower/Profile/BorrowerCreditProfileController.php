@@ -9,15 +9,20 @@ use App\Http\Resources\Borrower\Profile\BorrowerCreditProfileResource;
 use App\Services\Borrower\Profile\CreditAuthorizationConsentService;
 use App\Mail\Borrower\UpdateCreditProfileRequestMail;
 use App\Models\Borrower\BorrowerCreditProfile;
-use App\Models\Borrower\CreditProfileRequest;
+use App\Services\Borrower\Profile\CreditProfileRequestService;
 use App\Models\Partner\Partner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Notification\Notifier;
 
 class BorrowerCreditProfileController extends Controller
 {
+    public function __construct(private readonly CreditProfileRequestService $creditProfileRequests)
+    {
+    }
+
     public function show(): JsonResponse
     {
         try {
@@ -62,13 +67,21 @@ class BorrowerCreditProfileController extends Controller
                 return ApiResponse::error(__('credit_profile_request.credit_profile_not_found'), 404);
             }
 
-            // An update is a new pull, so it gets its own evidence row. No
-            // credit_profile_requests row is created here, which is why the
-            // consent records that link as nullable.
-            app(CreditAuthorizationConsentService::class)->record(
-                (int) $user->entity_id,
-                $request
-            );
+            // The update is the borrower's credit profile request, brought to the
+            // top of the Request Credit Profile list - or opened from their
+            // profile when they never submitted the form. Then its evidence: an
+            // update is a new pull, so it gets its own consent row, tied to it.
+            $creditProfileRequest = DB::transaction(function () use ($user, $request, $creditProfile) {
+                $creditProfileRequest = $this->creditProfileRequests->requestUpdate($creditProfile->borrower);
+
+                app(CreditAuthorizationConsentService::class)->record(
+                    (int) $user->entity_id,
+                    $request,
+                    $creditProfileRequest->id
+                );
+
+                return $creditProfileRequest;
+            });
 
             // Fetch host partner and send them the update request email.
             // Catch \Throwable (not \Exception - a \TypeError from a misconfigured
@@ -79,16 +92,14 @@ class BorrowerCreditProfileController extends Controller
             $host = Partner::where('is_host', 1)->first();
             if ($host) {
                 try {
-                    $creditProfileRequest = CreditProfileRequest::where('borrower_id', $user->entity_id)->first();
-                    $borrower = $creditProfileRequest?->borrower ?? $creditProfile->borrower;
+                    $borrower = $creditProfile->borrower;
 
-                    // The bell opens the borrower's request, like the first
-                    // request's does. A report saved without one has no request
-                    // page (the link falls back to the list) and no request mail.
+                    // The bell and the mail open the borrower's request, like
+                    // the first request's do.
                     app(Notifier::class)->send('host.credit_profile.update_requested', $host, [
-                        'id' => $creditProfileRequest?->id,
+                        'id' => $creditProfileRequest->id,
                         'borrower' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name),
-                    ], mail: $host->email && $creditProfileRequest
+                    ], mail: $host->email
                         ? (new UpdateCreditProfileRequestMail($creditProfileRequest))->to($host->email)
                         : null);
                 } catch (\Throwable $mailException) {
