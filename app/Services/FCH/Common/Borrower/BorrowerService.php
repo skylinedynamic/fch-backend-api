@@ -251,6 +251,14 @@ class BorrowerService
                 $sortOrder
             );
             $skipSorting = true;
+        } elseif ($sortField === 'full_name') {
+            // full_name is an accessor (first/middle/last), not a column, so
+            // ordering by it directly is an SQL error. Order by its parts in the
+            // order the name is displayed.
+            $query->orderBy('borrowers.first_name', $sortOrder)
+                ->orderBy('borrowers.middle_name', $sortOrder)
+                ->orderBy('borrowers.last_name', $sortOrder);
+            $skipSorting = true;
         } elseif ($sortField === 'current_tier_name') {
             $query->orderBy(
                 Tier::select('name')

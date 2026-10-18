@@ -126,7 +126,9 @@ class FundingRequestService
 
         $isHost = $authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 1);
 
-        $review = FundingRequest::with(['borrower', 'fundingSequence', 'partner', 'fundingApplication'])
+        // borrower.borrowerDocuments: documents_with_urls lists the uploaded files
+        // from these; without them every document showed as "Not Uploaded".
+        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence', 'partner', 'fundingApplication'])
             ->where('id', $id)
             ->when(!$isHost && isset($authUser->partner), function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
