@@ -22,9 +22,9 @@ use Tests\TestCase;
  * last four digits.
  *
  * Now the screen takes the full SSN (validated by App\Rules\Ssn). The profile
- * read returns the borrower's own SSN for the screen to mask, leaving it out of
- * a save keeps what is on file, and it is required only while no full SSN is on
- * file.
+ * read returns the borrower's own SSN for the screen to mask and send back with
+ * every save, and it is required on every save - a save without it is refused
+ * and changes nothing.
  */
 class BorrowerProfileSsnTest extends TestCase
 {
@@ -151,14 +151,28 @@ class BorrowerProfileSsnTest extends TestCase
      * Defect: every profile save wrote the last four digits over the full SSN.
      */
     #[Test]
-    public function saving_the_profile_without_an_ssn_keeps_the_full_one_on_file(): void
+    public function saving_the_profile_keeps_the_full_ssn_it_sends_back(): void
     {
         $this->borrower->update(['ssn' => '123-45-6789']);
 
-        $this->save(['first_name' => 'Craigory'])->assertOk();
+        $this->save(['first_name' => 'Craigory', 'ssn' => '123-45-6789'])->assertOk();
 
         $borrower = $this->borrower->fresh();
         $this->assertSame('Craigory', $borrower->first_name);
+        $this->assertSame('123456789', $borrower->ssn);
+    }
+
+    #[Test]
+    public function the_ssn_is_required_even_with_a_full_one_on_file(): void
+    {
+        $this->borrower->update(['ssn' => '123-45-6789']);
+
+        $this->save(['first_name' => 'Craigory'])->assertUnprocessable()->assertJsonValidationErrors('ssn');
+        $this->save(['first_name' => 'Craigory', 'ssn' => ''])->assertUnprocessable()->assertJsonValidationErrors('ssn');
+
+        // Refused, nothing changed.
+        $borrower = $this->borrower->fresh();
+        $this->assertNotSame('Craigory', $borrower->first_name);
         $this->assertSame('123456789', $borrower->ssn);
     }
 
@@ -167,7 +181,7 @@ class BorrowerProfileSsnTest extends TestCase
     {
         $this->borrower->update(['ssn' => '123-45-6789']);
 
-        $this->save(['last_4_ssn' => '9999'])->assertOk();
+        $this->save(['ssn' => '123-45-6789', 'last_4_ssn' => '9999'])->assertOk();
 
         $this->assertSame('123456789', $this->borrower->fresh()->ssn);
     }
