@@ -290,6 +290,36 @@ class FundingApplicationPdfTest extends TestCase
         $this->assertStringStartsWith('%PDF', $pdf);
     }
 
+    // -- Additional funding types ----------------------------------------------
+
+    #[Test]
+    public function the_additional_funding_types_are_written_out_in_the_pdf_itself(): void
+    {
+        // Read back from the rendered PDF, not the HTML: what the download holds.
+        $application = $this->application($this->host, [
+            'preferred_funding_type' => 'Term Loan',
+            'additional_funding_types' => json_encode(['SBA Loan', 'Hard Money / Bridge Loan', 'Invoice Factoring']),
+        ]);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.funding-application', array_merge(
+            ['application' => $application],
+            FundingApplicationDocumentService::getBrandingData($application)
+        ))->output();
+        $text = preg_replace('/\s+/', ' ', (new \Smalot\PdfParser\Parser())->parseContent($pdf)->getText());
+
+        $this->assertStringContainsString('Additional Funding Types SBA Loan, Hard Money / Bridge Loan, Invoice Factoring', $text);
+    }
+
+    #[Test]
+    public function no_additional_funding_types_reads_as_not_applicable(): void
+    {
+        $text = preg_replace('/\s+/', ' ', strip_tags($this->pdfHtml($this->application($this->host, [
+            'additional_funding_types' => null,
+        ]))));
+
+        $this->assertStringContainsString('Additional Funding Types N/A', $text);
+    }
+
     // -- SSN ------------------------------------------------------------------
 
     #[Test]
