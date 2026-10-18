@@ -11,6 +11,7 @@ use App\Http\Resources\FCH\Common\Setting\MailConfigurationResource;
 use App\Models\Partner\Partner;
 use App\Models\Setting\MailConfiguration;
 use App\Models\User\User;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\FCH\Common\Setting\MailConfigurationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,15 +19,17 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
 /**
- * Settings > Email Configuration > Fallback: the one mail configuration every
- * partner without a verified default sends through. Only the host partner's
+ * Settings > Email Configuration > Fallback: the mail configuration every
+ * partner without a verified default sends through - one per provider, sent
+ * with its verified default, exactly like a partner's own. Only the host partner's
  * own account (entity_type Partner) - not its employees, nor any other
  * partner - may see or change it.
  */
 class FallbackMailConfigurationController extends Controller implements HasMiddleware
 {
     public function __construct(
-        protected MailConfigurationService $service
+        protected MailConfigurationService $service,
+        protected EmailConfigurationService $resolver,
     ) {
     }
 
@@ -54,22 +57,35 @@ class FallbackMailConfigurationController extends Controller implements HasMiddl
 
     public function index(): JsonResponse
     {
-        return ApiResponse::success($this->payload($this->service->fallback()), __('mail_config.retrieved'));
+        return ApiResponse::success([
+            'configurations' => MailConfigurationResource::collection($this->service->fallbacks()),
+            'providers' => $this->service->providerOptions(),
+            // The one mail goes out with now: the verified default, else
+            // another verified provider; null when none can send.
+            'sending_id' => $this->resolver->fallbackConfiguration()?->id,
+        ], __('mail_config.retrieved'));
     }
 
     public function store(SaveMailConfigurationRequest $request): JsonResponse
     {
         $config = $this->service->save(null, $request->validated());
 
-        return ApiResponse::success($this->payload($config), __('mail_config.saved'));
+        return ApiResponse::success(new MailConfigurationResource($config), __('mail_config.saved'));
     }
 
-    public function sendCode(): JsonResponse
+    public function makeDefault(int $mailConfiguration): JsonResponse
+    {
+        $config = $this->service->makeDefault($this->find($mailConfiguration));
+
+        return ApiResponse::success(new MailConfigurationResource($config), __('mail_config.default_set'));
+    }
+
+    public function sendCode(int $mailConfiguration): JsonResponse
     {
         $user = auth()->user();
 
         try {
-            $this->service->sendCode($this->fallbackOrFail(), $user);
+            $this->service->sendCode($this->find($mailConfiguration), $user);
         } catch (VerificationCodeNotSent $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
@@ -77,27 +93,16 @@ class FallbackMailConfigurationController extends Controller implements HasMiddl
         return ApiResponse::success(null, __('mail_config.code_sent', ['email' => $user->email]));
     }
 
-    public function verify(VerifyMailConfigurationRequest $request): JsonResponse
+    public function verify(VerifyMailConfigurationRequest $request, int $mailConfiguration): JsonResponse
     {
-        $config = $this->service->verify($this->fallbackOrFail(), $request->validated('code'), auth()->user());
+        $config = $this->service->verify($this->find($mailConfiguration), $request->validated('code'), auth()->user());
 
-        return ApiResponse::success($this->payload($config), __('mail_config.verified'));
+        return ApiResponse::success(new MailConfigurationResource($config), __('mail_config.verified'));
     }
 
-    private function payload(?MailConfiguration $config): array
+    /** One of the fallback's configurations; a partner's own is not found. */
+    private function find(int $id): MailConfiguration
     {
-        return [
-            'configuration' => $config ? new MailConfigurationResource($config) : null,
-            'providers' => $this->service->providerOptions(),
-        ];
-    }
-
-    private function fallbackOrFail(): MailConfiguration
-    {
-        $fallback = $this->service->fallback();
-
-        abort_if(!$fallback, 404, __('mail_config.not_complete'));
-
-        return $fallback;
+        return MailConfiguration::fallback()->findOrFail($id);
     }
 }

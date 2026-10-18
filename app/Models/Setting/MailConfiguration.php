@@ -89,6 +89,12 @@ class MailConfiguration extends Model
         return $query->where('partner_id', $partnerId);
     }
 
+    /** A partner's own configurations, or - with no partner - the fallback's. */
+    public function scopeOwnedBy(Builder $query, ?int $partnerId): Builder
+    {
+        return $partnerId === null ? $query->whereNull('partner_id') : $query->where('partner_id', $partnerId);
+    }
+
     public function isFallback(): bool
     {
         return $this->partner_id === null;

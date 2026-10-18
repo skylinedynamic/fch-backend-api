@@ -24,6 +24,7 @@ class DocumentService
 
         return BorrowerDocument::query()
             ->ownedBy($borrowerId)
+            ->withoutCreditReports()
             ->orderByDesc('created_at')
             ->get()
             ->groupBy('document_type_id');

@@ -117,6 +117,8 @@ class LegacyEmailConfigurationImporter
                 'from_address' => $this->text($values['from_address'] ?? null),
                 'bcc_emails' => $this->text($values['bcc_emails'] ?? null),
                 'credentials' => $credentials,
+                // The fallback's only provider: the one it sends with once verified.
+                'is_default' => true,
             ]);
 
             if (!$fallback->isUsable()) {

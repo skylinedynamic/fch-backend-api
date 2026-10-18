@@ -28,15 +28,18 @@ class MailConfigurationController extends Controller
     public function index(): JsonResponse
     {
         $partnerId = $this->partnerId();
-        $fallback = $this->service->fallback();
+        $fallbackSending = $this->resolver->fallbackConfiguration();
 
         return ApiResponse::success([
             'configurations' => MailConfigurationResource::collection($this->service->forPartner($partnerId)),
             'providers' => $this->service->providerOptions(),
             'uses_own_configuration' => $this->resolver->usesOwnConfiguration($partnerId),
             'fallback' => [
-                'is_configured' => $fallback !== null,
-                'is_verified' => $fallback !== null && $fallback->isVerified() && $fallback->isUsable(),
+                'is_configured' => MailConfiguration::fallback()->exists(),
+                // Whether any fallback provider can send right now.
+                'is_verified' => $fallbackSending !== null,
+                // The address mail goes out from while a partner has none of its own.
+                'from_address' => $fallbackSending?->from_address,
             ],
             'can_manage_fallback' => FallbackMailConfigurationController::canManage(auth()->user()),
         ], __('mail_config.retrieved'));

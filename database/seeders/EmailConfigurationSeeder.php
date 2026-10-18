@@ -29,8 +29,9 @@ class EmailConfigurationSeeder extends Seeder
             ],
         ];
 
-        $fallback = MailConfiguration::fallback()->first() ?? new MailConfiguration(['partner_id' => null]);
-        $this->saveVerified($fallback->fill($smtp));
+        $fallback = MailConfiguration::fallback()->where('provider', MailConfiguration::PROVIDER_SMTP)->first()
+            ?? new MailConfiguration(['partner_id' => null]);
+        $this->saveVerified($fallback->fill($smtp + ['is_default' => true]));
 
         $own = MailConfiguration::forPartner($hostId)->where('provider', MailConfiguration::PROVIDER_SMTP)->first()
             ?? new MailConfiguration(['partner_id' => $hostId]);

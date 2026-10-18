@@ -17,9 +17,11 @@ use App\Models\Setting\MailConfiguration;
  *   1. The partner's default provider - once verified. A configuration is only
  *      trusted after a code sent through it came back, and only for the exact
  *      settings that sent it (see MailConfiguration::isVerified()).
- *   2. The one platform-wide fallback, kept by the host partner - once
- *      verified too. Every partner without a verified default sends through
- *      it, the host included.
+ *   2. The platform-wide fallback, kept by the host partner - its verified
+ *      default, or failing that any of its providers that is verified: it is
+ *      the last resort, so it would rather send through a verified SMTP than
+ *      nothing at all. Every partner without a verified default sends
+ *      through it, the host included.
  *
  * Managing the settings themselves is MailConfigurationService.
  */
@@ -37,9 +39,20 @@ class EmailConfigurationService
             return $own;
         }
 
-        $fallback = MailConfiguration::fallback()->first();
+        return $this->fallbackConfiguration();
+    }
 
-        return $fallback && $this->canSend($fallback) ? $fallback : null;
+    /**
+     * The fallback configuration mail goes out with, if any can send: the
+     * default first, then the others in provider order.
+     */
+    public function fallbackConfiguration(): ?MailConfiguration
+    {
+        $order = array_flip(array_keys(MailConfiguration::providers()));
+
+        return MailConfiguration::fallback()->get()
+            ->sortBy(fn (MailConfiguration $config) => [$config->is_default ? 0 : 1, $order[$config->provider] ?? PHP_INT_MAX])
+            ->first(fn (MailConfiguration $config) => $this->canSend($config));
     }
 
     /**

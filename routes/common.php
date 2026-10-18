@@ -193,8 +193,13 @@ Route::prefix('v1')->group(function () {
             Route::get('borrowers/{id}/business-financials', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Credit Profile routes — must be before wildcard borrowers/{id}
-            Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
-            Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
+            // Uploading, saving and removing it: the host partner's team only.
+            Route::middleware('host-partner')->group(function () {
+                Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
+                Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
+                Route::delete('borrowers/{borrowerId}/credit-profile', [BorrowerController::class, 'deleteCreditProfile'])
+                    ->whereNumber('borrowerId');
+            });
             Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
 
             // The PDF sent to iSoftPull when they ask us to prove a client
@@ -485,8 +490,9 @@ Route::prefix('v1')->group(function () {
                 Route::prefix('fallback')->controller(FallbackMailConfigurationController::class)->group(function () {
                     Route::get('/', 'index');
                     Route::post('/', 'store');
-                    Route::post('/send-code', 'sendCode');
-                    Route::post('/verify', 'verify')->middleware('throttle:20,1');
+                    Route::post('/{mailConfiguration}/default', 'makeDefault')->whereNumber('mailConfiguration');
+                    Route::post('/{mailConfiguration}/send-code', 'sendCode')->whereNumber('mailConfiguration');
+                    Route::post('/{mailConfiguration}/verify', 'verify')->whereNumber('mailConfiguration')->middleware('throttle:20,1');
                 });
 
                 Route::middleware('permission:update email configuration settings')

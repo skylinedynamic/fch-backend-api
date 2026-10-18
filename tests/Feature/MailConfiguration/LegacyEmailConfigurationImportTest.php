@@ -137,6 +137,8 @@ class LegacyEmailConfigurationImportTest extends TestCase
         // The host verifies it with a code like any other configuration.
         $this->assertFalse($fallback->isVerified());
         $this->assertNull($fallback->verified_at);
+        // The only fallback provider, so the one it sends with once verified.
+        $this->assertTrue($fallback->is_default);
 
         // The host's own settings are moved like anyone else's, unverified.
         $this->assertFalse(MailConfiguration::where('partner_id', $this->host->id)->where('provider', 'smtp')->sole()->isVerified());

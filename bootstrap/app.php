@@ -65,6 +65,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'partner' => \App\Http\Middleware\PartnerMiddleware::class,
             'borrower' => \App\Http\Middleware\BorrowerMiddleware::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'host-partner' => \App\Http\Middleware\EnsureHostPartner::class,
 
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

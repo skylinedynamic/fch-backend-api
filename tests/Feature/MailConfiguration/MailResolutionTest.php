@@ -106,6 +106,37 @@ class MailResolutionTest extends TestCase
     }
 
     #[Test]
+    public function the_fallback_sends_with_its_verified_default_while_a_new_provider_is_unverified(): void
+    {
+        // Switching the fallback to SES: until SES is verified and chosen, mail
+        // keeps going out through the verified SMTP default.
+        $this->markVerified($this->smtpConfig(null, ['is_default' => true]));
+        $this->sesConfig(null);
+
+        $this->assertSame('smtp.fallback.test', $this->service->resolveFor($this->whiteLabel->id)->smtp_host);
+    }
+
+    #[Test]
+    public function the_fallback_sends_with_its_chosen_default(): void
+    {
+        $this->markVerified($this->smtpConfig(null));
+        $this->markVerified($this->sesConfig(null, ['is_default' => true]));
+
+        $this->assertSame('AKIAFALLBACK', $this->service->resolveFor($this->whiteLabel->id)->aws_access_key);
+    }
+
+    #[Test]
+    public function an_unverified_fallback_default_gives_way_to_another_verified_fallback_provider(): void
+    {
+        // The fallback is the last resort: rather than send nothing, it uses any
+        // of its providers that is verified.
+        $this->smtpConfig(null, ['is_default' => true]);
+        $this->markVerified($this->sesConfig(null));
+
+        $this->assertSame('AKIAFALLBACK', $this->service->resolveFor($this->whiteLabel->id)->aws_access_key);
+    }
+
+    #[Test]
     public function nothing_configured_resolves_to_nothing(): void
     {
         $this->assertNull($this->service->resolveFor($this->whiteLabel->id));

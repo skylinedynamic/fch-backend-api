@@ -31,21 +31,36 @@ class MailConfigurationService
      */
     public function forPartner(int $partnerId): Collection
     {
+        return $this->ownedBy($partnerId);
+    }
+
+    /**
+     * The platform fallback's providers. Like a partner, it keeps one
+     * configuration per provider and sends with its verified default.
+     *
+     * @return Collection<int, MailConfiguration>
+     */
+    public function fallbacks(): Collection
+    {
+        return $this->ownedBy(null);
+    }
+
+    /**
+     * @return Collection<int, MailConfiguration>
+     */
+    private function ownedBy(?int $partnerId): Collection
+    {
         $order = array_flip(array_keys(MailConfiguration::providers()));
 
-        return MailConfiguration::forPartner($partnerId)->get()
+        return MailConfiguration::ownedBy($partnerId)->get()
             ->sortBy(fn (MailConfiguration $config) => $order[$config->provider] ?? PHP_INT_MAX)
             ->values();
     }
 
-    public function fallback(): ?MailConfiguration
-    {
-        return MailConfiguration::fallback()->first();
-    }
-
     /**
-     * Saves one provider's settings for a partner, or - with no partner - the
-     * fallback, which is a single row whatever its provider.
+     * Saves one provider's settings for a partner, or - with no partner - for
+     * the fallback. Each provider is its own configuration, so saving one never
+     * touches another's settings, verification or default.
      *
      * A secret sent back masked or empty keeps the stored one, so the form never
      * has to hold the real password. Changing anything that decides how mail is
@@ -59,12 +74,10 @@ class MailConfigurationService
     {
         $provider = $data['provider'];
 
-        $config = $partnerId === null
-            ? ($this->fallback() ?? new MailConfiguration(['partner_id' => null]))
-            : (MailConfiguration::forPartner($partnerId)->where('provider', $provider)->first()
-                ?? new MailConfiguration(['partner_id' => $partnerId, 'provider' => $provider]));
+        $config = MailConfiguration::ownedBy($partnerId)->where('provider', $provider)->first()
+            ?? new MailConfiguration(['partner_id' => $partnerId, 'provider' => $provider]);
 
-        $stored = $config->provider === $provider ? ($config->credentials ?? []) : [];
+        $stored = $config->credentials ?? [];
         $credentials = [];
         $missing = [];
 
@@ -135,7 +148,7 @@ class MailConfigurationService
         }
 
         DB::transaction(function () use ($config) {
-            MailConfiguration::forPartner($config->partner_id)
+            MailConfiguration::ownedBy($config->partner_id)
                 ->whereKeyNot($config->id)
                 ->update(['is_default' => false]);
 
@@ -199,7 +212,8 @@ class MailConfigurationService
 
     /**
      * Checks a code. The right one, for the settings it was sent through, marks
-     * them verified; a partner's first verified provider becomes its default.
+     * them verified; the first verified provider - a partner's, or the
+     * fallback's - becomes its default.
      *
      * @throws ValidationException when the code is wrong, used up or expired
      */
@@ -237,7 +251,7 @@ class MailConfigurationService
             'verified_to' => $entry['email'],
         ]);
 
-        if (!$config->isFallback() && !MailConfiguration::forPartner($config->partner_id)->where('is_default', true)->exists()) {
+        if (!MailConfiguration::ownedBy($config->partner_id)->where('is_default', true)->exists()) {
             $config->is_default = true;
         }
 

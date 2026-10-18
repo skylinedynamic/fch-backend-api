@@ -38,11 +38,16 @@ class DashboardService
         $data = [];
 
         // Counts
+        $totalRequested = $borrower->fundingApplications->sum('requested_amount');
+        $totalFunded = $borrower->fundingApplications->sum('total_funded_amount');
         $data['states'] = [
             'funding_applications' => $borrower->fundingApplications->where('status','!=',FundingApplication::ON_HOLD)->count(),
             'funding_requests' => $borrower->fundingRequests->where('status','!=', \App\Models\FundingRequest\FundingRequest::STATUS_CANCELED)->count(),
-            'total_requested_amount' => $borrower->fundingApplications->sum('requested_amount'),
-            'total_funded_amount' => $borrower->fundingApplications->sum('total_funded_amount'),
+            'total_requested_amount' => $totalRequested,
+            'total_funded_amount' => $totalFunded,
+            // As the top cards show them: $37.2M, $45,000.
+            'total_requested_amount_formatted' => formatCompactCurrency($totalRequested),
+            'total_funded_amount_formatted' => formatCompactCurrency($totalFunded),
         ];
         
         // Latest Funding Applications

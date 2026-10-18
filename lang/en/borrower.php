@@ -194,4 +194,12 @@ return [
         'subject_account_created_trial' => 'Welcome to :company - Limited Free Plan',
         'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',
     ],
+
+    // Client > Credit Profile: uploading, saving and removing it.
+    'host_partner_only' => "Only the host partner can change a client's credit profile.",
+    'credit_profile_removed' => 'Credit profile data removed.',
+    'credit_profile_not_found' => 'This client has no credit profile to remove.',
+    'logs' => [
+        'credit_profile_removed' => 'Client credit profile removed.',
+    ],
 ];

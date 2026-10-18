@@ -1000,6 +1000,7 @@ class BorrowerService
 
         $documents = BorrowerDocument::with('documentType')
             ->where('borrower_id', $borrowerId)
+            ->withoutCreditReports()
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($doc) {
