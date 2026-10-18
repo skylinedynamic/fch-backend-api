@@ -140,13 +140,31 @@ class Borrower extends Model
     }
 
     /**
-     * Legacy mutator: callers that only ever send the last 4 digits (the
-     * borrower's own self-service profile form still does) still work —
+     * Whether the full nine-digit SSN is on file - not nothing, and not just
+     * the last four digits rows from before the full SSN was collected hold.
+     */
+    public function hasFullSsn(): bool
+    {
+        return strlen((string) $this->ssn) === \App\Rules\Ssn::digits();
+    }
+
+    /**
+     * Legacy mutator: callers that only ever send the last 4 digits (the admin
+     * borrower form, last-4 change requests, lead conversion) still work —
      * encrypted the same way, just without the leading 5 digits.
+     *
+     * Those callers send the last four back on every save, so the same last
+     * four as the SSN on file is no change: writing it would replace a full SSN
+     * with its last four digits.
      */
     public function setLast4SsnAttribute(?string $value): void
     {
         $digits = preg_replace('/\D/', '', (string) $value);
+
+        if ($digits !== '' && $digits === $this->last_4_ssn) {
+            return;
+        }
+
         $this->attributes['ssn_encrypted'] = $digits === ''
             ? null
             : \Illuminate\Support\Facades\Crypt::encryptString($digits);

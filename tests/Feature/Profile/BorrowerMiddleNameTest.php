@@ -84,7 +84,7 @@ class BorrowerMiddleNameTest extends TestCase
             'city' => 'Austin',
             'zip_code' => '78701',
             'home_address' => '100 Congress Ave',
-            'last_4_ssn' => '1234',
+            'ssn' => '123-45-6789',
             'date_of_birth' => '1985-04-12',
         ], $overrides);
     }

@@ -9,7 +9,9 @@ use App\Mail\Borrower\CreditProfileRequestMail;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Notifications\DynamicNotification;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Passport\Passport;
@@ -97,6 +99,12 @@ class StoreCreditProfileRequestTest extends TestCase
         ], $overrides);
     }
 
+    /** The SSN on the borrower's stored request, as the app reads it. */
+    private function storedSsn(): ?string
+    {
+        return CreditProfileRequest::where('borrower_id', $this->borrower->id)->firstOrFail()->ssn;
+    }
+
     private function submit(array $overrides = [])
     {
         return $this->postJson(
@@ -151,10 +159,7 @@ class StoreCreditProfileRequestTest extends TestCase
     {
         $this->submit(['ssn' => '123-45-6789'])->assertOk();
 
-        $this->assertDatabaseHas('credit_profile_requests', [
-            'borrower_id' => $this->borrower->id,
-            'ssn' => '123456789',
-        ]);
+        $this->assertSame('123456789', $this->storedSsn());
     }
 
     #[Test]
@@ -258,5 +263,170 @@ class StoreCreditProfileRequestTest extends TestCase
             'borrower_id' => $this->borrower->id,
             'city' => 'Austin',
         ]);
+    }
+
+    #[Test]
+    public function resubmitting_returns_the_same_request(): void
+    {
+        $first = $this->submit()->assertOk()->json('data.id');
+        $second = $this->submit(['city' => 'Austin'])->assertOk()->json('data.id');
+
+        $this->assertSame($first, $second);
+    }
+
+    #[Test]
+    public function a_soft_deleted_request_is_brought_back_rather_than_duplicated(): void
+    {
+        // The lookup used to skip soft-deleted rows, so the next submission
+        // added a second row beside the deleted one.
+        $id = $this->submit()->assertOk()->json('data.id');
+        CreditProfileRequest::findOrFail($id)->delete();
+
+        $this->submit(['city' => 'Austin'])->assertOk()->assertJsonPath('data.id', $id);
+
+        $this->assertSame(1, CreditProfileRequest::withTrashed()->where('borrower_id', $this->borrower->id)->count());
+        $restored = CreditProfileRequest::findOrFail($id);
+        $this->assertNull($restored->deleted_at);
+        $this->assertSame('Austin', $restored->city);
+    }
+
+    #[Test]
+    public function an_unchanged_resubmission_still_counts_as_the_latest_request(): void
+    {
+        // The list shows the latest request first by updated_at, so a borrower
+        // who submits the very same details again must still come to the top.
+        Carbon::setTestNow('2026-10-01 09:00:00');
+        $id = $this->submit()->assertOk()->json('data.id');
+
+        Carbon::setTestNow('2026-10-15 09:00:00');
+        $this->submit()->assertOk();
+        Carbon::setTestNow();
+
+        $this->assertSame('2026-10-15 09:00:00', CreditProfileRequest::findOrFail($id)->updated_at->format('Y-m-d H:i:s'));
+    }
+
+    #[Test]
+    public function the_database_holds_one_request_per_borrower(): void
+    {
+        // Enforced by a unique index, not only by the lookup: two submissions
+        // arriving together can no longer both insert.
+        $this->submit()->assertOk();
+
+        $this->expectException(UniqueConstraintViolationException::class);
+
+        CreditProfileRequest::create($this->rowFor($this->borrower->id));
+    }
+
+    #[Test]
+    public function a_resubmission_notifies_the_host_again(): void
+    {
+        $this->submit()->assertOk();
+        $this->submit(['city' => 'Austin'])->assertOk();
+
+        Mail::assertQueued(CreditProfileRequestMail::class, 2);
+    }
+
+    #[Test]
+    public function the_hosts_bell_notification_is_also_pushed_in_realtime(): void
+    {
+        // "Push" is the broadcast channel (Reverb): the bell updates without a
+        // reload. The type's channels decide it, so this pins them.
+        Notification::fake();
+        $hostLogin = User::create([
+            'name' => 'Host Owner',
+            'email' => 'owner@example.test',
+            'password' => bcrypt('password'),
+            'user_type' => User::PARTNER,
+            'partner_id' => $this->borrower->partner_id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->borrower->partner_id,
+        ]);
+
+        $this->submit()->assertOk();
+
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.credit_profile.requested'
+            && in_array('database', $n->via($hostLogin), true)
+            && in_array('broadcast', $n->via($hostLogin), true));
+    }
+
+    /** A complete row for the table, as the service would write it. */
+    private function rowFor(int $borrowerId): array
+    {
+        return ['borrower_id' => $borrowerId] + collect($this->payload())
+            ->except(['credit_authorization_accepted', 'e_consent_accepted'])
+            ->all();
+    }
+
+    // -- the SSN on the borrower's profile as the default --------------------
+
+    /**
+     * The profile already holds the borrower's full SSN, and the form shows it
+     * masked as the default - the browser never has the number to send back. An
+     * SSN left out of the request is the one on the profile.
+     */
+    #[Test]
+    public function without_an_ssn_the_one_on_the_profile_is_used(): void
+    {
+        $this->borrower->update(['ssn' => '234-56-7890']);
+
+        $this->submit(['ssn' => null])->assertOk();
+
+        $this->assertSame('234567890', $this->storedSsn());
+    }
+
+    #[Test]
+    public function a_typed_ssn_wins_over_the_one_on_the_profile(): void
+    {
+        $this->borrower->update(['ssn' => '234-56-7890']);
+
+        $this->submit(['ssn' => '123-45-6789'])->assertOk();
+
+        $this->assertSame('123456789', $this->storedSsn());
+    }
+
+    #[Test]
+    public function the_ssn_is_required_without_a_full_one_on_the_profile(): void
+    {
+        $this->submit(['ssn' => null])->assertStatus(422)->assertJsonValidationErrors('ssn');
+
+        // Only the last four on file is not enough to pull credit on.
+        $this->borrower->update(['last_4_ssn' => '7890']);
+        $this->submit(['ssn' => null])->assertStatus(422)->assertJsonValidationErrors('ssn');
+
+        $this->assertDatabaseMissing('credit_profile_requests', ['borrower_id' => $this->borrower->id]);
+    }
+
+    /**
+     * Defect (D10): the SSN a credit pull is keyed on was stored in plain text,
+     * and GLBA's Safeguards Rule expects it encrypted at rest. The app still
+     * reads the nine digits; the column only ever holds ciphertext.
+     */
+    #[Test]
+    public function the_ssn_is_encrypted_at_rest(): void
+    {
+        $this->submit(['ssn' => '123-45-6789'])->assertOk();
+
+        $raw = \Illuminate\Support\Facades\DB::table('credit_profile_requests')->where('borrower_id', $this->borrower->id)->value('ssn');
+        $this->assertStringNotContainsString('123456789', (string) $raw);
+        $this->assertSame('123456789', \Illuminate\Support\Facades\Crypt::decryptString($raw));
+        $this->assertSame('123456789', $this->storedSsn());
+    }
+
+    #[Test]
+    public function requests_stored_before_are_encrypted_by_the_migration(): void
+    {
+        $id = \Illuminate\Support\Facades\DB::table('credit_profile_requests')->insertGetId([
+            'borrower_id' => $this->borrower->id, 'first_name' => 'Odessa', 'last_name' => 'Mccall',
+            'address' => '1 Main St', 'city' => 'Austin', 'state' => 'Texas', 'zip' => '78701',
+            'ssn' => '123456789', 'date_of_birth' => '1986-09-01', 'phone' => '5125550100',
+            'email' => 'odessa@example.test', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $migration = require database_path('migrations/2026_10_12_000000_encrypt_credit_profile_requests_ssn.php');
+
+        $migration->up();
+        $migration->up(); // run twice: an already-encrypted value is left alone
+
+        $raw = \Illuminate\Support\Facades\DB::table('credit_profile_requests')->where('id', $id)->value('ssn');
+        $this->assertSame('123456789', \Illuminate\Support\Facades\Crypt::decryptString($raw));
     }
 }

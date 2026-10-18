@@ -46,8 +46,13 @@ class ProfileService
                 // unguarded turned a blank optional field into a 500.
                 'home_phone' => $data['home_phone'] ?? null,
                 'date_of_birth' => $data['date_of_birth'],
-                'last_4_ssn' => $data['last_4_ssn'],
             ];
+
+            // Left blank, the SSN on file stays: the form never receives the
+            // full number back, so it has nothing to resend.
+            if (!empty($data['ssn'])) {
+                $updateData['ssn'] = $data['ssn'];
+            }
 
             // Update the borrower — via a fetched model instance (not a bulk
             // Borrower::where(...)->update()) so the last_4_ssn/ssn accessors

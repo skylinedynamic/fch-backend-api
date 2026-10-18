@@ -54,7 +54,7 @@ class FundingApplicationResource extends JsonResource
             'number_of_employees' => $this->number_of_employees,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
-            'date_of_birth' => $this->date_of_birth ? $this->date_of_birth->format('d M Y') : null,
+            'date_of_birth' => toDateOnly($this->date_of_birth, 'd M Y'),
             'ssn' => $this->ssn,
             'citizenship_status' => $this->citizenship_status,
             'street_address' => $this->street_address,

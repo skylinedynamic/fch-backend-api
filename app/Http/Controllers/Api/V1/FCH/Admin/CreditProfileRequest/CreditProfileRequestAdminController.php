@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\FCH\CreditProfileRequest\CreditProfileRequestResource;
 use App\Models\Borrower\CreditProfileRequest;
 use App\Models\CreditAuthorization\CreditAuthorizationConsent;
 use Illuminate\Http\Request;
@@ -13,6 +14,9 @@ use Illuminate\Support\Facades\Log;
 
 class CreditProfileRequestAdminController extends Controller
 {
+    /** Columns the Request Credit Profile list may sort on. */
+    private const SORTABLE = ['id', 'first_name', 'email', 'phone', 'created_at', 'updated_at'];
+
     /**
      * List credit profile requests with filters and pagination.
      */
@@ -22,7 +26,17 @@ class CreditProfileRequestAdminController extends Controller
             $perPage = $request->input('per_page', 15);
             $search = $request->input('search');
 
-            $query = CreditProfileRequest::with('borrower')->orderBy('created_at', 'desc');
+            // Latest request first by default. A borrower's request is updated in
+            // place when they submit again, so "latest" is updated_at, not
+            // created_at. Only the list's own columns may be sorted on.
+            // An unknown field falls back to the whole default, order included.
+            $sortable = in_array($request->input('sort_field'), self::SORTABLE, true);
+            $sortField = $sortable ? $request->input('sort_field') : 'updated_at';
+            $sortOrder = $sortable && strtolower((string) $request->input('sort_order')) === 'asc' ? 'asc' : 'desc';
+
+            $query = CreditProfileRequest::with('borrower')
+                ->orderBy($sortField, $sortOrder)
+                ->orderBy('id', 'desc');
 
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
@@ -89,7 +103,7 @@ class CreditProfileRequestAdminController extends Controller
                     : null
             );
 
-            return ApiResponse::success($creditProfileRequest, __('credit_profile_request.details_retrieved_successfully'));
+            return ApiResponse::success(new CreditProfileRequestResource($creditProfileRequest), __('credit_profile_request.details_retrieved_successfully'));
         } catch (\Exception $e) {
             Log::error(__('credit_profile_request.log_details_retrieval_failed', ['error' => $e->getMessage()]));
             return ApiResponse::serverError(__('credit_profile_request.details_retrieval_failed'));
