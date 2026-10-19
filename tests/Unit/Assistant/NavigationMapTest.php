@@ -14,13 +14,8 @@ use Tests\TestCase;
  */
 class NavigationMapTest extends TestCase
 {
-    private const PORTALS = [
-        'wlp_support' => '../Fch-admin-frontend-react/src/App.jsx',
-        'borrower_support' => '../fch-borrower-react/src/App.jsx',
-    ];
-
-    /** The WLP portal's Settings section slugs (/settings/<slug>). */
-    private const SETTINGS_SECTIONS = '../Fch-admin-frontend-react/src/config/settingsSections.ts';
+    /** The WLP portal's Settings section slugs (/settings/<slug>), relative to its src folder. */
+    private const SETTINGS_SECTIONS = 'config/settingsSections.ts';
 
     /**
      * Where each portal's checkout may sit, relative to this repo. The first
@@ -73,7 +68,7 @@ class NavigationMapTest extends TestCase
         // A Settings section (/settings/<slug>) is served by the one
         // settings/:section route; the slug must be one the portal knows.
         if ($assistant === 'wlp_support' && preg_match('#^/settings/([a-z0-9-]+)$#', $path, $m)) {
-            $sections = base_path(self::SETTINGS_SECTIONS);
+            $sections = dirname($router) . '/' . self::SETTINGS_SECTIONS;
 
             $this->assertStringContainsString('path="settings/:section"', $source, "{$router} has no settings/:section route");
             $this->assertFileExists($sections);
