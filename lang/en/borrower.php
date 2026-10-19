@@ -120,6 +120,8 @@ return [
     'create_failed' => 'Failed to create borrower.',
     'update_failed' => 'Failed to update borrower.',
     'delete_failed' => 'Failed to delete borrower(s).',
+    'delete_blocked_paid_invoice' => "This client has related records and cannot be deleted. Please change the client's status instead.",
+    'delete_blocked_paid_invoice_named' => 'Some selected clients have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',
     'fetch_failed' => 'Failed to fetch borrower details.',
     'users_fetch_failed' => 'Failed to retrieve users.',
     'document_types_fetch_failed' => 'Failed to fetch document types.',

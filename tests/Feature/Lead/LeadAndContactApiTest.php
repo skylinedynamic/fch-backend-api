@@ -157,6 +157,46 @@ class LeadAndContactApiTest extends TestCase
      * DELETE per lead; the bulk endpoint existed but had no route, and deleted
      * by id alone with no activity log (findings O19).
      */
+    /**
+     * A lead already converted to a borrower or partner is kept: the delete is
+     * refused with the reason, and nothing is touched - not the lead, not the
+     * borrower made from it, not the other selected leads.
+     */
+    #[Test]
+    public function a_converted_lead_is_not_deleted_and_the_user_is_told_why(): void
+    {
+        $converted = $this->leadOf($this->partner, ['contact_person' => 'Wanda Lead', 'convert_to' => 'Borrower', 'status' => Lead::STATUS_LEAD_COMPLETED]);
+        $borrower = $this->makeBorrower($this->partner, ['email' => $converted->email]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$converted->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This lead has already been converted and cannot be deleted.')
+            ->assertJsonPath('errors.converted', [['id' => $converted->id, 'name' => 'Wanda Lead']]);
+
+        $this->assertNotSoftDeleted($converted);
+        $this->assertNotSoftDeleted($borrower);
+    }
+
+    #[Test]
+    public function when_any_selected_lead_is_converted_none_are_deleted_and_each_converted_one_is_named(): void
+    {
+        $open = $this->leadOf($this->partner, ['contact_person' => 'Open Lead']);
+        $first = $this->leadOf($this->partner, ['contact_person' => 'Wanda Lead', 'convert_to' => 'Borrower']);
+        $second = $this->leadOf($this->partner, ['contact_person' => 'Pat Partner', 'convert_to' => 'Partner']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $response = $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$open->id, $first->id, $second->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Some selected leads have already been converted and cannot be deleted: Wanda Lead, Pat Partner. '
+                . 'Unselect them to delete the others.');
+
+        $this->assertSame(['Wanda Lead', 'Pat Partner'], array_column($response->json('errors.converted'), 'name'));
+        $this->assertNotSoftDeleted($open);
+        $this->assertNotSoftDeleted($first);
+        $this->assertNotSoftDeleted($second);
+    }
+
     #[Test]
     public function i_delete_several_of_my_leads_in_one_call(): void
     {

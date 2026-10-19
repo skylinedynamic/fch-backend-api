@@ -10,6 +10,9 @@ use App\Http\Requests\Api\V1\FCH\Admin\Lender\UpdateLenderRequest;
 use App\Http\Resources\FCH\Lender\LenderResource;
 use App\Services\FCH\Admin\Lender\LenderService;
 use App\Helpers\ApiResponse;
+use App\Exceptions\LenderInUseException;
+use App\Http\Requests\Api\V1\FCH\Admin\Lender\DeleteLendersRequest;
+use Illuminate\Support\Facades\Log;
 
 class LenderController extends Controller
 {
@@ -61,15 +64,42 @@ class LenderController extends Controller
     public function destroy($id)
     {
         $lender = Lender::findOrFail($id);
-        
-        if ($lender->visibilities()->exists()) {
-            return ApiResponse::error(__('lender.cannot_delete_has_visibilities', [
-                'default' => 'Cannot delete this Lender because it has active visibility rules in Funding Sequences. Please change its status to Inactive instead.'
-            ]), 422);
+
+        try {
+            $this->lenderService->delete($lender);
+        } catch (LenderInUseException $e) {
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
         }
 
-        $this->lenderService->delete($lender);
-
         return ApiResponse::success(null, __('lender.deleted_successfully'));
+    }
+
+    /** Delete several lenders in one call - all or none. */
+    public function multipleDelete(DeleteLendersRequest $request)
+    {
+        try {
+            $deleted = $this->lenderService->deleteMultiple($request->validated()['ids']);
+        } catch (LenderInUseException $e) {
+            // Lenders still in use are kept - say which, and change nothing.
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
+        } catch (\Exception $e) {
+            Log::error('Lender multiple delete failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('lender.delete_failed'), 400);
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], __('lender.deleted_successfully'));
+    }
+
+    /** Whether each selected lender can be deleted, and why not. */
+    public function checkDeletable(DeleteLendersRequest $request)
+    {
+        try {
+            return ApiResponse::success($this->lenderService->checkDeletable($request->validated()['ids']), __('lender.fetched_successfully'));
+        } catch (\Exception $e) {
+            Log::error('Lender deletable check failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('lender.deletable_check_failed'), 400);
+        }
     }
 }
