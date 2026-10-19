@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderProductCategoryController
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\FundingType;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
 use App\Models\Partner\Partner;
@@ -34,6 +35,11 @@ class FundingCatalogueAdminApiTest extends TestCase
 {
     use RefreshDatabase;
     use InteractsWithPortalUsers;
+
+    /** The same wording as a blocked client or partner delete. */
+    private const LENDER_BLOCKED_ONE = "This lender has related records and cannot be deleted. Please change the lender's status instead.";
+
+    private const SEQUENCE_BLOCKED_ONE = "This funding sequence has related records and cannot be deleted. Please change the funding sequence's status instead.";
 
     private Partner $host;
     private User $admin;
@@ -218,8 +224,244 @@ class FundingCatalogueAdminApiTest extends TestCase
         $data['lender_visibilities'] = [$this->visibility($lender->id, $data['funding_type_id'])];
         $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertCreated();
 
-        $this->deleteJson("/api/v1/admin/lenders/{$lender->id}")->assertUnprocessable();
+        $this->deleteJson("/api/v1/admin/lenders/{$lender->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', self::LENDER_BLOCKED_ONE);
         $this->assertNotNull($lender->fresh());
+    }
+
+    /**
+     * Defect: a lender assigned to a funding request (assign_lender) could be
+     * deleted, leaving the request pointing at a lender that is gone.
+     */
+    #[Test]
+    public function a_lender_assigned_to_a_funding_request_is_kept_and_the_user_is_told_why(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'Reagan Capital']));
+        $request = $this->fundingRequestAssignedTo($lender);
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders/check-deletable', ['ids' => [$lender->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.name', 'Reagan Capital')
+            ->assertJsonPath('data.0.reason', self::LENDER_BLOCKED_ONE);
+        $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$lender->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::LENDER_BLOCKED_ONE)
+            ->assertJsonPath('errors.blocked', [['id' => $lender->id, 'name' => 'Reagan Capital']]);
+        $this->deleteJson("/api/v1/admin/lenders/{$lender->id}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::LENDER_BLOCKED_ONE);
+
+        $this->assertNotSoftDeleted($lender);
+        $this->assertSame($lender->id, (int) $request->fresh()->assign_lender);
+    }
+
+    #[Test]
+    public function when_any_selected_lender_is_assigned_none_are_deleted_and_each_blocked_one_is_named(): void
+    {
+        $free = Lender::create($this->lender(['name' => 'Free Lender']));
+        $first = Lender::create($this->lender(['name' => 'Reagan Capital']));
+        $second = Lender::create($this->lender(['name' => 'Jessamine Funding']));
+        $this->fundingRequestAssignedTo($first);
+        $this->fundingRequestAssignedTo($second);
+        $this->actingAsUser($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$free->id, $first->id, $second->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Some selected lenders have related records and cannot be deleted: Reagan Capital, Jessamine Funding. '
+                . 'Please change their status instead, or unselect them to delete the others.');
+
+        $this->assertSame(['Reagan Capital', 'Jessamine Funding'], array_column($response->json('errors.blocked'), 'name'));
+        $this->assertNotSoftDeleted($free);
+        $this->assertNotSoftDeleted($first);
+        $this->assertNotSoftDeleted($second);
+    }
+
+    /** Only the assigned lender counts - one merely matched (lender_ids) can go. */
+    #[Test]
+    public function a_lender_only_matched_to_a_request_is_deleted(): void
+    {
+        $assigned = Lender::create($this->lender(['name' => 'Assigned Lender']));
+        $matched = Lender::create($this->lender(['name' => 'Matched Lender']));
+        $request = $this->fundingRequestAssignedTo($assigned);
+        $request->update(['lender_ids' => [$assigned->id, $matched->id]]);
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders/check-deletable', ['ids' => [$matched->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', true);
+        $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$matched->id]])->assertOk();
+
+        $this->assertSoftDeleted($matched);
+    }
+
+    /**
+     * Defect: the portal deleted a selection one lender per call, all at once -
+     * a refused lender left the others deleted. One call now deletes them all.
+     */
+    #[Test]
+    public function several_unassigned_lenders_are_deleted_in_one_call(): void
+    {
+        $first = Lender::create($this->lender(['name' => 'First Lender']));
+        $second = Lender::create($this->lender(['name' => 'Second Lender']));
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$first->id, $second->id]])
+            ->assertOk()
+            ->assertJsonPath('message', __('lender.deleted_successfully'));
+
+        $this->assertSoftDeleted($first);
+        $this->assertSoftDeleted($second);
+    }
+
+    #[Test]
+    public function deleting_lenders_needs_a_list_of_existing_ids(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders/multiple-delete', [])->assertStatus(422);
+        $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [999999]])->assertStatus(422);
+    }
+
+    /**
+     * Defect: a funding sequence used by a funding request could be deleted,
+     * leaving the request pointing at an option that is gone.
+     */
+    #[Test]
+    public function a_sequence_used_by_a_funding_request_is_kept_and_the_user_is_told_why(): void
+    {
+        $sequence = $this->sequenceNamed('SBA 7(a)');
+        $request = $this->fundingRequestOn($sequence);
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/funding-sequencings/check-deletable', ['ids' => [$sequence->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.name', 'SBA 7(a)')
+            ->assertJsonPath('data.0.reason', self::SEQUENCE_BLOCKED_ONE);
+        $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', ['ids' => [$sequence->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::SEQUENCE_BLOCKED_ONE)
+            ->assertJsonPath('errors.blocked', [['id' => $sequence->id, 'name' => 'SBA 7(a)']]);
+        $this->deleteJson("/api/v1/admin/funding-sequencings/{$sequence->id}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::SEQUENCE_BLOCKED_ONE);
+
+        $this->assertNotSoftDeleted($sequence);
+        $this->assertNotSoftDeleted($request);
+    }
+
+    #[Test]
+    public function when_any_selected_sequence_is_used_none_are_deleted_and_each_blocked_one_is_named(): void
+    {
+        $free = $this->sequenceNamed('Free Option');
+        $first = $this->sequenceNamed('SBA 7(a)');
+        $second = $this->sequenceNamed('Bridge Loans');
+        $this->fundingRequestOn($first);
+        $this->fundingRequestOn($second);
+        $this->actingAsUser($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', ['ids' => [$free->id, $first->id, $second->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Some selected funding sequences have related records and cannot be deleted: SBA 7(a), Bridge Loans. '
+                . 'Please change their status instead, or unselect them to delete the others.');
+
+        $this->assertSame(['SBA 7(a)', 'Bridge Loans'], array_column($response->json('errors.blocked'), 'name'));
+        $this->assertNotSoftDeleted($free);
+        $this->assertNotSoftDeleted($first);
+        $this->assertNotSoftDeleted($second);
+    }
+
+    /** A request that was itself deleted no longer keeps its sequence. */
+    #[Test]
+    public function a_sequence_whose_only_request_was_deleted_can_be_deleted(): void
+    {
+        $sequence = $this->sequenceNamed('SBA 7(a)');
+        $this->fundingRequestOn($sequence)->delete();
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', ['ids' => [$sequence->id]])->assertOk();
+
+        $this->assertSoftDeleted($sequence);
+    }
+
+    /**
+     * Defect: the portal deleted a selection one sequence per call, all at
+     * once - a refused one left the others deleted. One call now deletes them.
+     */
+    #[Test]
+    public function several_unused_sequences_are_deleted_in_one_call(): void
+    {
+        $first = $this->sequenceNamed('First Option');
+        $second = $this->sequenceNamed('Second Option');
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', ['ids' => [$first->id, $second->id]])
+            ->assertOk()
+            ->assertJsonPath('message', __('funding_sequencing.deleted'));
+
+        $this->assertSoftDeleted($first);
+        $this->assertSoftDeleted($second);
+    }
+
+    #[Test]
+    public function deleting_sequences_needs_a_list_of_existing_ids(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', [])->assertStatus(422);
+        $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', ['ids' => [999999]])->assertStatus(422);
+    }
+
+    /**
+     * Defect: a deleted funding sequence left its lender visibility rules
+     * behind, and those kept the lender from ever being deleted. Only a live
+     * sequence's rules count now.
+     */
+    #[Test]
+    public function a_lender_whose_only_sequence_was_deleted_can_be_deleted(): void
+    {
+        $lender = Lender::create($this->lender());
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $data['funding_type_id'])];
+        $sequenceId = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertCreated()->json('data.id');
+
+        $this->postJson('/api/v1/admin/funding-sequencings/multiple-delete', ['ids' => [$sequenceId]])->assertOk();
+        $this->deleteJson("/api/v1/admin/lenders/{$lender->id}")->assertOk();
+
+        $this->assertSoftDeleted($lender);
+    }
+
+    private function sequenceNamed(string $name): FundingSequencing
+    {
+        return FundingSequencing::create(array_diff_key($this->sequence(['name' => $name]), ['readiness_factors' => true]));
+    }
+
+    private function fundingRequestOn(FundingSequencing $sequence): FundingRequest
+    {
+        return FundingRequest::create([
+            'partner_id' => $this->host->id,
+            'borrower_id' => $this->makeBorrower($this->host)->id,
+            'funding_sequence_id' => $sequence->id,
+            'status' => 'Pending',
+        ]);
+    }
+
+    private function fundingRequestAssignedTo(Lender $lender): FundingRequest
+    {
+        $sequence = FundingSequencing::create(array_diff_key($this->sequence(), ['readiness_factors' => true]));
+
+        return FundingRequest::create([
+            'partner_id' => $this->host->id,
+            'borrower_id' => $this->makeBorrower($this->host)->id,
+            'funding_sequence_id' => $sequence->id,
+            'status' => 'Pending',
+            'lender_ids' => [$lender->id],
+            'assign_lender' => $lender->id,
+        ]);
     }
 
     #[Test]

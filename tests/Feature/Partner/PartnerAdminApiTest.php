@@ -3,7 +3,9 @@
 namespace Tests\Feature\Partner;
 
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
+use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
+use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -23,6 +25,9 @@ class PartnerAdminApiTest extends TestCase
 {
     use RefreshDatabase;
     use InteractsWithPortalUsers;
+
+    /** The same wording as a blocked client delete. */
+    private const BLOCKED_ONE = "This partner has related records and cannot be deleted. Please change the partner's status instead.";
 
     private Partner $host;
     private User $hostAdmin;
@@ -207,8 +212,10 @@ class PartnerAdminApiTest extends TestCase
         $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
             ->assertOk()
             ->assertJsonPath('data.0.is_deletable', false)
-            ->assertJsonPath('data.0.reason', __('partner.error.has_borrowers_or_users'));
-        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertStatus(400);
+            ->assertJsonPath('data.0.reason', self::BLOCKED_ONE);
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::BLOCKED_ONE);
 
         $this->assertNotSoftDeleted($partner);
         $this->assertNotSoftDeleted($borrower);
@@ -225,11 +232,219 @@ class PartnerAdminApiTest extends TestCase
         $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
             ->assertOk()
             ->assertJsonPath('data.0.is_deletable', false)
-            ->assertJsonPath('data.0.reason', __('partner.error.has_borrowers_or_users'));
-        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertStatus(400);
+            ->assertJsonPath('data.0.reason', self::BLOCKED_ONE);
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::BLOCKED_ONE);
 
         $this->assertNotSoftDeleted($partner);
         $this->assertNotNull(User::find($staff->id));
+    }
+
+    /**
+     * Defect: deleting a partner with a paid invoice was refused, but the
+     * reason was thrown away and the portal showed only "Could not delete the
+     * selected partner(s)." The user could not tell why or what to do instead.
+     */
+    #[Test]
+    public function a_partner_with_a_paid_invoice_is_kept_and_the_user_is_told_why_and_what_to_do(): void
+    {
+        $partner = $this->makeCertifiedPartner(['full_name' => 'Reagan Hardin']);
+        $paid = $this->invoiceFor($partner, Invoice::STATUS_PAID);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::BLOCKED_ONE)
+            ->assertJsonPath('errors.blocked', [['id' => $partner->id, 'name' => 'Reagan Hardin']]);
+
+        $this->assertNotSoftDeleted($partner);
+        $this->assertNotSoftDeleted($paid);
+    }
+
+    #[Test]
+    public function when_any_selected_partner_has_a_paid_invoice_none_are_deleted_and_each_blocked_one_is_named(): void
+    {
+        $free = $this->makeCertifiedPartner(['full_name' => 'Free Partner']);
+        $first = $this->makeCertifiedPartner(['full_name' => 'Reagan Hardin']);
+        $second = $this->makeCertifiedPartner(['full_name' => 'Jessamine Oconnor']);
+        $this->invoiceFor($first, Invoice::STATUS_PAID);
+        $this->invoiceFor($second, Invoice::STATUS_PAID);
+        $this->actingAsUser($this->hostAdmin);
+
+        $response = $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$free->id, $first->id, $second->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Some selected partners have related records and cannot be deleted: Reagan Hardin, Jessamine Oconnor. '
+                . 'Please change their status instead, or unselect them to delete the others.');
+
+        $this->assertSame(['Reagan Hardin', 'Jessamine Oconnor'], array_column($response->json('errors.blocked'), 'name'));
+        $this->assertNotSoftDeleted($free);
+        $this->assertNotSoftDeleted($first);
+        $this->assertNotSoftDeleted($second);
+    }
+
+    /**
+     * Defect: the deletable check looked at "Paid" only, while the delete kept
+     * "Success" invoices as paid too - so a partner whose payment was recorded
+     * as Success was deleted.
+     */
+    #[Test]
+    public function a_successful_payment_counts_as_paid(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $this->invoiceFor($partner, Invoice::STATUS_SUCCESS);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false);
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertStatus(422);
+
+        $this->assertNotSoftDeleted($partner);
+    }
+
+    #[Test]
+    public function the_deletable_check_gives_the_same_reason(): void
+    {
+        $partner = $this->makeCertifiedPartner(['full_name' => 'Reagan Hardin']);
+        $this->invoiceFor($partner, Invoice::STATUS_PAID);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.name', 'Reagan Hardin')
+            ->assertJsonPath('data.0.reason', self::BLOCKED_ONE);
+    }
+
+    /**
+     * A partner with only unpaid invoices is deleted, and those invoices go
+     * with it, so nothing is left for anyone to pay.
+     */
+    #[Test]
+    public function a_partner_with_only_unpaid_invoices_is_deleted_together_with_those_invoices(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $unpaid = $this->invoiceFor($partner, Invoice::STATUS_UNPAID);
+        $overdue = $this->invoiceFor($partner, Invoice::STATUS_OVERDUE);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertOk();
+
+        $this->assertSoftDeleted($partner);
+        $this->assertSoftDeleted($unpaid);
+        $this->assertSoftDeleted($overdue);
+    }
+
+    /**
+     * Defect: selecting more than one partner and deleting failed with "Could
+     * not delete the selected partner(s)." on stage and local - the delete
+     * lazy-loaded each partner's logins, refused outside production once there
+     * is more than one model.
+     */
+    #[Test]
+    public function the_host_bulk_deletes_several_partners_with_only_unpaid_invoices(): void
+    {
+        // Real partners have their own login; deleting reads it for each one.
+        $first = $this->makeCertifiedPartner();
+        $second = $this->makeCertifiedPartner();
+        $firstLogin = $this->makePartnerAdmin($first);
+        $secondLogin = $this->makePartnerAdmin($second);
+        $firstUnpaid = $this->invoiceFor($first, Invoice::STATUS_UNPAID);
+        $secondUnpaid = $this->invoiceFor($second, Invoice::STATUS_PENDING);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$first->id, $second->id]])
+            ->assertOk()
+            ->assertJsonPath('message', __('partner.success.deleted'));
+
+        $this->assertSoftDeleted($first);
+        $this->assertSoftDeleted($second);
+        $this->assertSoftDeleted($firstUnpaid);
+        $this->assertSoftDeleted($secondUnpaid);
+        $this->assertNull(User::find($firstLogin->id));
+        $this->assertNull(User::find($secondLogin->id));
+    }
+
+    /**
+     * Defect: deleting any partner with a subscription failed - the delete
+     * called Subscription::allPhases(), which went with the
+     * subscription_phases table (dropped 2026-08-31).
+     */
+    #[Test]
+    public function a_partner_with_a_subscription_and_only_unpaid_invoices_is_deleted(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $subscription = Subscription::create([
+            'entity_type' => Partner::class,
+            'entity_id' => $partner->id,
+            'installment_count' => 1,
+            'installments_paid' => 0,
+            'payable_amount' => 300,
+            'total_subscription_amount' => 300,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $unpaid = $this->invoiceFor($partner, Invoice::STATUS_UNPAID);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertOk();
+
+        $this->assertSoftDeleted($partner);
+        $this->assertSoftDeleted($subscription);
+        $this->assertSoftDeleted($unpaid);
+    }
+
+    /**
+     * Defect: a new partner with its own login, a subscription and only unpaid
+     * invoices passed the check, then the delete failed with "Could not delete
+     * the selected partner(s). Please try again." - deleting the login went
+     * through User::safeDeleteWithRelations(), which still called the removed
+     * Subscription::allPhases().
+     */
+    #[Test]
+    public function a_partner_with_its_own_login_a_subscription_and_only_unpaid_invoices_is_deleted(): void
+    {
+        $partner = $this->makeWhiteLabelPartner();
+        $login = $this->makePartnerAdmin($partner);
+        $subscription = Subscription::create([
+            'entity_type' => Partner::class,
+            'entity_id' => $partner->id,
+            'installment_count' => 1,
+            'installments_paid' => 0,
+            'payable_amount' => 300,
+            'total_subscription_amount' => 300,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $unpaid = $this->invoiceFor($partner, Invoice::STATUS_UNPAID);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', true);
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('message', __('partner.success.deleted'));
+
+        $this->assertSoftDeleted($partner);
+        $this->assertSoftDeleted($subscription);
+        $this->assertSoftDeleted($unpaid);
+        $this->assertNull(User::find($login->id));
+    }
+
+    private function invoiceFor(Partner $partner, string $status): Invoice
+    {
+        return Invoice::create([
+            'invoice_id' => 'INV-' . uniqid(),
+            'partner_id' => $partner->id,
+            'entity_type' => Partner::class,
+            'entity_id' => $partner->id,
+            'customer_name' => $partner->full_name,
+            'email' => $partner->email,
+            'payment_amount' => 100,
+            'currency' => 'USD',
+            'status' => $status,
+            'type' => Invoice::INVOICE_TYPE_ENROLLMENT,
+        ]);
     }
 
     /**

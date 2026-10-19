@@ -5,7 +5,10 @@ return [
     'created_successfully' => 'Lender created successfully',
     'updated_successfully' => 'Lender updated successfully',
     'deleted_successfully' => 'Lender deleted successfully',
-    'cannot_delete_has_visibilities' => 'Cannot delete this Lender because it has active visibility rules in Funding Sequences. Please change its status to Inactive instead.',
+    'delete_blocked' => "This lender has related records and cannot be deleted. Please change the lender's status instead.",
+    'delete_blocked_named' => 'Some selected lenders have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',
+    'delete_failed' => 'Could not delete the selected lender(s). Please try again.',
+    'deletable_check_failed' => 'Could not check whether these lenders can be deleted.',
 
     'name_required' => 'The name field is required.',
     'name_string' => 'The name field must be a string.',

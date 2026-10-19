@@ -162,7 +162,8 @@ return [
         'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
         'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
         'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
-        'has_borrowers_or_users' => 'This partner still has borrowers or users. Remove or move them first, or mark the partner Suspended or Inactive instead.',
+        'delete_blocked' => "This partner has related records and cannot be deleted. Please change the partner's status instead.",
+        'delete_blocked_named' => 'Some selected partners have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',
     ],
 
     'log' => [

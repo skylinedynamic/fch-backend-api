@@ -656,18 +656,15 @@ class User extends Authenticatable implements OAuthenticatable
                 }
             }
 
-            // 2. Delete Subscriptions & Phases (Direct or via Entity)
-            // This ensures we clean up the entity's financial records if we are its face
+            // 2. Delete Subscriptions (Direct or via Entity) - the phases table
+            // was dropped 2026-08-31. This cleans up the entity's financial
+            // records when we are its face.
             $targetType = $this->entity_type ?: self::class;
             $targetId = $this->entity_id ?: $this->id;
 
             Subscription::where('entity_type', $targetType)
                 ->where('entity_id', $targetId)
-                ->get()
-                ->each(function ($sub) {
-                    $sub->allPhases()->delete();
-                    $sub->delete();
-                });
+                ->delete();
 
             // 3. Delete Invoices (Unpaid only - double checked for safety)
             Invoice::where('entity_type', $targetType)
