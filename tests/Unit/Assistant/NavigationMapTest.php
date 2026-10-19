@@ -19,6 +19,9 @@ class NavigationMapTest extends TestCase
         'borrower_support' => '../fch-borrower-react/src/App.jsx',
     ];
 
+    /** The WLP portal's Settings section slugs (/settings/<slug>). */
+    private const SETTINGS_SECTIONS = '../Fch-admin-frontend-react/src/config/settingsSections.ts';
+
     /**
      * Routes that exist on the portals' notifications branches but not yet on
      * the branch checked out beside this repo. Remove once merged.
@@ -65,6 +68,22 @@ class NavigationMapTest extends TestCase
 
         $source = file_get_contents($router);
         $last = basename($path);
+
+        // A Settings section (/settings/<slug>) is served by the one
+        // settings/:section route; the slug must be one the portal knows.
+        if ($assistant === 'wlp_support' && preg_match('#^/settings/([a-z0-9-]+)$#', $path, $m)) {
+            $sections = base_path(self::SETTINGS_SECTIONS);
+
+            $this->assertStringContainsString('path="settings/:section"', $source, "{$router} has no settings/:section route");
+            $this->assertFileExists($sections);
+            $this->assertMatchesRegularExpression(
+                "#slug:\s*'" . preg_quote($m[1], '#') . "'#",
+                file_get_contents($sections),
+                "{$assistant}:{$key} -> {$path} is not a Settings section in {$sections}"
+            );
+
+            return;
+        }
 
         $found = $path === '/'
             ? str_contains($source, '<Route index')

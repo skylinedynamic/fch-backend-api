@@ -49,9 +49,19 @@ return [
             'roles_permissions' => ['label' => 'Roles & Permissions', 'path' => '/roles-permissions'],
             'embedded_form_configuration' => ['label' => 'Embedded Form > Configuration', 'path' => '/embed-form/settings'],
             'embedded_form_loan_applications' => ['label' => 'Embedded Form > Loan Applications', 'path' => '/embed-form/loan-applications'],
-            // Individual Settings tabs (Email Configuration, Test Mail, ...) have
-            // no routes of their own: they all resolve to 'settings'.
-            'settings' => ['label' => 'Settings', 'path' => '/admin/settings'],
+            // Each Settings section has its own route (/settings/<slug>, see the
+            // portal's config/settingsSections.ts), so Take Me There opens the
+            // exact section. Host-only sections (MicroBilt, Credit Profile,
+            // Score Calculation, OpenAI) are not shown to WLP users and are left
+            // out. 'settings' is for answers about Settings as a whole.
+            'settings' => ['label' => 'Settings', 'path' => '/settings'],
+            'settings_payment_integration' => ['label' => 'Settings > Payment Integration', 'path' => '/settings/payment-integration'],
+            'settings_agreement_builder' => ['label' => 'Settings > Agreement Builder', 'path' => '/settings/agreement-builder'],
+            'settings_email_configuration' => ['label' => 'Settings > Email Configuration', 'path' => '/settings/email-configuration'],
+            'settings_test_mail' => ['label' => 'Settings > Test Mail', 'path' => '/settings/test-mail'],
+            'settings_sms_configuration' => ['label' => 'Settings > SMS Configuration', 'path' => '/settings/sms-configuration'],
+            'settings_branding' => ['label' => 'Settings > Branding', 'path' => '/settings/branding'],
+            'settings_custom_domain' => ['label' => 'Settings > Custom Domain', 'path' => '/settings/custom-domain'],
             // The profile dropdown in the header.
             'my_subscription' => ['label' => 'My Subscription', 'path' => '/my-subscription'],
             'profile' => ['label' => 'Profile', 'path' => '/profile'],

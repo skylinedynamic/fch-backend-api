@@ -155,7 +155,8 @@ class OpenAiResponsesService
             // Always scope by module: the same key names also exist under older,
             // now-unused modules, and an unscoped lookup returns whichever row was
             // inserted first rather than the value saved from the Settings screen.
-            $value = AppConfiguration::get($key, null, AppConfiguration::MODULE_OPENAI);
+            // ...and by owner: the host's settings, never another partner's row.
+            $value = AppConfiguration::platform($key, AppConfiguration::MODULE_OPENAI);
         } catch (\Throwable $e) {
             return $default;
         }
