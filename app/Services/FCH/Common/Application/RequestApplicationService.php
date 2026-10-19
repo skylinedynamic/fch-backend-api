@@ -368,7 +368,8 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = PreQualificationRequest::with('borrower')
-        ->where('id',$data['id'])->first();
+            ->reviewableBy(Auth::user())
+            ->where('pre_qualification_requests.id', $data['id'])->first();
 
         if($application == null){
             return ApiResponse::error(__('application.pre_qualification_not_found'));

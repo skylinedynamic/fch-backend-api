@@ -391,7 +391,7 @@ class SupportAssistantService
                 . "- \"navigation\": describes that same action so the portal knows where the button goes.\n"
                 . "  * If (and only if) the answer contains {$label}: {\"required\": true, \"intent\": \"{$intent}\", \"route_key\": \"<key>\"}.\n"
                 . "  * Otherwise: {\"required\": false, \"intent\": \"none\", \"route_key\": null}.\n"
-                . "  * <key> is the approved destination the user is ASKING for, chosen only from the list below. It is never the page the user is currently on and never a default. For a Settings tab (for example Email Configuration or Test Mail) use the key for Settings and state which tab to select in the answer.\n"
+                . "  * <key> is the approved destination the user is ASKING for, chosen only from the list below. It is never the page the user is currently on and never a default. For a section inside a page (for example a Settings section such as Branding or Email Configuration), use that section's own key when it is in the list below, so the button opens the section directly; use the parent page's key only when the section has no entry of its own, and then state which section to select in the answer.\n"
                 . "  * Every {$label} in one answer must go to the same route_key. If destinations differ, offer one action and describe the others in text.\n"
                 . "  * If the destination is not in the list, do not output {$label}; give text guidance instead.\n"
                 . "Approved destinations (visible name -> route_key):\n{$destinations}---",
