@@ -37,6 +37,7 @@ class EmbedFormSubmission extends Model
 
         // Funding request
         'requested_amount' => 'decimal:2',
+        'additional_funding_types' => 'array',
 
         // Disclosures
         'credit_pull_authorization' => 'boolean',

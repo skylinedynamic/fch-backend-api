@@ -41,7 +41,7 @@ class BorrowerCreditProfileResource extends JsonResource
             ],
             'personal_info' => $this->personal_info ?? [
                 'name' => $this->borrower?->first_name . ' ' . $this->borrower?->last_name,
-                'dob' => $this->borrower?->date_of_birth,
+                'dob' => toDateOnly($this->borrower?->date_of_birth),
                 'ssn' => $this->borrower?->last_4_ssn,
                 'email' => $this->borrower?->email,
                 'phone' => $this->borrower?->phone_number,

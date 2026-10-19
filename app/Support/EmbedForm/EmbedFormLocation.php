@@ -27,6 +27,10 @@ use App\Models\Partner\Partner;
  * The page itself is still rendered by this application, unauthenticated, at
  * `/form/{key}` (routes/web.php). Serving it on these hosts is a proxy rule at
  * the edge, not a second copy of the form.
+ *
+ * In the `local` environment there is no such edge, so every form links to
+ * BASE_API_URL - the only address that opens on a developer's machine. A
+ * White-Label partner still needs its domain set there: that is a data rule.
  */
 final class EmbedFormLocation
 {
@@ -49,6 +53,13 @@ final class EmbedFormLocation
     {
         if ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
             return self::forWhiteLabel($partner);
+        }
+
+        // On a developer's machine nothing proxies /form/* from BASE_WEBSITE,
+        // so the link points at BASE_API_URL, where the page is rendered.
+        // Only `local`: staging keeps the published address.
+        if (app()->environment('local')) {
+            return new self(self::apiUrl(), null);
         }
 
         $baseUrl = self::baseWebsiteUrl();
@@ -82,6 +93,10 @@ final class EmbedFormLocation
         // be untestable. The requirement above is still enforced - it is a data
         // rule, not a routing one - but once satisfied the link points at this
         // application, which is where the page is served from.
+        if (app()->environment('local')) {
+            return new self(self::apiUrl(), null);
+        }
+
         if (!app()->environment('production')) {
             return new self(self::appUrl(), null);
         }
@@ -111,6 +126,12 @@ final class EmbedFormLocation
     private static function appUrl(): string
     {
         return rtrim((string) config('app.url'), '/');
+    }
+
+    /** BASE_API_URL: the API that renders /form/{key}, used locally. */
+    private static function apiUrl(): string
+    {
+        return self::normalise((string) config('domains.reserved.base_reserved_api_portal')) ?: self::appUrl();
     }
 
     /**

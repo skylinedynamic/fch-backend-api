@@ -3,7 +3,7 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Mail\EmbedForm\NewSubmissionMail;
-use App\Models\Setting\EmailConfiguration;
+use App\Models\Setting\MailConfiguration;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
@@ -56,9 +56,11 @@ class EmbedFormNotificationMailTest extends TestCase
             'email' => 'host-' . uniqid() . '@example.test',
         ]);
 
-        // The host is configured, so any host fallback would succeed and be
-        // visible - which is what makes the white-label cases below meaningful.
+        // The host and the platform fallback are configured, so any fallback
+        // would succeed and be visible - which is what makes the white-label
+        // cases below meaningful.
         $this->mailConfig($this->host);
+        $this->mailConfig(null);
     }
 
     #[Test]
@@ -357,6 +359,15 @@ class EmbedFormNotificationMailTest extends TestCase
         Mail::assertNotQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => !str_contains($mail->envelope()->subject, 'Embedded Form'));
     }
 
+    #[Test]
+    public function the_requested_amount_is_mailed_in_its_currency(): void
+    {
+        $this->notify($this->host, [], ['requested_amount' => 150000, 'currency' => 'GBP']);
+
+        Mail::assertQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => str_contains($mail->render(), '£150,000.00')
+            && !str_contains($mail->render(), '$150,000.00'));
+    }
+
     /**
      * The channel names (database, broadcast, sms) the notification goes out on.
      * via() returns Laravel's channels - SmsChannel's class for `sms` - so they
@@ -401,7 +412,7 @@ class EmbedFormNotificationMailTest extends TestCase
      *
      * @param  array<string, mixed>  $configAttributes
      */
-    private function notify(Partner $partner, array $configAttributes = []): EmbedFormSubmission
+    private function notify(Partner $partner, array $configAttributes = [], array $submissionAttributes = []): EmbedFormSubmission
     {
         $config = EmbedFormConfig::create(array_merge([
             'partner_id' => $partner->id,
@@ -410,7 +421,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'is_active' => true,
         ], $configAttributes));
 
-        $submission = EmbedFormSubmission::create([
+        $submission = EmbedFormSubmission::create(array_merge([
             'submission_uid' => (string) Str::uuid(),
             'partner_id' => $partner->id,
             'form_config_id' => $config->id,
@@ -418,7 +429,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'first_name' => 'Johnathan',
             'last_name' => 'Smithfield',
             'email' => 'applicant@example.test',
-        ]);
+        ], $submissionAttributes));
 
         $service = new class extends EmbedFormService {
             public function notifyNow(EmbedFormSubmission $submission, EmbedFormConfig $config): void
@@ -433,25 +444,35 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     /**
+     * A verified SMTP configuration - the partner's default, or with no partner
+     * the platform fallback. `enable_custom_configuration` => '0' leaves it
+     * saved but not the default; blank host/username leave it incomplete.
+     *
      * @param  array<string, string>  $overrides
      */
-    private function mailConfig(Partner $partner, array $overrides = []): void
+    private function mailConfig(?Partner $partner, array $overrides = []): void
     {
         $values = array_merge([
             'enable_custom_configuration' => '1',
-            'email_provider' => 'smtp',
             'smtp_host' => 'smtp.example.test',
             'smtp_username' => 'mailer@example.test',
-            'smtp_password' => 'secret',
         ], $overrides);
 
-        foreach ($values as $key => $value) {
-            EmailConfiguration::create([
-                'partner_id' => $partner->id,
-                'key' => $key,
-                'value' => $value,
-            ]);
-        }
+        $config = MailConfiguration::create([
+            'partner_id' => $partner?->id,
+            'provider' => MailConfiguration::PROVIDER_SMTP,
+            'from_address' => 'mail@example.test',
+            'credentials' => [
+                'smtp_host' => $values['smtp_host'] ?: null,
+                'smtp_port' => 587,
+                'smtp_encryption' => 'tls',
+                'smtp_username' => $values['smtp_username'] ?: null,
+                'smtp_password' => 'secret',
+            ],
+            'is_default' => $partner !== null && $values['enable_custom_configuration'] === '1',
+        ]);
+
+        $config->forceFill(['verified_at' => now(), 'verified_fingerprint' => $config->fingerprint()])->save();
     }
 
     /**

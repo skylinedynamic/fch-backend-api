@@ -442,6 +442,8 @@ class BorrowerController extends Controller
             }
 
             $data = (new BorrowerCreditProfileResource($creditProfile))->toArray(request());
+            // Whether this user may upload, update or remove it - the host's team.
+            $data['can_manage'] = \App\Http\Middleware\EnsureHostPartner::allows(auth()->user());
 
             // Load PDF if available
             if ($creditProfile->pdf_url) {
@@ -575,6 +577,8 @@ class BorrowerController extends Controller
                 'status' => \App\Models\Borrower\BorrowerDocument::STATUS_UPLOADED,
                 'created_by' => \Illuminate\Support\Facades\Auth::id(),
             ]);
+            // The credit profile's report, kept out of the client's Documents.
+            $borrowerDoc->forceFill(['is_credit_report' => true])->save();
 
             // Read PDF content as base64 for immediate frontend display
             $pdfContent = null;
@@ -802,6 +806,28 @@ class BorrowerController extends Controller
             ]);
             return ApiResponse::serverError('Failed to save credit profile: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Remove a client's credit profile data outright (host partner only - see
+     * routes/common.php). Its credit authorisation consents are kept.
+     */
+    public function deleteCreditProfile(int $borrowerId)
+    {
+        $borrower = Borrower::find($borrowerId);
+
+        if (!$borrower) {
+            return ApiResponse::notFound(__('borrower.not_found'));
+        }
+
+        $removed = app(\App\Services\Borrower\CreditProfile\ClientCreditProfileService::class)
+            ->remove($borrower, auth()->id());
+
+        if (!$removed) {
+            return ApiResponse::notFound(__('borrower.credit_profile_not_found'));
+        }
+
+        return ApiResponse::success(null, __('borrower.credit_profile_removed'));
     }
 
     /**

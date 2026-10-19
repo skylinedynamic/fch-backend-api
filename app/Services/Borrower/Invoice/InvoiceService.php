@@ -31,6 +31,7 @@ class InvoiceService
 
         $query = Invoice::query()
             ->where('is_partner_paying', false)
+            ->excludingCommissionPayouts()
             ->where(function ($q) use ($borrowerId) {
                 $q->where('invoices.borrower_id', $borrowerId)
                     ->orWhere(function ($sub) use ($borrowerId) {
@@ -188,6 +189,7 @@ class InvoiceService
         })
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('is_partner_paying', false)
+            ->excludingCommissionPayouts()
             ->get();
     }
 
@@ -238,6 +240,7 @@ class InvoiceService
     {
         $query = Invoice::query()
             ->where('is_partner_paying', false)
+            ->excludingCommissionPayouts()
             ->where(function ($q) use ($borrowerId) {
                 $q->where('borrower_id', $borrowerId)
                     ->orWhere(function ($sub) use ($borrowerId) {
@@ -281,6 +284,7 @@ class InvoiceService
             ->where('borrower_id', $borrowerId)
             ->where('partner_id', $partnerId)
             ->where('is_partner_paying', false)
+            ->excludingCommissionPayouts()
             ->first();
     }
 

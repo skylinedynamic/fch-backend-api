@@ -143,4 +143,13 @@ class BorrowerDocument extends Model
     {
         return $query->where('borrower_id', $borrowerId);
     }
+
+    /**
+     * The client's own documents: not the iSoftPull report kept for its credit
+     * profile, which only Client > Credit Profile shows.
+     */
+    public function scopeWithoutCreditReports(Builder $query): Builder
+    {
+        return $query->where('is_credit_report', false);
+    }
 }

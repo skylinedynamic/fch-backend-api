@@ -6,7 +6,6 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Borrower\Borrower;
 use App\Rules\Ssn;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
@@ -48,14 +47,9 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
             'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
-            // The full SSN, never echoed back - so a blank field means "keep
-            // the one on file", and it is only required while there is no full
-            // SSN on file (none at all, or just the last four from before).
-            'ssn' => [
-                Rule::requiredIf(fn () => !$this->borrower()?->hasFullSsn()),
-                'nullable',
-                new Ssn(),
-            ],
+            // The full SSN, on every save: the profile read gives it back for
+            // the screen to send again, so an empty field is a missing SSN.
+            'ssn' => ['required', new Ssn()],
             'date_of_birth' => 'required|date_format:Y-m-d|before:today',
         ];
     }
@@ -109,13 +103,5 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'date_of_birth.before' => __('borrower_validation.date_of_birth_before'),
             'date_of_birth.date_format' => __('borrower_validation.date_of_birth_date_format'),
         ];
-    }
-
-    /** The signed-in borrower whose profile this is. */
-    private function borrower(): ?Borrower
-    {
-        $user = Auth::user();
-
-        return $user?->entity_type === Borrower::class ? Borrower::find($user->entity_id) : null;
     }
 }

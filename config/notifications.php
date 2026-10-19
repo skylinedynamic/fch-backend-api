@@ -455,7 +455,6 @@ return [
             'channels' => $bellAndMail,
             'title' => 'Credit profile update requested',
             'body' => '{{borrower}} asked to update their credit profile.',
-            // The borrower's request; the list when they have none on file.
             'url' => '/intake-review/credit-profile-requests/{{id}}',
         ],
 
@@ -705,6 +704,14 @@ return [
 
         'auth.test' => [
             'name' => 'Mail configuration test',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
+        // The code that verifies a mail configuration, sent through the
+        // settings being verified.
+        'settings.mail_configuration_code' => [
+            'name' => 'Mail configuration verification code',
             'category' => 'system',
             'channels' => ['mail'],
         ],

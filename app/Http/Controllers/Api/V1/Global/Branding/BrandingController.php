@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Support\Branding\BrandVars;
+use App\Support\Branding\PortalMeta;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -30,15 +31,17 @@ class BrandingController extends Controller
     }
 
     /**
-     * Resolve the tenant for a public request.
+     * The portal hostname a public request is about.
      *
      * A <link rel="stylesheet"> sends no Origin header, and the Host is the API's
-     * own, so the caller passes its hostname explicitly in `d`. Origin/Host stay
-     * as the fallback for callers that do send them.
+     * own, so the caller passes its hostname explicitly in `d`. Nginx's SSI
+     * include for portal-meta sends it as `X-Portal-Host` instead, so its config
+     * can stay free of variables in proxy_pass. Origin/Host stay as the fallback
+     * for callers that send neither.
      */
-    private function resolvePartner(Request $request): ?Partner
+    private function requestedDomain(Request $request): string
     {
-        $domain = (string) $request->query('d', '');
+        $domain = (string) ($request->query('d') ?: $request->header('X-Portal-Host', ''));
 
         if ($domain === '') {
             $origin = $request->header('Origin');
@@ -47,7 +50,15 @@ class BrandingController extends Controller
                 : $request->getHost();
         }
 
-        $domain = preg_replace('/^www\./', '', strtolower(trim($domain)));
+        return $domain;
+    }
+
+    /**
+     * Resolve the tenant for a public request.
+     */
+    private function resolvePartner(Request $request): ?Partner
+    {
+        $domain = preg_replace('/^www\./', '', strtolower(trim($this->requestedDomain($request))));
 
         // Cached: this runs on every cold page load, including logged-out ones.
         $partnerId = Cache::remember("domain_partner_id:{$domain}", now()->addHour(), function () use ($domain) {
@@ -121,6 +132,59 @@ class BrandingController extends Controller
             'Cache-Control' => 'public, max-age=300',
             'Access-Control-Allow-Origin' => '*',
         ]);
+    }
+
+    /**
+     * The tenant's <title>, description, Open Graph / Twitter tags and favicon,
+     * as an HTML fragment for the portal named in `portal` (borrower|partner).
+     *
+     * Included into index.html by Nginx (SSI) on every page load, so link
+     * previews - which never run JavaScript - show the partner's own name and
+     * logo. Cached briefly for the same reason as css().
+     */
+    public function meta(Request $request): Response
+    {
+        $partner = $this->resolvePartner($request);
+
+        $branding = $partner
+            ? $this->config->getBrandingSettings($partner->id, $this->inheritsHostLogos($partner))
+            : [];
+
+        $meta = PortalMeta::build($branding, $this->portalFor($request), $this->requestedDomain($request));
+
+        return response()->view('branding.portal-meta', ['meta' => $meta])->withHeaders([
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=300',
+        ]);
+    }
+
+    /**
+     * Which portal a portal-meta request is for.
+     *
+     * The fixed portal hosts name it in `portal`. Custom domains cannot: Caddy
+     * hands every one of them to the same Nginx server, which serves either
+     * portal, so the domain decides - a partner's borrower_domain is its
+     * borrower portal, its partner_domain / partner_subdomain its dashboard.
+     */
+    private function portalFor(Request $request): string
+    {
+        $portal = (string) $request->query('portal', '');
+
+        if (in_array($portal, [PortalMeta::PORTAL_BORROWER, PortalMeta::PORTAL_PARTNER], true)) {
+            return $portal;
+        }
+
+        $domain = preg_replace('/^www\./', '', strtolower(trim($this->requestedDomain($request))));
+
+        return Cache::remember("domain_portal:{$domain}", now()->addHour(), function () use ($domain) {
+            if (Partner::where('borrower_domain', $domain)->exists()) {
+                return PortalMeta::PORTAL_BORROWER;
+            }
+
+            return Partner::where('partner_domain', $domain)->orWhere('partner_subdomain', $domain)->exists()
+                ? PortalMeta::PORTAL_PARTNER
+                : PortalMeta::PORTAL_BORROWER;
+        });
     }
 
     /**

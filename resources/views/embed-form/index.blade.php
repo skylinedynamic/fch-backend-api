@@ -258,6 +258,119 @@
             right: 8px !important;
         }
 
+        /* Multi-selects (Additional Funding Types): the same box as the single
+           selects, growing a row at a time as chips are added. */
+        .select2-container--default .select2-selection--multiple {
+            /* The chips and the type-to-search box share one wrapping row
+               (select2 4.1 puts the search box beside the chip list). */
+            display: flex !important;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            min-height: 40px !important;
+            border-radius: 4px !important;
+            border: 1px solid #e2e8f0 !important;
+            background-color: #f8fafc !important;
+            padding: 4px 32px 4px 8px !important;
+            outline: none !important;
+            box-shadow: none !important;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .select2-container--default .select2-selection--multiple:hover,
+        .select2-container--default.select2-container--open .select2-selection--multiple,
+        .select2-container--default.select2-container--focus .select2-selection--multiple {
+            border: 1px solid #e2e8f0 !important;
+            background-color: #ffffff !important;
+        }
+
+        .select2-container.is-invalid .select2-selection--multiple {
+            border: 1px solid #dc3545 !important;
+            background-color: #fff8f8 !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            display: inline-flex !important;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            display: inline-flex !important;
+            align-items: center;
+            margin: 0 !important;
+            padding: 2px 8px 2px 4px !important;
+            border: 1px solid color-mix(in srgb, var(--brand-primary) 25%, #ffffff) !important;
+            border-radius: 4px !important;
+            background-color: color-mix(in srgb, var(--brand-primary) 10%, #ffffff) !important;
+            color: #1e293b !important;
+            font-size: 12.5px !important;
+            line-height: 20px !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            position: static !important;
+            order: -1;
+            margin-right: 4px !important;
+            padding: 0 4px !important;
+            border: none !important;
+            border-radius: 4px !important;
+            background: transparent !important;
+            color: #64748b !important;
+            font-size: 14px !important;
+            line-height: 1 !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+            color: #dc3545 !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__display {
+            padding: 0 !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__clear {
+            position: absolute !important;
+            top: 50% !important;
+            right: 10px !important;
+            transform: translateY(-50%);
+            margin: 0 !important;
+            padding: 0 !important;
+            color: #94a3b8 !important;
+            font-size: 16px !important;
+            line-height: 1 !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-search--inline {
+            flex: 1 1 80px;
+            min-width: 80px;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-search__field {
+            width: 100% !important;
+            height: 28px !important;
+            margin: 0 !important;
+            padding: 0 4px !important;
+            border: none !important;
+            background: transparent !important;
+            outline: none !important;
+            box-shadow: none !important;
+            vertical-align: middle;
+            font-family: inherit !important;
+            font-size: 13.5px !important;
+            line-height: 28px !important;
+            resize: none;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-search__field::placeholder {
+            color: #94a3b8 !important;
+            font-size: 13px !important;
+        }
+
         .select2-dropdown {
             border: 1px solid #e2e8f0 !important;
             border-radius: 4px !important;
@@ -289,6 +402,307 @@
             outline: none !important;
             box-shadow: none !important;
             font-size: 13px !important;
+        }
+
+        /* ── Date picker ──────────────────────────────────────────────────
+           The borrower and partner portals' calendar (their custom.min.css and
+           flatpickr-fix.css), in this form's brand colour: a brand header with
+           month and year dropdowns between two square arrows, a brand weekday
+           row, and a seven-column grid of rounded days. The month and year
+           dropdowns are drawn by yearDropdownPlugin() in the script below. */
+        .flatpickr-calendar {
+            width: 310px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(0, 0, 0, 0.06) !important;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            overflow: visible !important;
+            font-family: inherit !important;
+            animation: fpCalendarReveal 0.25s cubic-bezier(0.22, 1, 0.36, 1) !important;
+        }
+
+        .flatpickr-calendar::before,
+        .flatpickr-calendar::after {
+            display: none !important;
+        }
+
+        /* A date is picked, not typed: the field opens the calendar. */
+        .flatpickr-input[readonly] {
+            cursor: pointer;
+        }
+
+        @keyframes fpCalendarReveal {
+            from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .flatpickr-calendar .flatpickr-months {
+            display: flex !important;
+            align-items: center !important;
+            padding: 12px 8px !important;
+            background: var(--brand-primary) !important;
+            border-radius: 6px 6px 0 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months .flatpickr-month {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            height: 36px !important;
+            background: transparent !important;
+            color: #fff !important;
+            fill: #fff !important;
+            overflow: visible !important;
+        }
+
+        .flatpickr-calendar .flatpickr-current-month {
+            position: static !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            width: 100% !important;
+            height: 36px !important;
+            padding: 0 8px !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Square arrows in the header's own row, drawn like the dropdowns. */
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month {
+            position: static !important;
+            flex: 0 0 36px !important;
+            width: 36px !important;
+            height: 36px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: var(--brand-primary) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 6px !important;
+            box-sizing: border-box !important;
+            color: #fff !important;
+            fill: #fff !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month:hover,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month:hover {
+            border-color: rgba(255, 255, 255, 0.4) !important;
+            filter: brightness(1.1) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month svg,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month svg {
+            width: 8px !important;
+            height: 8px !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month svg path,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month svg path {
+            fill: #fff !important;
+            stroke: #fff !important;
+            stroke-width: 1.6px !important;
+            stroke-linejoin: round !important;
+        }
+
+        /* At the earliest/latest allowed month the arrow stays in place, dimmed. */
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month.flatpickr-disabled,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month.flatpickr-disabled {
+            display: flex !important;
+            opacity: 0.4 !important;
+            pointer-events: none !important;
+        }
+
+        /* Month and year: two equal dropdown buttons. */
+        .flatpickr-current-month.fp-has-custom-month select.flatpickr-monthDropdown-months {
+            display: none !important;
+        }
+
+        .flatpickr-current-month .fp-md-wrap,
+        .fp-has-custom-year.numInputWrapper {
+            display: flex !important;
+            align-items: center !important;
+            flex: 1 1 50% !important;
+            max-width: 50% !important;
+            min-width: 0 !important;
+            width: auto !important;
+            position: relative !important;
+            overflow: visible !important;
+        }
+
+        .fp-has-custom-year.numInputWrapper:hover {
+            background: transparent !important;
+        }
+
+        .fp-has-custom-year.numInputWrapper input.cur-year,
+        .fp-has-custom-year.numInputWrapper span.arrowUp,
+        .fp-has-custom-year.numInputWrapper span.arrowDown {
+            display: none !important;
+        }
+
+        .fp-yd-trigger {
+            appearance: none !important;
+            display: block !important;
+            width: 100% !important;
+            height: 36px !important;
+            padding: 0 24px 0 10px !important;
+            background: var(--brand-primary) url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 6px !important;
+            color: #fff !important;
+            font-family: inherit !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            line-height: 34px !important;
+            text-align: left !important;
+            outline: none !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .fp-yd-trigger:hover,
+        .fp-yd-trigger:focus {
+            border-color: rgba(255, 255, 255, 0.4) !important;
+            filter: brightness(1.1) !important;
+        }
+
+        .fp-yd-list {
+            display: none !important;
+            position: absolute !important;
+            z-index: 999 !important;
+            max-height: 224px !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+            padding: 4px 0 !important;
+            background: #fff !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+            scrollbar-width: thin !important;
+        }
+
+        .fp-yd-list.fp-yd-open {
+            display: block !important;
+        }
+
+        .fp-yd-opt {
+            padding: 6px 10px !important;
+            color: #344054 !important;
+            font-size: 13px !important;
+            cursor: pointer !important;
+            transition: background 0.1s ease !important;
+        }
+
+        .fp-yd-opt:hover {
+            background: color-mix(in srgb, var(--brand-primary) 8%, #ffffff) !important;
+        }
+
+        .fp-yd-opt.fp-yd-active {
+            background: var(--brand-primary) !important;
+            color: #fff !important;
+            font-weight: 600 !important;
+        }
+
+        /* Weekdays: the brand row, in white capitals. */
+        .flatpickr-calendar .flatpickr-weekdays {
+            height: 38px !important;
+            background: var(--brand-primary) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-weekdaycontainer {
+            display: grid !important;
+            grid-template-columns: repeat(7, 1fr) !important;
+            width: 100% !important;
+            padding: 0 7px !important;
+            box-sizing: border-box !important;
+        }
+
+        .flatpickr-calendar span.flatpickr-weekday {
+            width: auto !important;
+            background: transparent !important;
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.8px !important;
+            text-transform: uppercase !important;
+        }
+
+        /* Days: always seven columns, each a rounded square. */
+        .flatpickr-calendar .flatpickr-days,
+        .flatpickr-calendar .flatpickr-rContainer,
+        .flatpickr-calendar .flatpickr-innerContainer {
+            width: 100% !important;
+            background: #fff !important;
+            border: none !important;
+            box-sizing: border-box !important;
+        }
+
+        .flatpickr-calendar .flatpickr-days {
+            padding: 6px 0 !important;
+            border-radius: 0 0 6px 6px !important;
+        }
+
+        .flatpickr-calendar .dayContainer {
+            display: grid !important;
+            grid-template-columns: repeat(7, 1fr) !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            padding: 0 7px !important;
+            box-sizing: border-box !important;
+        }
+
+        .flatpickr-calendar .dayContainer .flatpickr-day {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            justify-self: center;
+            width: 36px !important;
+            max-width: 36px !important;
+            height: 36px !important;
+            margin: 2px auto !important;
+            border: none !important;
+            border-radius: 10px !important;
+            color: #3c3c3c !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            line-height: 36px !important;
+            transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.today {
+            border: none !important;
+            color: var(--brand-primary) !important;
+            font-weight: 700 !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day:hover:not(.selected):not(.flatpickr-disabled) {
+            background: rgba(0, 0, 0, 0.05) !important;
+            color: var(--brand-primary) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.selected,
+        .flatpickr-calendar .flatpickr-day.selected:hover,
+        .flatpickr-calendar .flatpickr-day.selected:focus {
+            background: var(--brand-primary) !important;
+            color: #fff !important;
+            font-weight: 600 !important;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.prevMonthDay,
+        .flatpickr-calendar .flatpickr-day.nextMonthDay {
+            color: #c5c5c5 !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.flatpickr-disabled,
+        .flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover {
+            color: rgb(72 72 72 / 41%) !important;
+            cursor: not-allowed !important;
         }
 
         /* Buttons & Badges — 4px radius, no on-hover color changes */
@@ -763,9 +1177,10 @@
                             <input type="text" class="form-control" id="business_other_city" placeholder="Enter city">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">Postal Code</label>
+                            <label class="form-label fw-semibold small mb-1">Postal Code <span
+                                    class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_postal_code"
-                                id="business_postal_code" data-type="postal" inputmode="numeric"
+                                id="business_postal_code" data-req data-type="postal" inputmode="numeric"
                                 maxlength="{{ $postalCodeLength }}" placeholder="10001">
                         </div>
                         <div class="col-md-6">
@@ -790,16 +1205,13 @@
                                 @endforeach
                             </select>
                         </div>
+                        {{-- Years in business is not asked: it is worked out from the
+                        Business Start Date on the financial step. --}}
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Years in Business <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select select2" name="years_in_business" id="years_in_business" data-req
-                                data-placeholder="Select...">
-                                <option value=""></option>
-                                @foreach($options['years_in_business'] as $years)
-                                    <option value="{{ $years }}">{{ $years }}</option>
-                                @endforeach
-                            </select>
+                            <label class="form-label fw-semibold small mb-1">Business EIN</label>
+                            <input type="text" class="form-control" name="business_ein" id="business_ein"
+                                data-type="ein" inputmode="numeric" maxlength="10" placeholder="XX-XXXXXXX"
+                                autocomplete="off">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Number of Employees</label>
@@ -844,7 +1256,7 @@
                             <label class="form-label fw-semibold small mb-1">Date of Birth <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="date_of_birth" id="date_of_birth" data-req
-                                data-datepicker="dob" placeholder="YYYY-MM-DD" autocomplete="off">
+                                data-datepicker="dob" placeholder="Select date of birth" autocomplete="off">
                             <div class="form-text fs-12 text-muted">Applicants must be at least {{ $minimumAge }}.</div>
                         </div>
                         <div class="col-md-6">
@@ -880,8 +1292,9 @@
                                 placeholder="123 Main Street, Apt 4B">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">Country</label>
-                            <select class="form-select select2" name="country" id="country"
+                            <label class="form-label fw-semibold small mb-1">Country <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select select2" name="country" id="country" data-req
                                 data-placeholder="Select country...">
                                 <option value=""></option>
                             </select>
@@ -909,8 +1322,9 @@
                             <input type="text" class="form-control" id="other_city" placeholder="Enter city">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">ZIP Code</label>
-                            <input type="text" class="form-control" name="zip_code" id="zip_code" data-type="postal"
+                            <label class="form-label fw-semibold small mb-1">ZIP Code <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="zip_code" id="zip_code" data-req data-type="postal"
                                 inputmode="numeric" maxlength="{{ $postalCodeLength }}" placeholder="10001">
                         </div>
                     </div>
@@ -963,11 +1377,12 @@
                                 placeholder="e.g. Chase">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Checking Opened <span
+                            {{-- Stored in business_checking_start_date. --}}
+                            <label class="form-label fw-semibold small mb-1">Business Start Date <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_checking_start_date"
                                 id="business_checking_start_date" data-req data-datepicker="past"
-                                placeholder="YYYY-MM-DD" autocomplete="off">
+                                placeholder="Select business start date" autocomplete="off">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">
@@ -1033,7 +1448,13 @@
                             <label class="form-label fw-semibold small mb-1">Requested Amount <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted">$</span>
+                                <select class="form-select flex-grow-0" name="currency" id="currency"
+                                    style="width: 96px;" aria-label="Currency">
+                                    @foreach($currencies as $code => $symbol)
+                                        <option value="{{ $code }}" data-symbol="{{ $symbol }}" @selected($loop->first)>{{ $code }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="input-group-text bg-light text-muted" id="requestedAmountSymbol">{{ reset($currencies) }}</span>
                                 <input type="number" class="form-control" name="requested_amount" id="requested_amount"
                                     data-req min="0" step="0.01" placeholder="e.g. 150000">
                             </div>
@@ -1044,6 +1465,17 @@
                             <select class="form-select select2" name="preferred_funding_type"
                                 id="preferred_funding_type" data-req data-placeholder="Select funding type...">
                                 <option value=""></option>
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
+                            {{-- Every funding type except the preferred one, which the
+                            script takes out whenever the preferred type changes. --}}
+                            <select class="form-select select2" name="additional_funding_types[]"
+                                id="additional_funding_types" multiple data-placeholder="Select any others...">
                                 @foreach($options['funding_types'] as $type)
                                     <option value="{{ $type }}">{{ $type }}</option>
                                 @endforeach
@@ -1384,6 +1816,8 @@
         const DOC_TYPES = @json($docTypes);
         const CO_BORROWER_ROLES = @json($options['co_borrower_roles']);
         const PURPOSE_OTHER = @json($options['purpose_other']);
+        const FUNDING_TYPES = @json($options['funding_types']);
+        const CURRENCIES = @json($currencies);
         const REFERRAL_OTHER = @json($referralSourceOther);
         // The server's band table, so the form and the portal can never disagree
         // about what a score is called.
@@ -1421,12 +1855,196 @@
         });
 
         /**
+         * A mouse wheel over `el` scrolls `el` only, never the page behind it.
+         * As containWheel() in the borrower and partner portals.
+         */
+        function containWheel(el) {
+            el.addEventListener('wheel', function (e) {
+                e.preventDefault();
+                const unit = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+                    : e.deltaMode === WheelEvent.DOM_DELTA_PAGE ? el.clientHeight : 1;
+                el.scrollTop += e.deltaY * unit;
+            }, { passive: false });
+        }
+
+        /**
+         * Month and year dropdowns for the date picker - the portals'
+         * yearDropdownPlugin() (borrower and partner portals, flatpickrPlugins.ts)
+         * in plain script. Flatpickr's month <select> and typeable year box are
+         * replaced by two identical button-and-list dropdowns, styled by the
+         * .fp-yd-* rules above. Years run from minYear to the current year,
+         * narrowed to the picker's own minDate/maxDate; the months are exactly the
+         * ones Flatpickr allows for the year on screen.
+         */
+        function yearDropdownPlugin(minYear) {
+            return function (fp) {
+                let dropdowns = [];
+                let observer = null;
+                const cal = () => fp.calendarContainer;
+                const closeAll = () => dropdowns.forEach(d => d.close());
+                const refreshAll = () => dropdowns.forEach(d => d.refresh());
+
+                function yearItems() {
+                    let lo = minYear;
+                    let hi = new Date().getFullYear();
+                    if (fp.config.minDate) lo = Math.max(lo, fp.config.minDate.getFullYear());
+                    if (fp.config.maxDate) hi = Math.min(hi, fp.config.maxDate.getFullYear());
+                    // Never hide the year already on screen.
+                    lo = Math.min(lo, fp.currentYear);
+                    hi = Math.max(hi, fp.currentYear);
+                    const items = [];
+                    for (let y = lo; y <= hi; y++) items.push({ value: String(y), label: String(y) });
+                    return items;
+                }
+
+                // Flatpickr rebuilds its own <select> with only the allowed months.
+                const monthSelect = () => cal()?.querySelector('select.flatpickr-monthDropdown-months') || null;
+                const monthItems = () => Array.from(monthSelect()?.options || [])
+                    .map(o => ({ value: o.value, label: o.textContent || '' }));
+                const monthLabel = () => fp.l10n.months.longhand[fp.currentMonth];
+
+                function createDropdown(kind, container, getItems, getCurrent, getLabel, pick) {
+                    const trigger = document.createElement('button');
+                    trigger.type = 'button';
+                    trigger.className = 'fp-yd-trigger';
+                    trigger.dataset.kind = kind;
+                    trigger.setAttribute('aria-haspopup', 'listbox');
+                    trigger.setAttribute('aria-label', kind === 'month' ? 'Month' : 'Year');
+
+                    const list = document.createElement('div');
+                    list.className = 'fp-yd-list';
+                    list.dataset.kind = kind;
+                    list.setAttribute('role', 'listbox');
+                    containWheel(list);
+
+                    const dropdown = {
+                        trigger,
+                        list,
+                        close() {
+                            list.classList.remove('fp-yd-open');
+                            trigger.setAttribute('aria-expanded', 'false');
+                        },
+                        refresh() {
+                            trigger.textContent = getLabel();
+                        },
+                    };
+
+                    function render() {
+                        list.innerHTML = '';
+                        const current = getCurrent();
+                        getItems().forEach(item => {
+                            const row = document.createElement('div');
+                            row.className = 'fp-yd-opt' + (item.value === current ? ' fp-yd-active' : '');
+                            row.dataset.value = item.value;
+                            row.setAttribute('role', 'option');
+                            row.textContent = item.label;
+                            row.addEventListener('click', e => {
+                                e.stopPropagation();
+                                pick(item.value);
+                                dropdown.close();
+                                refreshAll();
+                            });
+                            list.appendChild(row);
+                        });
+                    }
+
+                    function open() {
+                        closeAll();
+                        render();
+                        list.classList.add('fp-yd-open');
+                        trigger.setAttribute('aria-expanded', 'true');
+                        const t = trigger.getBoundingClientRect();
+                        const c = container.getBoundingClientRect();
+                        list.style.left = (t.left - c.left) + 'px';
+                        list.style.top = (t.bottom - c.top + 2) + 'px';
+                        list.style.width = t.width + 'px';
+                        // Scroll the list itself, not the page, to the chosen value.
+                        const active = list.querySelector('.fp-yd-active');
+                        if (active) list.scrollTop = active.offsetTop - (list.clientHeight - active.offsetHeight) / 2;
+                    }
+
+                    trigger.addEventListener('click', e => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (list.classList.contains('fp-yd-open')) dropdown.close();
+                        else open();
+                    });
+
+                    container.appendChild(list);
+                    dropdown.refresh();
+                    return dropdown;
+                }
+
+                function build() {
+                    const container = cal();
+                    if (!container) return;
+                    if (dropdowns.length) { refreshAll(); return; }
+
+                    const yearWrapper = container.querySelector('.numInputWrapper');
+                    if (!yearWrapper) return;
+                    yearWrapper.classList.add('fp-has-custom-year');
+
+                    const year = createDropdown('year', container, yearItems,
+                        () => String(fp.currentYear),
+                        () => String(fp.currentYear),
+                        value => fp.changeYear(Number(value)));
+                    yearWrapper.insertBefore(year.trigger, yearWrapper.firstChild);
+                    dropdowns.push(year);
+
+                    const select = monthSelect();
+                    if (select) {
+                        const header = select.parentElement;
+                        header.classList.add('fp-has-custom-month');
+                        const wrap = document.createElement('span');
+                        wrap.className = 'fp-md-wrap';
+                        header.insertBefore(wrap, select);
+
+                        const month = createDropdown('month', container, monthItems,
+                            () => String(fp.currentMonth),
+                            monthLabel,
+                            value => fp.changeMonth(Number(value), false));
+                        wrap.appendChild(month.trigger);
+                        dropdowns.push(month);
+                    }
+
+                    container.addEventListener('click', e => {
+                        if (!dropdowns.some(d => d.trigger.contains(e.target) || d.list.contains(e.target))) closeAll();
+                    });
+
+                    // The calendar redraws its days on every month/year change.
+                    observer = new MutationObserver(() => {
+                        if (!container.classList.contains('open')) closeAll();
+                        refreshAll();
+                    });
+                    observer.observe(container, { attributes: true, attributeFilter: ['class'] });
+                    const days = container.querySelector('.flatpickr-days');
+                    if (days) observer.observe(days, { childList: true, subtree: true });
+                }
+
+                return {
+                    onReady: () => setTimeout(build, 0),
+                    onOpen: () => setTimeout(build, 0),
+                    onMonthChange: refreshAll,
+                    onYearChange: () => { refreshAll(); closeAll(); },
+                    onChange: refreshAll,
+                    onClose: closeAll,
+                    onDestroy: () => {
+                        if (observer) observer.disconnect();
+                        observer = null;
+                        dropdowns = [];
+                    },
+                };
+            };
+        }
+
+        /**
          * Attach the date picker to anything marked data-datepicker.
          *
          * Two flavours: `dob`, capped at the minimum applying age, and `past`, capped
-         * at today. Both post YYYY-MM-DD, which is what the API validates - the
-         * native control rendered per browser locale, so an applicant could not tell
-         * what format was expected.
+         * at today. Shown as the portals show a date, 14 Mar, 1986, in a copy of the
+         * field (altInput); the field itself stays hidden and posts YYYY-MM-DD,
+         * which is what the API validates. Picked from the calendar, not typed, as
+         * in the portals.
          */
         function initDatePickers(scope) {
             const root = scope || document;
@@ -1442,7 +2060,12 @@
 
                 flatpickr(el, {
                     dateFormat: 'Y-m-d',
-                    allowInput: true,
+                    altInput: true,
+                    altFormat: 'j M, Y',
+                    // The same calendar on every device, as in the portals - not
+                    // the phone's native date input.
+                    disableMobile: true,
+                    plugins: [yearDropdownPlugin(1900)],
                     maxDate: isDob ? adultCutoff : today,
                     // A date of birth is decades back, so opening on the current
                     // month would mean a long scroll on every single application.
@@ -1466,7 +2089,9 @@
                     width: '100%',
                     dropdownAutoWidth: false,
                     placeholder: $(this).data('placeholder') || '',
-                    allowClear: !$(this).is('[data-req]')
+                    allowClear: !$(this).is('[data-req]'),
+                    // Several picks in a row without reopening the list.
+                    closeOnSelect: !$(this).prop('multiple')
                 });
             });
 
@@ -1834,6 +2459,7 @@
          * layout and the message sits under all of it.
          */
         function errorAnchor(el) {
+            el = shownField(el);
             const wrapper = el.closest('.compliance-row, .consent-row, .input-group');
             if (wrapper) return wrapper;
             if (el.classList.contains('select2-hidden-accessible')) {
@@ -1854,8 +2480,17 @@
             return slot;
         }
 
+        /**
+         * The control the applicant actually sees: a date picker's formatted copy
+         * (altInput) stands in for the hidden field holding YYYY-MM-DD.
+         */
+        function shownField(el) {
+            return el._flatpickr?.altInput || el;
+        }
+
         function markInvalid(el, message) {
             el.classList.add('is-invalid');
+            shownField(el).classList.add('is-invalid');
             el.setAttribute('aria-invalid', 'true');
             const grp = el.closest('.input-group');
             if (grp) grp.classList.add('is-invalid');
@@ -1869,6 +2504,7 @@
 
         function clearInvalid(el) {
             el.classList.remove('is-invalid');
+            shownField(el).classList.remove('is-invalid');
             el.removeAttribute('aria-invalid');
             const grp = el.closest('.input-group');
             if (grp) grp.classList.remove('is-invalid');
@@ -1904,6 +2540,7 @@
                 return 'Enter a valid email address.';
             }
             if (type === 'ssn' && value.replace(/\D/g, '').length !== 9) return 'SSN must be 9 digits.';
+            if (type === 'ein' && !/^\d{2}-?\d{7}$/.test(value)) return 'EIN must be 9 digits, written XX-XXXXXXX.';
             if (type === 'signature' && value.length < 3) return 'Type your full legal name (at least 3 characters).';
             if (type === 'phone' && !isValidUsPhone(value)) return 'Enter a valid 10-digit US phone number.';
             if (type === 'score' && !isValidCreditScore(value)) {
@@ -2093,6 +2730,30 @@
             hint.className = `form-text fs-12 ${band ? 'text-' + (band.tone || 'muted') : 'text-muted'}`;
         });
 
+        // The amount's symbol follows the chosen currency.
+        $(document).on('change', '#currency', function () {
+            document.getElementById('requestedAmountSymbol').textContent = CURRENCIES[this.value] || '';
+        });
+
+        /**
+         * The additional funding types are every type but the preferred one.
+         * The list is rebuilt rather than an option hidden, so the preferred type
+         * cannot be picked twice; what was already chosen stays chosen.
+         */
+        function refreshAdditionalFundingTypes() {
+            const preferred = document.getElementById('preferred_funding_type').value;
+            const $additional = $('#additional_funding_types');
+            const chosen = ($additional.val() || []).filter(type => type !== preferred);
+
+            $additional.empty();
+            FUNDING_TYPES.filter(type => type !== preferred).forEach(type => {
+                $additional.append(new Option(type, type, false, chosen.includes(type)));
+            });
+            $additional.trigger('change.select2');
+        }
+
+        $(document).on('change', '#preferred_funding_type', refreshAdditionalFundingTypes);
+
         $(document).on('change', '#purpose_of_funds', function () {
             const isOther = this.value === PURPOSE_OTHER;
             document.getElementById('purposeNoteWrap').style.display = isOther ? 'block' : 'none';
@@ -2157,7 +2818,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold small mb-1">Date of Birth</label>
-                    <input type="text" class="form-control form-control-sm" data-datepicker="dob" placeholder="YYYY-MM-DD" autocomplete="off" name="co_borrowers[${index}][date_of_birth]">
+                    <input type="text" class="form-control form-control-sm" data-datepicker="dob" placeholder="Select date of birth" autocomplete="off" name="co_borrowers[${index}][date_of_birth]">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold small mb-1">SSN</label>
@@ -2218,9 +2879,18 @@
             return digits;
         }
 
+        /** XX-XXXXXXX while typing; the server keeps the nine digits. */
+        function maskEin(value) {
+            const digits = value.replace(/\D/g, '').slice(0, 9);
+            return digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits;
+        }
+
         document.addEventListener('input', function (e) {
             if (e.target.id === 'ssn' || e.target.classList.contains('co-ssn')) {
                 e.target.value = maskSsn(e.target.value);
+            }
+            if (e.target.dataset.type === 'ein') {
+                e.target.value = maskEin(e.target.value);
             }
             if (e.target.type === 'tel') {
                 e.target.value = maskPhone(e.target.value);
@@ -2233,8 +2903,8 @@
         });
 
         /**
-         * Format as (XXX) XXX-XXXX while typing. The server stores E.164; this is
-         * only how the number is shown back to the person entering it.
+         * Format as (XXX) XXX-XXXX while typing - also how the server stores it,
+         * the way the borrower and partner portals do.
          */
         function maskPhone(value) {
             const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
@@ -2308,6 +2978,12 @@
             return value ? value : null;
         }
 
+        /** A date as the picker shows it (14 Mar, 1986), not as it is posted. */
+        function shownDate(id) {
+            const el = document.getElementById(id);
+            return el?._flatpickr?.altInput?.value || val(id);
+        }
+
         function money(id) {
             const raw = val(id);
             return raw ? '$' + Number(raw).toLocaleString() : null;
@@ -2337,14 +3013,14 @@
                     ['Address', [val('business_address'), val('business_city'), val('business_state'), val('business_postal_code')].filter(Boolean).join(', ') || null],
                     ['Industry', val('industry_type')],
                     ['Entity Type', val('entity_type')],
-                    ['Years in Business', val('years_in_business')],
+                    ['Business EIN', val('business_ein')],
                     ['Employees', val('number_of_employees')],
                 ]],
                 ['Ownership', [
                     ['Owner', [val('first_name'), val('last_name')].filter(Boolean).join(' ') || null],
                     ['Email', val('email')],
                     ['Phone', val('phone')],
-                    ['Date of Birth', val('date_of_birth')],
+                    ['Date of Birth', shownDate('date_of_birth')],
                     ['Ownership', val('ownership') ? val('ownership') + '%' : null],
                     ['Citizenship', val('citizenship_status')],
                     ['Home Address', [val('street_address'), val('city'), val('state'), val('zip_code')].filter(Boolean).join(', ') || null],
@@ -2354,7 +3030,7 @@
                     ['Monthly Revenue', money('monthly_revenue')],
                     ['Annual Revenue', money('annual_revenue')],
                     ['Bank', val('business_bank_name')],
-                    ['Checking Opened', val('business_checking_start_date')],
+                    ['Business Start Date', shownDate('business_checking_start_date')],
                     ['Estimated Credit Score', (() => {
                         const score = val('credit_score');
                         if (!score) return null;
@@ -2366,8 +3042,13 @@
                     ['Debt Balance', money('debt_balance')],
                 ]],
                 ['Funding Request', [
-                    ['Requested Amount', money('requested_amount')],
+                    ['Requested Amount', (() => {
+                        const amount = val('requested_amount');
+                        const currency = val('currency');
+                        return amount ? `${CURRENCIES[currency] || ''}${Number(amount).toLocaleString()} ${currency}` : null;
+                    })()],
                     ['Funding Type', val('preferred_funding_type')],
+                    ['Additional Funding Types', ($('#additional_funding_types').val() || []).join(', ') || null],
                     ['Purpose', val('purpose_of_funds')],
                     ['Purpose Note', val('purpose_note')],
                     ['Timeframe', val('timeframe_needed')],

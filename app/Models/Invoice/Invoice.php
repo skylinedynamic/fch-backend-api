@@ -131,6 +131,21 @@ class Invoice extends Model
             });
     }
 
+    /**
+     * Leave out commission payouts.
+     *
+     * A payout invoice carries the deal's borrower_id for traceability, but it is
+     * money paid to a partner or staff user - never the borrower's own bill.
+     * Untyped legacy rows are kept (a bare `type !=` would drop NULLs too).
+     */
+    public function scopeExcludingCommissionPayouts($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('invoices.type')
+                ->orWhere('invoices.type', '!=', self::INVOICE_TYPE_COMMISSION_PAYOUT);
+        });
+    }
+
 
 
     protected $casts = [

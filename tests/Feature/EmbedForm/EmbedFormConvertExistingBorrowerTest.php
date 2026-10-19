@@ -5,6 +5,7 @@ namespace Tests\Feature\EmbedForm;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
+use App\Models\Common\Permission;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -73,7 +75,7 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
             'email' => 'odessa@example.test',
         ]);
 
-        Passport::actingAs(User::create([
+        $owner = User::create([
             'name' => 'Host Owner',
             'email' => 'owner@example.test',
             'password' => bcrypt('password'),
@@ -82,7 +84,17 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
             'partner_id' => $this->partner->id,
             'entity_type' => Partner::class,
             'entity_id' => $this->partner->id,
-        ]));
+        ]);
+
+        // Converting is behind permission:convert application. Lazy loading is
+        // off, so the relations Spatie reads are loaded first.
+        $owner = User::with('permissions', 'roles')->findOrFail($owner->id);
+        foreach (['view application', 'convert application'] as $name) {
+            $owner->givePermissionTo(Permission::firstOrCreate(['name' => $name, 'guard_name' => 'api']));
+        }
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Passport::actingAs(User::with('permissions', 'roles', 'partner')->findOrFail($owner->id));
     }
 
     private function convert(array $body = [])
@@ -142,5 +154,37 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
         $this->assertSame($this->borrower->id, FundingApplication::findOrFail($applicationId)->borrower_id);
         $this->assertSame($this->borrower->id, $this->submission->fresh()->converted_borrower_id);
         $this->assertCount(1, Storage::disk('public')->allFiles("funding-application/{$this->borrower->id}/FA-{$applicationId}"));
+    }
+    // -- Only the form's own partner's borrower -------------------------------
+
+    #[Test]
+    public function another_partners_borrower_cannot_be_converted_onto(): void
+    {
+        $other = Partner::create([
+            'is_host' => false,
+            'status' => Partner::STATUS_ACTIVE,
+            'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
+            'company_name' => 'Other Lending',
+            'full_name' => 'Other Lending',
+            'email' => 'other@example.test',
+        ]);
+        $this->borrower->update(['partner_id' => $other->id]);
+
+        $this->convert(['confirm_existing_borrower' => true])
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('embed_form.borrower_other_partner'));
+
+        $this->assertSame(0, FundingApplication::count());
+        $this->assertNull($this->submission->fresh()->converted_borrower_id);
+    }
+
+    #[Test]
+    public function a_borrower_with_no_partner_is_not_this_partners_borrower(): void
+    {
+        $this->borrower->forceFill(['partner_id' => null])->save();
+
+        $this->convert(['confirm_existing_borrower' => true])->assertStatus(422);
+
+        $this->assertSame(0, FundingApplication::count());
     }
 }
