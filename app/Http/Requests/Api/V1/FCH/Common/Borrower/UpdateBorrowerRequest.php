@@ -22,6 +22,18 @@ class UpdateBorrowerRequest extends BaseApiRequest
         return true;
     }
 
+    /**
+     * The screen writes an EIN as XX-XXXXXXX; the number is the nine digits,
+     * and that is the one form the column holds. Anything that is not a writing
+     * of an EIN is left for BusinessEin to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
+        }
+    }
+
     public function rules(): array
     {
         $borrower = Borrower::find((int) $this->route('id'));
@@ -58,7 +70,6 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'home_address' => ['nullable', 'string', 'max:255'],
             'date_of_birth'=> ['nullable'],
-            'last_4_ssn'   => ['nullable', 'string', 'max:4'],
             // Full SSN, digits only or dashed (123456789 / 123-45-6789). Replaces
             // the stored value entirely — omit the field to leave it unchanged.
             'ssn'          => ['nullable', 'string', new Ssn()],

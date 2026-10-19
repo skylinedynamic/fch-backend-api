@@ -42,7 +42,7 @@ class StoreUserRequest extends  BaseApiRequest
             'is_paid'      => ['nullable', 'boolean'],
             'start_date'   => ['nullable', 'date'],
             'end_date'     => ['nullable', 'date'],
-            'months'       => ['nullable'],
+            'months'       => ['nullable', 'integer', 'min:1'],
             'amount'       => ['nullable'],
         ];
     }

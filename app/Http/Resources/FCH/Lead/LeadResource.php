@@ -54,7 +54,8 @@ class LeadResource extends JsonResource
             'industry_type' => $this->industry_type,
             'industry_type_note' => $this->industry_type_note,
             'business_start_date' => $this->business_start_date?->format('Y-m-d'),
-            'ssn_last_4' => $this->ssn_last_4,
+            // The full SSN, for the partner's own lead screen - as a client's profile reads it.
+            'ssn' => $this->ssn,
             'requirement_details' => $this->requirement_details,
             'convert_to' => $this->convert_to,
             'convert_email_already' => $this->email ? (

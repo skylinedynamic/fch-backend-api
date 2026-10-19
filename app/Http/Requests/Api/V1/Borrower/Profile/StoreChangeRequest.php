@@ -10,6 +10,7 @@ use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\DunsNumber;
 use App\Rules\FicoScore;
+use App\Rules\Ssn;
 
 class StoreChangeRequest extends BaseApiRequest
 {
@@ -38,6 +39,10 @@ class StoreChangeRequest extends BaseApiRequest
     {
         if ($this->input('field_name') === 'business_ein' && $this->has('new_value')) {
             $this->merge(['new_value' => BusinessEin::normalize($this->input('new_value'))]);
+        }
+
+        if ($this->input('field_name') === 'ssn' && $this->has('new_value')) {
+            $this->merge(['new_value' => Ssn::canonical($this->input('new_value'))]);
         }
     }
 
@@ -92,7 +97,8 @@ class StoreChangeRequest extends BaseApiRequest
             'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
             'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
-            'last_4_ssn' => 'required|string|size:4',
+            // The full SSN, as on the profile itself; the last four alone are not taken.
+            'ssn' => ['required', new Ssn()],
             'date_of_birth' => 'required|date_format:Y-m-d|before:today',
         ];
 

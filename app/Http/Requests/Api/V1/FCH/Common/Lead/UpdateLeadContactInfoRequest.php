@@ -8,6 +8,7 @@ use App\Rules\UsPostalCode;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPhoneNumber;
+use App\Rules\Ssn;
 
 class UpdateLeadContactInfoRequest extends BaseApiRequest
 {
@@ -50,12 +51,23 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'industry_type' => ['nullable', 'string', 'max:255'],
             'industry_type_note' => ['required_if:industry_type,Other,Other / Unknown', 'nullable', 'string'],
             'business_start_date' => ['nullable'],
-            'ssn_last_4' => ['nullable', 'string', 'max:4'],
+            // The full SSN, kept encrypted (Lead::ssn), as on a client's profile.
+            'ssn' => ['nullable', 'string', new Ssn()],
         ];
     }
 
     protected function prepareForValidation()
     {
+        // A written EIN (12-3456789) is kept as its nine digits.
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
+        }
+
+        // A written SSN (123-45-6789) is kept as its nine digits.
+        if ($this->has('ssn')) {
+            $this->merge(['ssn' => Ssn::canonical($this->input('ssn'))]);
+        }
+
         if ($this->phone_number) {
             $phoneNumber = preg_replace('/\D/', '', $this->phone_number);
             

@@ -101,6 +101,39 @@ class BorrowerCreditProfileApiTest extends TestCase
     }
 
     #[Test]
+    public function a_fico_score_outside_300_to_850_is_not_saved(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+
+        foreach ([9999, 299, 851, -5, 712.5, 'abc'] as $bad) {
+            $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
+                'metrics' => ['fico_score' => $bad],
+            ]))->assertStatus(422)->assertJsonValidationErrors(['metrics.fico_score']);
+        }
+
+        $this->assertSame(0, BorrowerCreditProfile::where('borrower_id', $this->borrower->id)->count());
+        $this->assertNull($this->borrower->fresh()->fico_score);
+    }
+
+    #[Test]
+    public function a_report_without_a_fico_score_still_saves(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+
+        foreach ([300, 850] as $edge) {
+            $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
+                'metrics' => ['fico_score' => $edge],
+            ]))->assertOk();
+        }
+
+        $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
+            'metrics' => ['paydex_score' => 80],
+        ]))->assertOk();
+
+        $this->assertNull(BorrowerCreditProfile::where('borrower_id', $this->borrower->id)->firstOrFail()->fico_score);
+    }
+
+    #[Test]
     public function the_saved_profile_reads_back(): void
     {
         $this->actingAsUser($this->hostAdmin);

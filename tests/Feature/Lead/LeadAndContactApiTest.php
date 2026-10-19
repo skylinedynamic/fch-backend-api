@@ -154,6 +154,76 @@ class LeadAndContactApiTest extends TestCase
         ]);
     }
 
+    private function contactInfo(array $overrides = []): array
+    {
+        return array_merge(['contact_person' => 'Jane Doe', 'email' => 'jane@example.test', 'phone_number' => '(555) 234-5678', 'country' => 'United States'], $overrides);
+    }
+
+    /**
+     * A lead's SSN is the full number, as on a client's profile, kept
+     * encrypted - it used to be the last four digits only, in plain text.
+     */
+    #[Test]
+    public function a_leads_ssn_is_the_full_number_kept_encrypted(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn' => '123-45-6789']))->assertOk();
+
+        $this->assertSame('123456789', $lead->fresh()->ssn);
+        $this->assertStringNotContainsString('6789', (string) $lead->fresh()->getRawOriginal('ssn_encrypted'));
+        $this->getJson("/api/v1/common/leads/{$lead->id}")
+            ->assertOk()
+            ->assertJsonPath('data.ssn', '123456789')
+            ->assertJsonMissingPath('data.ssn_last_4');
+    }
+
+    #[Test]
+    public function a_leads_ssn_must_be_a_valid_full_ssn_and_stays_optional(): void
+    {
+        $lead = $this->leadOf($this->partner, ['ssn' => '123456789']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        foreach (['6789', '12-345', '000-12-3456', 'abc-de-fghi'] as $bad) {
+            $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn' => $bad]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['ssn' => __('common.ssn_invalid')]);
+        }
+
+        // The last four alone are no longer taken.
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn_last_4' => '1111']))->assertOk();
+        $this->assertSame('123456789', $lead->fresh()->ssn);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn' => null]))->assertOk();
+        $this->assertNull($lead->fresh()->ssn);
+    }
+
+    #[Test]
+    public function a_leads_ein_is_kept_as_its_nine_digits(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['business_ein' => '53-4534534']))->assertOk();
+        $this->assertSame('534534534', $lead->fresh()->business_ein);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['business_ein' => 'AB-CDEFGHI']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['business_ein' => __('common.business_ein_invalid')]);
+    }
+
+    #[Test]
+    public function converting_a_lead_carries_its_full_ssn_to_the_new_client(): void
+    {
+        $lead = $this->leadOf($this->partner, ['ssn' => '123456789', 'phone_number' => '(555) 234-5678']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/convert", ['is_free_trail' => true])->assertSuccessful();
+
+        $this->assertSame('123456789', \App\Models\Borrower\Borrower::where('email', $lead->email)->firstOrFail()->ssn);
+    }
+
     #[Test]
     public function a_contacts_mobile_must_be_a_real_us_number(): void
     {

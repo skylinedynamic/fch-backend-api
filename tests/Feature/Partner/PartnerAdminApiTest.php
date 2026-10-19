@@ -65,6 +65,18 @@ class PartnerAdminApiTest extends TestCase
         ]);
     }
 
+    /** The screen writes a Tax ID (an EIN) as XX-XXXXXXX; the nine digits are kept. */
+    #[Test]
+    public function a_partners_tax_id_is_kept_as_its_nine_digits(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+        $payload = $this->newPartnerPayload(['tax_id' => '46-7346734']);
+
+        $this->postJson('/api/v1/admin/partners', $payload)->assertSuccessful();
+
+        $this->assertDatabaseHas('partners', ['email' => $payload['email'], 'tax_id' => '467346734']);
+    }
+
     public static function partnerRoutes(): array
     {
         return [

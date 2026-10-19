@@ -32,6 +32,8 @@ class StoreEmployeeRequest extends BaseApiRequest
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'emergency_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'phone_number_2' => ['nullable', 'string', new UsPhoneNumber()],
+            // The login's own number, when an account is created with the employee.
+            'phone_number'   => ['nullable', 'string', new UsPhoneNumber()],
             'phone_number_1'   => [
                 'required',
                 'string',
@@ -56,7 +58,7 @@ class StoreEmployeeRequest extends BaseApiRequest
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
             'address'        => ['required', 'string', 'max:500'],
             'is_paid'        => ['nullable'],
-            'months'         => ['nullable'],
+            'months'         => ['nullable', 'integer', 'min:1'],
             'amount'         => ['nullable'],
         ];
     }

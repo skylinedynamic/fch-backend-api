@@ -140,6 +140,61 @@ class BorrowerRecordsApiTest extends TestCase
     }
 
     #[Test]
+    public function a_clients_ssn_is_the_full_number_kept_encrypted(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $id = $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['ssn' => '123-45-6789']))
+            ->assertCreated()
+            ->json('data.id');
+
+        $borrower = Borrower::findOrFail($id);
+        $this->assertSame('123456789', $borrower->ssn);
+        $this->assertStringNotContainsString('6789', (string) $borrower->getRawOriginal('ssn_encrypted'));
+    }
+
+    /**
+     * Client add and edit take the full SSN only (as `ssn`); the old
+     * last-four-only field is not a way in any more, on either.
+     */
+    #[Test]
+    public function the_last_four_digits_alone_are_not_taken_for_a_client(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $id = $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['last_4_ssn' => '6789']))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertNull(Borrower::findOrFail($id)->ssn);
+
+        $borrower = $this->makeBorrower($this->partner, ['ssn' => '123456789']);
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => 'New', 'last_4_ssn' => '1111'])->assertOk();
+        $this->assertSame('123456789', $borrower->fresh()->ssn);
+    }
+
+    /**
+     * The screen writes an EIN as XX-XXXXXXX; the number is the nine digits,
+     * and that is what is kept - whichever way it arrived.
+     */
+    #[Test]
+    public function a_clients_ein_is_kept_as_its_nine_digits(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $id = $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['business_ein' => '53-4534534']))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertSame('534534534', Borrower::findOrFail($id)->business_ein);
+
+        $this->postJson("/api/v1/common/borrowers/{$id}", ['first_name' => 'Ada', 'business_ein' => '12-3456789'])->assertOk();
+        $this->assertSame('123456789', Borrower::findOrFail($id)->business_ein);
+
+        $this->postJson("/api/v1/common/borrowers/{$id}", ['first_name' => 'Ada', 'business_ein' => 'AB-CDEFGHI'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['business_ein' => __('common.business_ein_invalid')]);
+    }
+
+    #[Test]
     public function a_new_clients_credit_scores_must_be_a_fico_score_and_a_whole_business_score(): void
     {
         $this->actingAsUser($this->partnerAdmin);

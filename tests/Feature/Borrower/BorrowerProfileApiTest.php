@@ -199,6 +199,43 @@ class BorrowerProfileApiTest extends TestCase
         $this->assertDatabaseMissing('borrower_change_requests', ['field_name' => 'personal_credit_score']);
     }
 
+    /**
+     * The SSN is asked for in full, as everywhere else, and both the number on
+     * file and the requested one are kept encrypted in the request - never as
+     * plain digits in borrower_change_requests.
+     */
+    #[Test]
+    public function an_ssn_change_request_is_a_full_ssn_kept_encrypted(): void
+    {
+        $this->myBorrower()->update(['ssn' => '123456789']);
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'ssn', 'new_value' => '234-56-7890'])->assertOk();
+
+        $request = BorrowerChangeRequest::where('field_name', 'ssn')->firstOrFail();
+        $this->assertSame('123456789', $request->old_value);
+        $this->assertSame('234567890', $request->new_value);
+        $this->assertStringNotContainsString('7890', (string) $request->getRawOriginal('new_value'));
+        $this->assertStringNotContainsString('6789', (string) $request->getRawOriginal('old_value'));
+    }
+
+    #[Test]
+    public function an_ssn_change_request_must_be_a_valid_full_ssn(): void
+    {
+        $this->actingAsUser($this->me);
+
+        foreach (['6789', '12-345', '000-12-3456', ''] as $bad) {
+            $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'ssn', 'new_value' => $bad])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('new_value');
+        }
+
+        // The last four on their own are no longer a field that can be changed.
+        $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'last_4_ssn', 'new_value' => '6789'])->assertStatus(400);
+
+        $this->assertDatabaseCount('borrower_change_requests', 0);
+    }
+
     #[Test]
     public function a_bank_account_change_request_names_one_of_my_accounts(): void
     {

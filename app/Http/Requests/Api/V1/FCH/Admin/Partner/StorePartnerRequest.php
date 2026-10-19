@@ -25,6 +25,18 @@ class StorePartnerRequest extends BaseApiRequest
     }
 
     /**
+     * A Tax ID is an EIN: the screen writes it XX-XXXXXXX, the column keeps the
+     * nine digits. Anything that is not a writing of an EIN is left for
+     * BusinessEin to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('tax_id')) {
+            $this->merge(['tax_id' => BusinessEin::canonical($this->input('tax_id'))]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      */
     public function rules(): array

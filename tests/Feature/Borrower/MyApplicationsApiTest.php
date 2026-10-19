@@ -126,4 +126,27 @@ class MyApplicationsApiTest extends TestCase
             }
         }
     }
+
+    /** Home phone is optional on both forms: left empty, it is no error. */
+    #[Test]
+    public function an_empty_home_phone_is_not_an_error(): void
+    {
+        $coBorrower = [
+            'first_name' => 'Co', 'last_name' => 'Owner', 'role' => 'Partner', 'ownership' => 25,
+            'email' => 'co@example.org', 'mobile_phone' => '(555) 210-0100', 'date_of_birth' => '1980-02-03',
+            'ssn' => '123456789', 'street_address' => '1 Main St', 'country' => 'United States',
+            'state' => 'TX', 'city' => 'Austin', 'zip_code' => '73301', 'home_phone' => '',
+        ];
+        $partnerAdmin = $this->makePartnerAdmin($this->makeWhiteLabelPartner());
+
+        foreach ([
+            [$this->me, '/api/v1/borrower/myapplication/funding-application/co-borrower-validation'],
+            [$partnerAdmin, '/api/v1/common/funding-application/co-borrower-validation'],
+        ] as [$user, $url]) {
+            $this->actingAsUser($user);
+            $this->postJson($url, $coBorrower)->assertJsonMissingValidationErrors('home_phone');
+            $this->postJson($url, ['home_phone' => '(555) 21'] + $coBorrower)
+                ->assertUnprocessable()->assertJsonValidationErrors('home_phone');
+        }
+    }
 }

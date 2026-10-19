@@ -135,6 +135,41 @@ class EmployeeApiTest extends TestCase
     }
 
     #[Test]
+    public function the_phone_number_given_to_an_employees_login_must_be_a_real_us_number(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload([
+            'create_account' => true, 'phone_number' => '555-0100',
+        ]))->assertStatus(422)->assertJsonValidationErrors(['phone_number' => __('embed_form.phone_invalid')]);
+
+        $this->assertSame(0, Employee::count());
+    }
+
+    #[Test]
+    public function a_paid_seat_is_bought_for_at_least_one_whole_month(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        // (int) of these is 0 or below: a seat invoice for nothing, or a negative one.
+        foreach (['-3', '0', 'abc', '1.5'] as $bad) {
+            $this->postJson('/api/v1/common/employees', $this->newEmployeePayload(['is_paid' => 1, 'months' => $bad]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['months']);
+        }
+
+        $this->assertSame(0, Employee::count());
+    }
+
+    #[Test]
+    public function the_seat_months_stay_optional(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload(['months' => null]))->assertCreated();
+    }
+
+    #[Test]
     public function an_employee_needs_a_name_role_details_and_address(): void
     {
         $this->actingAsUser($this->partnerAdmin);

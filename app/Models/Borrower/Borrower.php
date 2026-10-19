@@ -19,12 +19,14 @@ use Spatie\Activitylog\Contracts\Activity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use App\Models\Concerns\Archivable;
+use App\Models\Concerns\HasEncryptedSsn;
 use App\Models\Concerns\HasPersonName;
 
 
 class Borrower extends Model
 {
     use HasPersonName;
+    use HasEncryptedSsn;
 
     use HasFactory, SoftDeletes, Archivable;
 
@@ -99,36 +101,9 @@ class Borrower extends Model
      * The one thing this can't cover is a bulk `Borrower::where(...)->update()`
      * call, which bypasses the model entirely — those call sites were updated
      * to fetch an instance first (see ProfileService::updateProfile).
+     *
+     * `ssn` itself (decrypt/encrypt) and hasFullSsn() come from HasEncryptedSsn.
      */
-
-    /**
-     * Decrypt the stored full SSN. Not part of $appends — a resource must ask
-     * for it explicitly, so the full number never gets serialized by default.
-     */
-    public function getSsnAttribute(): ?string
-    {
-        if (!$this->ssn_encrypted) {
-            return null;
-        }
-        try {
-            return \Illuminate\Support\Facades\Crypt::decryptString($this->ssn_encrypted);
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Accepts a full 9-digit SSN (with or without dashes) and encrypts it into
-     * ssn_encrypted — the only place the value is stored.
-     */
-    public function setSsnAttribute(?string $value): void
-    {
-        $digits = preg_replace('/\D/', '', (string) $value);
-
-        $this->attributes['ssn_encrypted'] = $digits === ''
-            ? null
-            : \Illuminate\Support\Facades\Crypt::encryptString($digits);
-    }
 
     /**
      * Legacy accessor: last 4 digits, derived from the decrypted full SSN.
@@ -137,15 +112,6 @@ class Borrower extends Model
     {
         $ssn = $this->ssn;
         return $ssn ? substr($ssn, -4) : null;
-    }
-
-    /**
-     * Whether the full nine-digit SSN is on file - not nothing, and not just
-     * the last four digits rows from before the full SSN was collected hold.
-     */
-    public function hasFullSsn(): bool
-    {
-        return strlen((string) $this->ssn) === \App\Rules\Ssn::digits();
     }
 
     /**

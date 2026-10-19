@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Borrower;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
+use App\Rules\FicoScore;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Http;
@@ -615,6 +616,8 @@ class BorrowerController extends Controller
         $request->validate([
             'borrower_id' => 'required|integer|exists:borrowers,id',
             'metrics' => 'nullable|array',
+            // Stored on the borrower too, where it decides lender matching.
+            'metrics.fico_score' => ['nullable', new FicoScore()],
             'personal_info' => 'nullable|array',
             'addresses' => 'nullable|array',
             'trade_accounts' => 'nullable|array',

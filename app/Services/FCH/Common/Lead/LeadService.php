@@ -478,7 +478,7 @@ class LeadService
                 'business_start_date' => $lead->business_start_date,
                 'duns_number' => $lead->duns_number,
                 'state_file_number' => $lead->state_file_number,
-                'last_4_ssn' => $lead->ssn_last_4,
+                'ssn' => $lead->ssn,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
                 'country' => $lead->country,

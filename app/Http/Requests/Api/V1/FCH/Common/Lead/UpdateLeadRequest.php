@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\Ssn;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 
@@ -57,10 +58,24 @@ class UpdateLeadRequest extends BaseApiRequest
             'industry_type' => ['nullable', 'string', 'max:255'],
             'industry_type_note' => ['nullable', 'string'],
             'business_start_date' => ['nullable', 'date'],
-            'ssn_last_4' => ['nullable', 'string', 'max:4'],
+            // The full SSN, kept encrypted (Lead::ssn), as on a client's profile.
+            'ssn' => ['nullable', 'string', new Ssn()],
             'requirement_details' => ['nullable', 'string'],
             'lead_source_note' => ['nullable', 'string'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // A written EIN (12-3456789) is kept as its nine digits.
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
+        }
+
+        // A written SSN (123-45-6789) is kept as its nine digits.
+        if ($this->has('ssn')) {
+            $this->merge(['ssn' => Ssn::canonical($this->input('ssn'))]);
+        }
     }
 
     public function messages(): array

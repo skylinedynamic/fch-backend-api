@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\PaymentMethod\PaymentProvider;
+use App\Rules\RoutingNumber;
 use App\Rules\StripeKeysMatchPaymentMode;
 use Illuminate\Validation\Rule;
 
@@ -47,7 +48,7 @@ class StorePartnerPaymentProviderRequest extends BaseApiRequest
             'bank_details.*.bank_name' => 'required|string|max:255',
             'bank_details.*.account_name' => 'required|string|max:255',
             'bank_details.*.account_number' => 'required|string|max:255',
-            'bank_details.*.routing_number' => 'nullable|string|max:255',
+            'bank_details.*.routing_number' => ['nullable', 'string', new RoutingNumber()],
             'bank_details.*.instructions' => 'nullable|string',
             'bank_details.*.payment_mode' => ['required', Rule::in([PaymentProvider::MODE_PRODUCTION, PaymentProvider::MODE_SANDBOX])],
             'bank_details.*.is_default' => 'boolean',
