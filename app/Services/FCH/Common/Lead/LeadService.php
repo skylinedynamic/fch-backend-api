@@ -6,6 +6,7 @@ use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Resources\FCH\Lead\LeadResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationRequest;
+use App\Exceptions\LeadConvertedException;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -378,15 +379,33 @@ class LeadService
             return 0;
         }
 
-        return DB::transaction(function () use ($ids, $partnerId) {
-            $leads = Lead::where('partner_id', $partnerId)->whereIn('id', $ids)->get();
+        $leads = Lead::where('partner_id', $partnerId)->whereIn('id', $ids)->get();
 
+        // A lead already converted to a borrower or partner is kept. Refuse the
+        // whole selection and name each one; nothing is deleted or changed.
+        $converted = $leads->filter(fn (Lead $lead) => !empty($lead->convert_to));
+        if ($converted->isNotEmpty()) {
+            throw new LeadConvertedException(
+                $leads->count() === 1
+                    ? __('lead.delete_blocked_converted')
+                    : __('lead.delete_blocked_converted_named', ['names' => $converted->map(fn (Lead $l) => $this->leadName($l))->implode(', ')]),
+                $converted->map(fn (Lead $l) => ['id' => $l->id, 'name' => $this->leadName($l)])->values()->all()
+            );
+        }
+
+        return DB::transaction(function () use ($leads) {
             foreach ($leads as $lead) {
                 $this->delete($lead);
             }
 
             return $leads->count();
         });
+    }
+
+    /** The name a lead is shown by: its contact person, else its company. */
+    private function leadName(Lead $lead): string
+    {
+        return $lead->contact_person ?: ($lead->company_name ?: (string) $lead->lead_id);
     }
 
 

@@ -120,6 +120,21 @@ class FundingSequencing extends Model
         return $this->hasMany(LenderVisibility::class, 'funding_sequencing_id');
     }
 
+    /**
+     * A funding sequence can be deleted only while no (non-deleted) funding
+     * request uses it.
+     */
+    public function isDeletable(): bool
+    {
+        return !\App\Models\FundingRequest\FundingRequest::where('funding_sequence_id', $this->id)->exists();
+    }
+
+    /** Why this funding sequence cannot be deleted, and what to do instead. */
+    public function notDeletableReason(): string
+    {
+        return __('funding_sequencing.delete_blocked');
+    }
+
     public function getMinFicoAttribute() { return $this->getMinLenderRequirement('min_fico'); }
     public function getMinBusinessCreditScoreAttribute() { return $this->getMinLenderRequirement('min_business_credit_score'); }
     public function getMinTibMonthsAttribute() { return $this->getMinLenderRequirement('min_tib_months'); }

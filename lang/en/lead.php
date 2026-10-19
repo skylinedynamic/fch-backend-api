@@ -11,6 +11,8 @@ return [
     'lead_update_failed' => 'Failed to update lead.',
     'lead_deleted' => 'Lead deleted successfully.',
     'multiple_delete_failed' => 'Failed to delete selected leads.',
+    'delete_blocked_converted' => 'This lead has already been converted and cannot be deleted.',
+    'delete_blocked_converted_named' => 'Some selected leads have already been converted and cannot be deleted: :names. Unselect them to delete the others.',
     'lead_fetch_failed' => 'Failed to fetch leads.',
     'conversion_success' => 'Lead converted successfully.',
     'retrieved_success' => 'Leads retrieved successfully.',
