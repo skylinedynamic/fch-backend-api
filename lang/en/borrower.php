@@ -176,12 +176,15 @@ return [
     'billing_details_retrieved' => 'Billing details retrieved successfully.',
     'payment_providers_retrieved' => 'Payment providers retrieved successfully.',
     'default_payment_method_updated' => 'Default payment method updated successfully.',
+    'default_payment_method_removed' => 'Default payment method removed. Invoices will not be charged automatically until you set one again.',
     'subscription_not_found' => 'No active subscription found.',
     'subscription_already_cancelled' => 'Subscription is already cancelled.',
     'subscription_cancelled' => 'Subscription cancelled successfully.',
     'provider_name_required' => 'Provider name is required.',
+    'payment_method_update_failed' => 'The card could not be saved: :error',
 
     // Change Request Messages & Defaults
+    'change_request_record_not_found' => 'The record this change is for was not found.',
     'field_mapping_not_found' => 'Field mapping not found for: :field',
     'change_request_submitted_subject' => 'New Profile Change Request Submitted',
     'default_borrower_name' => 'Borrower',

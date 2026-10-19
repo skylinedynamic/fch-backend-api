@@ -400,10 +400,10 @@ class PartnerFundingApplicationController extends Controller
                 return ApiResponse::error(__('borrower.funding_application_id_required'), 400);
             }
 
-            $app = FundingApplication::where('id', $funding_application_id)->first();
+            $app = FundingApplication::visibleTo(Auth::user())->where('id', $funding_application_id)->first();
 
             if (!$app) {
-                $app = FundingApplication::where('funding_request_id', $funding_application_id)
+                $app = FundingApplication::visibleTo(Auth::user())->where('funding_request_id', $funding_application_id)
                     ->latest()
                     ->first();
             }
@@ -450,6 +450,8 @@ class PartnerFundingApplicationController extends Controller
                 null,
                 __('borrower.document_deleted_successfully')
             );
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound(__('borrower.document_not_found'));
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.document_delete_failed'), 500);
         }
@@ -458,12 +460,9 @@ class PartnerFundingApplicationController extends Controller
     public function downloadDocument($id)
     {
         try {
-            $document = FundingApplicationDocument::findOrFail($id);
-            
-            // Check if user has access (for partner, we don't strict-check borrower ID, just existence)
-            if (!$document) {
-                return ApiResponse::error('Unauthorized access to this document.', 403);
-            }
+            // Reachable exactly as far as its application's borrower is.
+            $document = FundingApplicationDocument::whereHas('fundingApplication', fn ($applications) => $applications->visibleTo(Auth::user()))
+                ->findOrFail($id);
 
             $urlPath = $document->path ?: $document->url;
 
@@ -476,7 +475,7 @@ class PartnerFundingApplicationController extends Controller
                 $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
             }
 
-            $filePath = storage_path('app/public/' . $relativePath);
+            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
 
             if (!file_exists($filePath)) {
                 return ApiResponse::notFound('File not found on server.');

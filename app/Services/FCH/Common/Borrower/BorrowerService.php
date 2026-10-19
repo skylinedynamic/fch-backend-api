@@ -76,8 +76,13 @@ class BorrowerService
             ->with(['user:id,entity_type,entity_id', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription', 'bankAccounts:id,borrower_id,bank_name,account_open_date'])
             ->select('borrowers.*');
 
+        // A borrower reaching this list sees only their own record.
+        if ($authUser && $authUser->entity_type === Borrower::class) {
+            $query->visibleTo($authUser);
+        }
+
         // Filter based on authenticated user's partner and host status
-        if ($authUser && $authUser->partner) {
+        if ($authUser && $authUser->partner && $authUser->entity_type !== Borrower::class) {
             $partnerId = $filters['partner_id']['value'] ?? ($filters['partner_id'] ?? null);
             if ($authUser->partner->is_host == 1) {
                 // If user is a host, filter by partner_id if provided, otherwise show all
@@ -315,7 +320,7 @@ class BorrowerService
 
     public function getBorrowerProfileStats(int $id)
     {
-        $borrower = Borrower::findOrFail($id);
+        Borrower::visibleTo(auth()->user())->findOrFail($id);
         $borrowerClass = str_replace('\\', '\\\\', Borrower::class);
 
         $stats = DB::table('borrowers as b')
@@ -763,9 +768,7 @@ class BorrowerService
      */
     public function getDetails(int $id)
     {
-        return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
-            $query->where('partner_id', auth()->user()->partner_id);
-        })
+        return Borrower::visibleTo(auth()->user())
             ->with('partner', 'latestSubscription', 'bankAccounts')
             ->find($id);
     }
@@ -788,7 +791,7 @@ class BorrowerService
 
             $archived = 0;
 
-            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+            foreach (Borrower::visibleTo(auth()->user())->whereIn('borrowers.id', $ids)->get() as $record) {
                 if ($record->archive()) {
                     $archived++;
                 }
@@ -819,7 +822,7 @@ class BorrowerService
 
             $restored = 0;
 
-            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+            foreach (Borrower::visibleTo(auth()->user())->whereIn('borrowers.id', $ids)->get() as $record) {
                 if ($record->unarchive()) {
                     $restored++;
                 }
@@ -844,7 +847,7 @@ class BorrowerService
 
         try {
             DB::beginTransaction();
-            $borrowers = Borrower::whereIn('id', $ids)->get();
+            $borrowers = Borrower::visibleTo(auth()->user())->whereIn('borrowers.id', $ids)->get();
             foreach ($borrowers as $borrower) {
                 $borrower->safeDeleteWithRelations();
             }
@@ -863,7 +866,7 @@ class BorrowerService
      */
     public function checkDeletable(array $ids): array
     {
-        $borrowers = Borrower::whereIn('id', $ids)->get();
+        $borrowers = Borrower::visibleTo(auth()->user())->whereIn('borrowers.id', $ids)->get();
         $results = [];
 
         foreach ($borrowers as $borrower) {
@@ -974,6 +977,12 @@ class BorrowerService
         // Get authenticated user
         $authUser = auth()->user();
 
+        // A list of other people's contact details is for the partner's team,
+        // never for a borrower.
+        if (!$authUser || $authUser->entity_type === Borrower::class) {
+            return collect();
+        }
+
         // Base query: users where entity_type is Employee or NULL
         $query = User::query()
             ->where(function ($q) {
@@ -1005,6 +1014,7 @@ class BorrowerService
      */
     public function getBorrowerDocuments(int $borrowerId)
     {
+        Borrower::visibleTo(auth()->user())->findOrFail($borrowerId);
 
         $documents = BorrowerDocument::with('documentType')
             ->where('borrower_id', $borrowerId)

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Global\Website\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\ReCaptcha;
 use Illuminate\Validation\Rule;
 
 class StoreLeadRequest extends BaseApiRequest
@@ -28,6 +29,14 @@ class StoreLeadRequest extends BaseApiRequest
             ],
             'company_name' => ['nullable', 'string', 'max:255'],
             'requirements_details' => ['nullable', 'string'],
+            // The contact page runs reCAPTCHA v3 as "contact_form" (findings D5/O29).
+            // Required once a secret is configured; until then leads keep coming in.
+            'recaptcha_token' => [
+                Rule::requiredIf(fn () => ReCaptcha::secret() !== null),
+                'nullable',
+                'string',
+                new ReCaptcha('contact_form', skipWhenUnconfigured: true),
+            ],
         ];
     }
 
@@ -56,6 +65,7 @@ class StoreLeadRequest extends BaseApiRequest
             'contact_person.required' => __('lead.contact_person_website_required'),
             'email.required' => __('lead.email_website_required'),
             'phone_number.regex' => __('lead.phone_number_format_invalid'),
+            'recaptcha_token.required' => __('auth.recaptcha_required'),
         ];
     }
 }

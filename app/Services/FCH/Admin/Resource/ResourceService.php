@@ -22,6 +22,18 @@ class ResourceService
             ->get();
     }
 
+    /**
+     * Any resource, published or not - the host team edits drafts too.
+     */
+    public function find(int $id): Resource
+    {
+        return Resource::with([
+            'providers' => function ($q) {
+                $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+            }
+        ])->findOrFail($id);
+    }
+
     public function create(array $data)
     {
         $file = $data['file'] ?? null;

@@ -78,7 +78,11 @@ if (!function_exists('currencyFormat')) {
         if ($value === null || $value === '') {
             return null;
         }
-        return $symbol . number_format((float) $value * $conversionRate, $decimal, '.', $thousandSeparator);
+        $amount = (float) $value * $conversionRate;
+
+        // The sign before the symbol - "-$50.00", not "$-50.00" - for refunds,
+        // credits and negative balances.
+        return ($amount < 0 ? '-' : '') . $symbol . number_format(abs($amount), $decimal, '.', $thousandSeparator);
     }
 }
 
@@ -172,6 +176,11 @@ if (!function_exists('normalizeDate')) {
         try {
             // Handle mm-dd-yyyy or mm/dd/yyyy
             if (preg_match('/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/', $date, $matches)) {
+                // Month first - a day-first date like 13/01/2026 is no date at all.
+                if (!checkdate((int) $matches[1], (int) $matches[2], (int) $matches[3])) {
+                    return null;
+                }
+
                 return sprintf('%04d-%02d-%02d', $matches[3], $matches[1], $matches[2]);
             }
 
@@ -536,7 +545,7 @@ if (!function_exists('calculateTimeInBusiness')) {
             $parts[] = $diff->m . ' Month' . ($diff->m > 1 ? 's' : '');
         }
         if ($diff->d > 0 || empty($parts)) {
-            $parts[] = $diff->d . ' Day' . ($diff->d > 1 ? 's' : '');
+            $parts[] = $diff->d . ' Day' . ($diff->d === 1 ? '' : 's');
         }
 
         return implode(' ', $parts);

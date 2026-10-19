@@ -75,8 +75,10 @@ class NewChangeRequestSubmittedMail extends Mailable implements ShouldQueue
                 'borrowerName'  => !empty($borrowerName) ? $borrowerName : '',
                 'businessName'  => $businessName,
                 'fieldName'     => $this->changeRequest->visible_field_name ?? $this->changeRequest->field_name,
-                'oldValue'      => $this->changeRequest->old_value ?? '',
-                'newValue'      => $this->changeRequest->new_value,
+                // An SSN or EIN masked to its last four; the full values are on
+                // the change request screen, behind the admin sign-in.
+                'oldValue'      => $this->changeRequest->maskedValue($this->changeRequest->old_value) ?? '',
+                'newValue'      => $this->changeRequest->maskedValue($this->changeRequest->new_value),
                 'siteName'      => $this->dynamicData['siteName'],
                 'logoUrl'       => $this->dynamicData['logoUrl'],
                 'reviewUrl'     => $this->dynamicData['reviewUrl'],

@@ -5,6 +5,7 @@ namespace Tests\Feature\EmbedForm;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
+use App\Models\Common\Permission;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -73,7 +75,7 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
             'email' => 'odessa@example.test',
         ]);
 
-        Passport::actingAs(User::create([
+        $owner = User::create([
             'name' => 'Host Owner',
             'email' => 'owner@example.test',
             'password' => bcrypt('password'),
@@ -82,7 +84,17 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
             'partner_id' => $this->partner->id,
             'entity_type' => Partner::class,
             'entity_id' => $this->partner->id,
-        ]));
+        ]);
+
+        // Converting is behind permission:convert application. Lazy loading is
+        // off, so the relations Spatie reads are loaded first.
+        $owner = User::with('permissions', 'roles')->findOrFail($owner->id);
+        foreach (['view application', 'convert application'] as $name) {
+            $owner->givePermissionTo(Permission::firstOrCreate(['name' => $name, 'guard_name' => 'api']));
+        }
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Passport::actingAs(User::with('permissions', 'roles', 'partner')->findOrFail($owner->id));
     }
 
     private function convert(array $body = [])

@@ -50,7 +50,9 @@ class PlanFeeService
 
         if (!empty($data['include_existing_subscription'])) {
             if ($plan->group === SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT && array_key_exists('total_amount', $data)) {
+                // Only this plan's seats: seat plans are per partner type.
                 Subscription::whereIn('entity_type', [User::class,Employee::class])
+                    ->where('subscription_plan_id', $plan->id)
                     ->update([
                         'monthly_platform_fee' => $data['total_amount'],
                         'total_subscription_amount' => $data['total_amount'],

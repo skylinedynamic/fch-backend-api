@@ -273,7 +273,8 @@ class VerificationCenterService
             if ($strategy) {
                 $microBiltService = app(MicroBiltService::class);
                 $response = $strategy->execute($microBiltService, $borrower);
-                Log::info("MicroBilt {$api->name} Response", ['response' => $response]);
+                // A business report: kept out of the application log at info.
+                Log::debug("MicroBilt {$api->name} Response", ['response' => $response]);
 
                 // Check StatusCode and StatusDesc in the response
                 // Structure expected: {"response": {"MsgRsHdr": {"Status": {"StatusCode": 0, "StatusDesc": "OK"}}}}
@@ -324,10 +325,12 @@ class VerificationCenterService
             return [];
         }
 
-        $borrower = $verificationRequests->first()->borrower;
+        // Requests may belong to more than one client: each is checked against,
+        // and reported to, its own borrower.
         $results = [];
 
         foreach ($verificationRequests as $verificationRequest) {
+            $borrower = $verificationRequest->borrower;
             $task = $verificationRequest->task;
             $tier = $verificationRequest->tier;
             $taskName = $task->title ?? 'Unknown Task';
@@ -373,8 +376,11 @@ class VerificationCenterService
                                 $canUpdateStatus = false;
                             }
                         } catch (\Exception $e) {
-                            $errorMessage = __('verification_center.no_matching_business_record');
-                            $canUpdateStatus = false;
+                            // MicroBilt could not be asked (outage, timeout,
+                            // credentials) - that says nothing about the
+                            // business, so the task is left as it was.
+                            $errorMessage = __('verification_center.verification_service_unavailable');
+                            $shouldSkipUpdate = true;
                         }
                     } else {
                         // If null do not verify keep their status unchanged
@@ -440,8 +446,17 @@ class VerificationCenterService
             }
         }
 
-        // Send a consolidated verification status email to the borrower
-        $this->sendVerificationStatusMail($borrower, $statusToSet, $data['note'] ?? null, $results);
+        // Every request adds exactly one result, in order.
+        $resultsByBorrower = [];
+        foreach ($verificationRequests->values() as $index => $verificationRequest) {
+            $resultsByBorrower[$verificationRequest->borrower_id]['borrower'] = $verificationRequest->borrower;
+            $resultsByBorrower[$verificationRequest->borrower_id]['results'][] = $results[$index];
+        }
+
+        // Send each borrower one consolidated email covering their own tasks
+        foreach ($resultsByBorrower as ['borrower' => $borrower, 'results' => $borrowerResults]) {
+            $this->sendVerificationStatusMail($borrower, $statusToSet, $data['note'] ?? null, $borrowerResults);
+        }
 
         return $results;
     }

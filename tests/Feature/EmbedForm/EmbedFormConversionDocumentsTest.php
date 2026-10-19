@@ -157,6 +157,19 @@ class EmbedFormConversionDocumentsTest extends TestCase
 
         $this->convert();
 
+        // The Documents tab is read by someone who can see the client: here the
+        // host partner's staff (BorrowerService scopes it with Borrower::visibleTo).
+        \Laravel\Passport\Passport::actingAs(\App\Models\User\User::create([
+            'name' => 'Host Staff',
+            'email' => 'staff@example.test',
+            'password' => bcrypt('password'),
+            'status' => true,
+            'user_type' => \App\Models\User\User::PARTNER,
+            'partner_id' => $this->partner->id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->partner->id,
+        ]));
+
         $listed = collect(app(\App\Services\FCH\Common\Borrower\BorrowerService::class)->getBorrowerDocuments($this->borrower->id))
             ->pluck('document_name')->sort()->values()->all();
         $this->assertSame(['bank-statement.pdf', 'tax-return.pdf'], $listed);

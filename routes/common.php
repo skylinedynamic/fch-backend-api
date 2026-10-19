@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
-use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -127,9 +126,6 @@ Route::prefix('v1')->group(function () {
     // them. Returns the precomputed CSS variable map alongside the raw values.
     Route::get('common/branding', [BrandingController::class, 'show']);
 
-    // 📊 Public Weekly Executive Summary (no auth required)
-    Route::get('common/weekly-summary', [WeeklySummaryController::class, 'index']);
-
     Route::middleware('auth:api')->group(function () {
 
         // V1 2FA routes
@@ -141,7 +137,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/status', [V1TwoFaController::class, 'status']);
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
-        Route::prefix('common')->group(function () {
+        // Partner portal API; borrowers only reach the routes the borrower
+        // portal calls - see RejectBorrowersFromPartnerPortal.
+        Route::prefix('common')->middleware('partner-portal')->group(function () {
 
             Route::get('dashboard', [DashboardController::class, 'index']);
             Route::get('refresh-user', [CommonController::class, 'refreshUser']);
@@ -176,7 +174,8 @@ Route::prefix('v1')->group(function () {
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);
             Route::post('users/check-deletable', [UserController::class, 'checkDeletable']);
-            Route::apiResource('users', UserController::class);
+            // No destroy(): UserController has none - deleting is users/multiple-delete.
+            Route::apiResource('users', UserController::class)->except(['destroy']);
 
             Route::post('permissions', [PermissionController::class, 'index']);
 
@@ -308,7 +307,9 @@ Route::prefix('v1')->group(function () {
             Route::post('tiers/fetch-all-tiers', [CommonTierController::class, 'index']);
             Route::post('tier-tasks/fetch-all-tasks', [CommonTierTaskController::class, 'index']);
 
-            Route::prefix('credit-builder')->group(function () {
+            // Host-only screens in the partner portal (HostRoute): the
+            // Verification Center and the Capital Access catalogue.
+            Route::prefix('credit-builder')->middleware('host-only')->group(function () {
                 Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll']);
                 Route::post('verification-center-borrower-requests', [VerificationCenterController::class, 'fetchBorrowerRequests']);
                 Route::post('verification-center-status-update', [VerificationCenterController::class, 'statusUpdate']);
@@ -318,7 +319,7 @@ Route::prefix('v1')->group(function () {
             });
 
             // Capital Access CRUD
-            Route::prefix('capital-accesses')->group(function () {
+            Route::prefix('capital-accesses')->middleware('host-only')->group(function () {
                 Route::post('fetch-all', [CommonCapitalAccessController::class, 'index']);
                 Route::post('/', [CommonCapitalAccessController::class, 'store']);
                 Route::get('{id}', [CommonCapitalAccessController::class, 'show']);
@@ -371,11 +372,11 @@ Route::prefix('v1')->group(function () {
 
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
+            Route::post('leads/multiple-delete', [LeadController::class, 'multipleDelete']);
 
             // Explicitly define Leads Resource and separate split endpoints
             Route::get('leads', [LeadController::class, 'index']);
             Route::get('leads/{id}', [LeadController::class, 'show']);
-            Route::delete('leads/{id}', [LeadController::class, 'destroy']);
 
             Route::post('leads/details', [LeadController::class, 'storeDetails']);
             Route::post('leads/{id}/details', [LeadController::class, 'updateDetails']);
@@ -407,6 +408,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('my-subscription')->group(function () {
                 Route::get('/', [MySubscriptionController::class, 'index']);
                 Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
+                Route::post('remove-default-payment-method', [MySubscriptionController::class, 'removeDefaultPaymentMethod']);
                 Route::post('cancel-subscription', [MySubscriptionController::class, 'cancelSubscription']);
             });
 
@@ -542,16 +544,33 @@ Route::prefix('v1')->group(function () {
 
             // 📝 Embedded Form Management (Internal / Authenticated)
             Route::prefix('embed-forms')->group(function () {
-                Route::get('config', [EmbedFormController::class, 'getConfig']);
-                Route::put('config', [EmbedFormController::class, 'updateConfig']);
-                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey']);
+                // The same four permissions the admin panel gates these screens
+                // on, so a role without them is refused here too and not only
+                // hidden from the menu.
+                Route::get('config', [EmbedFormController::class, 'getConfig'])
+                    ->middleware('permission:view configuration');
+                Route::put('config', [EmbedFormController::class, 'updateConfig'])
+                    ->middleware('permission:update configuration');
+                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey'])
+                    ->middleware('permission:update configuration');
 
-                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions']);
-                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission']);
-                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus']);
-                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower']);
+                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions'])
+                    ->middleware('permission:view application');
+                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission'])
+                    ->whereNumber('id')
+                    ->middleware('permission:view application');
+                // The panel offers the status dropdown to anyone who can open an
+                // application, so this follows the same permission.
+                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus'])
+                    ->whereNumber('id')
+                    ->middleware('permission:view application');
+                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower'])
+                    ->whereNumber('id')
+                    ->middleware('permission:convert application');
 
-                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
+                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment'])
+                    ->whereNumber('id')
+                    ->middleware('permission:view application');
             });
 
 
@@ -588,8 +607,9 @@ Route::prefix('v1')->group(function () {
             Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });
 
-        // V1 Notification routes
-        Route::prefix('notifications')->group(function () {
+        // V1 Notification routes - partner portal only (Settings > Email test);
+        // it mails caller-chosen text to a caller-chosen address.
+        Route::prefix('notifications')->middleware('partner-portal')->group(function () {
             Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
         });
     });

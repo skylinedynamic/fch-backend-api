@@ -30,24 +30,51 @@ class PruneOldLogs extends Command
         $logPath = storage_path('logs');
         $directories = File::directories($logPath);
         
-        // We keep the current month and the 5 previous months (total 6)
+        // We keep the current month and the 5 previous months (total 6).
+        // Counted back from the 1st: "-1 month" from the 31st overflows past a
+        // short month (31 March - 1 month = 3 March) and would drop February.
         $keepMonths = [];
         for ($i = 0; $i < 6; $i++) {
-            $keepMonths[] = date('F', strtotime("-$i months"));
+            $keepMonths[] = Carbon::now()->startOfMonth()->subMonths($i)->format('F');
         }
 
-        $this->info("Keeping logs for: " . implode(', ', $keepMonths));
+        // The same window as year/month folders (logs/2026/June), which is how
+        // logs are written now: month alone could not tell this June from last.
+        $keepYearMonths = [];
+        for ($i = 0; $i < 6; $i++) {
+            $keepYearMonths[] = Carbon::now()->startOfMonth()->subMonths($i)->format('Y/F');
+        }
+
+        $this->info("Keeping logs for: " . implode(', ', $keepYearMonths));
+
+        $monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
 
         foreach ($directories as $dir) {
             $folderName = basename($dir);
-            
-            // Check if folder is a month name
-            $isMonthName = in_array($folderName, [
-                'January', 'February', 'March', 'April', 'May', 'June', 
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ]);
 
-            if ($isMonthName && !in_array($folderName, $keepMonths)) {
+            // A year folder: prune its months by year and month, then the year
+            // itself once nothing is left in it.
+            if (preg_match('/^\d{4}$/', $folderName)) {
+                foreach (File::directories($dir) as $monthDir) {
+                    $month = basename($monthDir);
+                    if (in_array($month, $monthNames) && !in_array("{$folderName}/{$month}", $keepYearMonths)) {
+                        $this->warn("Deleting old log folder: {$folderName}/{$month}");
+                        File::deleteDirectory($monthDir);
+                    }
+                }
+
+                if (File::isEmptyDirectory($dir)) {
+                    File::deleteDirectory($dir);
+                }
+
+                continue;
+            }
+
+            // A folder from before logs carried the year: month name only.
+            if (in_array($folderName, $monthNames) && !in_array($folderName, $keepMonths)) {
                 $this->warn("Deleting old log folder: $folderName");
                 File::deleteDirectory($dir);
             }

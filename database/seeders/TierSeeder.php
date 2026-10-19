@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\File;
 
 class TierSeeder extends Seeder
@@ -28,10 +28,10 @@ class TierSeeder extends Seeder
 
         // Clear existing data to prevent duplicates
         // Disable foreign key checks to allow truncation
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        Schema::disableForeignKeyConstraints();
         TierTask::truncate();
         Tier::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        Schema::enableForeignKeyConstraints();
 
         $tiers = [
             [

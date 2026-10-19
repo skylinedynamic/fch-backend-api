@@ -22,7 +22,12 @@ class UpdateEmbedFormSubmissionStatusRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', Rule::in(EmbedFormSubmission::getStatuses())],
+            // Converted is reached only by converting, never set by hand: it
+            // would mark an application as done with no borrower behind it.
+            'status' => ['required', 'string', Rule::in(array_values(array_diff(
+                EmbedFormSubmission::getStatuses(),
+                [EmbedFormSubmission::STATUS_CONVERTED]
+            )))],
         ];
     }
 

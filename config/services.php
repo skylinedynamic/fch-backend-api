@@ -60,10 +60,6 @@ return [
         'client_secret' => env('MICROBILT_CLIENT_SECRET'),
     ],
 
-    'opencorporates' => [
-        'api_token' => env('OPENCORPORATES_API_TOKEN'),
-    ],
-
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
     ],

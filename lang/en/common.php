@@ -17,6 +17,7 @@ return [
     'email_changed_subject' => 'Your Email has been changed',
     'password_updated_subject' => 'Your Password has been updated',
     'postal_code_invalid' => 'Enter a 5-digit ZIP code, e.g. 10001.',
+    'path_traversal' => 'The file path must not contain "..".',
     'business_ein_invalid' => 'Enter a 9-digit EIN as XX-XXXXXXX, e.g. 12-3456789.',
     'ssn_invalid' => 'Enter a valid 9-digit SSN as XXX-XX-XXXX.',
     'duns_number_invalid' => 'Enter a 9-digit D-U-N-S number, e.g. 123456789.',

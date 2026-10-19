@@ -315,6 +315,24 @@ class Borrower extends Model
     }
 
     /**
+     * Per-instance answers for the funding engine's borrower checks. The engine
+     * asks the same question once per lender per sequence, so without this one
+     * page load ran the same EXISTS query thousands of times.
+     */
+    private ?bool $hasAnyFundingApplicationCache = null;
+    private ?bool $hasAnyDocumentCache = null;
+
+    public function hasAnyFundingApplication(): bool
+    {
+        return $this->hasAnyFundingApplicationCache ??= FundingApplication::where('borrower_id', $this->id)->exists();
+    }
+
+    public function hasAnyDocument(): bool
+    {
+        return $this->hasAnyDocumentCache ??= BorrowerDocument::where('borrower_id', $this->id)->exists();
+    }
+
+    /**
      * Check if the borrower is deletable based on invoice status.
      */
     public function isDeletable(): bool
@@ -390,6 +408,33 @@ class Borrower extends Model
     public function creditProfileRequests()
     {
         return $this->hasOne(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
+    }
+
+    /**
+     * The borrowers a user may reach through the partner portal: the host's
+     * team sees every borrower, anyone else only their own partner's - by
+     * partner, not user_type, so a partner's staff are held to it too. A
+     * borrower reaches only their own record, and a user with no partner none.
+     */
+    public function scopeVisibleTo($query, ?\App\Models\User\User $user)
+    {
+        if (!$user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->entity_type === self::class) {
+            return $query->where($this->qualifyColumn('id'), $user->entity_id);
+        }
+
+        if (!$user->partner_id) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ((bool) $user->partner?->is_host) {
+            return $query;
+        }
+
+        return $query->where($this->qualifyColumn('partner_id'), $user->partner_id);
     }
 
     public function scopeSearch($query, ?string $search)

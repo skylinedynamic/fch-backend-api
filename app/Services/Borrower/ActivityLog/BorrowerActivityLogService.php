@@ -508,7 +508,8 @@ class BorrowerActivityLogService
             throw new \Exception("Unauthorized access", 401);
         }
 
-        return $query->findOrFail($id);
+        // The same rule as the list - see ActivityLog::scopeVisibleTo().
+        return $query->visibleTo($user)->findOrFail($id);
     }
 
     /**
@@ -519,7 +520,7 @@ class BorrowerActivityLogService
      */
     public function downloadAttachment(int $logId, string $path)
     {
-        $log = ActivityLog::findOrFail($logId);
+        $log = ActivityLog::visibleTo(Auth::user())->findOrFail($logId);
         $files = $this->getLogFiles($log);
 
         // Match by path OR by URL (extremely resilient matching)
@@ -563,9 +564,9 @@ class BorrowerActivityLogService
 
                 $possiblePaths = [
                     public_path('storage/borrowers/' . $document->borrower_id . '/' . $rawPath),
-                    storage_path('app/public/borrowers/' . $document->borrower_id . '/' . $rawPath),
+                    \Illuminate\Support\Facades\Storage::disk('public')->path('borrowers/' . $document->borrower_id . '/' . $rawPath),
                     public_path('storage/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
-                    storage_path('app/public/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
+                    \Illuminate\Support\Facades\Storage::disk('public')->path('borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
                 ];
             } else {
                 $document = \App\Models\Partner\PartnerDocument::withTrashed()->find($documentId);
@@ -578,9 +579,9 @@ class BorrowerActivityLogService
 
                 $possiblePaths = [
                     public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
-                    storage_path('app/public/partners/' . $document->partner_id . '/' . $rawPath),
+                    \Illuminate\Support\Facades\Storage::disk('public')->path('partners/' . $document->partner_id . '/' . $rawPath),
                     public_path('storage/partners/' . $document->partner_id . '/documents/' . $rawPath),
-                    storage_path('app/public/partners/' . $document->partner_id . '/documents/' . $rawPath),
+                    \Illuminate\Support\Facades\Storage::disk('public')->path('partners/' . $document->partner_id . '/documents/' . $rawPath),
                 ];
             }
 
@@ -600,7 +601,7 @@ class BorrowerActivityLogService
         if (!file_exists($absolutePath)) {
             // check storage/app/public too if it's a storage link
             $cleanPath = ltrim(str_replace('storage/', '', $file['path']), '/');
-            $storagePath = storage_path('app/public/' . $cleanPath);
+            $storagePath = \Illuminate\Support\Facades\Storage::disk('public')->path($cleanPath);
             if (file_exists($storagePath)) {
                 return response()->download($storagePath);
             }

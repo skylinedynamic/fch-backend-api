@@ -87,7 +87,7 @@ class FundingApplicationService
 
             // 1. Try to find the application by ID if provided
             if (!empty($matchId)) {
-                $existing = FundingApplication::find($matchId);
+                $existing = FundingApplication::where('borrower_id', $borrowerId)->findOrFail($matchId);
             }
 
             // 2. Determine funding_request_id (use existing if not provided in payload)
@@ -162,7 +162,7 @@ class FundingApplicationService
                     $matchId = $existing->id;
                 }
             } else {
-                $existing = FundingApplication::find($matchId);
+                $existing = FundingApplication::where('borrower_id', $borrowerId)->findOrFail($matchId);
             }
 
             $isNew = empty($existing);
@@ -234,7 +234,12 @@ class FundingApplicationService
                 $coBorrowerIds = [];
                 if (!empty($data['co_borrowers'])) {
                     foreach ($data['co_borrowers'] as $coBorrower) {
-                        $record = FundingApplicationCoBorrower::updateOrCreate(['id' => $coBorrower['id'] ?? null], [
+                        // Only this application's own co-borrowers are updated
+                        // by id; any other id is treated as a new co-borrower.
+                        $ownCoBorrowerId = empty($coBorrower['id']) ? null : FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)
+                            ->whereKey($coBorrower['id'])
+                            ->value('id');
+                        $record = FundingApplicationCoBorrower::updateOrCreate(['id' => $ownCoBorrowerId], [
                             'funding_application_id' => $fundingApplication->id,
                             'first_name' => $coBorrower['first_name'] ?? null,
                             'last_name' => $coBorrower['last_name'] ?? null,

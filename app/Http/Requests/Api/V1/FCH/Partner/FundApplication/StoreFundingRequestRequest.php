@@ -3,6 +3,9 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\FundingApplication;
+use App\Models\FundingRequest\FundingRequest;
+use App\Rules\VisibleToUser;
 use Illuminate\Validation\Rule;
 
 class StoreFundingRequestRequest extends BaseApiRequest
@@ -23,8 +26,8 @@ class StoreFundingRequestRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
-            'funding_request_id' => 'nullable',
+            'id' => ['nullable', new VisibleToUser(FundingApplication::class)],
+            'funding_request_id' => ['nullable', new VisibleToUser(FundingRequest::class)],
             'funding_sequence_id' => 'nullable',
             'requested_amount' => 'required|numeric|min:0',
             'purpose_of_funds' => 'required|string|max:500',

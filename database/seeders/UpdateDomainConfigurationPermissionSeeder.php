@@ -60,6 +60,9 @@ class UpdateDomainConfigurationPermissionSeeder extends Seeder
                     ->whereHas('roles', function ($query) use ($role) {
                         $query->where('id', $role->id);
                     })
+                    // givePermissionTo() reads the user's permissions; loaded
+                    // here, since lazy loading throws outside production.
+                    ->with('permissions')
                     ->get();
 
                 foreach ($users as $user) {

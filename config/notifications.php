@@ -333,6 +333,26 @@ return [
             'url' => '/my-subscription',
         ],
 
+        'borrower.payment.failed' => [
+            'name' => 'Automatic payment failed (borrower)',
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => 'Payment not taken',
+            'body' => "We couldn't take the automatic payment for invoice {{invoice}}. Please update your payment method or pay it from your billing page.",
+            'url' => '/billing-details',
+        ],
+
+        'partner.payment.failed' => [
+            'name' => 'Automatic payment failed (partner)',
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => 'Payment not taken',
+            'body' => "We couldn't take the automatic payment for invoice {{invoice}}. Please update your payment method or pay it from My Subscription.",
+            'url' => '/my-subscription',
+        ],
+
         'invoice.sent' => [
             'name' => 'Invoice sent',
             'category' => 'payment',

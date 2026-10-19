@@ -4,11 +4,13 @@ namespace Tests\Feature\EmbedForm;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
+use App\Models\Common\Permission;
 use App\Models\EmbedForm\EmbedFormCoBorrower;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -53,7 +56,7 @@ class EmbedFormConversionProfileTest extends TestCase
             'email' => 'host@example.test',
         ]);
 
-        Passport::actingAs(User::create([
+        $owner = User::create([
             'name' => 'Host Owner',
             'email' => 'owner@example.test',
             'password' => bcrypt('password'),
@@ -62,7 +65,17 @@ class EmbedFormConversionProfileTest extends TestCase
             'partner_id' => $this->partner->id,
             'entity_type' => Partner::class,
             'entity_id' => $this->partner->id,
-        ]));
+        ]);
+
+        // Converting is behind permission:convert application. Lazy loading is
+        // off, so the relations Spatie reads are loaded first.
+        $owner = User::with('permissions', 'roles')->findOrFail($owner->id);
+        foreach (['view application', 'convert application'] as $name) {
+            $owner->givePermissionTo(Permission::firstOrCreate(['name' => $name, 'guard_name' => 'api']));
+        }
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Passport::actingAs(User::with('permissions', 'roles', 'partner')->findOrFail($owner->id));
     }
 
     private function submission(array $overrides = []): EmbedFormSubmission
@@ -231,6 +244,11 @@ class EmbedFormConversionProfileTest extends TestCase
         $borrower = $this->convertedBorrower($submission);
         $this->assertSame('123456789', $borrower->business_ein);
         $this->assertSame('2019-04-01', substr((string) $borrower->getRawOriginal('business_start_date'), 0, 10));
+        // Years in business is worked out from that date, never copied.
+        $this->assertEquals(
+            round(Carbon::parse('2019-04-01')->diffInDays(now()) / 365.25, 1),
+            $borrower->years_in_business
+        );
     }
 
     #[Test]

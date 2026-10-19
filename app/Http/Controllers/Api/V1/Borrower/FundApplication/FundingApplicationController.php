@@ -549,7 +549,7 @@ class FundingApplicationController extends Controller
                 $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
             }
 
-            $filePath = storage_path('app/public/' . $relativePath);
+            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
 
             if (!file_exists($filePath)) {
                 return ApiResponse::notFound('File not found on server.');

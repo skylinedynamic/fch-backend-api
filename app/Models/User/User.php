@@ -536,6 +536,28 @@ class User extends Authenticatable implements OAuthenticatable
             });
     }
 
+    /**
+     * The logins a user manages on the Users screen: their own partner's team -
+     * partner and employee accounts, the set that screen lists - never a
+     * borrower's login and never another partner's. A borrower manages none.
+     */
+    public function scopeManageableBy($query, ?User $user)
+    {
+        if (!$user || !$user->partner_id || $user->entity_type === \App\Models\Borrower\Borrower::class) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query
+            ->where($this->qualifyColumn('partner_id'), $user->partner_id)
+            ->where(function ($q) {
+                $q->whereNull($this->qualifyColumn('entity_type'))
+                    ->orWhereIn($this->qualifyColumn('entity_type'), [
+                        \App\Models\Partner\Partner::class,
+                        \App\Models\Employee\Employee::class,
+                    ]);
+            });
+    }
+
     public function scopeSearch($query, ?string $search)
     {
         if (!is_string($search) || trim($search) === '') {
@@ -550,7 +572,6 @@ class User extends Authenticatable implements OAuthenticatable
                 ->orWhere('phone_number', 'like', "%{$search}%")
                 ->orWhere('entity_type', 'like', "%{$search}%")
                 ->orWhere('status', 'like', "%{$search}%")
-                ->orWhere('end_date', 'like', "%{$search}%")
                 ->orWhereHas('roles', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
                 });
@@ -708,5 +729,28 @@ class User extends Authenticatable implements OAuthenticatable
     public function markAsRefresh(bool $refresh = true): bool
     {
         return $this->update(['is_refresh' => $refresh]);
+    }
+
+    /**
+     * Sign out every other session: revoke every access token (and its refresh
+     * token) except the one this request was made with. Called when the password
+     * changes, so whoever held an old session - a stolen one included - is out.
+     */
+    public function revokeOtherTokens(): void
+    {
+        $current = $this->token();
+        $currentId = is_object($current) ? ($current->id ?? null) : null;
+
+        $revoked = $this->tokens()
+            ->where('revoked', false)
+            ->when($currentId, fn ($query) => $query->where('id', '!=', $currentId))
+            ->pluck('id');
+
+        if ($revoked->isEmpty()) {
+            return;
+        }
+
+        $this->tokens()->whereIn('id', $revoked)->update(['revoked' => true]);
+        DB::table('oauth_refresh_tokens')->whereIn('access_token_id', $revoked)->update(['revoked' => true]);
     }
 }

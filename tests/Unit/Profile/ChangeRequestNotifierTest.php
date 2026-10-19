@@ -241,6 +241,30 @@ class ChangeRequestNotifierTest extends TestCase
         $this->assertSame(BorrowerChangeRequest::STATUS_APPROVED, $data['status']);
     }
 
+    /**
+     * Defect (D12): the decision email carried the requested new value as is,
+     * so an SSN or EIN went out in plain email. They are masked to their last
+     * four; a date of birth is still shown in full.
+     */
+    #[Test]
+    public function an_ssn_or_ein_is_masked_in_the_decision_email(): void
+    {
+        $cases = [
+            ['business_ein', 'Business EIN No', '12-3456789', '**-***6789'],
+            ['last_4_ssn', 'Last 4 SSN Number', '6789', '****'],
+            ['ssn', 'Social Security Number', '123-45-6789', '***-**-6789'],
+        ];
+
+        foreach ($cases as [$field, $label, $value, $masked]) {
+            Mail::fake();
+            $this->notifier($this->host())->decisionMade($this->changeRequest(attributes: [
+                'field_name' => $field, 'visible_field_name' => $label, 'new_value' => $value,
+            ]));
+
+            $this->assertSame($masked, Mail::queued(ChangeRequestStatusMail::class)->first()->mailData['new_value'], $field);
+        }
+    }
+
     #[Test]
     public function the_column_name_stands_in_when_there_is_no_label(): void
     {

@@ -1453,7 +1453,7 @@ class EmbedFormService
     {
         $user = auth()->user();
         if (!$user) {
-            return ApiResponse::unauthenticated();
+            return ApiResponse::unauthorized();
         }
 
         $userPartnerId = $user->partner_id ?? $user->entity_id;

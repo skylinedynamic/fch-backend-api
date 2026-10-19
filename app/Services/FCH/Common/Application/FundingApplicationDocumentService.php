@@ -370,7 +370,8 @@ class FundingApplicationDocumentService
 
     public function downloadFromHistory($historyId)
     {
-        $history = DownloadHistory::find($historyId);
+        $history = DownloadHistory::whereHas('fundingApplication', fn ($applications) => $applications->reviewableBy(Auth::user()))
+            ->find($historyId);
         if (!$history) {
             return ApiResponse::error('History record not found.');
         }
@@ -505,7 +506,7 @@ class FundingApplicationDocumentService
         int $boxHeight = 60
     ): array {
         $paths = $logoKey && $logoKey !== 'null' ? [
-            storage_path('app/public/' . ltrim($logoKey, '/')),
+            \Illuminate\Support\Facades\Storage::disk('public')->path(ltrim($logoKey, '/')),
             public_path('storage/' . ltrim($logoKey, '/')),
             public_path(ltrim($logoKey, '/')),
         ] : [];

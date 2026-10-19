@@ -195,6 +195,17 @@ class FundingSequencing extends Model
             return self::ENGINE_STATUS_ACTIVE;
         }
 
+        // engine_status, engine_status_label and the service's HIDDEN filter all
+        // read this for the same borrower within one request; the evaluation
+        // below runs several queries per lender, so do it once per instance.
+        return $this->engineStatusCache[$borrower->id] ??= $this->evaluateEngineStatusForBorrower($borrower);
+    }
+
+    /** @var array<int, string> engine status per borrower id, for this instance */
+    private array $engineStatusCache = [];
+
+    private function evaluateEngineStatusForBorrower($borrower): string
+    {
         // Load lenders if not loaded
         if (!$this->relationLoaded('lenderVisibilities')) {
             $this->load('lenderVisibilities');

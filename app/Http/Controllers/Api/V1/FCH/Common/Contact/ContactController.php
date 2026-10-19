@@ -39,6 +39,8 @@ class ContactController extends Controller
             $contact = $this->contactService->find($id);
 
             return ApiResponse::success(new ContactResource($contact), __('contact.contact_details'));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound(__('contact.contact_not_found'));
         } catch (\Exception $e) {
             return ApiResponse::error(__('contact.contact_not_found'));
         }

@@ -44,10 +44,13 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     {
         $config = $this->embedFormConfig();
 
-        // No config means the key is unknown or inactive; the controller answers
-        // that with a 404, and it is not this method's job to pre-empt it.
+        // No config means the key is unknown or inactive. Answered here rather
+        // than in the controller, which only runs after validation - by then
+        // the caller has been handed a 422 naming every field of the form.
         if (!$config) {
-            return true;
+            throw new HttpResponseException(
+                ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'))
+            );
         }
 
         return app(EmbedFormService::class)->isOriginAllowed($config, $this);

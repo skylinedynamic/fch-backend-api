@@ -16,7 +16,9 @@ abstract class Controller
         }
         
         $user = auth()->user();
-        if ($user && $user->partner && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
+        // The host runs on the platform's own branding and mail, so it is never
+        // held to a white-label partner's setup - even though it is seeded as one.
+        if ($user && $user->partner && !$user->partner->is_host && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
             $partnerId = $user->partner_id;
 
             // Mail configuration is not required: until the partner's own is

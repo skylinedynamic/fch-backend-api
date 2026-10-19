@@ -20,6 +20,7 @@ return [
     'verified' => 'Verified',
     'verification_failed' => 'Verification failed.',
     'no_matching_business_record' => 'No matching business record found.',
+    'verification_service_unavailable' => 'The verification service could not be reached. The task was left unchanged; please try again later.',
     'verification_status_update' => 'Verification Status Update',
 
     // Notifications. A submission is announced to the host; a decision goes back
