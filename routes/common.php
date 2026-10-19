@@ -45,7 +45,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PreQualificationAgentConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\FallbackMailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\MailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\SmsConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -74,6 +75,11 @@ Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck'
 // index.html. Deliberately outside /v1 and unauthenticated: it has to load
 // before the app boots, on a cold visit with no token and no localStorage.
 Route::get('/branding.css', [BrandingController::class, 'css']);
+
+// Tenant title, description, Open Graph tags and favicon as an HTML fragment,
+// included into each portal's index.html by Nginx (SSI) so link previews -
+// which never run JavaScript - show the partner's own name and logo.
+Route::get('/portal-meta', [BrandingController::class, 'meta']);
 
 // Email change links — confirm (sent to the new address), cancel and undo (sent
 // to the old one). Public: each link's signature is the authority (checked in
@@ -186,8 +192,13 @@ Route::prefix('v1')->group(function () {
             Route::get('borrowers/{id}/business-financials', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Credit Profile routes — must be before wildcard borrowers/{id}
-            Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
-            Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
+            // Uploading, saving and removing it: the host partner's team only.
+            Route::middleware('host-partner')->group(function () {
+                Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
+                Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
+                Route::delete('borrowers/{borrowerId}/credit-profile', [BorrowerController::class, 'deleteCreditProfile'])
+                    ->whereNumber('borrowerId');
+            });
             Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
 
             // The PDF sent to iSoftPull when they ask us to prove a client
@@ -474,11 +485,28 @@ Route::prefix('v1')->group(function () {
                 Route::delete('sessions', [WlpAssistantController::class, 'destroy']);
             });
 
-            // 📧 Email Configurations
-            Route::prefix('email-configurations')->group(function () {
-                Route::get('/', [EmailConfigurationController::class, 'index']);
-                Route::post('/', [EmailConfigurationController::class, 'store']);
-                Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
+            // Mail configuration: a partner's providers, each verified with a
+            // code, and the one platform-wide fallback the host partner keeps.
+            Route::prefix('mail-configurations')->group(function () {
+                // Host partner's own account only - checked in the controller.
+                Route::prefix('fallback')->controller(FallbackMailConfigurationController::class)->group(function () {
+                    Route::get('/', 'index');
+                    Route::post('/', 'store');
+                    Route::post('/{mailConfiguration}/default', 'makeDefault')->whereNumber('mailConfiguration');
+                    Route::post('/{mailConfiguration}/send-code', 'sendCode')->whereNumber('mailConfiguration');
+                    Route::post('/{mailConfiguration}/verify', 'verify')->whereNumber('mailConfiguration')->middleware('throttle:20,1');
+                });
+
+                Route::middleware('permission:update email configuration settings')
+                    ->controller(MailConfigurationController::class)
+                    ->group(function () {
+                        Route::get('/', 'index');
+                        Route::post('/', 'store');
+                        Route::delete('/{mailConfiguration}', 'destroy')->whereNumber('mailConfiguration');
+                        Route::post('/{mailConfiguration}/default', 'makeDefault')->whereNumber('mailConfiguration');
+                        Route::post('/{mailConfiguration}/send-code', 'sendCode')->whereNumber('mailConfiguration');
+                        Route::post('/{mailConfiguration}/verify', 'verify')->whereNumber('mailConfiguration')->middleware('throttle:20,1');
+                    });
             });
 
             // SMS Configuration (host and white-label partners)

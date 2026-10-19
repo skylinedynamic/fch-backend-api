@@ -23,7 +23,7 @@ use Illuminate\Queue\SerializesModels;
  *
  * MailConfig is what applies those credentials. Mail::raw(), which this replaces,
  * bypasses the trait entirely - and since credentials moved out of config/mail.php
- * into `email_configurations`, a raw send now has no mail server at all.
+ * into `mail_configurations`, a raw send now has no mail server at all.
  */
 class SystemHealthAlert extends Mailable implements ShouldQueue
 {

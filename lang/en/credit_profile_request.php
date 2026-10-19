@@ -31,4 +31,12 @@ return [
     // logged rather than passed over.
     'log_no_consent_to_attach' => 'saveCreditProfile: no unattached credit authorization consent for borrower :borrower_id',
     'log_attach_consent_failed' => 'saveCreditProfile: failed to attach consent to pull for borrower :borrower_id: :error',
+
+    // The borrower's notice that their credit report was saved to their profile.
+    'updated_mail_subject' => 'Your credit profile has been updated',
+    'updated_mail_heading' => 'Your Credit Profile Has Been Updated',
+    'updated_mail_intro' => 'Hello :name,',
+    'updated_mail_body' => 'Your latest credit report has been added to your profile. You can now review your credit scores and report details.',
+    'updated_mail_action' => 'View My Credit Profile',
+    'log_borrower_notify_failed' => 'saveCreditProfile: failed to notify borrower :borrower_id that their credit profile was updated: :error',
 ];

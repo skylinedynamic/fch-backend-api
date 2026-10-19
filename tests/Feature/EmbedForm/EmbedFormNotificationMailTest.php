@@ -3,7 +3,7 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Mail\EmbedForm\NewSubmissionMail;
-use App\Models\Setting\EmailConfiguration;
+use App\Models\Setting\MailConfiguration;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
@@ -56,9 +56,11 @@ class EmbedFormNotificationMailTest extends TestCase
             'email' => 'host-' . uniqid() . '@example.test',
         ]);
 
-        // The host is configured, so any host fallback would succeed and be
-        // visible - which is what makes the white-label cases below meaningful.
+        // The host and the platform fallback are configured, so any fallback
+        // would succeed and be visible - which is what makes the white-label
+        // cases below meaningful.
         $this->mailConfig($this->host);
+        $this->mailConfig(null);
     }
 
     #[Test]
@@ -114,7 +116,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingOutgoing();
+        $this->assertNoMailTo('wl@example.test');
     }
 
     #[Test]
@@ -142,7 +144,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingOutgoing();
+        $this->assertNoMailTo('wl@example.test');
     }
 
     #[Test]
@@ -155,7 +157,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingOutgoing();
+        $this->assertNoMailTo('wl@example.test');
     }
 
     #[Test]
@@ -182,13 +184,15 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     #[Test]
-    public function a_partner_with_no_address_at_all_sends_nothing(): void
+    public function a_partner_with_no_address_gets_no_mail_and_the_host_still_does(): void
     {
         $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, ['email' => null]);
 
         $this->notify($partner);
 
-        Mail::assertNothingOutgoing();
+        // Only the host's copy goes out.
+        Mail::assertQueued(NewSubmissionMail::class, 1);
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo($this->host->email));
     }
 
     // ── The bell ──────────────────────────────────────────────────────
@@ -218,7 +222,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingOutgoing();
+        $this->assertNoMailTo('wl@example.test');
         Notification::assertSentTo($login, DynamicNotification::class);
     }
 
@@ -232,6 +236,158 @@ class EmbedFormNotificationMailTest extends TestCase
         $this->notify($partner);
 
         Notification::assertSentTo($login, DynamicNotification::class);
+    }
+
+    // ── Who is told, by which channels ─────────────────────────────────
+    //
+    //   White-label partner's form  partner: bell, push, mail and SMS (the SMS
+    //                               only through its own active Twilio account)
+    //                               host: bell, push and mail
+    //   Certified partner's form    partner and host: bell, push and mail
+    //   Host's own form             host: bell, push and mail, once
+
+    #[Test]
+    public function a_white_label_partner_is_also_texted(): void
+    {
+        Notification::fake();
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['email' => 'wl@example.test']);
+        $login = $this->loginFor($partner);
+
+        $submission = $this->notify($partner);
+
+        Notification::assertSentTo($login, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.embed_form.submitted_white_label'
+            && $this->channels($n, $login) === ['database', 'broadcast', 'sms']
+            && $n->toArray($login)['url'] === "/embed-form/loan-applications/{$submission->id}");
+    }
+
+    #[Test]
+    public function the_host_is_told_about_a_white_label_partners_application_without_a_text(): void
+    {
+        Notification::fake();
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['email' => 'wl@example.test', 'company_name' => 'Acme Lending']);
+        $this->mailConfig($partner);
+        $hostLogin = $this->loginFor($this->host);
+
+        $submission = $this->notify($partner);
+
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.embed_form.submitted'
+            && $this->channels($n, $hostLogin) === ['database', 'broadcast']
+            && $n->toArray($hostLogin)['body'] === "Johnathan Smithfield submitted Acme Lending's embedded application form."
+            && $n->toArray($hostLogin)['url'] === "/embed-form/loan-applications/{$submission->id}");
+        $this->assertHostCopyMailed();
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test') && !$mail->hostCopy);
+    }
+
+    #[Test]
+    public function a_certified_partner_and_the_host_are_told_without_a_text(): void
+    {
+        Notification::fake();
+        $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, ['email' => 'certified@example.test']);
+        $login = $this->loginFor($partner);
+        $hostLogin = $this->loginFor($this->host);
+
+        $this->notify($partner);
+
+        Notification::assertSentTo($login, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.embed_form.submitted'
+            && $this->channels($n, $login) === ['database', 'broadcast']);
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.embed_form.submitted'
+            && $this->channels($n, $hostLogin) === ['database', 'broadcast']);
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('certified@example.test'));
+        $this->assertHostCopyMailed();
+    }
+
+    #[Test]
+    public function the_hosts_own_form_tells_the_host_once_without_a_text(): void
+    {
+        Notification::fake();
+        $hostLogin = $this->loginFor($this->host);
+
+        $this->notify($this->host);
+
+        Notification::assertSentToTimes($hostLogin, DynamicNotification::class, 1);
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.embed_form.submitted'
+            && $this->channels($n, $hostLogin) === ['database', 'broadcast']);
+        Mail::assertQueued(NewSubmissionMail::class, 1);
+    }
+
+    #[Test]
+    public function the_hosts_copy_leaves_under_the_hosts_own_mailbox_and_names_the_partner(): void
+    {
+        // Not the white-label partner's: the host's copy is the host's mail.
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['email' => 'wl@example.test', 'company_name' => 'Acme Lending']);
+        $this->mailConfig($partner);
+
+        $this->notify($partner);
+
+        Mail::assertQueued(NewSubmissionMail::class, function (NewSubmissionMail $mail) {
+            if (!$mail->hostCopy) {
+                return false;
+            }
+            $mailPartner = (new \ReflectionProperty($mail, 'mailPartnerId'))->getValue($mail);
+
+            return $mail->hasTo($this->host->email)
+                && $mailPartner === $this->host->id
+                && str_contains($mail->render(), "Acme Lending's embedded form");
+        });
+    }
+
+    #[Test]
+    public function every_notice_says_it_came_from_the_embedded_form(): void
+    {
+        // A "New loan application" bell or text could be any application; the
+        // partner has to know it came through the embedded form.
+        Notification::fake();
+        $whiteLabel = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['email' => 'wl@example.test']);
+        $this->mailConfig($whiteLabel);
+        $certified = $this->partner(Partner::PARTNER_TYPE_CERTIFIED);
+        $logins = [$this->loginFor($whiteLabel), $this->loginFor($certified), $this->loginFor($this->host)];
+
+        $this->notify($whiteLabel);
+        $this->notify($certified);
+        $this->notify($this->host);
+
+        foreach ($logins as $login) {
+            Notification::assertSentTo($login, DynamicNotification::class, function (DynamicNotification $n) use ($login) {
+                $bell = $n->toArray($login);
+
+                return str_contains($bell['title'], 'Embedded Form')
+                    && str_contains($bell['body'], 'embedded')
+                    && str_contains($n->toSms($login), 'Embedded Form');
+            });
+        }
+        Mail::assertQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => str_contains($mail->envelope()->subject, 'Embedded Form'));
+        Mail::assertNotQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => !str_contains($mail->envelope()->subject, 'Embedded Form'));
+    }
+
+    #[Test]
+    public function the_requested_amount_is_mailed_in_its_currency(): void
+    {
+        $this->notify($this->host, [], ['requested_amount' => 150000, 'currency' => 'GBP']);
+
+        Mail::assertQueued(NewSubmissionMail::class, fn (NewSubmissionMail $mail) => str_contains($mail->render(), '£150,000.00')
+            && !str_contains($mail->render(), '$150,000.00'));
+    }
+
+    /**
+     * The channel names (database, broadcast, sms) the notification goes out on.
+     * via() returns Laravel's channels - SmsChannel's class for `sms` - so they
+     * are mapped back to the names config/notifications.php uses.
+     */
+    private function channels(DynamicNotification $notification, User $user): array
+    {
+        $names = array_flip(config('notifications.channels'));
+
+        return array_map(fn ($channel) => $names[$channel] ?? $channel, $notification->via($user));
+    }
+
+    private function assertHostCopyMailed(): void
+    {
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo($this->host->email) && $mail->hostCopy);
+    }
+
+    private function assertNoMailTo(string $email): void
+    {
+        Mail::assertNotQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo($email));
     }
 
     private function loginFor(Partner $partner): User
@@ -256,7 +412,7 @@ class EmbedFormNotificationMailTest extends TestCase
      *
      * @param  array<string, mixed>  $configAttributes
      */
-    private function notify(Partner $partner, array $configAttributes = []): EmbedFormSubmission
+    private function notify(Partner $partner, array $configAttributes = [], array $submissionAttributes = []): EmbedFormSubmission
     {
         $config = EmbedFormConfig::create(array_merge([
             'partner_id' => $partner->id,
@@ -265,7 +421,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'is_active' => true,
         ], $configAttributes));
 
-        $submission = EmbedFormSubmission::create([
+        $submission = EmbedFormSubmission::create(array_merge([
             'submission_uid' => (string) Str::uuid(),
             'partner_id' => $partner->id,
             'form_config_id' => $config->id,
@@ -273,7 +429,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'first_name' => 'Johnathan',
             'last_name' => 'Smithfield',
             'email' => 'applicant@example.test',
-        ]);
+        ], $submissionAttributes));
 
         $service = new class extends EmbedFormService {
             public function notifyNow(EmbedFormSubmission $submission, EmbedFormConfig $config): void
@@ -288,25 +444,35 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     /**
+     * A verified SMTP configuration - the partner's default, or with no partner
+     * the platform fallback. `enable_custom_configuration` => '0' leaves it
+     * saved but not the default; blank host/username leave it incomplete.
+     *
      * @param  array<string, string>  $overrides
      */
-    private function mailConfig(Partner $partner, array $overrides = []): void
+    private function mailConfig(?Partner $partner, array $overrides = []): void
     {
         $values = array_merge([
             'enable_custom_configuration' => '1',
-            'email_provider' => 'smtp',
             'smtp_host' => 'smtp.example.test',
             'smtp_username' => 'mailer@example.test',
-            'smtp_password' => 'secret',
         ], $overrides);
 
-        foreach ($values as $key => $value) {
-            EmailConfiguration::create([
-                'partner_id' => $partner->id,
-                'key' => $key,
-                'value' => $value,
-            ]);
-        }
+        $config = MailConfiguration::create([
+            'partner_id' => $partner?->id,
+            'provider' => MailConfiguration::PROVIDER_SMTP,
+            'from_address' => 'mail@example.test',
+            'credentials' => [
+                'smtp_host' => $values['smtp_host'] ?: null,
+                'smtp_port' => 587,
+                'smtp_encryption' => 'tls',
+                'smtp_username' => $values['smtp_username'] ?: null,
+                'smtp_password' => 'secret',
+            ],
+            'is_default' => $partner !== null && $values['enable_custom_configuration'] === '1',
+        ]);
+
+        $config->forceFill(['verified_at' => now(), 'verified_fingerprint' => $config->fingerprint()])->save();
     }
 
     /**

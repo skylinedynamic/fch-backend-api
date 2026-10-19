@@ -12,6 +12,7 @@ use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreBusinessInfoReques
 use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreFinancialInfoRequest;
 use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreFundingApplicationDocumentRequest;
 use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreFundingRequestRequest;
+use App\Services\FCH\Common\Application\SignatureRecorder;
 use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreOwnershipInfoRequest;
 use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\CoBorrowerValidationRequest;
 use App\Http\Resources\FCH\Partner\FundApplication\AttestationAndAuthorizationResource;
@@ -348,55 +349,14 @@ class PartnerFundingApplicationController extends Controller
                 $wasResubmission = $priorState ? (bool) $priorState->requires_resign : false;
             }
 
-            // Extract agent info
-            $agent = $request->userAgent();
-            $os = 'Unknown';
-            if (preg_match('/windows|win32|macintosh|mac os x|linux|android|iphone|ipad/i', $agent, $matches)) {
-                $os = $matches[0];
-            }
-            $browser = 'Unknown';
-            if (preg_match('/chrome|firefox|safari|edge|opera|msie|trident/i', $agent, $matches)) {
-                $browser = $matches[0];
-            }
-            
-            // Extract Browser Version
-            $browserVersion = 'Unknown';
-            if ($browser !== 'Unknown') {
-                if (preg_match('/version[\/ ]([\d.]+)/i', $agent, $matches)) {
-                    $browserVersion = $matches[1];
-                } else if (preg_match('/' . preg_quote($browser, '/') . '[\/ ]([\d.]+)/i', $agent, $matches)) {
-                    $browserVersion = $matches[1];
-                }
-            }
-            
-            // Extract Device Type
-            $deviceType = 'Desktop';
-            if (preg_match('/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i', $agent)) {
-                $deviceType = 'Tablet';
-            } else if (preg_match('/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/i', $agent)) {
-                $deviceType = 'Mobile';
-            }
-
-            $validated['signature_data'] = [
-                'signature_name' => $validated['signature_name'] ?? null,
-                'ip_address' => $request->ip(),
-                'user_agent' => $agent,
-                'browser_name' => $browser,
-                'browser_version' => $browserVersion,
-                'operating_system' => $os,
-                'device_type' => $deviceType,
-                'timezone' => $validated['timezone'] ?? null,
-                'esign_consent' => $validated['esign_consent'] ?? false,
-                'terms_consent' => $validated['terms_consent'] ?? false,
-                'credit_consent' => $validated['credit_consent'] ?? false,
-                'legal_binding_consent' => $validated['legal_binding_consent'] ?? false,
-                'terms_version' => $validated['terms_version'] ?? '1.0',
-                'privacy_version' => $validated['privacy_version'] ?? '1.0',
-                'credit_auth_version' => $validated['credit_auth_version'] ?? '1.0',
-                'application_version' => $validated['application_version'] ?? '1.0',
-                'consents_data' => isset($validated['consents_data']) ? json_decode($validated['consents_data'], true) : null,
-                'signed_at' => now()->toDateTimeString(),
-            ];
+            // Submitted by a partner user: the certificate says so and names the
+            // account, rather than presenting it as the borrower's own login.
+            $validated['signature_data'] = SignatureRecorder::record(
+                $request,
+                SignatureRecorder::METHOD_PARTNER_PORTAL,
+                $validated,
+                Auth::user()
+            );
 
             // Set old attestation_authorization to true for backward compatibility
             $validated['attestation_authorization'] = true;

@@ -3,6 +3,7 @@
 namespace App\Services\Global\Notification\Mail;
 
 use App\Mail\Contracts\SendsImmediately;
+use App\Models\Partner\Partner;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
@@ -20,12 +21,38 @@ class GenericNotificationMail extends Mailable implements SendsImmediately
     {
         $this->mailData = $mailData;
 
-        $resolvedPartnerId = $partnerId ?? ($mailData['partner_id'] ?? null);
+        $resolvedPartnerId = $partnerId
+            ?? ($mailData['partner_id'] ?? null)
+            ?? self::recipientPartnerId($mailData['user'] ?? null);
         if ($resolvedPartnerId) {
             $this->mailPartnerId = $resolvedPartnerId;
         } else {
             $this->setMailPartnerId();
         }
+    }
+
+    /**
+     * The partner whose mail this is, from whoever it is addressed to - its
+     * settings and its name. A password reset is sent signed out, so the
+     * request says nothing about the partner (on localhost, nothing at all);
+     * the recipient always does. Host and white-label partners are their own;
+     * any other trades under the host's brand, as everywhere else.
+     */
+    private static function recipientPartnerId(mixed $user): ?int
+    {
+        $partnerId = $user->partner_id ?? null;
+        if (!$partnerId) {
+            return null;
+        }
+
+        $partner = Partner::find($partnerId);
+        if (!$partner) {
+            return null;
+        }
+
+        return ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)
+            ? $partner->id
+            : Partner::where('is_host', true)->value('id');
     }
 
     /**

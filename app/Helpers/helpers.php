@@ -86,6 +86,45 @@ if (!function_exists('currencyFormat')) {
     }
 }
 
+if (!function_exists('formatCompactCurrency')) {
+    /**
+     * Money for a dashboard card: the full amount with commas under a million
+     * ("$45,000"), then three significant figures in millions or billions
+     * ("$4.33M", "$37.2M", "$1.25B").
+     */
+    function formatCompactCurrency(int|float|string|null $amount, string $symbol = '$'): string
+    {
+        $value = (float) ($amount ?? 0);
+        $sign = $value < 0 ? '-' : '';
+        $value = abs($value);
+
+        if ($value < 1_000_000) {
+            return $sign . $symbol . number_format(round($value));
+        }
+
+        // Three significant figures; 999,999,999 rounds up to $1B, not "$1000M".
+        foreach ([[1_000_000_000, 'B'], [1_000_000, 'M']] as [$unit, $suffix]) {
+            if ($value < $unit) {
+                continue;
+            }
+
+            $scaled = $value / $unit;
+            $decimals = $scaled < 10 ? 2 : ($scaled < 100 ? 1 : 0);
+            $rounded = round($scaled, $decimals);
+
+            if ($suffix === 'M' && $rounded >= 1000) {
+                return $sign . $symbol . '1B';
+            }
+
+            $text = rtrim(rtrim(number_format($rounded, $decimals, '.', ''), '0'), '.');
+
+            return $sign . $symbol . $text . $suffix;
+        }
+
+        return $sign . $symbol . number_format(round($value));
+    }
+}
+
 if (!function_exists('formatAmountRange')) {
     /**
      * Format a numerical range string (e.g. "5000-250000") into currency format ("$5,000 - $250,000").
@@ -319,10 +358,13 @@ if (!function_exists('normalizePhoneE164')) {
 
 if (!function_exists('formatPhoneDisplay')) {
     /**
-     * Render a stored phone number the way people read it: (555) 123-4567.
+     * Render a phone number the way people read it: (555) 123-4567.
      *
-     * Display form only - never store this. A non-US or unparseable number is
-     * returned unchanged rather than mangled into a US shape.
+     * Also the form the borrower and partner portals store a US phone in, so
+     * the embedded form normalises to it too (see SubmitEmbedFormRequest and
+     * EmbedFormService::portalPhone). Dialling uses normalizePhoneE164(). A
+     * non-US or unparseable number is returned unchanged rather than mangled
+     * into a US shape.
      */
     function formatPhoneDisplay(?string $phone): ?string
     {

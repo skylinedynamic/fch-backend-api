@@ -32,13 +32,15 @@ class BorrowerCreditProfileApiTest extends TestCase
     private Partner $partner;
     private Borrower $borrower;
     private User $partnerAdmin;
+    /** Only the host partner uploads, parses and saves a credit profile (EnsureHostPartner). */
+    private User $hostAdmin;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         Storage::fake('public');
-        $this->makeHostPartner();
+        $this->hostAdmin = $this->makePartnerAdmin($this->makeHostPartner());
         $this->partner = $this->makeWhiteLabelPartner();
         $this->borrower = $this->makeBorrower($this->partner);
         $this->partnerAdmin = $this->makePartnerAdmin($this->partner);
@@ -66,7 +68,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function saving_stores_the_profile_with_its_addresses_trades_and_inquiries(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
 
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower))->assertOk();
 
@@ -84,7 +86,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function saving_again_replaces_the_previous_lines_instead_of_adding_to_them(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
 
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower))->assertOk();
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
@@ -101,9 +103,11 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function the_saved_profile_reads_back(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower))->assertOk();
 
+        // The client's own (white-label) partner may read it, not change it.
+        $this->actingAsUser($this->partnerAdmin);
         $this->getJson("/api/v1/common/borrowers/get-credit-profile/{$this->borrower->id}")
             ->assertOk()
             ->assertJsonPath('data.metrics.fico_score', 712);
@@ -121,18 +125,18 @@ class BorrowerCreditProfileApiTest extends TestCase
 
     /**
      * Defect: save looked the borrower up with a bare find(), so any signed-in
-     * user could overwrite any borrower's credit profile.
+     * user could overwrite any borrower's credit profile. Now only the host
+     * partner writes one: any other partner is refused, even for its own client.
      */
     #[Test]
-    public function another_partners_borrowers_profile_cannot_be_written(): void
+    public function a_partner_other_than_the_host_cannot_write_a_profile(): void
     {
-        $theirs = $this->makeBorrower($this->makeCertifiedPartner());
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($theirs))->assertNotFound();
+        $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower))->assertForbidden();
 
-        $this->assertDatabaseMissing('borrower_credit_profiles', ['borrower_id' => $theirs->id]);
-        $this->assertNull($theirs->fresh()->fico_score);
+        $this->assertDatabaseMissing('borrower_credit_profiles', ['borrower_id' => $this->borrower->id]);
+        $this->assertNull($this->borrower->fresh()->fico_score);
     }
 
     /**
@@ -142,7 +146,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function saving_validates_the_borrower_and_the_section_shapes(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
 
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', [])->assertStatus(422);
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', ['borrower_id' => 999999])->assertStatus(422);
@@ -153,7 +157,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function parsing_a_report_returns_what_it_read_and_files_the_pdf_with_the_borrowers_documents(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
 
         $response = $this->post('/api/v1/common/borrowers/parse-credit-profile', [
             'borrower_id' => $this->borrower->id,
@@ -169,20 +173,19 @@ class BorrowerCreditProfileApiTest extends TestCase
 
     /**
      * Defect: parse also used a bare find(), so a report could be filed against
-     * any borrower on the platform.
+     * any borrower on the platform. Now only the host partner parses a report.
      */
     #[Test]
-    public function another_partners_borrower_cannot_have_a_report_parsed_onto_them(): void
+    public function a_partner_other_than_the_host_cannot_have_a_report_parsed(): void
     {
-        $theirs = $this->makeBorrower($this->makeCertifiedPartner());
         $this->actingAsUser($this->partnerAdmin);
 
         $this->post('/api/v1/common/borrowers/parse-credit-profile', [
-            'borrower_id' => $theirs->id,
+            'borrower_id' => $this->borrower->id,
             'pdf' => $this->reportPdf(),
-        ], ['Accept' => 'application/json'])->assertNotFound();
+        ], ['Accept' => 'application/json'])->assertForbidden();
 
-        $this->assertDatabaseMissing('borrower_documents', ['borrower_id' => $theirs->id]);
+        $this->assertDatabaseMissing('borrower_documents', ['borrower_id' => $this->borrower->id]);
     }
 
     /**
@@ -197,7 +200,7 @@ class BorrowerCreditProfileApiTest extends TestCase
         Log::listen(function ($message) use (&$logged) {
             $logged[] = $message->message . ' ' . json_encode($message->context);
         });
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
 
         $this->post('/api/v1/common/borrowers/parse-credit-profile', [
             'borrower_id' => $this->borrower->id,
@@ -213,7 +216,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function parsing_needs_a_pdf(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
 
         $this->post('/api/v1/common/borrowers/parse-credit-profile', [
             'borrower_id' => $this->borrower->id,
@@ -229,7 +232,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     #[Test]
     public function a_failure_part_way_leaves_the_borrower_as_it_was(): void
     {
-        $this->actingAsUser($this->partnerAdmin);
+        $this->actingAsUser($this->hostAdmin);
         \App\Models\Borrower\BorrowerCreditTrade::creating(function () {
             throw new \RuntimeException('trade write failed');
         });

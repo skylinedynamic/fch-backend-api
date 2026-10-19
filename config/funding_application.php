@@ -419,6 +419,46 @@ return [
 
     'postal_code_length' => 5,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Signing a funding application
+    |--------------------------------------------------------------------------
+    |
+    | The documents a signer accepts, at the version in force. Recorded by the
+    | server with every signature (SignatureRecorder) - never taken from what the
+    | browser posts - and shown on the electronic signature certificate.
+    |
+    | CHANGING A DOCUMENT: publish the new version at its URL and bump `version`
+    | here. Never edit an existing version's text: signatures already recorded
+    | point at that version string. Versions are strings: '1.0', not 1.0.
+    |
+    */
+
+    'signing' => [
+        'policies' => [
+            'esign' => [
+                'label' => 'E-SIGN Consent (Electronic Disclosures and Communications)',
+                'version' => '1.0',
+                'url' => 'https://fourcornerholdings.com/e-consent',
+            ],
+            'terms' => [
+                'label' => 'Terms & Conditions',
+                'version' => '1.0',
+                'url' => 'https://fourcornerholdings.com/terms',
+            ],
+            'privacy' => [
+                'label' => 'Privacy Policy',
+                'version' => '1.0',
+                'url' => 'https://fourcornerholdings.com/privacy',
+            ],
+            'credit_authorization' => [
+                'label' => 'Credit Authorization',
+                'version' => '1.0',
+                'url' => 'https://fourcornerholdings.com/credit-authorization',
+            ],
+        ],
+    ],
+
     'embed_form' => [
 
         // Currency bounds. A submission outside these is refused rather than
@@ -450,6 +490,15 @@ return [
         ],
 
         'referral_source_other' => 'Other',
+
+        // The currencies a requested amount may be given in, with the symbol
+        // the form shows and the funding application keeps. The first is the
+        // default for a form loaded before the choice existed.
+        'currencies' => [
+            'USD' => '$',
+            'EUR' => '€',
+            'GBP' => '£',
+        ],
 
     ],
 

@@ -3,12 +3,10 @@
 namespace Tests\Feature\User;
 
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
-use App\Models\Setting\EmailConfiguration;
 use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,13 +20,13 @@ use Tests\TestCase;
 
 /**
  * The signed-in partner-portal user's own profile (/common/auth-profile/*),
- * plus the small lookups and switches the portal shell reads: the tier and
- * tier-task lists and the email-configuration on/off switch.
+ * plus the small lookups the portal shell reads: the tier and tier-task lists.
+ * (The email-configuration on/off switch is gone: mail configurations are
+ * verified and picked as the default instead - see MailConfigurationTest.)
  */
 #[CoversClass(AuthProfileController::class)]
 #[CoversClass(TierController::class)]
 #[CoversClass(TierTaskController::class)]
-#[CoversClass(EmailConfigurationController::class)]
 class AuthProfileApiTest extends TestCase
 {
     use RefreshDatabase;
@@ -178,27 +176,5 @@ class AuthProfileApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Get an EIN');
-    }
-
-    #[Test]
-    public function the_email_switch_flips_the_callers_own_configuration(): void
-    {
-        $other = $this->makeCertifiedPartner();
-        EmailConfiguration::create(['partner_id' => $this->partner->id, 'key' => 'is_active', 'value' => '1']);
-        EmailConfiguration::create(['partner_id' => $other->id, 'key' => 'is_active', 'value' => '1']);
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
-
-        $this->getJson('/api/v1/common/email-configurations/toggle-status')->assertOk();
-
-        $this->assertFalse((bool) EmailConfiguration::where('partner_id', $this->partner->id)->where('key', 'is_active')->value('value'));
-        $this->assertTrue((bool) EmailConfiguration::where('partner_id', $other->id)->where('key', 'is_active')->value('value'));
-    }
-
-    #[Test]
-    public function the_email_switch_needs_a_configuration_to_flip(): void
-    {
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
-
-        $this->getJson('/api/v1/common/email-configurations/toggle-status')->assertNotFound();
     }
 }

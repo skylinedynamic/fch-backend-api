@@ -91,6 +91,28 @@ class NotificationCatalogueTest extends TestCase
         $this->assertSame([], array_diff_key($used, $catalogue), 'Unknown notification types (add them to config/notifications.php)');
     }
 
+    /**
+     * SMS is opt-in per type, not part of the bell-and-mail set: every type
+     * used to text as well, so turning on a partner's Twilio account would
+     * have texted users about everything. A type texts only once it is chosen
+     * to - add it here when it is, deliberately.
+     */
+    private const TEXTED_TYPES = [
+        // The white-label partner, through its own Twilio account only.
+        'partner.embed_form.submitted_white_label',
+    ];
+
+    #[Test]
+    public function only_the_chosen_types_send_an_sms(): void
+    {
+        $texted = array_keys(array_filter(
+            config('notifications.types'),
+            fn (array $type) => in_array('sms', $type['channels'] ?? [], true)
+        ));
+
+        $this->assertSame(self::TEXTED_TYPES, $texted);
+    }
+
     #[Test]
     #[DataProvider('types')]
     public function each_type_is_well_formed(array $type): void

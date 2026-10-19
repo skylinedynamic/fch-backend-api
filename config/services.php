@@ -25,7 +25,7 @@ return [
     /*
      * The SES MAILER's credentials, and so tenant data like the SMTP block in
      * config/mail.php - not deployment configuration. Resolved per message from
-     * `email_configurations` by EmailConfigurationService::resolveFor().
+     * `mail_configurations` by EmailConfigurationService::resolveFor().
      *
      * Unrelated to the S3 filesystem disk, which reads its own AWS_* values.
      */

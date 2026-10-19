@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\AppConfiguration;
 use App\Models\CreditBuilder\Tier;
-use App\Models\Setting\EmailConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,10 +93,9 @@ class BorrowerRecordsApiTest extends TestCase
     #[Test]
     public function the_host_may_create_a_borrower_for_a_partner(): void
     {
-        // The host is a white-label partner type too, so it passes the same
-        // branding/email setup check any white-label partner does.
+        // The host is never held to the white-label setup check, though it is
+        // seeded as a white-label partner type (Controller::checkWhiteLabelConfiguration).
         AppConfiguration::create(['partner_id' => $this->host->id, 'module' => AppConfiguration::MODULE_BRANDING, 'key' => 'site_name', 'value' => 'Host']);
-        EmailConfiguration::create(['partner_id' => $this->host->id, 'key' => 'is_active', 'value' => '1']);
         $this->actingAsUser($this->makePartnerAdmin($this->host));
 
         $id = $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['partner_id' => $this->partner->id]))
