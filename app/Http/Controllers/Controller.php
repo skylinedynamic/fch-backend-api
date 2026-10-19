@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
 abstract class Controller
@@ -22,16 +21,17 @@ abstract class Controller
         if ($user && $user->partner && !$user->partner->is_host && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
             $partnerId = $user->partner_id;
 
-            $isEmailFresh = app(EmailConfigurationService::class)->hasAnyConfiguration($partnerId);
-
+            // Mail configuration is not required: until the partner's own is
+            // verified its mail goes out with the platform's fallback
+            // configuration, and the portal's banner says so on every page.
             $isBrandingFresh = AppConfiguration::where('partner_id', $partnerId)
                 ->where('module', AppConfiguration::MODULE_BRANDING)
                 ->whereIn('key', AppConfiguration::BRANDING_FRESHNESS_KEYS)->exists();
 
-            if (!$isEmailFresh || !$isBrandingFresh) {
+            if (!$isBrandingFresh) {
                 $response = response()->json([
                     'status' => false,
-                    'message' => 'Please complete your Branding and Email system configuration to unlock these features.',
+                    'message' => 'Please complete your Branding configuration to unlock these features.',
                     'requires_configuration' => true
                 ], 403);
                 throw new HttpResponseException($response);
