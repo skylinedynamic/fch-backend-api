@@ -42,41 +42,9 @@ class FundingRequestService
         $user = Auth::user();
         $borrower = $user->borrower;
 
-        $existingPending = FundingRequest::where('borrower_id', $borrower->id)
-            ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->where('status', FundingRequest::STATUS_PENDING)
-            ->first();
-
-        if ($existingPending) {
-            throw new Exception("Already applied. Please wait for approval or rejection.");
-        }
-
-        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
-            ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->orderBy('id', 'desc')
-            ->first();
-
-        // An approved request that already produced an application can only be
-        // re-opened once that application has left the borrower's hands - with a
-        // lender, under contract, funded, closed or denied (see
-        // config/funding_application.php `statuses.allows_new_request`). That
-        // round is settled either way, so a fresh request starts a new one.
-        //
-        // While the application is still being reviewed here - On Hold, Draft,
-        // Pending, Underwriting, Verification, Approved - a second request for the
-        // same funding option would run a parallel pipeline for the same borrower
-        // against the same lenders, which is what this refuses.
-        if ($latestRequest && $latestRequest->status === FundingRequest::STATUS_APPROVED) {
-            $latestApplication = FundingApplication::where('funding_request_id', $latestRequest->id)
-                ->orderBy('id', 'desc')
-                ->first();
-
-            if ($latestApplication && ! $latestApplication->allowsNewFundingRequest()) {
-                throw new Exception(__('funding_request.application_already_in_progress', [
-                    'status' => $latestApplication->status,
-                ]));
-            }
-        }
+        // Every submission is a new funding request. Earlier requests and
+        // applications for the same funding option - pending, rejected, on hold,
+        // in review or settled - neither block it nor are reused or changed.
 
         $fundingOption = FundingSequencing::find($data['funding_sequence_id']);
         $lenderIds = [];
@@ -111,17 +79,9 @@ class FundingRequestService
         }
         $data['lender_ids'] = $finalLenderIds;
 
-        if ($latestRequest && in_array($latestRequest->status, [FundingRequest::STATUS_REJECTED, FundingRequest::STATUS_IN_PROGRESS, FundingRequest::STATUS_ACCEPTED])) {
-            $data['reject_reason'] = null;
-            $data['approved_by'] = null;
-            $data['approved_at'] = null;
-            $latestRequest->update($data);
-            $fundingRequest = $latestRequest;
-            $fundingRequest->wasRecentlyCreated = false;
-        } else {
-            $fundingRequest = FundingRequest::create($data);
-        }
-        if ($fundingRequest->wasRecentlyCreated || $fundingRequest->status === FundingRequest::STATUS_PENDING) {
+        $fundingRequest = FundingRequest::create($data);
+
+        if ($fundingRequest->wasRecentlyCreated) {
             $hostPartner = Partner::where('is_host', 1)->first();
             $borrowerPartner = $borrower->partner;
             
@@ -345,30 +305,9 @@ class FundingRequestService
             'document_type_id' => $data['document_type_id']
         ]);
         
-        $documents = $documentResponse->getData(true)['data'] ?? [];
-
-        // 2. Find any pending/rejected/in_progress/accepted FundingRequest for this sequence
-        $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
-            ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->whereIn('status', [
-                FundingRequest::STATUS_PENDING, 
-                FundingRequest::STATUS_REJECTED, 
-                FundingRequest::STATUS_IN_PROGRESS, 
-                FundingRequest::STATUS_ACCEPTED
-            ])
-            ->first();
-
-        // 3. Update the documents_uploaded array if funding request exists
-        if ($fundingRequest && $docType) {
-            $uploaded = $fundingRequest->documents_uploaded ?? [];
-            if (!in_array($docType->name, $uploaded)) {
-                $uploaded[] = $docType->name;
-                $fundingRequest->documents_uploaded = $uploaded;
-                $fundingRequest->save();
-            }
-        }
-
-        return $documents;
+        // Existing funding requests are not touched: a new request sends its own
+        // `documents_uploaded` when it is submitted.
+        return $documentResponse->getData(true)['data'] ?? [];
     }
 
     public function deleteDocument($documentId, array $data)
@@ -382,39 +321,7 @@ class FundingRequestService
             throw new Exception("Document not found.");
         }
         
-        $docTypeName = $document->documentType ? $document->documentType->name : null;
+        // Existing funding requests keep the documents they were submitted with.
         $document->delete();
-
-        // 2. Check if other documents of the same type still exist
-        if ($docTypeName) {
-            $otherDocsCount = BorrowerDocument::where('borrower_id', $borrower->id)
-                ->whereHas('documentType', function($q) use ($docTypeName) {
-                    $q->where('name', $docTypeName);
-                })
-                ->count();
-
-            // 3. If none exist, remove from FundingRequest
-            if ($otherDocsCount === 0) {
-                $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
-                    ->where('funding_sequence_id', $data['funding_sequence_id'])
-                    ->whereIn('status', [
-                        FundingRequest::STATUS_PENDING, 
-                        FundingRequest::STATUS_REJECTED, 
-                        FundingRequest::STATUS_IN_PROGRESS, 
-                        FundingRequest::STATUS_ACCEPTED
-                    ])
-                    ->first();
-
-                if ($fundingRequest) {
-                    $uploaded = $fundingRequest->documents_uploaded ?? [];
-                    if (($key = array_search($docTypeName, $uploaded)) !== false) {
-                        unset($uploaded[$key]);
-                        // Re-index array
-                        $fundingRequest->documents_uploaded = array_values($uploaded);
-                        $fundingRequest->save();
-                    }
-                }
-            }
-        }
     }
 }
