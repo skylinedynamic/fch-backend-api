@@ -2,12 +2,16 @@
 
 namespace Tests\Feature\FundApplication;
 
+use App\Mail\Borrower\FundingApplicationSubmittedMail as BorrowerFundingApplicationSubmittedMail;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
+use App\Notifications\DynamicNotification;
 use App\Services\Borrower\FundApplication\FundingApplicationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -164,6 +168,65 @@ class FundingApplicationResignTest extends TestCase
         $this->assertNull($application->signature_data);
         $this->assertFalse((bool) $application->attestation_authorization);
         $this->assertSame('Alpha Tech Solutions LLC', $application->business_name, 'the actual edit must still be persisted');
+    }
+
+    /**
+     * Defect: the "application submitted" bell and email went out after any
+     * save that left the application at Submitted - Pending Review, not just
+     * the Submit. Paging through the steps of an already-submitted application
+     * (Save & Next on each) sent the borrower, the partner and the host the
+     * same "submitted" notification and email again for every step.
+     */
+    #[Test]
+    public function resaving_steps_of_a_submitted_application_sends_no_submitted_notification(): void
+    {
+        Notification::fake();
+        Mail::fake();
+
+        foreach (range(1, 3) as $ignored) {
+            $this->postJson('/api/v1/borrower/funding-application/business-info', $this->businessInfoPayload)
+                ->assertOk();
+        }
+
+        $this->assertSame(FundingApplication::PENDING, FundingApplication::find($this->applicationId)->status);
+        Notification::assertNotSentTo($this->borrowerUser(), DynamicNotification::class);
+        Mail::assertNothingQueued();
+        Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function submitting_sends_the_submitted_notification_and_email_once(): void
+    {
+        Notification::fake();
+        Mail::fake();
+        FundingApplication::find($this->applicationId)->update([
+            'status' => FundingApplication::DRAFT,
+            'signature_data' => null,
+            'attestation_authorization' => false,
+            'requires_resign' => true,
+        ]);
+
+        // What FundingApplicationController::saveAttestationAndAuthorization does on Submit.
+        app(FundingApplicationService::class)->saveFundingApplication([
+            'id' => $this->applicationId,
+            'funding_request_id' => $this->fundingRequestId,
+            'signature_data' => ['signature_name' => 'Michael Chen', 'signed_at' => now()->toDateTimeString()],
+            'attestation_authorization' => true,
+            'requires_resign' => false,
+        ], FundingApplication::PENDING);
+
+        Notification::assertSentToTimes($this->borrowerUser(), DynamicNotification::class, 1);
+        Notification::assertSentTo(
+            $this->borrowerUser(),
+            DynamicNotification::class,
+            fn (DynamicNotification $n) => $n->typeKey === 'borrower.funding_application.submitted'
+        );
+        Mail::assertQueued(BorrowerFundingApplicationSubmittedMail::class, 1);
+    }
+
+    private function borrowerUser(): User
+    {
+        return User::where('entity_id', $this->borrowerId)->where('user_type', User::BORROWER)->firstOrFail();
     }
 
     #[Test]

@@ -137,10 +137,15 @@ class DashboardService
                 $query->select(DB::raw(1))
                       ->from('funding_applications')
                       ->where('funding_applications.borrower_id', $borrower->id)
+                      // Started = an application on this request. An application
+                      // on another (older) request for the same option does not
+                      // count - every request is a new one. Only an application
+                      // linked to no request falls back to matching the option.
                       ->where(function ($sub) {
                           $sub->whereColumn('funding_applications.funding_request_id', 'funding_requests.id')
                               ->orWhere(function ($s2) {
-                                  $s2->whereNotNull('funding_requests.funding_sequence_id')
+                                  $s2->whereNull('funding_applications.funding_request_id')
+                                     ->whereNotNull('funding_requests.funding_sequence_id')
                                      ->whereColumn('funding_applications.funding_sequence_id', 'funding_requests.funding_sequence_id');
                               });
                       })
