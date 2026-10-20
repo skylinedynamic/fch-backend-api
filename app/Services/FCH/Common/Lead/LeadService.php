@@ -39,13 +39,19 @@ class LeadService
         $authUser = Auth::user();
         $query = Lead::query()
             ->with(['salesperson', 'partner'])
-            ->where('leads.partner_id', $authUser->partner_id)
+            ->visibleTo($authUser)
             ->select('leads.*');
 
         // Top-level Dropdown Filters (Robust Normalization)
         $leadType = is_array($filters['lead_type'] ?? null) ? ($filters['lead_type']['value'] ?? null) : ($filters['lead_type'] ?? null);
         $statusValue = is_array($filters['status'] ?? null) ? ($filters['status']['value'] ?? null) : ($filters['status'] ?? null);
         $salespersonId = is_array($filters['salesperson_id'] ?? null) ? ($filters['salesperson_id']['value'] ?? null) : ($filters['salesperson_id'] ?? null);
+
+        // The host's Partner filter; within visibleTo, so a partner naming
+        // another partner's id only narrows its own list to nothing.
+        if (!empty($filters['partner_id'])) {
+            $query->where('leads.partner_id', $filters['partner_id']);
+        }
 
 
         // Apply Dropdown Filters - Strictly skip if null or empty string to show "All" data
@@ -98,7 +104,8 @@ class LeadService
                 $value = $constraint['value'] ?? null;
                 if ($value) {
                     $query->whereHas('partner', function ($q) use ($value) {
-                        $q->where('full_name', 'like', "%{$value}%");
+                        $q->where(fn ($p) => $p->where('company_name', 'like', "%{$value}%")
+                            ->orWhere('full_name', 'like', "%{$value}%"));
                     });
                 }
             }
@@ -116,7 +123,7 @@ class LeadService
             $skipSorting = true;
         } elseif ($sortField === 'partner_name') {
             $query->orderBy(
-                Partner::select('full_name')
+                Partner::select('company_name')
                     ->whereColumn('partners.id', 'leads.partner_id')
                     ->limit(1),
                 $sortOrder
@@ -368,18 +375,17 @@ class LeadService
     }
 
     /**
-     * Delete several of a partner's leads at once, each logged as a single
-     * delete is. Ids of other partners' leads are skipped. Returns how many
-     * were deleted.
+     * Delete several leads at once, each logged as a single delete is. Ids of
+     * leads the user may not see are skipped. Returns how many were deleted.
      */
-    public function deleteMultiple(array $ids, int $partnerId): int
+    public function deleteMultiple(array $ids, User $user): int
     {
         if (empty($ids)) {
             return 0;
         }
 
-        return DB::transaction(function () use ($ids, $partnerId) {
-            $leads = Lead::where('partner_id', $partnerId)->whereIn('id', $ids)->get();
+        return DB::transaction(function () use ($ids, $user) {
+            $leads = Lead::visibleTo($user)->whereIn('id', $ids)->get();
 
             foreach ($leads as $lead) {
                 $this->delete($lead);
@@ -489,7 +495,7 @@ class LeadService
                 'home_address' => $lead->business_address,
                 'home_phone' => $lead->business_phone,
                 'assign_id' => $lead->salesperson_id,
-                'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
+                'partner_id' => $this->borrowerPartnerId($lead, $data),
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
                 'is_free_trail' => $data['is_free_trail'] ?? null,
@@ -516,7 +522,7 @@ class LeadService
             $preQualification = PreQualificationRequest::where('lead_id', $lead->id)->first();
             if ($preQualification) {
                 $preQualification->update([
-                    'partner_id' => $lead->partner_id,
+                    'partner_id' => $borrower->partner_id,
                     'borrower_id' => $borrower->id,
                 ]);
             }
@@ -628,6 +634,21 @@ class LeadService
     }
 
 
+    /**
+     * The partner a converted lead's borrower is filed under: the host, when
+     * the host converting another partner's lead chose so, otherwise the
+     * lead's own partner (the converter's, for a lead with none).
+     */
+    private function borrowerPartnerId(Lead $lead, array $data): ?int
+    {
+        $user = Auth::user();
+        if (($data['convert_as'] ?? null) === Lead::CONVERT_AS_HOST && $lead->offersOwnerChoiceTo($user)) {
+            return $user->partner_id;
+        }
+
+        return $lead->partner_id ?: ($user?->partner_id ?? null);
+    }
+
     /** Placeholders for the lead.created bell. */
     private function leadBellData(Lead $lead): array
     {
@@ -664,11 +685,7 @@ class LeadService
     public function getStats($query = null): array
     {
         if (!$query) {
-            $authUser = Auth::user();
-            $query = Lead::query();
-            if ($authUser->partner_id) {
-                $query->where('partner_id', $authUser->partner_id);
-            }
+            $query = Lead::query()->visibleTo(Auth::user());
         }
 
         $baseQuery = clone $query;

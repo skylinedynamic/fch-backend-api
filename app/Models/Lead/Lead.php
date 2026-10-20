@@ -2,6 +2,7 @@
 
 namespace App\Models\Lead;
 
+use App\Http\Middleware\EnsureHostPartner;
 use App\Models\Contact\Contact;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -25,6 +26,11 @@ class Lead extends Model
     const BORROWER_TYPE_LEAD = 'Borrower';
 
     const DEFAULT_COUNTRY_CODE = '+1';
+
+    /** Whose borrower the host files another partner's lead under. */
+    const CONVERT_AS_HOST = 'host';
+    const CONVERT_AS_LEAD_PARTNER = 'lead_partner';
+    const CONVERT_AS = [self::CONVERT_AS_HOST, self::CONVERT_AS_LEAD_PARTNER];
 
     const STATUS_NEW_LEAD = 'New Lead';
     const STATUS_CONTACT_INITIATED = 'Contact Initiated';
@@ -152,5 +158,30 @@ class Lead extends Model
                         ->orWhere('company_name', 'like', "%{$search}%");
                 });
         });
+    }
+
+    /**
+     * The leads a user may see and work: every partner's for the host partner
+     * and its staff, only their own partner's for anyone else.
+     */
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        if (EnsureHostPartner::allows($user)) {
+            return $query;
+        }
+
+        return $query->where('leads.partner_id', $user?->partner_id);
+    }
+
+    /**
+     * Whether converting this lead asks the user whose borrower it becomes:
+     * the host converting another partner's borrower lead.
+     */
+    public function offersOwnerChoiceTo(?User $user): bool
+    {
+        return $this->lead_type === self::BORROWER_TYPE_LEAD
+            && $this->partner_id !== null
+            && (int) $this->partner_id !== (int) $user?->partner_id
+            && EnsureHostPartner::allows($user);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lead\Lead;
 use App\Models\Partner\SubscriptionPlan;
+use Illuminate\Validation\Rule;
 use Str;
 
 class ConvertLeadRequest extends BaseApiRequest
@@ -19,9 +20,12 @@ class ConvertLeadRequest extends BaseApiRequest
      */
     private function getLeadType(): ?string
     {
-        $id = $this->route('id');
-        $lead = Lead::find($id);
-        return $lead?->lead_type;
+        return $this->lead()?->lead_type;
+    }
+
+    private function lead(): ?Lead
+    {
+        return Lead::find($this->route('id'));
     }
 
     /**
@@ -54,6 +58,11 @@ class ConvertLeadRequest extends BaseApiRequest
     private function borrowerRules(bool $isFreeTrail): array
     {
         $rules = [
+            // The host converting another partner's lead says whose borrower it becomes
+            'convert_as' => [
+                $this->lead()?->offersOwnerChoiceTo($this->user()) ? 'required' : 'nullable',
+                Rule::in(Lead::CONVERT_AS),
+            ],
             'is_free_trail' => ['nullable', 'boolean'],
             'plan_id' => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
             'enrollment_type' => [$isFreeTrail ? 'nullable' : 'required', 'string', 'max:255'],
@@ -128,6 +137,8 @@ class ConvertLeadRequest extends BaseApiRequest
             // Shared
             'plan_id.required' => __('borrower_validation.plan_id_required'),
             'plan_id.exists' => __('borrower_validation.plan_id_exists'),
+            'convert_as.required' => __('lead.convert_as_required'),
+            'convert_as.in' => __('lead.convert_as_required'),
 
             // Borrower — field name is enrollment_amount (mapped internally to enrollment_payment)
             'enrollment_amount.required' => __('partner.validation.enrollment_amount.required'),
