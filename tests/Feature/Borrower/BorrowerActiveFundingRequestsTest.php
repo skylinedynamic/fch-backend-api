@@ -85,6 +85,33 @@ class BorrowerActiveFundingRequestsTest extends TestCase
         $response->assertJsonPath('data.active_approved_funding_request_count', 1);
     }
 
+    /**
+     * Defect: every funding request is now a new one, but an application on an
+     * older request for the same funding option (here On Hold) hid the newly
+     * approved request, so the "approved" banner never showed. Only an
+     * application on this request - or one linked to no request at all on the
+     * same option - means it has been started.
+     */
+    #[Test]
+    public function an_application_on_an_older_request_does_not_hide_a_newly_approved_one(): void
+    {
+        $sequenceId = $this->makeSequence('10000-250000');
+        $older = $this->makeRequest(['funding_sequence_id' => $sequenceId, 'created_at' => now()->subDay()]);
+        $this->makeApplication([
+            'funding_request_id' => $older,
+            'funding_sequence_id' => $sequenceId,
+            'status' => FundingApplication::ON_HOLD,
+        ]);
+        $newlyApproved = $this->makeRequest(['funding_sequence_id' => $sequenceId]);
+
+        $this->actingAsBorrower($this->borrower);
+
+        $this->getJson('/api/v1/borrower/active-funding-requests')
+            ->assertOk()
+            ->assertJsonPath('data.active_approved_funding_request.id', $newlyApproved)
+            ->assertJsonPath('data.active_approved_funding_request_count', 1);
+    }
+
     #[Test]
     public function a_deleted_application_does_not_hide_its_request(): void
     {

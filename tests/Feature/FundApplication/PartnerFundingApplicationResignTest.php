@@ -5,8 +5,12 @@ namespace Tests\Feature\FundApplication;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
+use App\Notifications\DynamicNotification;
+use App\Services\FCH\Common\PartnerFundApplication\PartnerFundingApplicationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -157,5 +161,57 @@ class PartnerFundingApplicationResignTest extends TestCase
         $this->assertNull($application->signature_data);
         $this->assertFalse((bool) $application->attestation_authorization);
         $this->assertSame('Alpha Tech Solutions LLC', $application->business_name);
+    }
+    /**
+     * Defect: as on the borrower side, the "application submitted" bell and
+     * email went out after any save that left the application at Submitted -
+     * Pending Review, so a partner paging through the steps of a submitted
+     * application re-sent "submitted" for every step.
+     */
+    #[Test]
+    public function resaving_steps_of_a_submitted_application_sends_no_submitted_notification(): void
+    {
+        Notification::fake();
+        Mail::fake();
+
+        foreach (range(1, 3) as $attempt) {
+            $this->postJson("/api/v1/common/funding-application/business-info", $this->businessInfoPayload)
+                ->assertOk();
+        }
+
+        $this->assertSame(FundingApplication::PENDING, FundingApplication::find($this->applicationId)->status);
+        Notification::assertNothingSent();
+        Mail::assertNothingQueued();
+        Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function submitting_sends_the_submitted_notification_once(): void
+    {
+        Notification::fake();
+        Mail::fake();
+        FundingApplication::find($this->applicationId)->update([
+            "status" => FundingApplication::DRAFT,
+            "signature_data" => null,
+            "attestation_authorization" => false,
+            "requires_resign" => true,
+        ]);
+
+        // What PartnerFundingApplicationController::saveAttestationAndAuthorization does on Submit.
+        app(PartnerFundingApplicationService::class)->saveFundingApplication([
+            "id" => $this->applicationId,
+            "funding_request_id" => $this->fundingRequestId,
+            "signature_data" => ["signature_name" => "Michael Chen", "signed_at" => now()->toDateTimeString()],
+            "attestation_authorization" => true,
+            "requires_resign" => false,
+        ], FundingApplication::PENDING);
+
+        $partnerUser = User::where("entity_id", $this->partnerId)->where("user_type", User::PARTNER)->firstOrFail();
+        Notification::assertSentToTimes($partnerUser, DynamicNotification::class, 1);
+        Notification::assertSentTo(
+            $partnerUser,
+            DynamicNotification::class,
+            fn (DynamicNotification $n) => $n->typeKey === "partner.funding_application.submitted"
+        );
     }
 }
