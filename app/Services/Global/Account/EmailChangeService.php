@@ -321,12 +321,12 @@ class EmailChangeService
     }
 
     /**
-     * users.email is unique at the database level, and a soft-deleted row still
-     * holds its email there — so deleted accounts count as using it.
+     * Free unless another active login uses it. A deleted login no longer holds
+     * its email: users.email has had no unique index since 2026_03_06_114733.
      */
     private function isAvailable(string $email, User $user): bool
     {
-        return !User::withTrashed()
+        return !User::query()
             ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
             ->whereKeyNot($user->getKey())
             ->exists();

@@ -154,15 +154,21 @@ class EmailChangeTest extends TestCase
         $this->service->request($this->user, 'taken@example.test');
     }
 
+    /**
+     * A deleted login no longer holds its email: users.email has had no unique
+     * index since 2026_03_06_114733, so the change goes through to the end.
+     */
     #[Test]
-    public function an_email_held_by_a_deleted_login_is_refused(): void
+    public function an_email_held_by_a_deleted_login_can_be_taken(): void
     {
-        // users.email is unique at the database level, and a soft-deleted row
-        // still holds its email there — accepting it would fail on confirm.
-        $this->makeUser('gone@example.test')->delete();
+        $gone = $this->makeUser('gone@example.test');
+        $gone->delete();
 
-        $this->expectException(ValidationException::class);
         $this->service->request($this->user, 'gone@example.test');
+        $this->confirmWith($this->confirmationUrlSentTo('gone@example.test'))->assertOk();
+
+        $this->assertSame('gone@example.test', $this->user->refresh()->email);
+        $this->assertSoftDeleted($gone);
     }
 
     // ── Confirming ────────────────────────────────────────────────────────

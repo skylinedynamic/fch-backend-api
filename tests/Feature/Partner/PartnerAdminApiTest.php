@@ -144,6 +144,66 @@ class PartnerAdminApiTest extends TestCase
         ]))->assertOk()->assertJsonPath('data.full_name', 'New Name');
     }
 
+    /** A borrower's login that has been deleted, still holding its email. */
+    private function deletedBorrowerLogin(string $email): User
+    {
+        $login = $this->makeBorrowerUser($this->makeCertifiedPartner(), ['email' => $email], ['email' => $email]);
+        $login->entity?->delete();
+        $login->delete();
+
+        return $login;
+    }
+
+    private function editPartnerEmail(Partner $partner, string $email)
+    {
+        return $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->newPartnerPayload([
+            'full_name' => $partner->full_name,
+            'company_name' => $partner->company_name,
+            'email' => $email,
+        ]));
+    }
+
+    #[Test]
+    public function a_partner_without_a_login_takes_an_email_a_deleted_borrower_used(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $gone = $this->deletedBorrowerLogin('reused@example.test');
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->editPartnerEmail($partner, 'reused@example.test')->assertOk();
+
+        $this->assertSame('reused@example.test', $partner->fresh()->email);
+        $this->assertSoftDeleted($gone);
+    }
+
+    #[Test]
+    public function a_partner_with_a_login_is_sent_to_confirm_an_email_a_deleted_borrower_used(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $login = $this->makePartnerAdmin($partner, [], ['email' => $partner->email]);
+        $this->deletedBorrowerLogin('reused@example.test');
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->editPartnerEmail($partner, 'reused@example.test')->assertOk();
+
+        // A login's new email waits for confirmation from the new address.
+        $this->assertSame('reused@example.test', $login->fresh()->pending_email);
+    }
+
+    #[Test]
+    public function a_partner_still_cannot_take_an_email_an_active_login_uses(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $this->makeUser(['email' => 'in-use@example.test']);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->editPartnerEmail($partner, 'in-use@example.test')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertNotSame('in-use@example.test', $partner->fresh()->email);
+    }
+
     #[Test]
     public function an_unknown_partner_is_not_found(): void
     {
