@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
 use App\Http\Controllers\Api\V1\Global\Account\EmailChangeConfirmationController;
+use App\Http\Controllers\Api\V1\Global\Account\EmailChangeLinkController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
@@ -97,6 +98,22 @@ Route::prefix('email-change')
         Route::get('cancel/{user}/{hash}', 'showCancel')->name('email-change.cancel');
         Route::post('cancel/{user}/{hash}', 'cancel');
         Route::get('undo/{user}/{hash}', 'showRevert')->name('email-change.revert');
+        Route::post('undo/{user}/{hash}', 'revert');
+    });
+
+// The same links as sent now: they open on the account's portal, whose page
+// reads (GET) and acts on (POST) a link here as JSON, with the link's expires
+// and signature passed along unchanged. Signed over the relative URL.
+Route::prefix('v1/email-change')
+    ->controller(EmailChangeLinkController::class)
+    ->whereNumber('user')
+    ->middleware('throttle:10,1')
+    ->group(function () {
+        Route::get('confirm/{user}/{hash}', 'showConfirm')->name('email-change.link.confirm');
+        Route::post('confirm/{user}/{hash}', 'confirm');
+        Route::get('cancel/{user}/{hash}', 'showCancel')->name('email-change.link.cancel');
+        Route::post('cancel/{user}/{hash}', 'cancel');
+        Route::get('undo/{user}/{hash}', 'showRevert')->name('email-change.link.undo');
         Route::post('undo/{user}/{hash}', 'revert');
     });
 
