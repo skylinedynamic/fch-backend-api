@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Lead;
 
 use App\Models\Lead\Lead;
+use App\Exceptions\LeadConvertedException;
 use App\Helpers\ApiResponse;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
@@ -131,6 +132,9 @@ class LeadController extends Controller
 
         try {
             $deleted = $this->leadService->deleteMultiple($request->validated()['ids'], auth()->user()->partner_id);
+        } catch (LeadConvertedException $e) {
+            // Converted leads are kept - say which, and change nothing.
+            return ApiResponse::error($e->getMessage(), 422, ['converted' => $e->converted]);
         } catch (\Exception $e) {
             Log::error('Lead multiple delete failed', ['error' => $e->getMessage()]);
 

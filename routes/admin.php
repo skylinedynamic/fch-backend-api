@@ -126,6 +126,8 @@ Route::prefix('v1/admin')
 
             Route::get('/', [LenderController::class, 'index']);
             Route::get('get/all', [LenderController::class, 'getAll']);
+            Route::post('multiple-delete', [LenderController::class, 'multipleDelete']);
+            Route::post('check-deletable', [LenderController::class, 'checkDeletable']);
             Route::post('/', [LenderController::class, 'store']);
             Route::get('{id}', [LenderController::class, 'show']);
             Route::put('{id}', [LenderController::class, 'update']);
@@ -144,6 +146,8 @@ Route::prefix('v1/admin')
         // 💰 Funding Sequencings
         Route::prefix('funding-sequencings')->group(function () {
             Route::post('fetch', [FundingSequencingController::class, 'index']);
+            Route::post('multiple-delete', [FundingSequencingController::class, 'multipleDelete']);
+            Route::post('check-deletable', [FundingSequencingController::class, 'checkDeletable']);
             Route::get('grouped', [FundingSequencingController::class, 'grouped']);
             Route::post('/', [FundingSequencingController::class, 'store']);
             Route::post('{id}/visibilities/fetch', [FundingSequencingController::class, 'fetchVisibilities']);

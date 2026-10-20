@@ -2,6 +2,7 @@
 
 namespace App\Services\Global\Account;
 
+use App\Http\Controllers\Api\V1\Global\Account\EmailChangeLinkController;
 use App\Mail\Account\EmailChangeConfirmationMail;
 use App\Mail\Account\EmailChangedMail;
 use App\Mail\Account\EmailChangeRequestedMail;
@@ -10,6 +11,8 @@ use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Notification\Notifier;
+use App\Services\Global\Common\PortalUrlResolver;
+use DateTimeInterface;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -283,50 +286,44 @@ class EmailChangeService
 
     public function confirmationUrl(User $user): string
     {
-        return URL::temporarySignedRoute(
-            'email-change.confirm',
-            now()->addHours(self::LINK_LIFETIME_HOURS),
-            ['user' => $user->id, 'hash' => $this->hashFor((string) $user->pending_email)]
-        );
+        return $this->portalLink($user, EmailChangeLinkController::ACTION_CONFIRM, now()->addHours(self::LINK_LIFETIME_HOURS), $this->hashFor((string) $user->pending_email));
     }
 
     public function cancelUrl(User $user): string
     {
-        return URL::temporarySignedRoute(
-            'email-change.cancel',
-            now()->addHours(self::LINK_LIFETIME_HOURS),
-            ['user' => $user->id, 'hash' => $this->hashFor((string) $user->pending_email)]
-        );
+        return $this->portalLink($user, EmailChangeLinkController::ACTION_CANCEL, now()->addHours(self::LINK_LIFETIME_HOURS), $this->hashFor((string) $user->pending_email));
     }
 
     public function revertUrl(User $user): string
     {
-        return URL::temporarySignedRoute(
-            'email-change.revert',
-            now()->addDays(self::REVERT_LIFETIME_DAYS),
-            ['user' => $user->id, 'hash' => $this->revertHashFor((string) $user->previous_email, (string) $user->email)]
-        );
+        return $this->portalLink($user, EmailChangeLinkController::ACTION_UNDO, now()->addDays(self::REVERT_LIFETIME_DAYS), $this->revertHashFor((string) $user->previous_email, (string) $user->email));
     }
 
-    /**
-     * The sign-in page of the portal this account uses: clients sign in to the
-     * borrower portal, everyone else to the partner portal — each on the
-     * partner's own domain where it has one.
-     */
+    /** The sign-in page of the portal this account uses. */
     public function loginUrl(User $user): string
     {
-        return $user->user_type === User::BORROWER
-            ? concatUrl(getBorrowerDomain($user->partner_id), 'login', config('app.frontend_borrower_url'))
-            : concatUrl(getPartnerDomain($user->partner_id), 'login', config('app.frontend_partner_url'));
+        return app(PortalUrlResolver::class)->url($user, 'login');
     }
 
     /**
-     * users.email is unique at the database level, and a soft-deleted row still
-     * holds its email there — so deleted accounts count as using it.
+     * A link to the account's own portal page for $action. It carries the
+     * expires and signature of the matching API endpoint, signed over the
+     * relative URL, which the page passes along when it calls the API.
+     */
+    private function portalLink(User $user, string $action, DateTimeInterface $expires, string $hash): string
+    {
+        $signed = URL::temporarySignedRoute("email-change.link.{$action}", $expires, ['user' => $user->id, 'hash' => $hash], absolute: false);
+
+        return app(PortalUrlResolver::class)->url($user, "email-change/{$action}/{$user->id}/{$hash}") . '?' . parse_url($signed, PHP_URL_QUERY);
+    }
+
+    /**
+     * Free unless another active login uses it. A deleted login no longer holds
+     * its email: users.email has had no unique index since 2026_03_06_114733.
      */
     private function isAvailable(string $email, User $user): bool
     {
-        return !User::withTrashed()
+        return !User::query()
             ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
             ->whereKeyNot($user->getKey())
             ->exists();

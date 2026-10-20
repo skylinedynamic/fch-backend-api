@@ -59,14 +59,15 @@ class UpdatePartnerRequest extends BaseApiRequest
             'email' => [
                 'sometimes', 'required', 'email', 'max:255',
                 Rule::unique('partners', 'email')->ignore($this->id)->whereNull('deleted_at'),
-                // Unique across every login except the partner's own. This used
-                // to let through any email already used inside the same partner
-                // (e.g. one of its employees), which the update then either
-                // crashed on or, via a lookup by email, overwrote. Matches the
-                // users.email index exactly: deleted accounts still hold theirs.
+                // Unique across every active login except the partner's own. This
+                // used to let through any email already used inside the same
+                // partner (e.g. one of its employees), which the update then
+                // either crashed on or, via a lookup by email, overwrote. A
+                // deleted login no longer holds its email: users.email has had
+                // no unique index since 2026_03_06_114733.
                 Rule::unique('users', 'email')->ignore(
                     User::where('entity_type', Partner::class)->where('entity_id', (int) $this->id)->value('id')
-                ),
+                )->whereNull('deleted_at'),
             ],
             'phone_number'               => ['sometimes', 'required', 'string', new UsPhoneNumber()],
             'status'                     => ['nullable', 'string', 'max:255'],

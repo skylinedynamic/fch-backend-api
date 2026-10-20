@@ -2,7 +2,9 @@
 
 namespace App\Services\FCH\Admin\Lender;
 
+use App\Exceptions\LenderInUseException;
 use App\Models\Lender\Lender;
+use Illuminate\Support\Facades\DB;
 use App\Traits\PaginatesApi;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Lender\LenderResource;
@@ -107,9 +109,47 @@ class LenderService
      */
     public function delete(Lender $lender)
     {
-        // Delete all related visibilities when a lender is deleted
-        $lender->visibilities()->delete();
-        
-        return $lender->delete();
+        return $this->deleteMultiple([$lender->id]);
+    }
+
+    /**
+     * Delete the selected lenders, all or none. A lender still in use is kept:
+     * the whole selection is refused and each blocked lender is named - same
+     * rule as clients and partners.
+     *
+     * @throws LenderInUseException
+     */
+    public function deleteMultiple(array $ids): int
+    {
+        $lenders = Lender::whereIn('id', $ids)->get();
+
+        $blocked = $lenders->reject(fn (Lender $lender) => $lender->isDeletable());
+        if ($blocked->isNotEmpty()) {
+            throw new LenderInUseException(
+                $lenders->count() === 1
+                    ? __('lender.delete_blocked')
+                    : __('lender.delete_blocked_named', ['names' => $blocked->pluck('name')->implode(', ')]),
+                $blocked->map(fn (Lender $l) => ['id' => $l->id, 'name' => $l->name])->values()->all()
+            );
+        }
+
+        return DB::transaction(function () use ($lenders) {
+            foreach ($lenders as $lender) {
+                $lender->delete();
+            }
+
+            return $lenders->count();
+        });
+    }
+
+    /** Whether each lender can be deleted, with the reason when it cannot. */
+    public function checkDeletable(array $ids): array
+    {
+        return Lender::whereIn('id', $ids)->get()->map(fn (Lender $lender) => [
+            'id' => $lender->id,
+            'name' => $lender->name,
+            'is_deletable' => $deletable = $lender->isDeletable(),
+            'reason' => $deletable ? null : $lender->notDeletableReason(),
+        ])->values()->all();
     }
 }

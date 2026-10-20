@@ -298,15 +298,23 @@ class Borrower extends Model
         return $this->hasAnyDocumentCache ??= BorrowerDocument::where('borrower_id', $this->id)->exists();
     }
 
+    /** Invoice statuses that mean money was received - a client with one is kept. */
+    public const PAID_INVOICE_STATUSES = [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS];
+
     /**
-     * Check if the borrower is deletable based on invoice status.
+     * A client can be deleted only while none of their invoices is paid.
      */
     public function isDeletable(): bool
     {
-        // Check if there are any Paid or Successful invoices
         return !$this->invoices()
-            ->whereIn('status', [Invoice::STATUS_PAID])
+            ->whereIn('status', self::PAID_INVOICE_STATUSES)
             ->exists();
+    }
+
+    /** Why this client cannot be deleted, and what to do instead. */
+    public function notDeletableReason(): string
+    {
+        return __('borrower.delete_blocked_paid_invoice');
     }
 
     /**
@@ -315,7 +323,7 @@ class Borrower extends Model
     public function safeDeleteWithRelations(): bool
     {
         if (!$this->isDeletable()) {
-            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
+            throw new \Exception($this->notDeletableReason());
         }
 
         \Illuminate\Support\Facades\DB::beginTransaction();
@@ -324,7 +332,9 @@ class Borrower extends Model
             \App\Models\User\User::$isCascading = true;
 
             // 1. Delete associated User recursively (only if not already cascading)
-            if (!$isAlreadyCascading && $this->user) {
+            // Loaded explicitly: in a bulk delete a lazy load is refused outside
+            // production, and the delete used to fail.
+            if (!$isAlreadyCascading && $this->loadMissing('user')->user) {
                 // Use safeDelete to clean up user's own relations if any
                 $this->user->safeDeleteWithRelations();
             }
@@ -332,15 +342,12 @@ class Borrower extends Model
             // 2. Delete Documents
             BorrowerDocument::where('borrower_id', $this->id)->delete();
 
-            // 3. Delete Subscriptions & Phases
-            $this->subscriptions()->each(function ($sub) {
-                $sub->allPhases()->delete();
-                $sub->delete();
-            });
+            // 3. Delete Subscriptions (the phases table was dropped 2026-08-31)
+            $this->subscriptions()->delete();
 
             // 4. Delete Invoices (Unpaid only - double checked for safety)
             $this->invoices()
-                ->whereNotIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
+                ->whereNotIn('status', self::PAID_INVOICE_STATUSES)
                 ->delete();
 
             // 5. Delete other relations

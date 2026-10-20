@@ -1090,17 +1090,39 @@ class PartnerService
 
     public function delete(array $ids)
     {
+        // The host is the platform itself - never deleted from a list of partners.
+        $partners = Partner::whereIn('id', $ids)->where('is_host', false)->get();
+
+        // A partner with a paid invoice (or borrowers/users still under it) is
+        // kept. Refuse the whole selection and name each blocked partner, so the
+        // user knows to change their status instead - same rule as clients.
+        $blocked = $partners->reject(fn (Partner $partner) => $partner->isDeletable());
+        if ($blocked->isNotEmpty()) {
+            // One partner: the plain sentence. Several: name the blocked ones.
+            $message = $partners->count() === 1
+                ? __('partner.error.delete_blocked')
+                : __('partner.error.delete_blocked_named', ['names' => $blocked->pluck('full_name')->implode(', ')]);
+
+            return ApiResponse::error($message, 422, [
+                'blocked' => $blocked->map(fn (Partner $p) => ['id' => $p->id, 'name' => $p->full_name])->values(),
+            ]);
+        }
+
         try {
             DB::beginTransaction();
-            // The host is the platform itself - never deleted from a list of partners.
-            $partners = Partner::whereIn('id', $ids)->where('is_host', false)->get();
+            $images = [];
             foreach ($partners as $partner) {
                 if ($partner->partner_image) {
-                    $this->deleteFile($partner->partner_image, 'public');
+                    $images[] = $partner->getRawOriginal('partner_image');
                 }
                 $partner->safeDeleteWithRelations();
             }
             DB::commit();
+
+            // Files go only once the records are gone, so a failed delete keeps them.
+            foreach ($images as $image) {
+                $this->deleteFile($image, 'public');
+            }
 
             return ApiResponse::success([], __('partner.success.deleted'));
         } catch (\Throwable $e) {
@@ -1120,19 +1142,11 @@ class PartnerService
 
         foreach ($partners as $partner) {
             $is_deletable = !$partner->is_host && $partner->isDeletable();
-            $reason = null;
-
-            if (!$is_deletable) {
-                $reason = !$partner->is_host && $partner->hasBorrowersOrUsers()
-                    ? __('partner.error.has_borrowers_or_users')
-                    : "This record cannot be deleted. Please mark it as Suspended or Inactive instead.";
-            }
-
             $results[] = [
                 'id' => $partner->id,
                 'name' => $partner->full_name,
                 'is_deletable' => $is_deletable,
-                'reason' => $reason,
+                'reason' => !$is_deletable ? $partner->notDeletableReason() : null,
             ];
         }
 

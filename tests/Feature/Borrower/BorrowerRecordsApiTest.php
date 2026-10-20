@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\AppConfiguration;
 use App\Models\CreditBuilder\Tier;
+use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -333,6 +335,224 @@ class BorrowerRecordsApiTest extends TestCase
         $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
 
         $this->assertSoftDeleted($borrower);
+    }
+
+    private function invoiceFor(Borrower $borrower, string $status): Invoice
+    {
+        return Invoice::create([
+            'invoice_id' => 'INV-' . uniqid(),
+            'partner_id' => $borrower->partner_id,
+            'borrower_id' => $borrower->id,
+            'entity_type' => Borrower::class,
+            'entity_id' => $borrower->id,
+            'customer_name' => $borrower->full_name,
+            'email' => $borrower->email,
+            'payment_amount' => 100,
+            'currency' => 'USD',
+            'status' => $status,
+            'type' => Invoice::INVOICE_TYPE_ENROLLMENT,
+        ]);
+    }
+
+    /**
+     * Defect: deleting a client with a paid invoice was refused, but the
+     * reason was thrown away and the portal showed only "Failed to delete
+     * borrower(s)." The user could not tell why or what to do instead.
+     */
+    #[Test]
+    public function a_client_with_a_paid_invoice_is_kept_and_the_user_is_told_why_and_what_to_do(): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['first_name' => 'Reagan', 'last_name' => 'Hardin']);
+        $paid = $this->invoiceFor($borrower, Invoice::STATUS_PAID);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', "This client has related records and cannot be deleted. Please change the client's status instead.")
+            ->assertJsonPath('errors.blocked', [['id' => $borrower->id, 'name' => 'Reagan Hardin']]);
+
+        $this->assertNotSoftDeleted($borrower);
+        $this->assertNotSoftDeleted($paid);
+    }
+
+    #[Test]
+    public function when_any_selected_client_has_a_paid_invoice_none_are_deleted_and_each_blocked_one_is_named(): void
+    {
+        $free = $this->makeBorrower($this->partner, ['first_name' => 'Free', 'last_name' => 'Client']);
+        $first = $this->makeBorrower($this->partner, ['first_name' => 'Reagan', 'last_name' => 'Hardin']);
+        $second = $this->makeBorrower($this->partner, ['first_name' => 'Jessamine', 'last_name' => 'Oconnor']);
+        $this->invoiceFor($first, Invoice::STATUS_PAID);
+        $this->invoiceFor($second, Invoice::STATUS_PAID);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $response = $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$free->id, $first->id, $second->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Some selected clients have related records and cannot be deleted: Reagan Hardin, Jessamine Oconnor. '
+                . 'Please change their status instead, or unselect them to delete the others.');
+
+        $this->assertSame(['Reagan Hardin', 'Jessamine Oconnor'], array_column($response->json('errors.blocked'), 'name'));
+        $this->assertNotSoftDeleted($free);
+        $this->assertNotSoftDeleted($first);
+        $this->assertNotSoftDeleted($second);
+    }
+
+    /**
+     * Defect: the deletable check looked at "Paid" only, while the delete kept
+     * "Success" invoices as paid too - so a client whose payment was recorded
+     * as Success was deleted and their paid record left behind.
+     */
+    #[Test]
+    public function a_successful_payment_counts_as_paid(): void
+    {
+        $borrower = $this->makeBorrower($this->partner);
+        $this->invoiceFor($borrower, Invoice::STATUS_SUCCESS);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers/check-deletable', ['ids' => [$borrower->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false);
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertStatus(422);
+
+        $this->assertNotSoftDeleted($borrower);
+    }
+
+    #[Test]
+    public function the_deletable_check_gives_the_same_reason(): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['first_name' => 'Reagan', 'last_name' => 'Hardin']);
+        $this->invoiceFor($borrower, Invoice::STATUS_PAID);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers/check-deletable', ['ids' => [$borrower->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.name', 'Reagan Hardin')
+            ->assertJsonPath('data.0.reason', "This client has related records and cannot be deleted. Please change the client's status instead.");
+    }
+
+    /**
+     * A client with only unpaid invoices is deleted, and those invoices go with
+     * them, so nothing is left for anyone to pay.
+     */
+    #[Test]
+    public function a_client_with_only_unpaid_invoices_is_deleted_together_with_those_invoices(): void
+    {
+        $borrower = $this->makeBorrower($this->partner);
+        $unpaid = $this->invoiceFor($borrower, Invoice::STATUS_UNPAID);
+        $overdue = $this->invoiceFor($borrower, Invoice::STATUS_OVERDUE);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
+
+        $this->assertSoftDeleted($borrower);
+        $this->assertSoftDeleted($unpaid);
+        $this->assertSoftDeleted($overdue);
+    }
+
+    /**
+     * Defect: selecting more than one client and deleting failed with "Failed
+     * to delete borrower(s)." on stage and local - the delete lazy-loaded each
+     * client's login, which is refused outside production once there is more
+     * than one model. Production happened to work.
+     */
+    #[Test]
+    public function a_partner_bulk_deletes_several_clients_with_only_unpaid_invoices(): void
+    {
+        // Real clients have a login; deleting reads it for each one.
+        $firstLogin = $this->makeBorrowerUser($this->partner);
+        $secondLogin = $this->makeBorrowerUser($this->partner);
+        $first = Borrower::findOrFail($firstLogin->entity_id);
+        $second = Borrower::findOrFail($secondLogin->entity_id);
+        $firstUnpaid = $this->invoiceFor($first, Invoice::STATUS_UNPAID);
+        $secondUnpaid = $this->invoiceFor($second, Invoice::STATUS_PENDING);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$first->id, $second->id]])
+            ->assertOk()
+            ->assertJsonPath('message', __('borrower.success.deleted'));
+
+        $this->assertSoftDeleted($first);
+        $this->assertSoftDeleted($second);
+        $this->assertSoftDeleted($firstUnpaid);
+        $this->assertSoftDeleted($secondUnpaid);
+        $this->assertSoftDeleted($firstLogin);
+        $this->assertSoftDeleted($secondLogin);
+    }
+
+    /**
+     * Defect: deleting any client with a subscription failed with "Failed to
+     * delete borrower(s)." - the delete called Subscription::allPhases(),
+     * which went with the subscription_phases table (dropped 2026-08-31).
+     */
+    #[Test]
+    public function a_client_with_a_subscription_and_only_unpaid_invoices_is_deleted(): void
+    {
+        $borrower = $this->makeBorrower($this->partner);
+        $subscription = Subscription::create([
+            'entity_type' => Borrower::class,
+            'entity_id' => $borrower->id,
+            'installment_count' => 1,
+            'installments_paid' => 0,
+            'payable_amount' => 300,
+            'total_subscription_amount' => 300,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $unpaid = $this->invoiceFor($borrower, Invoice::STATUS_UNPAID);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
+
+        $this->assertSoftDeleted($borrower);
+        $this->assertSoftDeleted($subscription);
+        $this->assertSoftDeleted($unpaid);
+    }
+
+    /**
+     * Defect: a client with a login and a subscription could not be deleted -
+     * deleting the login went through User::safeDeleteWithRelations(), which
+     * still called the removed Subscription::allPhases().
+     */
+    #[Test]
+    public function a_client_with_a_login_and_a_subscription_is_deleted(): void
+    {
+        $login = $this->makeBorrowerUser($this->partner);
+        $borrower = Borrower::findOrFail($login->entity_id);
+        $subscription = Subscription::create([
+            'entity_type' => Borrower::class,
+            'entity_id' => $borrower->id,
+            'installment_count' => 1,
+            'installments_paid' => 0,
+            'payable_amount' => 300,
+            'total_subscription_amount' => 300,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $unpaid = $this->invoiceFor($borrower, Invoice::STATUS_UNPAID);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
+
+        $this->assertSoftDeleted($borrower);
+        $this->assertSoftDeleted($subscription);
+        $this->assertSoftDeleted($unpaid);
+        $this->assertSoftDeleted($login);
+    }
+
+    #[Test]
+    public function the_host_admin_gets_the_same_rule_for_a_partners_client(): void
+    {
+        $paid = $this->makeBorrower($this->partner, ['first_name' => 'Reagan', 'last_name' => 'Hardin']);
+        $unpaid = $this->makeBorrower($this->partner);
+        $this->invoiceFor($paid, Invoice::STATUS_PAID);
+        $this->invoiceFor($unpaid, Invoice::STATUS_UNPAID);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$paid->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $paid->notDeletableReason());
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$unpaid->id]])->assertOk();
+
+        $this->assertNotSoftDeleted($paid);
+        $this->assertSoftDeleted($unpaid);
     }
 
     #[Test]
