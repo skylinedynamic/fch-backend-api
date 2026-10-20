@@ -6,6 +6,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Models\PaymentMethod\PaymentProvider;
+use App\Support\Payment\PaymentSetup;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -58,6 +59,11 @@ class PartnerPaymentProviderListResource extends JsonResource
             'is_configured'   => !empty($configuration),
             'payment_mode'    => $paymentMode,
             'publishable_key' => $pubKey,
+            // What the method is still missing for its active mode; empty when
+            // it's set up (or was never set up). can_take_payments says whether
+            // payers are offered it meanwhile.
+            'setup_issues'    => PaymentSetup::issues($linkage, $this->name),
+            'can_take_payments' => PaymentSetup::isReady($linkage, $this->name),
         ];
     }
 }

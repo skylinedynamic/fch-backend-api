@@ -8,6 +8,7 @@ use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Services\FCH\Common\Setting\PaymentMethodConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -42,6 +43,15 @@ class PaymentSettingsEndpointsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Saving Stripe keys asks Stripe whether they work (StripeKeyVerifier).
+        // These keys are made up, so Stripe answers as it would for real ones.
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.stripe.com/v1/account' => Http::response(['id' => 'acct_endpoint']),
+            'https://api.stripe.com/v1/tokens' => Http::response(['id' => 'tok_endpoint']),
+            'https://api.stripe.com/v1/tokens/tok_endpoint' => Http::response(['id' => 'tok_endpoint']),
+        ]);
 
         $this->host = Partner::create([
             'is_host' => true,
