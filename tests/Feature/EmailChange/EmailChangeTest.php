@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\FollowsEmailChangeLinks;
 use Tests\TestCase;
 
 /**
@@ -30,6 +31,7 @@ use Tests\TestCase;
 class EmailChangeTest extends TestCase
 {
     use RefreshDatabase;
+    use FollowsEmailChangeLinks;
 
     private Partner $partner;
     private User $user;
@@ -68,7 +70,7 @@ class EmailChangeTest extends TestCase
     /** Submit the confirmation page: the account password is what completes it. */
     private function confirmWith(string $url, string $password = 'secret-password')
     {
-        return $this->post($url, ['password' => $password]);
+        return $this->submitEmailChangeLink($url, ['password' => $password]);
     }
 
     private function confirmationUrlSentTo(string $email): string
