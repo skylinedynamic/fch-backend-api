@@ -36,10 +36,14 @@ class MyApplicationService
     public function fundingApplicationList(array $filters)
     {
         $user = Auth::user();
+        // Includes an application the borrower has started but not submitted
+        // (On Hold): the funding request says it was started, so leaving it out
+        // read as "No funding applications found" (BUG-027). The row continues
+        // it from its funding_request_id.
         $query = FundingApplication::with(['borrower', 'fundingSequence'])
-                ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->where('borrower_id', $user->entity_id)
-                ->latest();
+                ->latest()
+                ->orderByDesc('id');
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;

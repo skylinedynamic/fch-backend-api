@@ -90,6 +90,27 @@ class BorrowerFundingRequestApiTest extends TestCase
         $this->assertSame([$this->myRequestId], $ids->all());
     }
 
+    /**
+     * Defect (BUG-009, CP-FREQ-05): clicking a column a second time to sort it
+     * descending kept the ascending order on every column.
+     */
+    #[Test]
+    public function my_requests_sort_by_a_column_in_both_directions(): void
+    {
+        DB::table('funding_requests')->where('id', $this->myRequestId)->update(['requested_amount' => 20000]);
+        $bigger = $this->requestFor($this->me);
+        DB::table('funding_requests')->where('id', $bigger)->update(['requested_amount' => 50000]);
+        $this->actingAsUser($this->me);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/borrower/funding/requests/list', [
+            'sort_field' => 'requested_amount',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$this->myRequestId, $bigger], $sorted('asc'));
+        $this->assertSame([$bigger, $this->myRequestId], $sorted('desc'));
+    }
+
     #[Test]
     public function i_open_my_request_but_not_someone_elses(): void
     {

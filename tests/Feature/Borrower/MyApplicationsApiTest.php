@@ -60,15 +60,24 @@ class MyApplicationsApiTest extends TestCase
         $this->assertSame([$submitted->id], $this->listed('/api/v1/borrower/myapplication/pre-qualification'));
     }
 
+    /**
+     * Defect (BUG-027, CP-MYAPP-01): an application the borrower had started
+     * (On Hold) was left out, so My Applications said "No funding applications
+     * found." while the funding request said one had been started. It is
+     * listed - as On Hold, with the request it continues from.
+     */
     #[Test]
-    public function a_borrower_lists_only_their_own_submitted_funding_applications(): void
+    public function a_borrower_lists_their_own_funding_applications_including_one_started_on_hold(): void
     {
-        $submitted = FundingApplication::forceCreate(['borrower_id' => $this->me->entity_id, 'status' => FundingApplication::CLOSED_COMPLETED]);
-        FundingApplication::forceCreate(['borrower_id' => $this->me->entity_id, 'status' => FundingApplication::ON_HOLD]);
+        $submitted = FundingApplication::forceCreate(['borrower_id' => $this->me->entity_id, 'status' => FundingApplication::CLOSED_COMPLETED, 'created_at' => now()->subDay()]);
+        $started = FundingApplication::forceCreate(['borrower_id' => $this->me->entity_id, 'status' => FundingApplication::ON_HOLD, 'funding_request_id' => 40, 'created_at' => now()]);
         FundingApplication::forceCreate(['borrower_id' => $this->makeBorrower($this->partner)->id, 'status' => FundingApplication::CLOSED_COMPLETED]);
         $this->actingAsUser($this->me);
 
-        $this->assertSame([$submitted->id], $this->listed('/api/v1/borrower/myapplication/funding-application'));
+        $this->assertSame([$started->id, $submitted->id], $this->listed('/api/v1/borrower/myapplication/funding-application'));
+        $this->postJson('/api/v1/borrower/myapplication/funding-application')
+            ->assertJsonPath('data.0.status', FundingApplication::ON_HOLD)
+            ->assertJsonPath('data.0.funding_request_id', 40);
     }
 
     #[Test]

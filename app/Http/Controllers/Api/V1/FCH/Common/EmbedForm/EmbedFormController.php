@@ -20,6 +20,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmbedFormController extends Controller
 {
+    /** Columns the Loan Applications list may sort on (its sortable headers). */
+    private const SORTABLE_SUBMISSION_FIELDS = ['first_name', 'email', 'desired_funding_amount', 'status', 'created_at'];
+
     public function __construct(
         protected EmbedFormService $embedFormService
     ) {
@@ -182,8 +185,18 @@ class EmbedFormController extends Controller
         $reviewingCount = (clone $baseQuery)->where('status', 'reviewing')->count();
         $convertedCount = (clone $baseQuery)->where('status', 'converted')->count();
 
+        // The list's sortable columns only (BUG-009: the sort used to be ignored,
+        // always newest first). Anything else falls back to newest first.
+        $sortField = $request->input('sort_field');
+        if (in_array($sortField, self::SORTABLE_SUBMISSION_FIELDS, true)) {
+            $query->orderBy($sortField, $request->input('sort_order') === 'asc' ? 'asc' : 'desc');
+            if ($sortField === 'first_name') {
+                $query->orderBy('last_name', $request->input('sort_order') === 'asc' ? 'asc' : 'desc');
+            }
+        }
+
         $perPage = max(1, (int) ($filters['per_page'] ?? 15));
-        $paginated = $query->orderByDesc('created_at')->paginate($perPage);
+        $paginated = $query->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage);
 
         return ApiResponse::successWithPagination(
             EmbedFormSubmissionResource::collection($paginated->items()),

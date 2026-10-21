@@ -39,7 +39,7 @@ class AppConfigurationController extends Controller
                     return ApiResponse::success(new AppConfigurationResource($configs));
                 }
 
-                $value = $this->configService->get($key, null, $module, $partnerId);
+                $value = $this->configService->getForScreen($key, $module, $partnerId);
                 return ApiResponse::success([
                     'key' => $key,
                     'value' => $value
@@ -68,12 +68,12 @@ class AppConfigurationController extends Controller
                 $key = $request->input('key');
                 $value = $request->input('value');
 
-                $this->configService->set($key, $value, $module, $partnerId);
+                $this->configService->setFromScreen($key, $value, $module, $partnerId);
             } else {
                 $settings = $request->input('settings') ?? $request->except(['module', 'partner_id']);
 
                 foreach ((array) $settings as $key => $value) {
-                    $this->configService->set($key, $value, $module, $partnerId);
+                    $this->configService->setFromScreen($key, $value, $module, $partnerId);
                 }
             }
 

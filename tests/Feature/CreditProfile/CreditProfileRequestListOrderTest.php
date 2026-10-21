@@ -138,6 +138,27 @@ class CreditProfileRequestListOrderTest extends TestCase
         $this->assertSame(['alpha@example.test', 'bravo@example.test'], $this->listed(['sort_field' => 'email', 'sort_order' => 'asc']));
     }
 
+    /**
+     * BUG-009 (OP-CRP-04): APPLICANT, EMAIL and PHONE did nothing on the
+     * 14-Oct build. Fixed by the sortable list on 15-Oct; pinned here in both
+     * directions for every column the screen lets you sort.
+     */
+    #[Test]
+    public function applicant_email_and_phone_sort_both_ways(): void
+    {
+        $zed = $this->requestAt('alpha@example.test', '2026-10-10 09:00:00');
+        $zed->forceFill(['first_name' => 'Zed', 'phone' => '5125550199'])->saveQuietly();
+        $amy = $this->requestAt('bravo@example.test', '2026-10-01 09:00:00');
+        $amy->forceFill(['first_name' => 'Amy', 'phone' => '5125550100'])->saveQuietly();
+
+        $this->assertSame(['bravo@example.test', 'alpha@example.test'], $this->listed(['sort_field' => 'first_name', 'sort_order' => 'asc']));
+        $this->assertSame(['alpha@example.test', 'bravo@example.test'], $this->listed(['sort_field' => 'first_name', 'sort_order' => 'desc']));
+        $this->assertSame(['alpha@example.test', 'bravo@example.test'], $this->listed(['sort_field' => 'email', 'sort_order' => 'asc']));
+        $this->assertSame(['bravo@example.test', 'alpha@example.test'], $this->listed(['sort_field' => 'email', 'sort_order' => 'desc']));
+        $this->assertSame(['bravo@example.test', 'alpha@example.test'], $this->listed(['sort_field' => 'phone', 'sort_order' => 'asc']));
+        $this->assertSame(['alpha@example.test', 'bravo@example.test'], $this->listed(['sort_field' => 'phone', 'sort_order' => 'desc']));
+    }
+
     #[Test]
     public function an_unknown_sort_field_falls_back_to_latest_first(): void
     {

@@ -185,6 +185,15 @@ class SubscriptionService
         } elseif ($sortField === 'enrollment_completed_at') {
             $query->orderBy('subscriptions.enrollment_completed_at', $sortOrder);
             $skipSorting = true;
+        } elseif ($sortField === 'subscriber_name') {
+            // The Name column: computed by the resource, not a column, so
+            // ORDER BY subscriber_name was an SQL error (BUG-011).
+            $query->orderBySubscriberName($sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'entity_type') {
+            // Qualified: a partner/borrower join above must not make it ambiguous.
+            $query->orderBy('subscriptions.entity_type', $sortOrder);
+            $skipSorting = true;
         }
 
         // Created At Filter (Format: Y-m-d h:i A)

@@ -9,7 +9,6 @@ use App\Http\Resources\Borrower\Dashboard\DashboardInvoiceResource;
 use App\Http\Resources\Borrower\Dashboard\DashboardPreQualificationResource;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
-use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
@@ -33,7 +32,9 @@ class DashboardService
         $totalRequested = $borrower->fundingApplications->sum('requested_amount');
         $totalFunded = $borrower->fundingApplications->sum('total_funded_amount');
         $data['states'] = [
-            'funding_applications' => $borrower->fundingApplications->where('status','!=',FundingApplication::ON_HOLD)->count(),
+            // An application the borrower has started (On Hold) counts too: the
+            // funding request already says it was started (BUG-027).
+            'funding_applications' => $borrower->fundingApplications->count(),
             'funding_requests' => $borrower->fundingRequests->where('status','!=', \App\Models\FundingRequest\FundingRequest::STATUS_CANCELED)->count(),
             'total_requested_amount' => $totalRequested,
             'total_funded_amount' => $totalFunded,
@@ -45,8 +46,8 @@ class DashboardService
         // Latest Funding Applications
         $data['latest_funding_applications'] = DashboardFundingApplicationResource::collection(
             $borrower->fundingApplications()
-                ->where('status','!=',FundingApplication::ON_HOLD)
                 ->latest()
+                ->orderByDesc('id')
                 ->limit(5)
                 ->get()
         );

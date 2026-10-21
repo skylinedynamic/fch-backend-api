@@ -223,6 +223,31 @@ class Subscription extends Model
     }
 
     /**
+     * Scope: order by the subscriber's name as the lists show it - a partner's
+     * full name, a client's first / middle / last name, a seat's user or
+     * employee name. The name is not a column, so each part is read with a
+     * correlated subquery: no join, which would let the joined table's id and
+     * status overwrite the subscription's own.
+     */
+    public function scopeOrderBySubscriberName($query, string $direction = 'asc')
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+        $part = fn (string $table, string $column) => "(SELECT {$table}.{$column} FROM {$table} WHERE {$table}.id = subscriptions.entity_id)";
+
+        return $query
+            ->orderByRaw(
+                'CASE subscriptions.entity_type WHEN ? THEN ' . $part('partners', 'full_name')
+                . ' WHEN ? THEN ' . $part('borrowers', 'first_name')
+                . ' WHEN ? THEN ' . $part('users', 'name')
+                . ' WHEN ? THEN ' . $part('employees', 'first_name')
+                . " END {$direction}",
+                [Partner::class, Borrower::class, User::class, Employee::class]
+            )
+            ->orderByRaw('CASE subscriptions.entity_type WHEN ? THEN ' . $part('borrowers', 'middle_name') . " END {$direction}", [Borrower::class])
+            ->orderByRaw('CASE subscriptions.entity_type WHEN ? THEN ' . $part('borrowers', 'last_name') . " END {$direction}", [Borrower::class]);
+    }
+
+    /**
      * Whether billing is currently stopped for this subscription.
      *
      * Derived from the subscriber's live status every time it is asked, never from

@@ -24,6 +24,43 @@ class AppConfiguration extends Model
     ];
 
     /**
+     * What a settings read returns in place of a stored secret (the same mask
+     * the SMS and mail settings use). Sending it back - or a blank - on save
+     * keeps the stored secret.
+     */
+    public const SECRET_MASK = '••••••••';
+
+    /** Keys whose value is a credential: never sent to the browser (BUG-022). */
+    private const SECRET_KEY_PATTERN = '/(secret|token|password|api_key|private_key)/i';
+
+    public static function isSecretKey(string $key): bool
+    {
+        return (bool) preg_match(self::SECRET_KEY_PATTERN, $key);
+    }
+
+    /** The value a settings screen may see: a stored secret becomes the mask. */
+    public static function forDisplay(string $key, $value)
+    {
+        return self::isSecretKey($key) && filled($value) ? self::SECRET_MASK : $value;
+    }
+
+    /** @param array<string, mixed> $values key => value */
+    public static function maskSecrets(array $values): array
+    {
+        foreach ($values as $key => $value) {
+            $values[$key] = self::forDisplay((string) $key, $value);
+        }
+
+        return $values;
+    }
+
+    /** Whether a submitted value means "leave the stored secret as it is". */
+    public static function keepsStoredSecret(string $key, $value): bool
+    {
+        return self::isSecretKey($key) && ($value === null || $value === '' || $value === self::SECRET_MASK);
+    }
+
+    /**
      * Drop the cached branding whenever a branding row is written.
      *
      * Hooked on the model rather than only on AppConfigurationService::set() so
