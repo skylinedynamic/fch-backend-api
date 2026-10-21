@@ -25,6 +25,10 @@ return [
     // Validations
     'probability_required' => 'Probability is required.',
     'lead_type_required' => 'Lead Type is required.',
+    'lead_type_borrower_only' => 'A partner\'s lead can only be a Borrower lead.',
+    'lead_type_locked' => 'A converted lead\'s type cannot be changed.',
+    'converted_on_behalf_mail_subject' => 'Your lead :name was converted to a borrower',
+    'salesperson_not_in_team' => 'The lead owner must be a member of the lead\'s partner team.',
     'status_required' => 'Status is required.',
     'company_name_required' => 'Organization Name is required.',
     'lead_source_required' => 'Lead Source is required.',

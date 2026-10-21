@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use App\Mail\Lead\LeadNotificationMail;
+use App\Mail\Lead\LeadConvertedOnBehalfMail;
 
 class LeadService
 {
@@ -528,6 +529,11 @@ class LeadService
             }
 
             DB::commit();
+
+            if ($lead->convertsOnBehalfOfPartnerFor(Auth::user())) {
+                $this->notifyConvertedOnBehalf($lead, $borrower);
+            }
+
             return $borrower;
         } catch (Throwable $e) {
             DB::rollBack();
@@ -642,6 +648,32 @@ class LeadService
     private function borrowerPartnerId(Lead $lead): ?int
     {
         return $lead->partner_id ?: (Auth::user()?->partner_id ?? null);
+    }
+
+    /**
+     * Tell the lead's partner - in its bell and by email from the host - that
+     * the host converted its lead to its borrower. Failures are logged, never
+     * thrown: a notice must not undo a conversion already committed.
+     */
+    private function notifyConvertedOnBehalf(Lead $lead, Borrower $borrower): void
+    {
+        try {
+            $partner = $lead->partner;
+            $host = Auth::user()->partner;
+
+            app(Notifier::class)->send('partner.lead.converted_on_behalf', $partner, [
+                'name' => $lead->contact_person ?: $lead->company_name,
+                'host' => $host->company_name ?: $host->full_name,
+                'borrower_id' => $borrower->id,
+            ], mail: $partner->email
+                ? (new LeadConvertedOnBehalfMail($lead, $borrower, $host, $partner))->to($partner->email)
+                : null);
+        } catch (Throwable $e) {
+            Log::error('Failed to notify the partner of a lead converted on its behalf', [
+                'lead_id' => $lead->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** Placeholders for the lead.created bell. */
