@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\CreditAuthorization\CreditAuthorizati
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
+use App\Http\Controllers\Api\V1\FCH\Common\Partner\PartnerOptionController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\CapitalAccessController as CommonCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
@@ -381,6 +382,8 @@ Route::prefix('v1')->group(function () {
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
+            // Every partner for the host's partner filter dropdowns (host only)
+            Route::post('get-all-partners', [PartnerOptionController::class, 'index']);
             Route::get('user-count', [CommonController::class, 'getUserCount']);
             Route::get('user-details', [UserDetailController::class, '__invoke']);
 

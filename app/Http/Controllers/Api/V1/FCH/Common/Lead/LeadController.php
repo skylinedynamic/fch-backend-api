@@ -46,7 +46,7 @@ class LeadController extends Controller
      */
     public function show($id)
     {
-        $lead = $this->ownLead($id);
+        $lead = $this->visibleLead($id);
         if (!$lead) {
             return ApiResponse::notFound(__('lead.lead_not_found'));
         }
@@ -79,7 +79,7 @@ class LeadController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
 
-        $lead = $this->ownLead($id);
+        $lead = $this->visibleLead($id);
         if (!$lead) {
             return ApiResponse::notFound(__('lead.lead_not_found'));
         }
@@ -99,7 +99,7 @@ class LeadController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
 
-        $lead = $this->ownLead($id);
+        $lead = $this->visibleLead($id);
         if (!$lead) {
             return ApiResponse::notFound(__('lead.lead_not_found'));
         }
@@ -113,25 +113,25 @@ class LeadController extends Controller
     }
 
     /**
-     * A lead of the caller's own partner, or null - leads are a partner's own
-     * book, the same scope the lead list applies.
+     * A lead the caller may see, or null - every partner's for the host, a
+     * partner's own book otherwise; the same scope the lead list applies.
      */
-    private function ownLead($id): ?Lead
+    private function visibleLead($id): ?Lead
     {
-        return Lead::where('partner_id', auth()->user()->partner_id)->find($id);
+        return Lead::visibleTo(auth()->user())->find($id);
     }
 
     /**
-     * Delete one lead or many - the only lead delete. Only the caller's
-     * partner's leads are deleted, each logged; other ids are skipped, and
-     * none of the caller's found is a 404.
+     * Delete one lead or many - the only lead delete. Only leads the caller
+     * may see are deleted, each logged; other ids are skipped, and none of
+     * them found is a 404.
      */
     public function multipleDelete(DeleteLeadsRequest $request)
     {
         $this->checkWhiteLabelConfiguration();
 
         try {
-            $deleted = $this->leadService->deleteMultiple($request->validated()['ids'], auth()->user()->partner_id);
+            $deleted = $this->leadService->deleteMultiple($request->validated()['ids'], auth()->user());
         } catch (LeadConvertedException $e) {
             // Converted leads are kept - say which, and change nothing.
             return ApiResponse::error($e->getMessage(), 422, ['converted' => $e->converted]);
@@ -168,9 +168,9 @@ class LeadController extends Controller
         $this->checkWhiteLabelConfiguration();
 
         try {
-            $lead = Lead::findOrFail($id);
+            $lead = $this->visibleLead($id);
 
-            if ($lead->partner_id != auth()->user()->partner_id) {
+            if (!$lead) {
                 return ApiResponse::error(__('lead.lead_not_belongs_to_partner'), 404);
             }
 
