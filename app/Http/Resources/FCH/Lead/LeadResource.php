@@ -4,7 +4,6 @@ namespace App\Http\Resources\FCH\Lead;
 
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Resources\FCH\User\UserResource;
-use App\Models\Lead\Lead;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -71,24 +70,13 @@ class LeadResource extends JsonResource
                 'company_name' => $this->partner?->company_name,
             ],
 
-            // Whose borrower the host may file another partner's lead under
-            'convert_as_options' => $this->convertAsOptions($request),
+            // The partner the host converts another partner's lead for
+            'convert_on_behalf_of' => $this->convertsOnBehalfOfPartnerFor($request->user())
+                ? ['id' => $this->partner_id, 'company_name' => $this->partner?->company_name]
+                : null,
 
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
-        ];
-    }
-
-    private function convertAsOptions(Request $request): array
-    {
-        $user = $request->user();
-        if (!$this->offersOwnerChoiceTo($user)) {
-            return [];
-        }
-
-        return [
-            ['value' => Lead::CONVERT_AS_HOST, 'company_name' => $user->partner?->company_name],
-            ['value' => Lead::CONVERT_AS_LEAD_PARTNER, 'company_name' => $this->partner?->company_name],
         ];
     }
 }

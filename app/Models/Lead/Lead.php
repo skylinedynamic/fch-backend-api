@@ -27,11 +27,6 @@ class Lead extends Model
 
     const DEFAULT_COUNTRY_CODE = '+1';
 
-    /** Whose borrower the host files another partner's lead under. */
-    const CONVERT_AS_HOST = 'host';
-    const CONVERT_AS_LEAD_PARTNER = 'lead_partner';
-    const CONVERT_AS = [self::CONVERT_AS_HOST, self::CONVERT_AS_LEAD_PARTNER];
-
     const STATUS_NEW_LEAD = 'New Lead';
     const STATUS_CONTACT_INITIATED = 'Contact Initiated';
     const STATUS_LEAD_IDENTIFIED = 'Lead Identified';
@@ -174,10 +169,11 @@ class Lead extends Model
     }
 
     /**
-     * Whether converting this lead asks the user whose borrower it becomes:
-     * the host converting another partner's borrower lead.
+     * Whether this user converting this lead does so on the lead partner's
+     * behalf: the host converting another partner's borrower lead. The
+     * borrower stays that partner's either way.
      */
-    public function offersOwnerChoiceTo(?User $user): bool
+    public function convertsOnBehalfOfPartnerFor(?User $user): bool
     {
         return $this->lead_type === self::BORROWER_TYPE_LEAD
             && $this->partner_id !== null

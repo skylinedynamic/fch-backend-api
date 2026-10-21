@@ -495,7 +495,7 @@ class LeadService
                 'home_address' => $lead->business_address,
                 'home_phone' => $lead->business_phone,
                 'assign_id' => $lead->salesperson_id,
-                'partner_id' => $this->borrowerPartnerId($lead, $data),
+                'partner_id' => $this->borrowerPartnerId($lead),
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
                 'is_free_trail' => $data['is_free_trail'] ?? null,
@@ -635,18 +635,13 @@ class LeadService
 
 
     /**
-     * The partner a converted lead's borrower is filed under: the host, when
-     * the host converting another partner's lead chose so, otherwise the
-     * lead's own partner (the converter's, for a lead with none).
+     * The partner a converted lead's borrower is filed under: always the
+     * lead's own partner - the host converting another partner's lead does so
+     * on that partner's behalf. A lead with no partner goes to the converter's.
      */
-    private function borrowerPartnerId(Lead $lead, array $data): ?int
+    private function borrowerPartnerId(Lead $lead): ?int
     {
-        $user = Auth::user();
-        if (($data['convert_as'] ?? null) === Lead::CONVERT_AS_HOST && $lead->offersOwnerChoiceTo($user)) {
-            return $user->partner_id;
-        }
-
-        return $lead->partner_id ?: ($user?->partner_id ?? null);
+        return $lead->partner_id ?: (Auth::user()?->partner_id ?? null);
     }
 
     /** Placeholders for the lead.created bell. */
