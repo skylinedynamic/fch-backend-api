@@ -198,6 +198,18 @@ return [
             'url' => '/leads/{{id}}',
         ],
 
+        // The host converted a partner's lead on that partner's behalf; the
+        // borrower is the partner's. Sent from the host.
+        'partner.lead.converted_on_behalf' => [
+            'name' => 'Lead converted on your behalf (partner)',
+            'category' => 'funding',
+            'icon' => 'ri-user-follow-line',
+            'channels' => $bellAndMail,
+            'title' => 'Your lead was converted to a borrower',
+            'body' => '{{host}} converted your lead {{name}} to a borrower on your behalf.',
+            'url' => '/clients/{{borrower_id}}',
+        ],
+
         'partner.embed_form.submitted' => [
             'name' => 'Embedded form submitted',
             'category' => 'funding',

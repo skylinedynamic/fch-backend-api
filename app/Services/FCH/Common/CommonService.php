@@ -12,21 +12,25 @@ use Illuminate\Support\Facades\Auth;
 class CommonService
 {
     /**
-     * Get all users where entity_type is Employee or NULL.
-     * Returns only id and name.
+     * A partner's team (User::teamOf) as id, name, email and phone - the
+     * caller's own, or for the host, the partner it names.
      */
-    public function getAllUsers()
+    public function getAllUsers(?int $partnerId = null)
     {
         $user = Auth::user();
+
+        // The host may name another partner - to pick the owner of that
+        // partner's lead from its own team; anyone else gets their own team.
+        $partner = $partnerId && $user->partner->is_host
+            ? Partner::find($partnerId)
+            : $user->partner;
+
+        if (!$partner) {
+            return collect();
+        }
+
         $users = User::query()
-            ->when($user->partner->is_host == 1, function ($query) use ($user) {
-                $query->where('partner_id', $user->partner_id)
-                    ->where('user_type',User::ADMIN);
-            })
-            ->when($user->partner->is_host == 0, function ($query) use ($user) {
-                $query->where('partner_id', $user->partner_id)
-                    ->where('user_type',User::PARTNER);
-            })
+            ->teamOf($partner)
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();

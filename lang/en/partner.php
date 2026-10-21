@@ -141,6 +141,7 @@ return [
     */
     'success' => [
         'retrieved' => 'Partners retrieved successfully.',
+        'options_retrieved' => 'Partner options retrieved successfully.',
         'created' => 'Partner created successfully.',
         'updated' => 'Partner updated successfully.',
         'deleted' => 'Partner deleted successfully.',

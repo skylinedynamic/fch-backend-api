@@ -68,7 +68,13 @@ class LeadResource extends JsonResource
             'partner' => [
                 'id' => $this->partner_id,
                 'full_name' => $this->partner?->full_name,
+                'company_name' => $this->partner?->company_name,
             ],
+
+            // The partner the host converts another partner's lead for
+            'convert_on_behalf_of' => $this->convertsOnBehalfOfPartnerFor($request->user())
+                ? ['id' => $this->partner_id, 'company_name' => $this->partner?->company_name]
+                : null,
 
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
