@@ -51,6 +51,9 @@ class CommissionListTest extends TestCase
             'status' => User::STATUS['active'],
             'user_type' => User::ADMIN,
             'partner_id' => $this->host->id,
+            // The host's own login (its owner), who sees every commission.
+            'entity_type' => Partner::class,
+            'entity_id' => $this->host->id,
         ]);
     }
 

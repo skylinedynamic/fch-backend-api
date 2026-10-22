@@ -42,7 +42,11 @@ class CommissionPayoutTest extends TestCase
         Mail::fake();
 
         $this->host = $this->partner('Host LLC', true);
-        $this->admin = $this->user('admin@host.test', $this->host);
+        // The host's own login (its owner), who sees and pays every commission.
+        $this->admin = $this->user('admin@host.test', $this->host, [
+            'entity_type' => Partner::class,
+            'entity_id' => $this->host->id,
+        ]);
     }
 
     private function partner(string $name, bool $isHost): Partner
