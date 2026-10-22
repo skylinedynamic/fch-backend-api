@@ -54,8 +54,12 @@ class CommissionListTest extends TestCase
         ]);
     }
 
-    private function commission(string $firstName, float $funded): Commission
-    {
+    private function commission(
+        string $firstName,
+        float $funded,
+        string $status = Commission::STATUS_COMPLETED,
+        string $paymentStatus = Commission::PAYMENT_STATUS_PAID,
+    ): Commission {
         $borrower = Borrower::create([
             'partner_id' => $this->host->id,
             'status' => Borrower::STATUS_ACTIVE,
@@ -81,9 +85,34 @@ class CommissionListTest extends TestCase
             'total_commission_amount' => $funded / 10,
             'admin_commission_amount' => $funded / 10,
             'partner_commission_amount' => 0,
-            'commission_status' => Commission::STATUS_COMPLETED,
-            'payment_status' => Commission::PAYMENT_STATUS_PAID,
+            'commission_status' => $status,
+            'payment_status' => $paymentStatus,
         ]);
+    }
+
+    /**
+     * Defect: the cards were recounted from the filtered table, so filtering by
+     * payment status or searching changed them; and "Total Deals" counted every
+     * commission, not the completed ones.
+     */
+    #[Test]
+    public function the_cards_keep_their_totals_while_filtered_and_count_only_completed_deals(): void
+    {
+        $this->commission('Done', 100000);
+        $this->commission('Working', 200000, Commission::STATUS_PROCESSING, Commission::PAYMENT_STATUS_UNPAID);
+        $this->commission('Waiting', 300000, Commission::STATUS_DRAFT, Commission::PAYMENT_STATUS_PENDING);
+
+        Passport::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/common/commissions', [
+            'page' => 1,
+            'payment_status' => Commission::PAYMENT_STATUS_PAID,
+        ])->assertOk();
+
+        $this->assertCount(1, $response->json('data'));
+        $this->assertEquals(60000, (float) $response->json('statistics.total_commission_amount'));
+        $this->assertEquals(600000, (float) $response->json('statistics.total_funded_amount'));
+        $this->assertSame(1, $response->json('statistics.completed_deals'));
     }
 
     #[Test]

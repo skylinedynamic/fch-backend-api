@@ -38,6 +38,11 @@ class CommissionService
             $query->where('partner_id', $filters['partner_id']);
         }
 
+        // Snapshot before the payment/commission status, search and column
+        // filters, so the summary cards show true totals instead of recounting
+        // whatever the table is narrowed to (the host's Partner filter still applies).
+        $statsQuery = clone $query;
+
         // Filter by Payment Status
         if (isset($filters['payment_status']) && !empty($filters['payment_status'])) {
             $query->where('payment_status', $filters['payment_status']);
@@ -81,16 +86,17 @@ class CommissionService
             : 'admin_commission';    
 
         $statistics = [
-            'total_commission_amount' => (clone $query)->sum($amountField),
-            'avg_commission_rate' => round((float) ((clone $query)->avg($rateField) ?? 0), 2),
-            'total_deals' => (clone $query)->count(),
+            'total_commission_amount' => (clone $statsQuery)->sum($amountField),
+            'avg_commission_rate' => round((float) ((clone $statsQuery)->avg($rateField) ?? 0), 2),
+            'total_deals' => (clone $statsQuery)->count(),
+            'completed_deals' => (clone $statsQuery)->where('commission_status', Commission::STATUS_COMPLETED)->count(),
         ];
 
         if($authUser->user_type == User::ADMIN) {
-            $statistics['partner_commission_amount'] = (clone $query)->sum('partner_commission_amount');
+            $statistics['partner_commission_amount'] = (clone $statsQuery)->sum('partner_commission_amount');
         }
 
-        $statistics['total_funded_amount'] = (clone $query)
+        $statistics['total_funded_amount'] = (clone $statsQuery)
             ->whereHas('fundingApplication', function ($q) {
                 $q->withTrashed()->whereNotNull('total_funded_amount');
             })

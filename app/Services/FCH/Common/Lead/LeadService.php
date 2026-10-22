@@ -55,6 +55,10 @@ class LeadService
             $query->where('leads.partner_id', $filters['partner_id']);
         }
 
+        // Snapshot before the search, dropdown and column filters, so the summary
+        // cards show true totals instead of recounting whatever the table is
+        // currently narrowed to (as the Partners and Clients lists do).
+        $statsQuery = clone $query;
 
         // Apply Dropdown Filters - Strictly skip if null or empty string to show "All" data
         if ($leadType !== null && $leadType !== '') {
@@ -156,8 +160,7 @@ class LeadService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-        // Calculate statistics based on the filtered query (before pagination)
-        $statistics = $this->getStats(clone $query);
+        $statistics = $this->getStats($statsQuery);
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 

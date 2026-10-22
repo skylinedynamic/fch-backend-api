@@ -154,6 +154,26 @@ class PartnerAdminApiTest extends TestCase
         $this->assertEqualsCanonicalizing([$this->host->id, $partner->id], $ids->all());
     }
 
+    /**
+     * Defect: Total Partners (and the active count) counted the host's own
+     * record, so the card showed one more partner than the host has.
+     */
+    #[Test]
+    public function the_partner_cards_leave_out_the_host_and_deleted_or_archived_partners(): void
+    {
+        $this->makeCertifiedPartner();
+        $this->makeWhiteLabelPartner(['status' => Partner::STATUS_INACTIVE]);
+        $this->makeCertifiedPartner()->delete();
+        $this->makeCertifiedPartner()->forceFill(['archived_at' => now()])->save();
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/fetch-partners')
+            ->assertOk()
+            ->assertJsonPath('statistics.total_partners', 2)
+            ->assertJsonPath('statistics.active_partners', 1)
+            ->assertJsonPath('statistics.inactive_partners', 1);
+    }
+
     #[Test]
     public function the_host_opens_and_edits_a_partner(): void
     {

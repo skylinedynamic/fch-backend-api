@@ -29,22 +29,29 @@ class DashboardService
         $isHost = (bool) $partner->is_host;
         $data = [];
 
+        // The cards count what the Clients and Leads list cards count: deleted and
+        // archived records left out, and visibleTo() limiting a non-host partner
+        // to its own (the host sees every partner's).
+        $totalClients = Borrower::visibleTo($user)->notArchived()->count();
+        $totalLeads = Lead::visibleTo($user)->count();
+
         if ($isHost) {
             // --- HOST VIEW ---
             $data['counts'] = [
-                'total_partners' => $partner->count(),
-                'total_clients' => Borrower::count(),
-                'total_leads' => Lead::count(),
+                'total_partners' => Partner::notArchived()->excludingHost()->count(),
+                'total_clients' => $totalClients,
+                'total_leads' => $totalLeads,
                 'total_commission' => Commission::where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('admin_commission_amount'),
             ];
 
         } else {
             // --- PARTNER VIEW ---
             $data['counts'] = [
-                'total_clients' => $partner->borrowers->count(),
-                'total_leads' => $partner->leads->count(),
+                'total_clients' => $totalClients,
+                'total_leads' => $totalLeads,
                 'total_commission' => $partner->commissions->where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('partner_commission_amount'),
-                'funding_application' => FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)->where('partner_id', $partner->id)->count(),
+                // On Hold included, as on the Funding Applications page card.
+                'funding_application' => FundingApplication::where('partner_id', $partner->id)->count(),
             ];
         }
 
