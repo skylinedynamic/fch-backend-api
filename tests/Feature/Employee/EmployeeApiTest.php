@@ -121,13 +121,88 @@ class EmployeeApiTest extends TestCase
     }
 
     #[Test]
-    public function an_employee_needs_a_name_role_details_and_address(): void
+    public function an_employee_needs_only_a_name_an_email_and_a_country(): void
     {
         $this->actingAsUser($this->partnerAdmin);
 
         $this->postJson('/api/v1/common/employees', [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['first_name', 'designation', 'department', 'city', 'state', 'country', 'address']);
+            ->assertJsonValidationErrors(['first_name', 'email', 'country'])
+            ->assertJsonMissingValidationErrors([
+                'last_name', 'designation', 'department', 'phone_number_1', 'city', 'state', 'address',
+                'postal_code', 'job_status', 'joining_date', 'date_of_birth', 'gender',
+            ]);
+    }
+
+    #[Test]
+    public function an_employee_is_created_with_just_a_name_an_email_and_a_country(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $id = $this->postJson('/api/v1/common/employees', [
+            'first_name' => 'Nina',
+            'email' => 'nina-min@example.test',
+            'country' => 'United States',
+        ])->assertCreated()->json('data.employee.id');
+
+        $employee = Employee::findOrFail($id);
+        $this->assertNull($employee->designation);
+        $this->assertNull($employee->phone_number_1);
+        $this->assertNull($employee->address);
+    }
+
+    #[Test]
+    public function the_optional_details_can_be_sent_empty(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', [
+            'first_name' => 'Nina',
+            'email' => 'nina-empty@example.test',
+            'country' => 'United States',
+            'designation' => null,
+            'department' => null,
+            'phone_number_1' => null,
+            'city' => null,
+            'state' => null,
+            'address' => null,
+        ])->assertCreated();
+    }
+
+    #[Test]
+    public function an_edit_cannot_clear_the_name_the_email_or_the_country(): void
+    {
+        $employee = $this->employeeOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/employees/{$employee->id}", [
+            'first_name' => '',
+            'email' => '',
+            'country' => '',
+        ])->assertStatus(422)->assertJsonValidationErrors(['first_name', 'email', 'country']);
+    }
+
+    #[Test]
+    public function an_edit_can_clear_the_optional_details(): void
+    {
+        $employee = $this->employeeOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/employees/{$employee->id}", [
+            'first_name' => 'Nina',
+            'email' => $employee->email,
+            'country' => 'United States',
+            'designation' => null,
+            'department' => null,
+            'phone_number_1' => null,
+            'city' => null,
+            'state' => null,
+            'address' => null,
+        ])->assertOk();
+
+        $fresh = $employee->fresh();
+        $this->assertNull($fresh->designation);
+        $this->assertNull($fresh->address);
     }
 
     #[Test]

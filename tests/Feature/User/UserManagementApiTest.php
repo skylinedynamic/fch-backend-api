@@ -204,6 +204,23 @@ class UserManagementApiTest extends TestCase
     }
 
     #[Test]
+    public function a_phone_number_is_optional_on_add_and_edit(): void
+    {
+        $staff = $this->makeStaffUser($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/users', $this->newUserPayload())->assertOk();
+
+        $this->putJson("/api/v1/common/users/{$staff->id}", $this->updatePayload($staff, ['phone_number' => null]))->assertOk();
+        $this->putJson("/api/v1/common/users/{$staff->id}", $this->updatePayload($staff, ['phone_number' => '']))->assertOk();
+        $this->assertNull($staff->fresh()->phone_number);
+
+        $without = $this->updatePayload($staff);
+        unset($without['phone_number']);
+        $this->putJson("/api/v1/common/users/{$staff->id}", $without)->assertOk();
+    }
+
+    #[Test]
     public function a_password_is_only_changed_when_asked_to(): void
     {
         $staff = $this->makeStaffUser($this->partner);
