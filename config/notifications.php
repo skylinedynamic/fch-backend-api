@@ -242,6 +242,18 @@ return [
             'url' => '/embed-form/loan-applications/{{id}}',
         ],
 
+        // The host changed one of the partner's settings from Partner profile ›
+        // Configuration. Bell only (stored + pushed live), no email.
+        'partner.configuration.updated' => [
+            'name' => 'Settings changed by the host (partner)',
+            'category' => 'system',
+            'icon' => 'ri-settings-3-line',
+            'channels' => ['database', 'broadcast'],
+            'title' => 'Your settings were updated',
+            'body' => '{{host}} updated your {{area}}.',
+            'url' => '/settings/{{section}}',
+        ],
+
         'partner.embed_form.converted' => [
             'name' => 'Embedded form converted to client (host / partner)',
             'category' => 'funding',
