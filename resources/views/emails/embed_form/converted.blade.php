@@ -1,23 +1,39 @@
 @extends('emails.layouts.mail')
 
-@section('title', $forStaff ? 'Applicant converted to a client' : 'Your funding application is in review')
+@php($existingClient = $existingClient ?? false)
+
+@section('title', $forStaff
+    ? ($existingClient ? 'New funding application for an existing client' : 'Applicant converted to a client')
+    : 'Your funding application is in review')
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
         @if($forStaff)
             <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
             <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
-                An embedded form applicant has been converted to a client. Their funding application has
-                carried over in full and is ready for review &mdash; nothing needs to be re-entered.
+                @if($existingClient)
+                    An embedded form application came from an existing client and has been added to their client
+                    record as a new funding application. No new client account was created. The application has
+                    carried over in full and is ready for review &mdash; nothing needs to be re-entered.
+                @else
+                    An embedded form applicant has been converted to a client. Their funding application has
+                    carried over in full and is ready for review &mdash; nothing needs to be re-entered.
+                @endif
             </p>
         @else
             <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">
                 Hello {{ $submission->first_name }},
             </h4>
             <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
-                Thank you for your application. Your client account with <strong>{{ $siteName }}</strong>
-                is now open and your application is with our team &mdash; there is nothing further you need to
-                send us, and no need to apply again.
+                @if($existingClient)
+                    Thank you for your new application. It has been added to your existing account with
+                    <strong>{{ $siteName }}</strong> and is with our team &mdash; there is nothing further you need
+                    to send us, and no need to apply again.
+                @else
+                    Thank you for your application. Your client account with <strong>{{ $siteName }}</strong>
+                    is now open and your application is with our team &mdash; there is nothing further you need to
+                    send us, and no need to apply again.
+                @endif
             </p>
         @endif
 

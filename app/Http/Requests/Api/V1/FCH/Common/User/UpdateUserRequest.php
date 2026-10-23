@@ -20,7 +20,8 @@ class UpdateUserRequest extends BaseApiRequest
         $rules = [
             'name'             => ['required', 'string', 'max:255'],
             'email'            => ['required','email',Rule::unique('users', 'email')->ignore($this->user->id)], // matches the users.email index: deleted accounts still hold theirs
-            'phone_number'     => ['required', 'string', new UsPhoneNumber(), Rule::unique('users', 'phone_number')->ignore($this->user->id)->whereNull('deleted_at')],
+            // Optional, but a real US number when given.
+            'phone_number'     => ['nullable', 'string', new UsPhoneNumber(), Rule::unique('users', 'phone_number')->ignore($this->user->id)->whereNull('deleted_at')],
             'user_id'          => ['nullable', 'string', 'max:255'],
             'role_id'          => ['required'],
             'status'           => ['required'],

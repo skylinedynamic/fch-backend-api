@@ -30,23 +30,24 @@ class UpdateEmployeeRequest extends BaseApiRequest
         // so a clash has to fail validation here instead of crashing the save.
         // Matches the DB index exactly: soft-deleted users still hold theirs.
         $linkedUserId = User::where('entity_type', Employee::class)->where('entity_id', $employeeId)->value('id');
-        $emailRules = ['nullable', 'email', 'max:255'];
+        $emailRules = ['sometimes', 'required', 'email', 'max:255'];
         if ($linkedUserId || $this->boolean('create_account')) {
             $emailRules[] = Rule::unique('users', 'email')->ignore($linkedUserId);
         }
 
+        // As on create, only the name, email and country are required (and may
+        // not be cleared); every other detail may be left empty.
         return [
             'first_name'     => ['sometimes', 'required', 'string', 'max:255'],
             'last_name'      => ['nullable', 'string', 'max:255'],
-            'designation'    => ['sometimes', 'required', 'string', 'max:255'],
-            'department'     => ['sometimes', 'required', 'string', 'max:255'],
+            'designation'    => ['nullable', 'string', 'max:255'],
+            'department'     => ['nullable', 'string', 'max:255'],
             'job_status'     => ['nullable', 'string', 'max:255'],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'emergency_phone'   => ['nullable', 'string', new UsPhoneNumber()],
             'phone_number_1' => [
-                'sometimes',
-                'required',
+                'nullable',
                 'string',
                 new UsPhoneNumber(),
                 Rule::unique('employees')
@@ -55,19 +56,19 @@ class UpdateEmployeeRequest extends BaseApiRequest
             ],
             'phone_number_2' => ['nullable', 'string', new UsPhoneNumber()],
             'passport_number'=> ['nullable', 'string', 'max:255'],
-            // Not required on update; unique only where it doubles as a login (above).
+            // Required, but unique only where it doubles as a login (above).
             'email' => $emailRules,
             'date_of_birth'  => ['nullable', 'date', 'before:today'],
             'gender'         => ['nullable', 'string'],
-            'city'           => ['sometimes', 'required', 'string', 'max:255'],
-            'state'          => ['sometimes', 'required', 'string', 'max:255'],
+            'city'           => ['nullable', 'string', 'max:255'],
+            'state'          => ['nullable', 'string', 'max:255'],
             'postal_code'    => ['nullable', 'string', new UsPostalCode()],
             'country'        => ['sometimes', 'required', 'string', 'max:255'],
             'country_code'   => ['nullable'],
             'image'          => ['nullable'],
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
-            'address'        => ['sometimes', 'required', 'string', 'max:500'],
+            'address'        => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -75,15 +76,10 @@ class UpdateEmployeeRequest extends BaseApiRequest
     {
         return [
             'first_name.required' => __('employee.first_name_required'),
-            'designation.required' => __('employee.designation_required'),
-            'department.required' => __('employee.department_required'),
-            'phone_number_1.required' => __('employee.phone_number_required'),
             'phone_number_1.unique' => __('employee.phone_unique'),
+            'email.required' => __('employee.email_required'),
             'email.email' => __('employee.email_valid'),
             'email.unique' => __('employee.email_unique'),
-            'address.required' => __('employee.address_required'),
-            'city.required' => __('employee.city_required'),
-            'state.required' => __('employee.state_required'),
             'country.required' => __('employee.country_required'),
             'role_id.required_if' => __('employee.role_required_if_create_account'),
             'role_id.exists' => __('employee.role_exists'),

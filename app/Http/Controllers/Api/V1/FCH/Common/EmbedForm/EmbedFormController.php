@@ -267,7 +267,11 @@ class EmbedFormController extends Controller
      * Convert submission to a Borrower.
      * POST /api/v1/common/embed-forms/submissions/{id}/convert-to-borrower
      */
-    public function convertToBorrower(ConvertEmbedFormSubmissionRequest $request, int $id): JsonResponse
+    /**
+     * The submission the signed-in partner may convert, or the response that
+     * refuses it (not found, another partner's, already converted).
+     */
+    private function convertibleSubmission(int $id): EmbedFormSubmission|JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
@@ -284,6 +288,35 @@ class EmbedFormController extends Controller
 
         if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
             return ApiResponse::error(__('embed_form.already_converted'), 422);
+        }
+
+        return $submission;
+    }
+
+    /**
+     * What converting would do - join an existing client or create a new one -
+     * so the Convert modal can say so before the partner confirms. Writes nothing.
+     * GET /api/v1/common/embed-forms/submissions/{id}/conversion-preview
+     */
+    public function conversionPreview(int $id): JsonResponse
+    {
+        $submission = $this->convertibleSubmission($id);
+        if ($submission instanceof JsonResponse) {
+            return $submission;
+        }
+
+        try {
+            return ApiResponse::success($this->embedFormService->conversionPreview($submission));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+    }
+
+    public function convertToBorrower(ConvertEmbedFormSubmissionRequest $request, int $id): JsonResponse
+    {
+        $submission = $this->convertibleSubmission($id);
+        if ($submission instanceof JsonResponse) {
+            return $submission;
         }
 
         try {

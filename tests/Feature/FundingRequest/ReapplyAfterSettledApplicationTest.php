@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\FundingRequest;
 
+use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
@@ -9,31 +10,30 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
 /**
- * A borrower may submit a new funding request once the application from the
- * last round has left their hands - matched or sent to a lender, under
- * contract, funded, closed or denied. All of those are settled from the
- * borrower's side, so a fresh request starts a new round rather than competing
- * with the old one.
+ * Every funding request a borrower submits is a new one. Nothing the borrower
+ * already has for the same funding option - a pending request, a rejected one,
+ * or an application in any status - blocks it, and no earlier request or
+ * application is reused or changed: each submission is its own row.
  *
- * What must not happen is a second request opened while an application is still
- * being reviewed here (On Hold, Draft, Pending, Underwriting, Verification,
- * Approved): that would run two pipelines for the same borrower against the
- * same lenders.
- *
- * The /funding/:id card decides which of those to show from
- * `can_start_new_funding_request`; this pins down the server-side rule the card
- * reflects, which is what actually holds if someone posts directly.
+ * The /funding/:id card still receives `can_start_new_funding_request` and the
+ * application fields (other screens read them); the borrower portal no longer
+ * uses them to block or redirect a new request.
  */
 class ReapplyAfterSettledApplicationTest extends TestCase
 {
+    use InteractsWithPortalUsers;
     use RefreshDatabase;
 
     private int $borrowerId;
+
     private int $partnerId;
+
     private int $fundingSequenceId;
+
     private int $fundingRequestId;
 
     protected function setUp(): void
@@ -43,7 +43,7 @@ class ReapplyAfterSettledApplicationTest extends TestCase
         $this->partnerId = DB::table('partners')->insertGetId([
             'full_name' => 'Pat Partner',
             'company_name' => 'Partner Co',
-            'email' => 'partner-' . uniqid() . '@example.com',
+            'email' => 'partner-'.uniqid().'@example.com',
             'phone_number' => '(111) 111-1111',
             'created_at' => now(),
             'updated_at' => now(),
@@ -53,7 +53,7 @@ class ReapplyAfterSettledApplicationTest extends TestCase
             'first_name' => 'Michael',
             'last_name' => 'Chen',
             'business_name' => 'Alpha Tech Solutions',
-            'email' => 'borrower-' . uniqid() . '@example.com',
+            'email' => 'borrower-'.uniqid().'@example.com',
             'phone_number' => '(546) 456-4520',
             'partner_id' => $this->partnerId,
             'created_at' => now(),
@@ -84,10 +84,10 @@ class ReapplyAfterSettledApplicationTest extends TestCase
 
         $userId = DB::table('users')->insertGetId([
             'name' => 'Michael Chen',
-            'email' => 'user-' . uniqid() . '@example.com',
+            'email' => 'user-'.uniqid().'@example.com',
             'password' => bcrypt('secret'),
             'user_type' => User::BORROWER,
-            'entity_type' => \App\Models\Borrower\Borrower::class,
+            'entity_type' => Borrower::class,
             'entity_id' => $this->borrowerId,
             'partner_id' => $this->partnerId,
             'created_at' => now(),
@@ -100,7 +100,7 @@ class ReapplyAfterSettledApplicationTest extends TestCase
     private function giveApplicationStatus(string $status): int
     {
         return DB::table('funding_applications')->insertGetId([
-            'application_number' => 'FUND-TEST-REAPPLY-' . uniqid(),
+            'application_number' => 'FUND-TEST-REAPPLY-'.uniqid(),
             'borrower_id' => $this->borrowerId,
             'partner_id' => $this->partnerId,
             'funding_request_id' => $this->fundingRequestId,
@@ -152,17 +152,112 @@ class ReapplyAfterSettledApplicationTest extends TestCase
         $this->assertSame(2, FundingRequest::where('borrower_id', $this->borrowerId)->count());
     }
 
-    // ── Still in flight: refuse ──────────────────────────────────────
+    // ── Nothing already there blocks or changes a new request ────────
 
+    /**
+     * Defect: an application still in review here (On Hold, Draft, Pending,
+     * Underwriting, ...) refused a new request with "You already have a funding
+     * application in progress". Every request is now a new one, and the
+     * existing application is left exactly as it was.
+     */
     #[Test]
-    public function an_application_still_in_review_blocks_a_second_request(): void
+    public function an_application_still_in_review_does_not_block_a_new_request(): void
     {
-        $this->giveApplicationStatus(FundingApplication::UNDERWRITING_REVIEW);
+        $applicationId = $this->giveApplicationStatus(FundingApplication::UNDERWRITING_REVIEW);
 
-        $response = $this->submitNewRequest()->assertStatus(500);
+        $this->submitNewRequest()->assertStatus(201);
 
-        $this->assertStringContainsString('already have a funding application in progress', $response->json('message'));
-        $this->assertSame(1, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+        $this->assertSame(2, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+        $application = FundingApplication::findOrFail($applicationId);
+        $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, $application->status);
+        $this->assertSame($this->fundingRequestId, (int) $application->funding_request_id);
+    }
+
+    /**
+     * Defect: an On Hold application (the one the card offered to "Edit") also
+     * refused a new request.
+     */
+    #[Test]
+    public function an_on_hold_application_does_not_block_a_new_request(): void
+    {
+        $applicationId = $this->giveApplicationStatus(FundingApplication::ON_HOLD);
+
+        $this->submitNewRequest()->assertStatus(201);
+
+        $this->assertSame(2, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+        $this->assertSame(FundingApplication::ON_HOLD, FundingApplication::findOrFail($applicationId)->status);
+    }
+
+    /**
+     * Defect: a pending request for the same funding option refused a new one
+     * with "Already applied. Please wait for approval or rejection."
+     */
+    #[Test]
+    public function a_pending_request_does_not_block_a_new_request(): void
+    {
+        DB::table('funding_requests')->where('id', $this->fundingRequestId)
+            ->update(['status' => FundingRequest::STATUS_PENDING]);
+
+        $this->submitNewRequest()->assertStatus(201);
+
+        $this->assertSame(2, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+    }
+
+    /**
+     * Defect: submitting after a rejection overwrote the rejected request in
+     * place (amount, purpose, status, reason) instead of starting a new one.
+     */
+    #[Test]
+    public function a_rejected_request_is_kept_and_a_new_request_is_created(): void
+    {
+        DB::table('funding_requests')->where('id', $this->fundingRequestId)->update([
+            'status' => FundingRequest::STATUS_REJECTED,
+            'reject_reason' => 'Revenue too low',
+        ]);
+
+        $response = $this->submitNewRequest()->assertStatus(201);
+
+        $this->assertNotEquals($this->fundingRequestId, $response->json('data.id'));
+        $this->assertSame(2, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+
+        $old = FundingRequest::findOrFail($this->fundingRequestId);
+        $this->assertSame(FundingRequest::STATUS_REJECTED, $old->status);
+        $this->assertSame('Revenue too low', $old->reject_reason);
+        $this->assertEquals(30000, $old->requested_amount);
+    }
+
+    /**
+     * Defect: a resubmission after a rejection reused the old request's row,
+     * so in the admin Funding Requests list (newest first) it sat below
+     * anything submitted since instead of at the top.
+     */
+    #[Test]
+    public function a_new_request_is_listed_first_for_the_admin(): void
+    {
+        DB::table('funding_requests')->where('id', $this->fundingRequestId)
+            ->update(['status' => FundingRequest::STATUS_REJECTED]);
+        // Submitted since, for another funding option.
+        $otherSequenceId = DB::table('funding_sequencings')->insertGetId([
+            'name' => 'Term Loans', 'status' => 'Active', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $laterRequestId = DB::table('funding_requests')->insertGetId([
+            'borrower_id' => $this->borrowerId,
+            'partner_id' => $this->partnerId,
+            'funding_sequence_id' => $otherSequenceId,
+            'funding_type' => 'Business Line of Credit',
+            'requested_amount' => 15000,
+            'status' => FundingRequest::STATUS_APPROVED,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $newId = $this->submitNewRequest()->assertStatus(201)->json('data.id');
+
+        $this->actingAsUser($this->makePartnerAdmin($this->makeHostPartner()));
+        $ids = collect($this->postJson('/api/v1/common/funding-request', ['sort_field' => 'id', 'sort_order' => 'desc'])
+            ->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$newId, $laterRequestId, $this->fundingRequestId], $ids);
     }
 
     #[Test]
@@ -239,7 +334,7 @@ class ReapplyAfterSettledApplicationTest extends TestCase
 
     private function fundingCardPayload(): array
     {
-        $response = $this->getJson('/api/v1/borrower/funding/' . $this->fundingSequenceId)->assertOk();
+        $response = $this->getJson('/api/v1/borrower/funding/'.$this->fundingSequenceId)->assertOk();
 
         $data = $response->json('data');
 
