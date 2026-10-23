@@ -27,13 +27,22 @@ class EmbedFormConverted extends Mailable implements ShouldQueue
 
     protected array $dynamicData = [];
 
+    /**
+     * @param  int|null  $senderPartnerId  Whose mailbox, branding and sender name
+     *                                     the email leaves under. Defaults to the
+     *                                     form's partner; the host's own copy
+     *                                     passes the host, so it comes from the
+     *                                     host company rather than the partner.
+     */
     public function __construct(
         public EmbedFormSubmission $submission,
         public FundingApplication $application,
-        public bool $forStaff = false
+        public bool $forStaff = false,
+        public ?int $senderPartnerId = null,
     ) {
-        $this->mailPartnerId = $submission->partner_id;
-        $this->dynamicData['partner_id'] = $submission->partner_id;
+        $senderId = $senderPartnerId ?? $submission->partner_id;
+        $this->mailPartnerId = $senderId;
+        $this->dynamicData['partner_id'] = $senderId;
     }
 
     public function envelope(): Envelope

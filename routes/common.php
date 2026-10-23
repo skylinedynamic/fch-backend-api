@@ -584,6 +584,9 @@ Route::prefix('v1')->group(function () {
                 Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus'])
                     ->whereNumber('id')
                     ->middleware('permission:view application');
+                Route::get('submissions/{id}/conversion-preview', [EmbedFormController::class, 'conversionPreview'])
+                    ->whereNumber('id')
+                    ->middleware('permission:convert application');
                 Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower'])
                     ->whereNumber('id')
                     ->middleware('permission:convert application');

@@ -20,7 +20,6 @@ use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\SignatureRecorder;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Common\Notification\Notifier;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Support\EmbedForm\EmbedFormLocation;
 use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use Illuminate\Http\JsonResponse;
@@ -42,6 +41,10 @@ class EmbedFormService
     public const EMAIL_AVAILABLE = 'available';
     public const EMAIL_BORROWER = 'borrower';
     public const EMAIL_BLOCKED = 'blocked';
+
+    /** What converting a submission will do - see conversionPreview(). */
+    public const CONVERSION_MODE_NEW = 'new_borrower';
+    public const CONVERSION_MODE_EXISTING = 'existing_borrower';
 
     /**
      * Uploads copied into the funding application during the conversion under
@@ -119,6 +122,52 @@ class EmbedFormService
             'funding_applications_count' => FundingApplication::query()->where('borrower_id', $borrower->id)->count(),
             'created_at' => $borrower->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * The borrower a submission would be converted onto, or null when a new
+     * one would be created. Throws InvalidArgumentException when the
+     * submission cannot be converted at all (no email, a staff member's email,
+     * another partner's client).
+     */
+    private function convertibleBorrower(EmbedFormSubmission $submission): ?Borrower
+    {
+        if (empty($submission->email)) {
+            throw new \InvalidArgumentException(__('embed_form.email_required_conversion'));
+        }
+
+        $match = $this->classifyEmail($submission->email);
+
+        // Partner / Employee / User: never convertible.
+        if ($match['status'] === self::EMAIL_BLOCKED) {
+            throw new \InvalidArgumentException(__('embed_form.email_belongs_to_staff', ['type' => $match['type']]));
+        }
+
+        $existingBorrower = $match['borrower'];
+
+        // Only the form's own partner's client - checked again here for
+        // submissions taken before the form refused it.
+        if ($this->belongsToAnotherPartner($existingBorrower, $submission->partner_id)) {
+            throw new \InvalidArgumentException(__('embed_form.borrower_other_partner'));
+        }
+
+        return $existingBorrower;
+    }
+
+    /**
+     * What converting the submission would do, without doing it: shown in the
+     * Convert modal before the partner confirms. convertToBorrower() still
+     * asks again (409) if a borrower appears in between.
+     *
+     * @return array{mode: string, existing_borrower: ?array}
+     */
+    public function conversionPreview(EmbedFormSubmission $submission): array
+    {
+        $existingBorrower = $this->convertibleBorrower($submission);
+
+        return $existingBorrower
+            ? ['mode' => self::CONVERSION_MODE_EXISTING, 'existing_borrower' => $this->existingBorrowerSummary($existingBorrower)]
+            : ['mode' => self::CONVERSION_MODE_NEW, 'existing_borrower' => null];
     }
 
     /**
@@ -671,7 +720,7 @@ class EmbedFormService
 
     /**
      * Tell the partner about a new submission: in the bell always, by email
-     * when there is an address and a mailbox it may leave from.
+     * when there is an address.
      */
     protected function sendNotificationEmail(EmbedFormSubmission $submission, EmbedFormConfig $config): void
     {
@@ -680,21 +729,10 @@ class EmbedFormService
         // The partner's account address, and only that. The form no longer asks
         // for a notification address of its own, and contact_person_email is the
         // partner's staff contact rather than the address the platform notifies.
+        // Every partner - White-Label included - is mailed like all other mail:
+        // through its own verified settings, otherwise the host's platform
+        // fallback, under the partner's own sender name (MailConfig).
         $notifyEmail = $partner?->email;
-
-        // A White-Label partner sends under its own credentials or not at all.
-        // MailConfig would otherwise resolve the host's mailbox for it, and mail
-        // leaving under the host's name is the one thing the tier exists to
-        // prevent - better to send nothing and say so in the log. The bell
-        // leaves under nobody's name, so it is not held back with the email.
-        if ($notifyEmail && $this->isWhiteLabelPartner($partner) && !$this->hasOwnMailConfiguration($partner)) {
-            Log::info(__('embed_form.log_notification_skipped_no_mail_config'), [
-                'partner_id' => $partner->id,
-                'submission_uid' => $submission->submission_uid,
-            ]);
-
-            $notifyEmail = null;
-        }
 
         // The template counts attachments and co-borrowers, and lazy loading is
         // disabled outside production - so load them before handing the model
@@ -764,15 +802,6 @@ class EmbedFormService
     }
 
     /**
-     * Whether this partner sends mail under its own credentials - a verified
-     * default provider - rather than the platform fallback.
-     */
-    protected function hasOwnMailConfiguration(Partner $partner): bool
-    {
-        return app(EmailConfigurationService::class)->usesOwnConfiguration($partner->id);
-    }
-
-    /**
      * Paginated submissions for a partner (DataTable).
      */
     public function getSubmissions(int $partnerId, array $filters = []): \Illuminate\Pagination\LengthAwarePaginator
@@ -833,30 +862,11 @@ class EmbedFormService
 
         DB::beginTransaction();
         try {
-            if (empty($submission->email)) {
-                throw new \InvalidArgumentException(__('embed_form.email_required_conversion'));
-            }
+            $existingBorrower = $this->convertibleBorrower($submission);
 
-            $match = $this->classifyEmail($submission->email);
-
-            // Partner / Employee / User: never convertible.
-            if ($match['status'] === self::EMAIL_BLOCKED) {
-                throw new \InvalidArgumentException(__('embed_form.email_belongs_to_staff', ['type' => $match['type']]));
-            }
-
-            $existingBorrower = $match['borrower'];
-
-            if ($existingBorrower) {
-                // Only the form's own partner's client - checked again here for
-                // submissions taken before the form refused it.
-                if ($this->belongsToAnotherPartner($existingBorrower, $submission->partner_id)) {
-                    throw new \InvalidArgumentException(__('embed_form.borrower_other_partner'));
-                }
-
-                // Nothing is created until the partner has seen who this is.
-                if (!filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                    throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
-                }
+            // Nothing is created until the partner has seen who this is.
+            if ($existingBorrower && !filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
             }
 
             $borrowerService = app(BorrowerService::class);
@@ -1232,9 +1242,11 @@ class EmbedFormService
             $email = !empty($recipient->email) && !in_array($recipient->email, $mailed, true) ? $recipient->email : null;
             $mailed[] = $email;
 
+            // Each staff copy comes from its recipient's own company: the host's
+            // from the host, the partner's from the partner.
             try {
                 $notifier->send('partner.embed_form.converted', $recipient, $staffData,
-                    mail: $email ? (new EmbedFormConverted($submission, $application, true))->to($email) : null);
+                    mail: $email ? (new EmbedFormConverted($submission, $application, true, (int) $recipient->id))->to($email) : null);
             } catch (Throwable $e) {
                 Log::error('Failed to notify staff of an embed form conversion', [
                     'submission_id' => $submission->id,
