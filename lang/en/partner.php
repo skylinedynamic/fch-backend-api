@@ -196,6 +196,7 @@ return [
     'subscription_list_retrieved' => 'Subscription list retrieved successfully.',
     'subscription_details' => 'Subscription details retrieved successfully.',
     'partner_not_found' => 'Partner not found.',
+    'configuration_forbidden' => 'You are not allowed to manage another partner\'s configuration.',
     'my_subscription_retrieved' => 'Subscription details retrieved successfully.',
     'my_subscription_failed' => 'Failed to retrieve subscription details',
     'my_subscription_non_host_only' => 'Subscription details are available to partner accounts only.',
