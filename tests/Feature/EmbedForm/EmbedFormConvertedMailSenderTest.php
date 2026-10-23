@@ -128,6 +128,17 @@ class EmbedFormConvertedMailSenderTest extends TestCase
     }
 
     #[Test]
+    public function a_new_client_is_still_announced_as_converted_to_a_client(): void
+    {
+        Mail::assertQueued(EmbedFormConverted::class, fn (EmbedFormConverted $mail) => $mail->forStaff
+            && $mail->envelope()->subject === 'Applicant converted to a client — Maria Santos'
+            && str_contains($mail->render(), 'has been converted to a client'));
+
+        Mail::assertQueued(EmbedFormConverted::class, fn (EmbedFormConverted $mail) => !$mail->forStaff
+            && str_contains($mail->render(), 'is now open'));
+    }
+
+    #[Test]
     public function the_applicants_email_comes_from_the_partner_company(): void
     {
         Mail::assertQueued(EmbedFormConverted::class, fn (EmbedFormConverted $mail) => $mail->hasTo('maria@example.test')

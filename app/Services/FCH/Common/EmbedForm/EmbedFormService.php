@@ -934,7 +934,7 @@ class EmbedFormService
             // Notified only after the transaction has landed, so nobody is told
             // about a conversion that then rolled back.
             if ($fundingApplication) {
-                $this->notifyConverted($submission, $fundingApplication);
+                $this->notifyConverted($submission, $fundingApplication, (bool) $existingBorrower);
             }
 
             return [
@@ -1222,7 +1222,8 @@ class EmbedFormService
      */
     protected function notifyConverted(
         EmbedFormSubmission $submission,
-        FundingApplication $application
+        FundingApplication $application,
+        bool $existingClient = false
     ): void {
         $notifier = app(Notifier::class);
         $staffData = [
@@ -1246,7 +1247,7 @@ class EmbedFormService
             // from the host, the partner's from the partner.
             try {
                 $notifier->send('partner.embed_form.converted', $recipient, $staffData,
-                    mail: $email ? (new EmbedFormConverted($submission, $application, true, (int) $recipient->id))->to($email) : null);
+                    mail: $email ? (new EmbedFormConverted($submission, $application, true, (int) $recipient->id, $existingClient))->to($email) : null);
             } catch (Throwable $e) {
                 Log::error('Failed to notify staff of an embed form conversion', [
                     'submission_id' => $submission->id,
@@ -1258,7 +1259,7 @@ class EmbedFormService
 
         try {
             $notifier->send('borrower.embed_form.converted', $application->borrower, [],
-                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false))->to($submission->email) : null);
+                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false, existingClient: $existingClient))->to($submission->email) : null);
         } catch (Throwable $e) {
             Log::error('Failed to send conversion notice to embed form applicant', [
                 'submission_id' => $submission->id,

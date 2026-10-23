@@ -49,6 +49,7 @@ return [
     'new_submission_mail_subject' => 'New Embedded Form Application — :name',
     'converted_mail_subject' => 'Your funding application is in review — :site',
     'converted_staff_mail_subject' => 'Applicant converted to a client — :name',
+    'converted_existing_staff_mail_subject' => 'New funding application for an existing client — :name',
 
     // Validation
     'first_name_required' => 'First name is required.',

@@ -33,12 +33,16 @@ class EmbedFormConverted extends Mailable implements ShouldQueue
      *                                     form's partner; the host's own copy
      *                                     passes the host, so it comes from the
      *                                     host company rather than the partner.
+     * @param  bool  $existingClient  The submission joined a client who already
+     *                                existed: no account was created, so the
+     *                                wording says a new application was added.
      */
     public function __construct(
         public EmbedFormSubmission $submission,
         public FundingApplication $application,
         public bool $forStaff = false,
         public ?int $senderPartnerId = null,
+        public bool $existingClient = false,
     ) {
         $senderId = $senderPartnerId ?? $submission->partner_id;
         $this->mailPartnerId = $senderId;
@@ -51,9 +55,13 @@ class EmbedFormConverted extends Mailable implements ShouldQueue
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
+        $staffSubject = $this->existingClient
+            ? 'embed_form.converted_existing_staff_mail_subject'
+            : 'embed_form.converted_staff_mail_subject';
+
         return new Envelope(
             subject: $this->forStaff
-                ? __('embed_form.converted_staff_mail_subject', [
+                ? __($staffSubject, [
                     'name' => personName($this->submission->first_name ?? null, $this->submission->middle_name ?? null, $this->submission->last_name ?? null),
                 ])
                 : __('embed_form.converted_mail_subject', [
@@ -72,6 +80,7 @@ class EmbedFormConverted extends Mailable implements ShouldQueue
                 'submission' => $this->submission,
                 'application' => $this->application,
                 'forStaff' => $this->forStaff,
+                'existingClient' => $this->existingClient,
                 // The partner's own borrower portal, or the main one when it has
                 // none - as the other borrower emails do.
                 'loginUrl' => $this->forStaff ? null : concatUrl(getBorrowerDomain($this->submission->partner_id), 'login', config('app.frontend_borrower_url')),
