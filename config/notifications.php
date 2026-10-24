@@ -49,7 +49,11 @@
 
 use App\Services\FCH\Common\Notification\Sms\SmsChannel;
 
-$bellAndMail = ['database', 'broadcast', 'mail', 'sms'];
+// SMS is not part of this set: it is opt-in per type, so a partner turning on
+// their Twilio account does not text users about everything. To text a type,
+// give it ['channels' => [...$bellAndMail, 'sms']] and list it in
+// tests/Unit/Notification/NotificationCatalogueTest::TEXTED_TYPES.
+$bellAndMail = ['database', 'broadcast', 'mail'];
 
 return [
 
@@ -199,8 +203,30 @@ return [
             'category' => 'funding',
             'icon' => 'ri-inbox-archive-line',
             'channels' => $bellAndMail,
-            'title' => 'New loan application',
+            'title' => 'New Embedded Form application',
             'body' => '{{name}} submitted your embedded application form.',
+            'url' => '/embed-form/loan-applications/{{id}}',
+        ],
+
+        // The same, for a white-label partner: also texted, through the
+        // partner's own Twilio account when it is active (never the host's).
+        'partner.embed_form.submitted_white_label' => [
+            'name' => 'Embedded form submitted (white-label partner)',
+            'category' => 'funding',
+            'icon' => 'ri-inbox-archive-line',
+            'channels' => [...$bellAndMail, 'sms'],
+            'title' => 'New Embedded Form application',
+            'body' => '{{name}} submitted your embedded application form.',
+            'url' => '/embed-form/loan-applications/{{id}}',
+        ],
+
+        'host.embed_form.submitted' => [
+            'name' => "Partner's embedded form submitted (host copy)",
+            'category' => 'funding',
+            'icon' => 'ri-inbox-archive-line',
+            'channels' => $bellAndMail,
+            'title' => 'New Embedded Form application',
+            'body' => "{{name}} submitted {{partner}}'s embedded application form.",
             'url' => '/embed-form/loan-applications/{{id}}',
         ],
 
@@ -409,6 +435,19 @@ return [
             'url' => '/intake-review/credit-profile-requests/{{id}}',
         ],
 
+        // Sent to the borrower when the host saves their iSoftPull credit
+        // report (Client -> Credit Profile). Opens the profile's Credit
+        // profile tab (index 3).
+        'borrower.credit_profile.updated' => [
+            'name' => 'Credit profile updated (borrower)',
+            'category' => 'document',
+            'icon' => 'ri-file-user-line',
+            'channels' => $bellAndMail,
+            'title' => 'Your credit profile has been updated',
+            'body' => 'Your latest credit report has been added to your profile.',
+            'url' => '/profile?tab=3',
+        ],
+
         'host.credit_profile.update_requested' => [
             'name' => 'Credit profile update requested (host)',
             'category' => 'document',
@@ -416,7 +455,7 @@ return [
             'channels' => $bellAndMail,
             'title' => 'Credit profile update requested',
             'body' => '{{borrower}} asked to update their credit profile.',
-            'url' => '/intake-review/credit-profile-requests',
+            'url' => '/intake-review/credit-profile-requests/{{id}}',
         ],
 
         'partner.documents.uploaded' => [
@@ -665,6 +704,14 @@ return [
 
         'auth.test' => [
             'name' => 'Mail configuration test',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
+        // The code that verifies a mail configuration, sent through the
+        // settings being verified.
+        'settings.mail_configuration_code' => [
+            'name' => 'Mail configuration verification code',
             'category' => 'system',
             'channels' => ['mail'],
         ],

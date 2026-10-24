@@ -8,7 +8,7 @@ use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
-use App\Models\Setting\EmailConfiguration;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
@@ -96,7 +96,7 @@ class CommonController extends Controller
         $branding = $configService->getBrandingSettings($partner->id, (bool) $partner->is_host);
 
         // Configuration Status Flags for Frontend Guard
-        $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
+        $isEmailFresh = $partner ? app(EmailConfigurationService::class)->hasAnyConfiguration($partner->id) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', AppConfiguration::BRANDING_FRESHNESS_KEYS)->exists()) : true;
 
         $isPaymentFresh = false;

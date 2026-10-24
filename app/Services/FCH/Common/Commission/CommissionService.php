@@ -23,7 +23,15 @@ class CommissionService
         $query = Commission::when($authUser->user_type === User::PARTNER, function ($query) use($authUser) {
             $query->where('partner_id', $authUser->partner_id);
         })
-        ->with(['fundingApplication', 'partner', 'borrower']);
+        // A commission outlives an archived client: the deal was funded and the
+        // money is still owed or paid. Loading the archived (soft-deleted) rows
+        // keeps those deals on the list with their names - without them one such
+        // commission used to fail the whole page, showing $0 and no rows.
+        ->with([
+            'fundingApplication' => fn($q) => $q->withTrashed(),
+            'partner' => fn($q) => $q->withTrashed(),
+            'borrower' => fn($q) => $q->withTrashed(),
+        ]);
 
         // Filter by Partner ID
         if (isset($filters['partner_id']) && !empty($filters['partner_id'])) {
@@ -84,9 +92,9 @@ class CommissionService
 
         $statistics['total_funded_amount'] = (clone $query)
             ->whereHas('fundingApplication', function ($q) {
-                $q->whereNotNull('total_funded_amount');
+                $q->withTrashed()->whereNotNull('total_funded_amount');
             })
-            ->withSum('fundingApplication as total_funded_amount_sum', 'total_funded_amount')
+            ->withSum(['fundingApplication as total_funded_amount_sum' => fn($q) => $q->withTrashed()], 'total_funded_amount')
             ->get()
             ->sum('total_funded_amount_sum');
 

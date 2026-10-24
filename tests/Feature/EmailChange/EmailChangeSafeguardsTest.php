@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\FollowsEmailChangeLinks;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
 class EmailChangeSafeguardsTest extends TestCase
 {
     use RefreshDatabase;
+    use FollowsEmailChangeLinks;
 
     private Partner $partner;
     private User $user;
@@ -101,7 +103,7 @@ class EmailChangeSafeguardsTest extends TestCase
     private function changeEmail(): void
     {
         $this->service->request($this->user, 'new@example.test');
-        $this->post($this->confirmationUrl(), ['password' => 'secret-password'])->assertOk();
+        $this->submitEmailChangeLink($this->confirmationUrl(), ['password' => 'secret-password'])->assertOk();
         $this->assertSame('new@example.test', $this->user->refresh()->email);
     }
 
@@ -114,9 +116,9 @@ class EmailChangeSafeguardsTest extends TestCase
         // never be what changes the email.
         $this->service->request($this->user, 'new@example.test');
 
-        $this->get($this->confirmationUrl())
+        $this->openEmailChangeLink($this->confirmationUrl())
             ->assertOk()
-            ->assertSee('name="password"', false);
+            ->assertJsonPath('data.needs_password', true);
 
         $this->assertSame('old@example.test', $this->user->refresh()->email);
     }
@@ -126,9 +128,9 @@ class EmailChangeSafeguardsTest extends TestCase
     {
         $this->service->request($this->user, 'new@example.test');
 
-        $this->post($this->confirmationUrl(), ['password' => 'a-guess'])
+        $this->submitEmailChangeLink($this->confirmationUrl(), ['password' => 'a-guess'])
             ->assertOk()
-            ->assertSee(__('email_change.wrong_password'));
+            ->assertJsonPath('data.message', __('email_change.wrong_password'));
 
         $this->user->refresh();
         $this->assertSame('old@example.test', $this->user->email);
@@ -142,13 +144,13 @@ class EmailChangeSafeguardsTest extends TestCase
         $url = $this->confirmationUrl();
 
         for ($i = 0; $i < EmailChangeService::MAX_PASSWORD_ATTEMPTS; $i++) {
-            $this->post($url, ['password' => "guess-$i"]);
+            $this->submitEmailChangeLink($url, ['password' => "guess-$i"]);
         }
 
         // Even the right password is refused now.
-        $this->post($url, ['password' => 'secret-password'])
+        $this->submitEmailChangeLink($url, ['password' => 'secret-password'])
             ->assertOk()
-            ->assertSee(__('email_change.too_many_attempts_title'));
+            ->assertJsonPath('data.title', __('email_change.too_many_attempts_title'));
 
         $this->assertSame('old@example.test', $this->user->refresh()->email);
     }
@@ -169,7 +171,7 @@ class EmailChangeSafeguardsTest extends TestCase
     {
         $this->service->request($this->user, 'new@example.test');
 
-        $this->get($this->cancelUrl())->assertOk()->assertSee(__('email_change.cancel_button'));
+        $this->openEmailChangeLink($this->cancelUrl())->assertOk()->assertJsonPath('data.button', __('email_change.cancel_button'));
 
         $this->assertSame('new@example.test', $this->user->refresh()->pending_email);
     }
@@ -179,8 +181,8 @@ class EmailChangeSafeguardsTest extends TestCase
     {
         $this->service->request($this->user, 'new@example.test');
 
-        $this->post($this->cancelUrl())->assertOk()->assertSee(__('email_change.cancelled_title'));
-        $this->post($this->confirmationUrl(), ['password' => 'secret-password']);
+        $this->submitEmailChangeLink($this->cancelUrl())->assertOk()->assertJsonPath('data.title', __('email_change.cancelled_title'));
+        $this->submitEmailChangeLink($this->confirmationUrl(), ['password' => 'secret-password']);
 
         $this->user->refresh();
         $this->assertNull($this->user->pending_email);
@@ -194,7 +196,7 @@ class EmailChangeSafeguardsTest extends TestCase
         $staleCancel = $this->cancelUrl();
 
         $this->service->request($this->user->refresh(), 'second@example.test');
-        $this->post($staleCancel)->assertOk()->assertSee(__('email_change.invalid_title'));
+        $this->submitEmailChangeLink($staleCancel)->assertOk()->assertJsonPath('data.title', __('email_change.invalid_title'));
 
         $this->assertSame('second@example.test', $this->user->refresh()->pending_email);
     }
@@ -215,7 +217,7 @@ class EmailChangeSafeguardsTest extends TestCase
     {
         $this->changeEmail();
 
-        $this->get($this->revertUrl())->assertOk()->assertSee(__('email_change.revert_button'));
+        $this->openEmailChangeLink($this->revertUrl())->assertOk()->assertJsonPath('data.button', __('email_change.revert_button'));
 
         $this->assertSame('new@example.test', $this->user->refresh()->email);
     }
@@ -227,7 +229,7 @@ class EmailChangeSafeguardsTest extends TestCase
         $this->user->update(['entity_type' => Employee::class, 'entity_id' => $employee->id, 'user_type' => User::EMPLOYEE]);
 
         $this->changeEmail();
-        $this->post($this->revertUrl())->assertOk()->assertSee(__('email_change.reverted_title'));
+        $this->submitEmailChangeLink($this->revertUrl())->assertOk()->assertJsonPath('data.title', __('email_change.reverted_title'));
 
         $this->assertSame('old@example.test', $this->user->refresh()->email);
         $this->assertSame('old@example.test', $employee->refresh()->email);
@@ -250,7 +252,7 @@ class EmailChangeSafeguardsTest extends TestCase
             'email' => 'new@example.test', 'token' => Hash::make('reset'), 'created_at' => now(),
         ]);
 
-        $this->post($this->revertUrl());
+        $this->submitEmailChangeLink($this->revertUrl());
 
         $this->assertFalse(Hash::check('secret-password', $this->user->refresh()->password));
         $this->assertTrue((bool) DB::table('oauth_access_tokens')->where('id', 'intruder-token')->value('revoked'));
@@ -265,7 +267,7 @@ class EmailChangeSafeguardsTest extends TestCase
 
         $this->travel(EmailChangeService::REVERT_LIFETIME_DAYS)->days();
         $this->travel(1)->hours();
-        $this->post($url)->assertOk()->assertSee(__('email_change.invalid_title'));
+        $this->submitEmailChangeLink($url)->assertOk()->assertJsonPath('data.title', __('email_change.invalid_title'));
 
         $this->assertSame('new@example.test', $this->user->refresh()->email);
     }
@@ -276,8 +278,8 @@ class EmailChangeSafeguardsTest extends TestCase
         $this->changeEmail();
         $url = $this->revertUrl();
 
-        $this->post($url);
-        $this->post($url)->assertOk()->assertSee(__('email_change.invalid_title'));
+        $this->submitEmailChangeLink($url);
+        $this->submitEmailChangeLink($url)->assertOk()->assertJsonPath('data.title', __('email_change.invalid_title'));
 
         $this->assertSame('old@example.test', $this->user->refresh()->email);
     }
@@ -288,7 +290,7 @@ class EmailChangeSafeguardsTest extends TestCase
         $this->changeEmail();
         $this->makeUser('old@example.test');
 
-        $this->post($this->revertUrl())->assertOk()->assertSee(__('email_change.taken_title'));
+        $this->submitEmailChangeLink($this->revertUrl())->assertOk()->assertJsonPath('data.title', __('email_change.taken_title'));
 
         $this->assertSame('new@example.test', $this->user->refresh()->email);
     }

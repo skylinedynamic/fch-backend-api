@@ -66,4 +66,22 @@ class Lender extends Model
     {
         return $this->hasMany(LenderVisibility::class);
     }
+
+    /**
+     * A lender can be deleted only while no funding request has it as the
+     * assigned lender (assign_lender) and no funding sequence shows it.
+     * Being only matched to a request (lender_ids) does not keep it.
+     */
+    public function isDeletable(): bool
+    {
+        return !\App\Models\FundingRequest\FundingRequest::where('assign_lender', $this->id)->exists()
+            // Only a live sequence's rules count - a deleted sequence leaves its rules behind.
+            && !$this->visibilities()->whereHas('fundingSequencing')->exists();
+    }
+
+    /** Why this lender cannot be deleted, and what to do instead. */
+    public function notDeletableReason(): string
+    {
+        return __('lender.delete_blocked');
+    }
 }

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Admin\Funding;
 
+use App\Exceptions\FundingSequenceInUseException;
 use App\Helpers\ApiResponse;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\DeleteFundingSequencingsRequest;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\FetchFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\StoreFundingSequencingRequest;
@@ -135,11 +138,44 @@ class FundingSequencingController extends Controller
 
     public function destroy($id): JsonResponse
     {
-        $this->service->delete($id);
+        try {
+            $this->service->delete($id);
+        } catch (FundingSequenceInUseException $e) {
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
+        }
 
         return ApiResponse::success(
             null,
             __('funding_sequencing.deleted')
         );
+    }
+
+    /** Delete several funding sequences in one call - all or none. */
+    public function multipleDelete(DeleteFundingSequencingsRequest $request): JsonResponse
+    {
+        try {
+            $deleted = $this->service->deleteMultiple($request->validated()['ids']);
+        } catch (FundingSequenceInUseException $e) {
+            // Sequences used by a funding request are kept - say which, and change nothing.
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
+        } catch (\Exception $e) {
+            Log::error('Funding sequence multiple delete failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('funding_sequencing.delete_failed'), 400);
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], __('funding_sequencing.deleted'));
+    }
+
+    /** Whether each selected funding sequence can be deleted, and why not. */
+    public function checkDeletable(DeleteFundingSequencingsRequest $request): JsonResponse
+    {
+        try {
+            return ApiResponse::success($this->service->checkDeletable($request->validated()['ids']), __('funding_sequencing.list_fetched'));
+        } catch (\Exception $e) {
+            Log::error('Funding sequence deletable check failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('funding_sequencing.deletable_check_failed'), 400);
+        }
     }
 }

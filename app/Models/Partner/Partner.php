@@ -383,15 +383,22 @@ class Partner extends Model
     }
 
     /**
-     * Check if the partner is deletable based on invoice status.
+     * A partner can be deleted only while none of its invoices is paid (the
+     * payment record must stay) and no borrowers or users are left under it.
+     * Paid means the same as for a client: Paid or Success.
      */
     public function isDeletable(): bool
     {
-        // Check if there are any Paid or Successful invoices for this partner
         return !$this->invoices()
-            ->whereIn('status', [\App\Models\Invoice\Invoice::STATUS_PAID])
+            ->whereIn('status', \App\Models\Borrower\Borrower::PAID_INVOICE_STATUSES)
             ->exists()
             && !$this->hasBorrowersOrUsers();
+    }
+
+    /** Why this partner cannot be deleted, and what to do instead. */
+    public function notDeletableReason(): string
+    {
+        return __('partner.error.delete_blocked');
     }
 
     /**
@@ -414,7 +421,7 @@ class Partner extends Model
     public function safeDeleteWithRelations(): bool
     {
         if (!$this->isDeletable()) {
-            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
+            throw new \Exception($this->notDeletableReason());
         }
 
         \Illuminate\Support\Facades\DB::beginTransaction();
@@ -423,7 +430,9 @@ class Partner extends Model
             \App\Models\User\User::$isCascading = true;
 
             // 1. Delete Borrowers and their related data recursively
-            $this->borrowers->each(function ($borrower) {
+            // Queried, not lazy-loaded: in a bulk delete a lazy load is refused
+            // outside production, and the delete used to fail.
+            $this->borrowers()->with('user')->get()->each(function ($borrower) {
                 $borrower->safeDeleteWithRelations();
             });
 
@@ -431,25 +440,22 @@ class Partner extends Model
             // (Only if not already cascading FROM a user)
             if (!$isAlreadyCascading) {
                 // Check if we have a primary user for this entity
-                if ($this->partnerUser) {
+                if ($this->loadMissing('partnerUser')->partnerUser) {
                     $this->partnerUser->safeDeleteWithRelations();
                 }
 
                 // Delete other users linked to this partner
-                $this->users->each(function ($user) {
+                $this->users()->get()->each(function ($user) {
                     $user->safeDeleteWithRelations();
                 });
             }
 
-            // 3. Delete Subscriptions & Phases
-            $this->subscriptions()->each(function ($sub) {
-                $sub->allPhases()->delete();
-                $sub->delete();
-            });
+            // 3. Delete Subscriptions (the phases table was dropped 2026-08-31)
+            $this->subscriptions()->delete();
 
             // 4. Delete Invoices (Unpaid only - double checked for safety)
             $this->invoices()
-                ->whereNotIn('status', [\App\Models\Invoice\Invoice::STATUS_PAID, \App\Models\Invoice\Invoice::STATUS_SUCCESS])
+                ->whereNotIn('status', \App\Models\Borrower\Borrower::PAID_INVOICE_STATUSES)
                 ->delete();
 
             // 5. Delete other related tables

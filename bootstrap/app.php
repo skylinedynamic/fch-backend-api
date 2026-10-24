@@ -72,6 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'partner-portal' => \App\Http\Middleware\RejectBorrowersFromPartnerPortal::class,
             'host-only' => \App\Http\Middleware\HostOnly::class,
+            'host-partner' => \App\Http\Middleware\EnsureHostPartner::class,
 
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

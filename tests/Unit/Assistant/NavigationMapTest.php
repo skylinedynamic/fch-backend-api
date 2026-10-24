@@ -62,6 +62,22 @@ class NavigationMapTest extends TestCase
         $source = file_get_contents($router);
         $last = basename($path);
 
+        // A Settings section (/settings/<slug>) is served by the one
+        // settings/:section route; the slug must be one the portal knows.
+        if ($assistant === 'wlp_support' && preg_match('#^/settings/([a-z0-9-]+)$#', $path, $m)) {
+            $sections = dirname($router) . '/' . self::SETTINGS_SECTIONS;
+
+            $this->assertStringContainsString('path="settings/:section"', $source, "{$router} has no settings/:section route");
+            $this->assertFileExists($sections);
+            $this->assertMatchesRegularExpression(
+                "#slug:\s*'" . preg_quote($m[1], '#') . "'#",
+                file_get_contents($sections),
+                "{$assistant}:{$key} -> {$path} is not a Settings section in {$sections}"
+            );
+
+            return;
+        }
+
         $found = $path === '/'
             ? str_contains($source, '<Route index')
             : (bool) preg_match('#path="(?:[^"]*/)?' . preg_quote($last, '#') . '"#', $source);

@@ -155,7 +155,7 @@ class MonitorSystemHealth extends Command
      * Addressed to CRON_ERROR_NOTIFY_EMAILS, the same list the cron failure
      * alert uses, and sent as a Mailable rather than with Mail::raw(). That is
      * not a cosmetic change: raw sends bypass the MailConfig trait, and since
-     * credentials moved out of config/mail.php into `email_configurations` a raw
+     * credentials moved out of config/mail.php into `mail_configurations` a raw
      * send has no mail server to connect to. The Mailable pins the HOST
      * partner's configuration - this is the platform's own alert, not a
      * tenant's correspondence.

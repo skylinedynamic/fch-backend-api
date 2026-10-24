@@ -72,9 +72,11 @@ class FundingRequest extends Model
             $borrowerDocs = $this->borrower->borrowerDocuments;
             foreach ($uploaded as $docName) {
                 $docNameString = str_replace('_', ' ', $docName);
-                $matchingDocs = $borrowerDocs->filter(function($d) use ($docNameString, $docName) {
-                    $type = $d->documentType ? $d->documentType->name : '';
-                    return strtolower($type) === strtolower($docNameString) || strtolower($type) === strtolower($docName);
+                // Curly and straight apostrophes are the same name ("Driver’s License").
+                $normalize = fn($s) => strtolower(str_replace(['’', '‘'], "'", (string) $s));
+                $matchingDocs = $borrowerDocs->filter(function($d) use ($docNameString, $docName, $normalize) {
+                    $type = $normalize($d->documentType ? $d->documentType->name : '');
+                    return $type === $normalize($docNameString) || $type === $normalize($docName);
                 });
 
                 if ($matchingDocs->isNotEmpty()) {

@@ -13,6 +13,7 @@ use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\BusinessEin;
 
 /**
  * Validation for the public embedded funding application.
@@ -30,9 +31,6 @@ use App\Rules\UsPostalCode;
  */
 class SubmitEmbedFormRequest extends BaseApiRequest
 {
-    private ?EmbedFormConfig $embedFormConfig = null;
-    private bool $embedFormConfigResolved = false;
-
     /**
      * Gate the submission on the partner's "Allowed Domains" list.
      *
@@ -65,23 +63,28 @@ class SubmitEmbedFormRequest extends BaseApiRequest
         );
     }
 
+    private ?EmbedFormConfig $resolvedConfig = null;
+
+    private bool $configResolved = false;
+
     /**
      * The form this submission is for, resolved once per request.
+     *
+     * Kept on this request object, not in a static: under Octane one worker
+     * serves many requests, and a static would hand every later request the
+     * first form's allow-list and partner.
      */
     protected function embedFormConfig(): ?EmbedFormConfig
     {
-        // Held on the request, not in a static: a static outlives the request
-        // in any long-running worker, and the next caller would be answered
-        // with the previous caller's form - or its "not found".
-        if (!$this->embedFormConfigResolved) {
-            $this->embedFormConfig = EmbedFormConfig::query()
+        if (!$this->configResolved) {
+            $this->resolvedConfig = EmbedFormConfig::query()
                 ->where('public_key', (string) $this->route('key'))
                 ->where('is_active', true)
                 ->first();
-            $this->embedFormConfigResolved = true;
+            $this->configResolved = true;
         }
 
-        return $this->embedFormConfig;
+        return $this->resolvedConfig;
     }
 
     /**
@@ -93,6 +96,21 @@ class SubmitEmbedFormRequest extends BaseApiRequest
 
         if ($this->filled('ssn')) {
             $merge['ssn'] = preg_replace('/\D/', '', (string) $this->input('ssn'));
+        }
+
+        // Shown as XX-XXXXXXX; the number itself is the nine digits. Anything that
+        // is not an EIN writing is left for BusinessEin to refuse.
+        if ($this->filled('business_ein') && !preg_match('/[^\d\s-]/', (string) $this->input('business_ein'))) {
+            $merge['business_ein'] = BusinessEin::normalize($this->input('business_ein'));
+        }
+
+        // Phones as the borrower and partner portals store them, (512) 234-5678,
+        // not the form's +15122345678. A number that is not a US phone is left
+        // as it came, for UsPhoneNumber to refuse.
+        foreach (['phone', 'business_phone_no'] as $phone) {
+            if ($this->filled($phone)) {
+                $merge[$phone] = formatPhoneDisplay((string) $this->input($phone));
+            }
         }
 
         // Currency inputs arrive with the thousands separators the form renders.
@@ -107,6 +125,11 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             foreach ($coBorrowers as $index => $coBorrower) {
                 if (!empty($coBorrower['ssn'])) {
                     $coBorrowers[$index]['ssn'] = preg_replace('/\D/', '', (string) $coBorrower['ssn']);
+                }
+                foreach (['mobile_phone', 'home_phone'] as $phone) {
+                    if (!empty($coBorrower[$phone])) {
+                        $coBorrowers[$index][$phone] = formatPhoneDisplay((string) $coBorrower[$phone]);
+                    }
                 }
             }
             $merge['co_borrowers'] = $coBorrowers;
@@ -148,10 +171,12 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'business_address' => ['required', 'string', 'max:255'],
             'business_city' => ['required', 'string', 'max:255'],
             'business_state' => ['required', 'string', 'max:255'],
-            'business_postal_code' => array_merge(['nullable'], $this->postalCodeRules()),
+            'business_postal_code' => array_merge(['required'], $this->postalCodeRules()),
             'industry_type' => ['required', 'string', 'max:255'],
             'entity_type' => ['required', 'string', 'max:255'],
-            'years_in_business' => ['required', 'string', 'max:255'],
+            // Optional; when given, nine digits written XX-XXXXXXX, stored as the digits.
+            'business_ein' => ['nullable', 'string', new BusinessEin()],
+            // Not asked: worked out from the business start date (financial step).
             'number_of_employees' => ['nullable', 'integer', 'min:0'],
         ];
     }
@@ -172,8 +197,9 @@ class SubmitEmbedFormRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                // Free, or already a Borrower; never a Partner/Employee/User.
-                new EmbedFormApplicantEmail(),
+                // Free, or already this form's partner's Borrower; never another
+                // partner's borrower, nor a Partner/Employee/User.
+                new EmbedFormApplicantEmail($this->embedFormConfig()?->partner_id),
             ],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
             // An applicant must be an adult, and cannot be born in the future.
@@ -186,10 +212,10 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'ssn' => ['required', 'string', 'digits:9'],
             'citizenship_status' => ['required', 'string', 'max:255'],
             'street_address' => ['required', 'string', 'max:255'],
-            'country' => ['nullable', 'string', 'max:255'],
+            'country' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'state' => ['required', 'string', 'max:255'],
-            'zip_code' => array_merge(['nullable'], $this->postalCodeRules()),
+            'zip_code' => array_merge(['required'], $this->postalCodeRules()),
             'ownership' => ['required', 'numeric', 'min:0', 'max:100'],
             'has_co_borrower' => ['nullable', 'boolean'],
         ];
@@ -312,6 +338,15 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'purpose_of_funds' => ['required', 'string', 'max:500'],
             'purpose_note' => ['nullable', 'string', 'max:500'],
             'preferred_funding_type' => ['required', 'string', 'max:255'],
+            // The others the applicant would also consider - never the preferred one again.
+            'additional_funding_types' => ['nullable', 'array'],
+            'additional_funding_types.*' => [
+                'string',
+                'distinct',
+                Rule::in(config('funding_application.options.funding_types', [])),
+                'different:preferred_funding_type',
+            ],
+            'currency' => ['required', 'string', Rule::in(array_keys(config('funding_application.embed_form.currencies', [])))],
             'timeframe_needed' => ['nullable', 'string', 'max:255'],
             'collateral_available' => ['nullable', 'string', 'max:500'],
         ];
@@ -503,6 +538,11 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'referral_source_other.required' => __('embed_form.referral_source_other_required'),
             'debt_balance.required_if' => __('embed_form.debt_balance_required'),
             'requested_amount.required' => __('embed_form.requested_amount_required'),
+            'currency.required' => __('embed_form.currency_invalid'),
+            'currency.in' => __('embed_form.currency_invalid'),
+            'additional_funding_types.*.in' => __('embed_form.additional_funding_type_invalid'),
+            'additional_funding_types.*.distinct' => __('embed_form.additional_funding_type_invalid'),
+            'additional_funding_types.*.different' => __('embed_form.additional_funding_type_preferred'),
             'credit_pull_authorization.accepted' => __('embed_form.credit_pull_required'),
             'terms_conditions_acceptance.accepted' => __('embed_form.terms_required'),
             'federal_compliance_disclosures_explanation.required' => __('embed_form.explanation_required'),

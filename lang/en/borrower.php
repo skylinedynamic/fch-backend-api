@@ -120,6 +120,8 @@ return [
     'create_failed' => 'Failed to create borrower.',
     'update_failed' => 'Failed to update borrower.',
     'delete_failed' => 'Failed to delete borrower(s).',
+    'delete_blocked_paid_invoice' => "This client has related records and cannot be deleted. Please change the client's status instead.",
+    'delete_blocked_paid_invoice_named' => 'Some selected clients have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',
     'fetch_failed' => 'Failed to fetch borrower details.',
     'users_fetch_failed' => 'Failed to retrieve users.',
     'document_types_fetch_failed' => 'Failed to fetch document types.',
@@ -196,5 +198,13 @@ return [
         'subject_account_created_enrollment' => 'Welcome to :company - Complete Your Enrollment Payment',
         'subject_account_created_trial' => 'Welcome to :company - Limited Free Plan',
         'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',
+    ],
+
+    // Client > Credit Profile: uploading, saving and removing it.
+    'host_partner_only' => "Only the host partner can change a client's credit profile.",
+    'credit_profile_removed' => 'Credit profile data removed.',
+    'credit_profile_not_found' => 'This client has no credit profile to remove.',
+    'logs' => [
+        'credit_profile_removed' => 'Client credit profile removed.',
     ],
 ];

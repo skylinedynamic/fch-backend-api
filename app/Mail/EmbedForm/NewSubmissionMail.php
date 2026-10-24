@@ -18,11 +18,20 @@ class NewSubmissionMail extends Mailable implements ShouldQueue
 
     protected array $dynamicData = [];
 
+    /**
+     * @param  bool  $hostCopy  The host's copy of a partner's application: sent
+     *                          under the host's own mailbox and branding, and
+     *                          naming the partner whose form it came through.
+     */
     public function __construct(
-        public EmbedFormSubmission $submission
+        public EmbedFormSubmission $submission,
+        public bool $hostCopy = false,
+        public ?int $hostPartnerId = null,
+        public ?string $formPartnerName = null,
     ) {
-        $this->mailPartnerId = $submission->partner_id;
-        $this->dynamicData['partner_id'] = $submission->partner_id;
+        $senderId = $hostCopy && $hostPartnerId ? $hostPartnerId : $submission->partner_id;
+        $this->mailPartnerId = $senderId;
+        $this->dynamicData['partner_id'] = $senderId;
     }
 
     public function envelope(): Envelope
@@ -46,6 +55,8 @@ class NewSubmissionMail extends Mailable implements ShouldQueue
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'submission' => $this->submission,
+                'hostCopy' => $this->hostCopy,
+                'formPartnerName' => $this->formPartnerName,
             ],
         );
     }

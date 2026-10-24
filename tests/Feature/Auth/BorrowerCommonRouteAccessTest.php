@@ -52,7 +52,6 @@ class BorrowerCommonRouteAccessTest extends TestCase
             'leads' => ['POST', '/api/v1/common/leads/fetch-leads'],
             'lead bulk delete' => ['POST', '/api/v1/common/leads/multiple-delete'],
             'invoices' => ['POST', '/api/v1/common/invoices/fetch-invoices'],
-            'email settings' => ['GET', '/api/v1/common/email-configurations'],
             'reminders' => ['POST', '/api/v1/common/reminders/fetch-reminders'],
         ];
     }
@@ -91,6 +90,20 @@ class BorrowerCommonRouteAccessTest extends TestCase
         $this->actingAsUser($this->borrowerUser);
 
         $this->json($method, $url)->assertForbidden()->assertJsonPath('status', false);
+    }
+
+    /**
+     * The mail settings are behind their own permission, so they are checked
+     * apart from the routes any of the partner's team can open.
+     */
+    #[Test]
+    public function the_mail_settings_turn_a_borrower_away_and_open_for_the_partner(): void
+    {
+        $this->actingAsUser($this->borrowerUser);
+        $this->getJson('/api/v1/common/mail-configurations')->assertForbidden()->assertJsonPath('status', false);
+
+        $this->actingAsUser($this->makePartnerAdmin($this->partner, ['update email configuration settings']));
+        $this->getJson('/api/v1/common/mail-configurations')->assertOk();
     }
 
     #[Test]

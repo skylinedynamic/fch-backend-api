@@ -5,7 +5,6 @@ namespace Tests\Feature\User;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Models\Common\AppConfiguration;
 use App\Models\Common\Role;
-use App\Models\Setting\EmailConfiguration;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -182,9 +181,8 @@ class UserManagementApiTest extends TestCase
             $this->makeStaffUser($this->host);
         }
         $hostRole = Role::create(['name' => 'Sales', 'guard_name' => 'api', 'partner_id' => $this->host->id, 'code' => 'sales']);
-        // the host is a white-label partner type, so it needs its branding/email setup (findings O5)
+        // The host is never held to the white-label setup check (Controller::checkWhiteLabelConfiguration).
         AppConfiguration::create(['partner_id' => $this->host->id, 'module' => AppConfiguration::MODULE_BRANDING, 'key' => 'site_name', 'value' => 'Host']);
-        EmailConfiguration::create(['partner_id' => $this->host->id, 'key' => 'is_active', 'value' => '1']);
         $this->actingAsUser($hostAdmin);
 
         $this->postJson('/api/v1/common/users', $this->newUserPayload([

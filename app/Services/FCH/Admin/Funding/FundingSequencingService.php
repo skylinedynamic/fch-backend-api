@@ -2,7 +2,9 @@
 
 namespace App\Services\FCH\Admin\Funding;
 
+use App\Exceptions\FundingSequenceInUseException;
 use App\Http\Resources\FCH\Funding\FundingSequencingResource;
+use Illuminate\Support\Facades\DB;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\LenderVisibility;
@@ -273,8 +275,48 @@ class FundingSequencingService
 
     public function delete($id): bool
     {
-        $sequencing = FundingSequencing::findOrFail($id);
-        return $sequencing->delete();
+        return $this->deleteMultiple([FundingSequencing::findOrFail($id)->id]) > 0;
+    }
+
+    /**
+     * Delete the selected funding sequences, all or none. One used by a funding
+     * request is kept: the whole selection is refused and each blocked one is
+     * named - same rule as lenders, partners and clients.
+     *
+     * @throws FundingSequenceInUseException
+     */
+    public function deleteMultiple(array $ids): int
+    {
+        $sequences = FundingSequencing::whereIn('id', $ids)->get();
+
+        $blocked = $sequences->reject(fn (FundingSequencing $s) => $s->isDeletable());
+        if ($blocked->isNotEmpty()) {
+            throw new FundingSequenceInUseException(
+                $sequences->count() === 1
+                    ? __('funding_sequencing.delete_blocked')
+                    : __('funding_sequencing.delete_blocked_named', ['names' => $blocked->pluck('name')->implode(', ')]),
+                $blocked->map(fn (FundingSequencing $s) => ['id' => $s->id, 'name' => $s->name])->values()->all()
+            );
+        }
+
+        return DB::transaction(function () use ($sequences) {
+            foreach ($sequences as $sequence) {
+                $sequence->delete();
+            }
+
+            return $sequences->count();
+        });
+    }
+
+    /** Whether each funding sequence can be deleted, with the reason when it cannot. */
+    public function checkDeletable(array $ids): array
+    {
+        return FundingSequencing::whereIn('id', $ids)->get()->map(fn (FundingSequencing $s) => [
+            'id' => $s->id,
+            'name' => $s->name,
+            'is_deletable' => $deletable = $s->isDeletable(),
+            'reason' => $deletable ? null : $s->notDeletableReason(),
+        ])->values()->all();
     }
     
     public function updateStatus($id, string $status): FundingSequencing

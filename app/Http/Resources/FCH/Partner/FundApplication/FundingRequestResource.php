@@ -102,6 +102,7 @@ class FundingRequestResource extends JsonResource
             'approved_funding' => $approvedFunding,
             'purpose_note' => $fundingApp ? $fundingApp->purpose_note : null,
             'preferred_funding_type' => $preferredFundingType,
+            'additional_funding_types' => $fundingApp ? ($fundingApp->additional_funding_types ?? []) : [],
             'timeframe_needed' => $timeframeNeeded,
             'collateral_available' => $fundingApp ? $fundingApp->collateral_available : null,
             'is_business_info_saved' => $fundingApp ? (bool)$fundingApp->is_business_info_saved : false,

@@ -56,6 +56,7 @@ class FundingApplication extends Model
         'entity_type',
         'years_in_business',
         'number_of_employees',
+        'additional_funding_types',
         'first_name',
         'middle_name',
         'last_name',
@@ -121,6 +122,7 @@ class FundingApplication extends Model
         'funded_date' => 'date',
         'signature_data' => 'array',
         'previous_signature_data' => 'array',
+        'additional_funding_types' => 'array',
         'requires_resign' => 'boolean',
 
         'is_business_info_saved' => 'boolean',

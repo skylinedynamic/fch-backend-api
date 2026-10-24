@@ -58,6 +58,10 @@ class EmbedFormSubmissionResource extends JsonResource
             'business_postal_code' => $this->business_postal_code,
             'industry_type' => $this->industry_type,
             'entity_type' => $this->entity_type,
+            // Stored as the nine digits; shown as an EIN is written.
+            'business_ein' => $this->business_ein,
+            'business_ein_display' => $this->einDisplay(),
+            // Worked out from the business start date; older submissions picked it.
             'years_in_business' => $this->years_in_business,
             'number_of_employees' => $this->number_of_employees,
         ];
@@ -129,12 +133,17 @@ class EmbedFormSubmissionResource extends JsonResource
     protected function fundingRequest(): array
     {
         return [
+            'currency' => $this->currencyCode(),
+            'currency_symbol' => $this->currencySymbol(),
             'requested_amount' => $this->requested_amount,
-            'requested_amount_formatted' => $this->money($this->requested_amount),
+            'requested_amount_formatted' => $this->requested_amount !== null
+                ? currencyFormat($this->requested_amount, 2, $this->currencySymbol())
+                : null,
             'purpose_of_funds' => $this->purpose_of_funds,
             'purpose_note' => $this->purpose_note,
             'approved_funding' => $this->approved_funding,
             'preferred_funding_type' => $this->preferred_funding_type,
+            'additional_funding_types' => $this->additional_funding_types ?? [],
             'timeframe_needed' => $this->timeframe_needed,
             'collateral_available' => $this->collateral_available,
         ];
@@ -204,6 +213,9 @@ class EmbedFormSubmissionResource extends JsonResource
                     'id' => $this->partner?->id,
                     'full_name' => $this->partner?->full_name,
                     'company_name' => $this->partner?->company_name,
+                    // So the host, who sees every partner's applications, can tell whose each is.
+                    'partner_type' => $this->partner?->partner_type,
+                    'is_host' => (bool) $this->partner?->is_host,
                 ];
             }),
 
@@ -268,6 +280,29 @@ class EmbedFormSubmissionResource extends JsonResource
             'annual_income' => $this->annual_income,
             'annual_income_formatted' => $this->money($this->annual_income),
         ];
+    }
+
+    /** The requested amount's currency; a submission from before the choice is in dollars. */
+    protected function currencyCode(): string
+    {
+        return $this->currency ?: array_key_first(config('funding_application.embed_form.currencies'));
+    }
+
+    protected function currencySymbol(): string
+    {
+        return config('funding_application.embed_form.currencies.' . $this->currencyCode(), '$');
+    }
+
+    /** XX-XXXXXXX, or the value as stored when it is not nine digits. */
+    protected function einDisplay(): ?string
+    {
+        if (!$this->business_ein) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $this->business_ein);
+
+        return strlen($digits) === 9 ? substr($digits, 0, 2) . '-' . substr($digits, 2) : $this->business_ein;
     }
 
     protected function money($value): ?string

@@ -28,4 +28,17 @@ class DashboardController extends Controller
             return ApiResponse::serverError($e->getMessage());
         }
     }
+
+    /**
+     * Approved funding requests not yet started, for the layout on every page.
+     */
+    public function activeFundingRequests()
+    {
+        try {
+            $data = $this->dashboardService->getActiveApprovedFundingRequests();
+            return ApiResponse::success($data, __('dashboard.active_funding_requests_retrieved'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage());
+        }
+    }
 }

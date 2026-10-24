@@ -256,6 +256,14 @@ class BorrowerService
                 $sortOrder
             );
             $skipSorting = true;
+        } elseif ($sortField === 'full_name') {
+            // full_name is an accessor (first/middle/last), not a column, so
+            // ordering by it directly is an SQL error. Order by its parts in the
+            // order the name is displayed.
+            $query->orderBy('borrowers.first_name', $sortOrder)
+                ->orderBy('borrowers.middle_name', $sortOrder)
+                ->orderBy('borrowers.last_name', $sortOrder);
+            $skipSorting = true;
         } elseif ($sortField === 'current_tier_name') {
             $query->orderBy(
                 Tier::select('name')
@@ -836,10 +844,28 @@ class BorrowerService
 
     public function delete(array $ids)
     {
+        // `user` is eager-loaded: deleting reads it, and with more than one
+        // borrower a lazy load is refused outside production (the bulk delete
+        // used to fail with "Failed to delete borrower(s)." on stage).
+        $borrowers = Borrower::visibleTo(auth()->user())->with('user')->whereIn('borrowers.id', $ids)->get();
+
+        // A client with a paid invoice is kept (the payment record must stay).
+        // Refuse the whole selection and name each blocked client, so the user
+        // knows to set them Inactive or Suspended instead.
+        $blocked = $borrowers->reject(fn (Borrower $borrower) => $borrower->isDeletable());
+        if ($blocked->isNotEmpty()) {
+            // One client: the plain sentence. Several: name the blocked ones.
+            $message = $borrowers->count() === 1
+                ? __('borrower.delete_blocked_paid_invoice')
+                : __('borrower.delete_blocked_paid_invoice_named', ['names' => $blocked->pluck('full_name')->implode(', ')]);
+
+            return ApiResponse::error($message, 422, [
+                'blocked' => $blocked->map(fn (Borrower $b) => ['id' => $b->id, 'name' => $b->full_name])->values(),
+            ]);
+        }
 
         try {
             DB::beginTransaction();
-            $borrowers = Borrower::visibleTo(auth()->user())->whereIn('borrowers.id', $ids)->get();
             foreach ($borrowers as $borrower) {
                 $borrower->safeDeleteWithRelations();
             }
@@ -867,7 +893,7 @@ class BorrowerService
                 'id' => $borrower->id,
                 'name' => $borrower->full_name,
                 'is_deletable' => $is_deletable,
-                'reason' => !$is_deletable ? "This record cannot be deleted. Please mark it as Suspended or Inactive instead." : null
+                'reason' => !$is_deletable ? $borrower->notDeletableReason() : null
             ];
         }
 
@@ -1010,6 +1036,7 @@ class BorrowerService
 
         $documents = BorrowerDocument::with('documentType')
             ->where('borrower_id', $borrowerId)
+            ->withoutCreditReports()
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($doc) {

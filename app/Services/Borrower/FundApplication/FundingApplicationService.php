@@ -274,8 +274,11 @@ class FundingApplicationService
                 $this->createFundingApplicationDocumentDir($fundingApplication->id);
             }
 
-            // Send email if submitted
-            if ($fundingApplication->status === FundingApplication::PENDING) {
+            // Bell + email only when this save IS the submit (Attestation passes
+            // the Pending status in). Re-saving a step of an application that is
+            // already Pending keeps that status but submits nothing, so it must
+            // not send "submitted" again to the borrower, partner and host.
+            if ($status === FundingApplication::PENDING && $fundingApplication->status === FundingApplication::PENDING) {
                 try {
                     // Bell + email. The email only where there is an address, as before.
                     $notifier = app(Notifier::class);

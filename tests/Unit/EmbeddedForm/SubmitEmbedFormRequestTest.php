@@ -3,7 +3,6 @@
 namespace Tests\Unit\EmbeddedForm;
 
 use App\Rules\UsPhoneNumber;
-use App\Rules\UsPostalCode;
 use Illuminate\Support\Facades\Validator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,10 +28,9 @@ class SubmitEmbedFormRequestTest extends TestCase
 
     private function postalRules(): array
     {
-        // The shared rule itself, not a hand-built copy of it, so this test
-        // still describes what the form actually validates against. Optional,
-        // because the form no longer demands a zip - only a well-formed one.
-        return ['zip_code' => ['nullable', 'string', new UsPostalCode()]];
+        // The request's own rule for the owner's ZIP, so this test describes
+        // what the form actually validates against.
+        return ['zip_code' => $this->stepRules('ownershipInfoRules')['zip_code']];
     }
 
     public static function badPostalCodes(): array
@@ -54,12 +52,15 @@ class SubmitEmbedFormRequestTest extends TestCase
     }
 
     #[Test]
-    public function a_postal_code_may_be_left_blank(): void
+    public function the_owners_and_the_businesss_postal_codes_are_required(): void
     {
-        // Optional, but not a licence to submit half of one - the cases above
-        // are still rejected.
-        $this->assertFalse($this->fails($this->postalRules(), ['zip_code' => '']));
-        $this->assertFalse($this->fails($this->postalRules(), []));
+        $this->assertTrue($this->fails($this->postalRules(), ['zip_code' => '']));
+        $this->assertTrue($this->fails($this->postalRules(), []));
+
+        $business = ['business_postal_code' => $this->stepRules('businessInfoRules')['business_postal_code']];
+        $this->assertTrue($this->fails($business, []));
+        $this->assertTrue($this->fails($business, ['business_postal_code' => '1000']));
+        $this->assertFalse($this->fails($business, ['business_postal_code' => '75201']));
     }
 
     #[Test]
@@ -227,5 +228,200 @@ class SubmitEmbedFormRequestTest extends TestCase
 
         $this->assertTrue($this->fails($rules, ['phone' => '1234567890']));
         $this->assertFalse($this->fails($rules, ['phone' => '(813) 391-3333']));
+    }
+
+    // -- Phones are stored the way the portals store them ---------------------
+
+    /**
+     * The public form sends +15122345678; the borrower and partner portals store
+     * (512) 234-5678. Normalised before validation, so the submission row - and
+     * everything converted from it - holds the portals' form.
+     */
+    private function prepared(array $input): \Illuminate\Http\Request
+    {
+        $request = new class extends \App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest {
+            public function prepare(): void
+            {
+                $this->prepareForValidation();
+            }
+        };
+        $request->merge($input);
+        $request->prepare();
+
+        return $request;
+    }
+
+    #[Test]
+    public function phones_are_stored_the_way_the_portals_store_them(): void
+    {
+        $request = $this->prepared([
+            'phone' => '+15122345678',
+            'business_phone_no' => '512.987.6543',
+            'co_borrowers' => [['first_name' => 'Sam', 'mobile_phone' => '+1 512 555 0199', 'home_phone' => '5125550188']],
+        ]);
+
+        $this->assertSame('(512) 234-5678', $request->input('phone'));
+        $this->assertSame('(512) 987-6543', $request->input('business_phone_no'));
+        $this->assertSame('(512) 555-0199', $request->input('co_borrowers.0.mobile_phone'));
+        $this->assertSame('(512) 555-0188', $request->input('co_borrowers.0.home_phone'));
+    }
+
+    #[Test]
+    public function a_number_that_is_not_a_us_phone_is_left_for_the_rule_to_refuse(): void
+    {
+        $request = $this->prepared(['phone' => '12345']);
+
+        $this->assertSame('12345', $request->input('phone'));
+    }
+
+    // -- Business details: EIN, no years in business --------------------------
+
+    /** The request's own rules for one step; none of these touch the database. */
+    private function stepRules(string $method): array
+    {
+        $request = new class extends \App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest {
+            // No database here: the form's partner is looked up only by the
+            // email rule, which these tests do not exercise.
+            protected function embedFormConfig(): ?\App\Models\EmbedForm\EmbedFormConfig
+            {
+                return null;
+            }
+
+            public function step(string $method): array
+            {
+                return $this->{$method}();
+            }
+        };
+
+        return $request->step($method);
+    }
+
+    #[Test]
+    public function every_business_field_is_required_but_the_ein_and_the_employees(): void
+    {
+        $optional = ['business_ein', 'number_of_employees'];
+
+        foreach ($this->stepRules('businessInfoRules') as $field => $rules) {
+            if (in_array($field, $optional, true)) {
+                $this->assertContains('nullable', $rules, "{$field} should be optional");
+                $this->assertNotContains('required', $rules, "{$field} should be optional");
+            } else {
+                $this->assertContains('required', $rules, "{$field} should be required");
+            }
+        }
+    }
+
+    #[Test]
+    public function the_owners_country_is_required(): void
+    {
+        $rules = ['country' => $this->stepRules('ownershipInfoRules')['country']];
+
+        $this->assertTrue($this->fails($rules, []));
+        $this->assertFalse($this->fails($rules, ['country' => 'United States']));
+    }
+
+    #[Test]
+    public function an_ein_may_be_left_out_but_one_given_must_be_an_ein(): void
+    {
+        $rules = ['business_ein' => $this->stepRules('businessInfoRules')['business_ein']];
+
+        $this->assertFalse($this->fails($rules, []));
+        $this->assertFalse($this->fails($rules, ['business_ein' => null]));
+        $this->assertTrue($this->fails($rules, ['business_ein' => '12-34567']));
+        $this->assertTrue($this->fails($rules, ['business_ein' => 'AB-CDEFGHI']));
+        $this->assertFalse($this->fails($rules, ['business_ein' => '12-3456789']));
+        $this->assertFalse($this->fails($rules, ['business_ein' => '123456789']));
+    }
+
+    #[Test]
+    public function years_in_business_is_no_longer_asked_for(): void
+    {
+        // Worked out from the business start date instead.
+        $this->assertArrayNotHasKey('years_in_business', $this->stepRules('businessInfoRules'));
+    }
+
+    #[Test]
+    public function the_business_start_date_is_still_required(): void
+    {
+        $rules = ['business_checking_start_date' => $this->stepRules('financialInfoRules')['business_checking_start_date']];
+
+        $this->assertTrue($this->fails($rules, []));
+        $this->assertTrue($this->fails($rules, ['business_checking_start_date' => now()->addDay()->toDateString()]));
+        $this->assertFalse($this->fails($rules, ['business_checking_start_date' => '2020-01-15']));
+    }
+
+    #[Test]
+    public function the_ein_is_sent_on_as_its_nine_digits(): void
+    {
+        $this->assertSame('123456789', $this->prepared(['business_ein' => '12-3456789'])->input('business_ein'));
+    }
+
+    // -- Funding request: currency --------------------------------------------
+
+    #[Test]
+    public function the_currency_must_be_one_the_form_offers(): void
+    {
+        $rules = ['currency' => $this->stepRules('fundingRequestRules')['currency']];
+
+        $this->assertSame(['USD', 'EUR', 'GBP'], array_keys(config('funding_application.embed_form.currencies')));
+        $this->assertTrue($this->fails($rules, ['currency' => 'BDT']));
+        $this->assertTrue($this->fails($rules, []));
+        foreach (['USD', 'EUR', 'GBP'] as $currency) {
+            $this->assertFalse($this->fails($rules, ['currency' => $currency]));
+        }
+    }
+
+    // -- Funding request: additional funding types ----------------------------
+
+    private function fundingTypeRules(): array
+    {
+        return array_intersect_key(
+            $this->stepRules('fundingRequestRules'),
+            array_flip(['preferred_funding_type', 'additional_funding_types', 'additional_funding_types.*'])
+        );
+    }
+
+    #[Test]
+    public function additional_funding_types_are_optional(): void
+    {
+        $this->assertFalse($this->fails($this->fundingTypeRules(), ['preferred_funding_type' => 'Term Loan']));
+        $this->assertFalse($this->fails($this->fundingTypeRules(), ['preferred_funding_type' => 'Term Loan', 'additional_funding_types' => []]));
+    }
+
+    #[Test]
+    public function several_other_funding_types_can_be_chosen(): void
+    {
+        [$preferred, $second, $third] = config('funding_application.options.funding_types');
+
+        $this->assertFalse($this->fails($this->fundingTypeRules(), [
+            'preferred_funding_type' => $preferred,
+            'additional_funding_types' => [$second, $third],
+        ]));
+    }
+
+    #[Test]
+    public function the_preferred_type_cannot_also_be_an_additional_one(): void
+    {
+        [$preferred, $second] = config('funding_application.options.funding_types');
+
+        $this->assertTrue($this->fails($this->fundingTypeRules(), [
+            'preferred_funding_type' => $preferred,
+            'additional_funding_types' => [$second, $preferred],
+        ]));
+    }
+
+    #[Test]
+    public function an_additional_type_must_come_from_the_list_and_appear_once(): void
+    {
+        [$preferred, $second] = config('funding_application.options.funding_types');
+
+        $this->assertTrue($this->fails($this->fundingTypeRules(), [
+            'preferred_funding_type' => $preferred,
+            'additional_funding_types' => ['Something Else'],
+        ]));
+        $this->assertTrue($this->fails($this->fundingTypeRules(), [
+            'preferred_funding_type' => $preferred,
+            'additional_funding_types' => [$second, $second],
+        ]));
     }
 }

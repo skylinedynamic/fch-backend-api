@@ -25,14 +25,19 @@ use Tests\TestCase;
 #[CoversClass(FundingRequestController::class)]
 class BorrowerFundingRequestApiTest extends TestCase
 {
-    use RefreshDatabase;
     use InteractsWithPortalUsers;
+    use RefreshDatabase;
 
     private Partner $partner;
+
     private User $me;
+
     private User $neighbour;
+
     private int $sequenceId;
+
     private int $myRequestId;
+
     private int $theirRequestId;
 
     protected function setUp(): void
@@ -107,6 +112,38 @@ class BorrowerFundingRequestApiTest extends TestCase
         ])->assertCreated();
 
         $this->assertDatabaseHas('borrower_documents', ['borrower_id' => $this->me->entity_id, 'document_type_id' => $type->id]);
+    }
+
+    /**
+     * Defect: uploading or removing a document while starting a new request
+     * wrote the document type into an earlier request's `documents_uploaded`
+     * for the same product. A new request must leave existing ones untouched;
+     * it sends its own `documents_uploaded` when it is submitted.
+     */
+    #[Test]
+    public function uploading_and_removing_a_document_does_not_change_an_existing_request(): void
+    {
+        $type = BorrowerDocType::create(['name' => 'Bank Statement']);
+        DB::table('funding_requests')->where('id', $this->myRequestId)
+            ->update(['documents_uploaded' => json_encode(['Tax Return'])]);
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/funding/requests/documents/upload', [
+            'funding_sequence_id' => $this->sequenceId,
+            'document_type_id' => $type->id,
+            'files' => [UploadedFile::fake()->create('march.pdf', 10, 'application/pdf')],
+        ])->assertCreated();
+
+        $this->assertSame(['Tax Return'], FundingRequest::findOrFail($this->myRequestId)->documents_uploaded);
+
+        $document = BorrowerDocument::where('borrower_id', $this->me->entity_id)->firstOrFail();
+        DB::table('funding_requests')->where('id', $this->myRequestId)
+            ->update(['documents_uploaded' => json_encode(['Tax Return', 'Bank Statement'])]);
+
+        $this->deleteJson("/api/v1/borrower/funding/requests/documents/{$document->id}", ['funding_sequence_id' => $this->sequenceId])
+            ->assertOk();
+
+        $this->assertSame(['Tax Return', 'Bank Statement'], FundingRequest::findOrFail($this->myRequestId)->documents_uploaded);
     }
 
     #[Test]

@@ -39,7 +39,7 @@ class BorrowerPersonalDetailsResource extends JsonResource
             'postal_code'   => $this->postal_code,
             'home_address'  => $this->home_address,
             'home_phone'    => $this->home_phone,
-            'date_of_birth' => $this->date_of_birth ? Carbon::parse($this->date_of_birth)->format('m-d-Y') : null,
+            'date_of_birth' => toDateOnly($this->date_of_birth, 'm-d-Y'),
             'last_4_ssn'    => $this->last_4_ssn,
 
             // Business Info

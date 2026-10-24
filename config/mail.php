@@ -41,10 +41,11 @@ return [
          * Deliberately empty.
          *
          * Mail credentials are tenant data, not deployment configuration: every
-         * partner sends through their own server, and a partner without one
-         * sends through the host's. Both live in `email_configurations` and are
-         * resolved per message by EmailConfigurationService::resolveFor(),
-         * applied by App\Mail\Traits\MailConfig.
+         * partner sends through its own verified default, and a partner without
+         * one sends through the platform fallback. Both live in
+         * `mail_configurations`, are resolved per message by
+         * EmailConfigurationService::resolveFor(), and are applied by
+         * App\Mail\Traits\MailConfig.
          *
          * These are NOT read from the environment on purpose. An env fallback
          * here is silent and wrong in the worst way: when a partner's row is

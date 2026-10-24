@@ -2,164 +2,83 @@
 
 namespace App\Services\FCH\Common\Setting;
 
-use App\Models\User\User;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Cache;
-use App\Models\Setting\EmailConfiguration;
-use App\Models\Partner\Partner;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\Setting\MailConfiguration;
 
+/**
+ * Which mail settings a partner's mail is sent with.
+ *
+ * Credentials are DATABASE-ONLY. config/mail.php carries no SMTP or SES
+ * credentials from the environment, so there is no silent .env fallback
+ * behind this: whatever this returns is what gets used, and null means the
+ * mail is not sent at all.
+ *
+ * In order:
+ *
+ *   1. The partner's default provider - once verified. A configuration is only
+ *      trusted after a code sent through it came back, and only for the exact
+ *      settings that sent it (see MailConfiguration::isVerified()).
+ *   2. The platform-wide fallback, kept by the host partner - its verified
+ *      default, or failing that any of its providers that is verified: it is
+ *      the last resort, so it would rather send through a verified SMTP than
+ *      nothing at all. Every partner without a verified default sends
+ *      through it, the host included.
+ *
+ * Managing the settings themselves is MailConfigurationService.
+ */
 class EmailConfigurationService
 {
-    private static ?array $systemDefaults = null;
-
-    /**
-     * Get configurations and map them to a flat object.
-     * Returns a collection containing one flat object (to keep compatibility with controller).
-     */
-    public function getConfigurations(int|string|null $partnerId): \Illuminate\Support\Collection
-    {
-        $configs = EmailConfiguration::where('partner_id', $partnerId)->get();
-        if ($configs->isEmpty()) {
-            return collect();
-        }
-
-        $flat = new \stdClass();
-        $flat->partner_id = $partnerId;
-
-        foreach ($configs as $config) {
-            $flat->{$config->key} = $config->value;
-        }
-
-        // Add standard properties to prevent undefined property errors
-        $flat->id = $partnerId ?: 0; // Fake ID for the frontend if needed
-
-        return collect([$flat]);
-    }
-
-    public function storeOrUpdate(array $data): \stdClass
-    {
-        $partnerId = auth()->user()->partner_id ?? null;
-
-        if (isset($data['smtp_password']) && $data['smtp_password'] === '••••••••') {
-            unset($data['smtp_password']);
-        }
-        if (isset($data['aws_secret_key']) && $data['aws_secret_key'] === '••••••••') {
-            unset($data['aws_secret_key']);
-        }
-
-        // Always set is_fresh_email to true upon save
-        $data['is_fresh_email'] = true;
-
-        // Remove 'id' if it's there, as we don't store it in the key-value table directly
-        unset($data['id']);
-
-        // Update each key-value pair
-        foreach ($data as $key => $value) {
-            EmailConfiguration::updateOrCreate(
-                [
-                    'partner_id' => $partnerId,
-                    'key' => $key
-                ],
-                [
-                    'value' => $value
-                ]
-            );
-        }
-
-        if ($partnerId) {
-            User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
-        }
-
-        // Cache::forget("dynamic_mail_config_" . ($partnerId ?? 'system'));
-
-        if ($partnerId === null || $this->isHostPartner($partnerId)) {
-            self::$systemDefaults = null;
-        }
-
-        return $this->getConfigurations($partnerId)->first();
-    }
-
-    public function toggleStatus(): \stdClass
-    {
-        $partnerId = auth()->user()->partner_id ?? null;
-
-        $configObj = $this->getConfigurations($partnerId)->first();
-        if (!$configObj) {
-            abort(404, 'Configuration not found');
-        }
-
-        $currentStatus = isset($configObj->is_active) ? filter_var($configObj->is_active, FILTER_VALIDATE_BOOLEAN) : false;
-        $newStatus = !$currentStatus;
-
-        EmailConfiguration::updateOrCreate(
-            ['partner_id' => $partnerId, 'key' => 'is_active'],
-            ['value' => $newStatus]
-        );
-
-        EmailConfiguration::updateOrCreate(
-            ['partner_id' => $partnerId, 'key' => 'is_fresh_email'],
-            ['value' => true]
-        );
-
-        if ($partnerId) {
-            User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
-        }
-
-        Cache::forget("dynamic_mail_config_" . ($partnerId ?? 'system'));
-
-        if ($partnerId === null || $this->isHostPartner($partnerId)) {
-            self::$systemDefaults = null;
-        }
-
-        return $this->getConfigurations($partnerId)->first();
-    }
-
-    /**
-     * The mail credentials a partner actually sends with.
-     *
-     * Credentials are DATABASE-ONLY. config/mail.php no longer carries SMTP or
-     * SES credentials from the environment, so there is no silent .env fallback
-     * behind this: whatever this returns is what gets used, and null means the
-     * mail cannot be sent at all.
-     *
-     * Two steps, in order:
-     *
-     *   1. The partner's own row, if they have switched custom configuration on.
-     *   2. The host's row - the platform's own mailbox. A partner who has not
-     *      configured a mail server sends through the platform's, which is what
-     *      used to come from .env and is the same host-as-fallback rule branding
-     *      already follows.
-     *
-     * The host is not required to have the flag on: its row IS the platform
-     * configuration, so a usable row is enough.
-     */
     public function resolveFor(int|string|null $partnerId): ?\stdClass
     {
-        $own = $this->getConfigurations($partnerId)->first();
+        return $this->configurationFor($partnerId)?->toMailSettings();
+    }
 
-        if ($own && !empty($own->enable_custom_configuration) && $this->isUsable($own)) {
+    public function configurationFor(int|string|null $partnerId): ?MailConfiguration
+    {
+        $own = $this->ownDefault($partnerId);
+        if ($own && $this->canSend($own)) {
             return $own;
         }
 
-        $hostId = Partner::where('is_host', true)->value('id');
-
-        // Already tried above, and trying it again would loop on the same row.
-        if ($hostId === null || (string) $hostId === (string) $partnerId) {
-            return null;
-        }
-
-        $host = $this->getConfigurations($hostId)->first();
-
-        return ($host && $this->isUsable($host)) ? $host : null;
+        return $this->fallbackConfiguration();
     }
 
     /**
-     * Whether a configuration carries enough to actually connect.
-     *
-     * A row can exist with every field blank - the settings screen creates keys
-     * as soon as it is opened - and handing that to Symfony produces an obscure
-     * transport error rather than a usable message.
+     * The fallback configuration mail goes out with, if any can send: the
+     * default first, then the others in provider order.
+     */
+    public function fallbackConfiguration(): ?MailConfiguration
+    {
+        $order = array_flip(array_keys(MailConfiguration::providers()));
+
+        return MailConfiguration::fallback()->get()
+            ->sortBy(fn (MailConfiguration $config) => [$config->is_default ? 0 : 1, $order[$config->provider] ?? PHP_INT_MAX])
+            ->first(fn (MailConfiguration $config) => $this->canSend($config));
+    }
+
+    /**
+     * Whether this partner's mail goes out under its own settings rather than
+     * the fallback.
+     */
+    public function usesOwnConfiguration(int|string|null $partnerId): bool
+    {
+        $own = $this->ownDefault($partnerId);
+
+        return $own !== null && $this->canSend($own);
+    }
+
+    /**
+     * Whether this partner has saved any mail settings of its own, verified or
+     * not - what the "finish your setup" guard asks.
+     */
+    public function hasAnyConfiguration(int|string|null $partnerId): bool
+    {
+        return $partnerId !== null && $partnerId !== ''
+            && MailConfiguration::forPartner((int) $partnerId)->exists();
+    }
+
+    /**
+     * Whether resolved settings carry enough to actually connect: an address
+     * and an identity for SMTP, a key pair for SES.
      */
     public function isUsable(?\stdClass $config): bool
     {
@@ -167,19 +86,34 @@ class EmailConfigurationService
             return false;
         }
 
-        if (($config->email_provider ?? 'smtp') === 'aws_ses') {
-            return !empty($config->aws_access_key) && !empty($config->aws_secret_key);
+        $provider = $config->email_provider ?? MailConfiguration::PROVIDER_SMTP;
+
+        foreach (self::CONNECT_FIELDS[$provider] ?? ['unknown'] as $key) {
+            if (empty($config->{$key})) {
+                return false;
+            }
         }
 
-        return !empty($config->smtp_host) && !empty($config->smtp_username);
+        return true;
     }
 
-    private function isHostPartner(int|string|null $partnerId): bool
-    {
-        if ($partnerId === null)
-            return false;
+    /** The settings without which a provider cannot even connect. */
+    private const CONNECT_FIELDS = [
+        MailConfiguration::PROVIDER_SMTP => ['smtp_host', 'smtp_username'],
+        MailConfiguration::PROVIDER_SES => ['aws_access_key', 'aws_secret_key'],
+    ];
 
-        $partner = Partner::find($partnerId);
-        return $partner && $partner->is_host;
+    private function ownDefault(int|string|null $partnerId): ?MailConfiguration
+    {
+        if ($partnerId === null || $partnerId === '') {
+            return null;
+        }
+
+        return MailConfiguration::forPartner((int) $partnerId)->where('is_default', true)->first();
+    }
+
+    private function canSend(MailConfiguration $config): bool
+    {
+        return $config->isUsable() && $config->isVerified();
     }
 }
