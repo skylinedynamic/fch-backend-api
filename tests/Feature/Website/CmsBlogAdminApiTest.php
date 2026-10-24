@@ -88,6 +88,47 @@ class CmsBlogAdminApiTest extends TestCase
         $this->assertNull(Blog::find($id)->published_at);
     }
 
+    // -- BUG-045: a repeated title gets its own web address -------------------
+
+    #[Test]
+    public function a_repeated_title_gets_a_numbered_slug_instead_of_failing(): void
+    {
+        $this->actingAsUser($this->editor);
+        $post = fn () => $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'QA Draft Post', 'content' => 'x'])->assertCreated()->json('data.id');
+
+        $first = $post();
+        $second = $post();
+        $third = $post();
+
+        $this->assertSame('qa-draft-post', Blog::find($first)->slug);
+        $this->assertSame('qa-draft-post-2', Blog::find($second)->slug);
+        $this->assertSame('qa-draft-post-3', Blog::find($third)->slug);
+    }
+
+    #[Test]
+    public function a_deleted_posts_slug_is_not_reused(): void
+    {
+        // The (slug, partner) unique index covers soft-deleted posts too.
+        $this->actingAsUser($this->editor);
+        $first = $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'Gone', 'content' => 'x'])->json('data.id');
+        $this->postJson('/api/v1/admin/cms/blogs-multiple-delete', ['ids' => [$first]])->assertOk();
+
+        $again = $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'Gone', 'content' => 'x'])->assertCreated()->json('data.id');
+
+        $this->assertSame('gone-2', Blog::find($again)->slug);
+    }
+
+    #[Test]
+    public function editing_a_post_keeps_its_web_address(): void
+    {
+        $this->actingAsUser($this->editor);
+        $id = $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'Original title', 'content' => 'x'])->json('data.id');
+
+        $this->postJson("/api/v1/admin/cms/blogs/{$id}", ['title' => 'A better title', 'content' => 'y'])->assertOk();
+
+        $this->assertSame('original-title', Blog::find($id)->slug);
+    }
+
     #[Test]
     public function a_slug_is_unique(): void
     {
