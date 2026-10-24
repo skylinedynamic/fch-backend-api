@@ -3,9 +3,18 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\TierTask;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\TierTask\Concerns\VendorTierTaskRules;
+use App\Models\CreditBuilder\TierTask;
 
 class UpdateTierTaskRequest extends BaseApiRequest
 {
+    use VendorTierTaskRules;
+
+    protected function taskBeingEdited(): ?TierTask
+    {
+        return TierTask::find($this->route('id'));
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
