@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Appointment\Appointment;
 use App\Models\Appointment\AppointmentDetail;
+use App\Support\Appointment\AppointmentTime;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Appointment\AppointmentNotification;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
@@ -91,11 +92,6 @@ class AppointmentService
         DB::beginTransaction();
 
         try {
-            $isAvailable = $this->checkTimeSlotAvailability(
-                $data['appointment_date'],
-                auth()->id(),
-                $data['assigned_for']
-            );
             $data['appointment_code'] = $this->generateNextAppointmentCode();
             $data['scheduled_by'] = auth()->id();
 
@@ -381,24 +377,22 @@ class AppointmentService
     /**
      * Check if a time slot is available for both users on a specific date.
      */
-    protected function checkTimeSlotAvailability(string $appointmentDate, int $scheduledBy, int $assignedFor): bool
+    /**
+     * The viewer's calendar day holding $date, as the UTC range appointments
+     * are stored in - so a day in Dhaka finds what is stored on the UTC day
+     * before (BUG-080). $zone is the form's zone, else the viewer's.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function viewerDayInUtc(string $date, ?string $zone): array
     {
-        $appointmentDateOnly = Carbon::parse($appointmentDate)->format('Y-m-d');
+        $zone = AppointmentTime::zone($zone) ?? AppointmentTime::viewerZone();
+        $day = Carbon::parse($date, $zone);
 
-        $conflictCount = AppointmentDetail::where('appointment_date', $appointmentDateOnly)
-            ->where(function ($query) use ($scheduledBy, $assignedFor) {
-                $query->where('scheduled_by', $scheduledBy)
-                    ->orWhere('scheduled_by', $assignedFor)
-                    ->orWhere('assigned_for', $scheduledBy)
-                    ->orWhere('assigned_for', $assignedFor);
-            })
-            ->whereIn('status', [
-                AppointmentDetail::STATUS_PENDING,
-                AppointmentDetail::STATUS_CONFIRMED,
-            ])
-            ->count();
-
-        return $conflictCount === 0;
+        return [
+            $day->copy()->startOfDay()->utc()->format(AppointmentTime::STORED_FORMAT),
+            $day->copy()->endOfDay()->utc()->format(AppointmentTime::STORED_FORMAT),
+        ];
     }
 
     /**
@@ -408,12 +402,12 @@ class AppointmentService
     {
         $this->resolveEntityAndUser($data);
 
-        $appointmentDate = Carbon::parse($data['appointment_date'])->format('Y-m-d');
+        $day = $this->viewerDayInUtc($data['appointment_date'], $data['timezone'] ?? null);
         $assignedFor = $data['assigned_for'] ?? null;
         $scheduledBy = auth()->id();
 
         // Check conflicts for Scheduler
-        $schedulerConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
+        $schedulerConflicts = Appointment::whereBetween('appointment_date', $day)
             ->where(function ($q) use ($scheduledBy) {
                 $q->where('scheduled_by', $scheduledBy)
                     ->orWhere('assigned_for', $scheduledBy);
@@ -423,7 +417,7 @@ class AppointmentService
 
         $assigneeConflicts = collect();
         if ($assignedFor) {
-            $assigneeConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
+            $assigneeConflicts = Appointment::whereBetween('appointment_date', $day)
                 ->where(function ($q) use ($assignedFor) {
                     $q->where('scheduled_by', $assignedFor)
                         ->orWhere('assigned_for', $assignedFor);
@@ -443,13 +437,13 @@ class AppointmentService
      */
     public function getBusySlots(array $data)
     {
-        $date = Carbon::parse($data['date'])->format('Y-m-d'); // Y-m-d
+        $day = $this->viewerDayInUtc($data['date'], $data['timezone'] ?? null);
         $assignedFor = $data['assigned_for'] ?? null;
         $scheduledBy = auth()->id();
         $excludeId = $data['exclude_appointment_id'] ?? null;
 
 
-        $schedulerBusySlots = Appointment::whereDate('appointment_date', $date)
+        $schedulerBusySlots = Appointment::whereBetween('appointment_date', $day)
             ->where(function ($q) use ($scheduledBy) {
                 $q->where('scheduled_by', $scheduledBy)
                     ->orWhere('assigned_for', $scheduledBy);
@@ -461,7 +455,7 @@ class AppointmentService
 
         $assigneeBusySlots = collect();
         if ($assignedFor) {
-            $assigneeBusySlots = Appointment::whereDate('appointment_date', $date)
+            $assigneeBusySlots = Appointment::whereBetween('appointment_date', $day)
                 ->where(function ($q) use ($assignedFor) {
                     $q->where('scheduled_by', $assignedFor)
                         ->orWhere('assigned_for', $assignedFor);

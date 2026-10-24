@@ -100,7 +100,8 @@ class AppointmentController extends Controller
             
             $formatConflict = function ($conflicts) {
                 return $conflicts->map(function ($appointment) {
-                    $start = \Carbon\Carbon::parse($appointment->appointment_date);
+                    // Stored in UTC; compared by the form in the viewer's own zone.
+                    $start = \Carbon\Carbon::parse(\App\Support\Appointment\AppointmentTime::forViewer($appointment->appointment_date));
                     $end = $start->copy()->addMinutes($appointment->duration_minutes);
                     
                     return [
