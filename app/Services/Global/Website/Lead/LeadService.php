@@ -32,6 +32,13 @@ class LeadService
                 'company_name' => $data['company_name'] ?? null,
                 'domain' => $data['domain'] ?? null,
                 'state' => $data['state'] ?? null,
+                // The pre-qualification's business details (BUG-090); a plain
+                // website enquiry has none.
+                'country' => $data['country'] ?? null,
+                'entity_type' => $data['entity_type'] ?? null,
+                'entity_type_note' => $data['entity_type_note'] ?? null,
+                'industry_type' => $data['industry_type'] ?? null,
+                'industry_type_note' => $data['industry_type_note'] ?? null,
                 'requirement_details' => $data['requirement_details'] ?? $data['requirements_details'] ?? null,
                 'status' => 'New Lead',
                 'lead_type' => 'Borrower', // Default type for website leads

@@ -29,6 +29,8 @@ class Lead extends Model
     const BORROWER_TYPE_LEAD = 'Borrower';
 
     const DEFAULT_COUNTRY_CODE = '+1';
+    // The website pre-qualification asks for a US state of incorporation.
+    const DEFAULT_COUNTRY = 'United States';
 
     const STATUS_NEW_LEAD = 'New Lead';
     const STATUS_CONTACT_INITIATED = 'Contact Initiated';
