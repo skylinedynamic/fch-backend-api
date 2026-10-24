@@ -3,6 +3,7 @@
 namespace App\Http\Resources\FCH\Invoice;
 
 use App\Models\Invoice\Invoice;
+use App\Services\FCH\Common\Invoice\InvoicePartyResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,6 +16,12 @@ class InvoiceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // The person paying and their company, read live from partners/borrowers.
+        // invoices.customer_name is a creation-time snapshot that some writers fill
+        // with the partner's company, so it is only the fallback for a payer that
+        // no longer exists.
+        $payer = app(InvoicePartyResolver::class)->billedTo($this->resource);
+
         return [
             'id' => $this->id,
             'invoice_id' => $this->invoice_id,
@@ -22,7 +29,8 @@ class InvoiceResource extends JsonResource
             'partner_id' => $this->partner_id,
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
-            'customer_name' => $this->customer_name,
+            'customer_name' => $payer['name'] ?? $this->customer_name,
+            'company_name' => $payer['company_name'],
             'email' => $this->email,
             'country' => $this->country,
             'payment_amount' => (float) $this->payment_amount,

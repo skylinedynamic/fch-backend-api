@@ -421,7 +421,8 @@ class EnrollmentService
                 'borrower_id' => $borrower->id,
                 'entity_type' => Partner::class,
                 'entity_id' => $borrower->partner_id,
-                'customer_name' => $partner->company_name ?: $partner->full_name,
+                // The person billed, never the company (see InvoiceCustomerNameTest).
+                'customer_name' => $partner->full_name,
                 'email' => $partner->email,
                 'country' => $partner->country,
                 'payment_amount' => $borrowerPartnerFeeAmount,

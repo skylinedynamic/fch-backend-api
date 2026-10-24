@@ -6,6 +6,8 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\DunsNumber;
 
 class UpdateBusinessInfoRequest extends BaseApiRequest
 {
@@ -39,9 +41,9 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
         return [
             'business_name' => 'required|string|max:255',
             'business_ein' => ['required', new BusinessEin()],
-            'business_phone' => 'nullable|string|max:20',
+            'business_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'business_email' => 'required|email|max:255',
-            'duns_number' => 'nullable|string|size:9',
+            'duns_number' => ['nullable', 'string', new DunsNumber()],
             'business_address' => 'required|string|max:255',
             'business_country' => 'required|string|max:255',
             'business_country_code' => 'required|string|max:5',

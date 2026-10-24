@@ -10,6 +10,8 @@ use App\Http\Resources\FCH\Common\Setting\SmsConfigurationResource;
 use App\Models\Setting\SmsConfiguration;
 use App\Services\FCH\Common\Notification\Sms\SmsDeliveryException;
 use App\Services\FCH\Common\Setting\SmsConfigurationService;
+use App\Traits\ResolvesConfigPartner;
+use App\Services\FCH\Partner\PartnerConfigurationChangeRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +21,8 @@ use Illuminate\Support\Facades\Log;
  */
 class SmsConfigurationController extends Controller
 {
+    use ResolvesConfigPartner;
+
     public function __construct(
         protected SmsConfigurationService $service
     ) {
@@ -34,9 +38,38 @@ class SmsConfigurationController extends Controller
 
     public function store(StoreSmsConfigurationRequest $request): JsonResponse
     {
-        $configuration = $this->service->save($this->partnerId(), $request->validated());
+        $partnerId = $this->partnerId();
+        $before = $this->snapshot($this->service->forPartner($partnerId));
+
+        $configuration = $this->service->save($partnerId, $request->validated());
+
+        $this->recordConfigChange(
+            $request,
+            PartnerConfigurationChangeRecorder::AREA_SMS,
+            'updated the SMS configuration',
+            PartnerConfigurationChangeRecorder::diff($before, $this->snapshot($configuration), [
+                'is_enabled' => 'Enabled',
+                'account_sid' => 'Account SID',
+                'messaging_service_sid' => 'Messaging service SID',
+            ])
+        );
 
         return ApiResponse::success($this->payload($configuration), __('sms_config.saved'));
+    }
+
+    /** The configuration's fields, for the activity log's before/after comparison. */
+    private function snapshot(?SmsConfiguration $configuration): array
+    {
+        if (!$configuration) {
+            return [];
+        }
+
+        return [
+            'country' => $configuration->country,
+            'provider' => $configuration->provider,
+            'is_enabled' => (bool) $configuration->is_enabled,
+            'from_number' => $configuration->from_number,
+        ] + ($configuration->credentials ?? []);
     }
 
     public function test(SendTestSmsRequest $request): JsonResponse
@@ -65,9 +98,10 @@ class SmsConfigurationController extends Controller
         ];
     }
 
+    /** The caller's partner, or the one the host names with `partner_id`. */
     private function partnerId(): int
     {
-        $partnerId = auth()->user()->partner_id;
+        $partnerId = $this->configPartnerId(request());
 
         abort_if(!$partnerId, 403, __('sms_config.no_partner'));
 

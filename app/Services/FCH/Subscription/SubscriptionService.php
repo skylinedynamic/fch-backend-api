@@ -944,7 +944,8 @@ class SubscriptionService
                 // For user seat: bill the partner
                 if ($isUserSeatPhase) {
                     $partner = Partner::find($entity->partner_id);
-                    $customerName = $partner ? ($partner->company_name ?: $partner->full_name) : $customerName;
+                    // The person billed, never the company (see InvoiceCustomerNameTest).
+                    $customerName = $partner ? $partner->full_name : $customerName;
                     $email = $partner ? $partner->email : $email;
                 }
 

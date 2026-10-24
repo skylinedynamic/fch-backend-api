@@ -297,10 +297,16 @@ class BorrowerService
 
         // Calculate statistics from the partner-scoped (but otherwise unfiltered) query, so the
         // summary cards show true totals rather than fluctuating with the table's search/filters.
+        // The host's split of its book: its own clients against its partners'.
+        $hostPartnerIds = Partner::where('is_host', true)->select('id');
+
         $statistics = [
             'total_borrowers' => (clone $statsQuery)->count(),
             'active_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_ACTIVE)->count(),
             'inactive_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_INACTIVE)->count(),
+            'suspended_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_SUSPENDED)->count(),
+            'host_borrowers' => (clone $statsQuery)->whereIn('borrowers.partner_id', $hostPartnerIds)->count(),
+            'partner_borrowers' => (clone $statsQuery)->whereNotIn('borrowers.partner_id', $hostPartnerIds)->count(),
             'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 

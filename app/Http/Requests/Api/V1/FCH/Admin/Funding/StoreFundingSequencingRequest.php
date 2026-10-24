@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Funding;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\FicoScore;
+use App\Rules\BusinessCreditScore;
 
 class StoreFundingSequencingRequest extends BaseApiRequest
 {
@@ -61,8 +63,8 @@ class StoreFundingSequencingRequest extends BaseApiRequest
             'lender_visibilities'                        => 'nullable|array',
             'lender_visibilities.*.lender_id'            => 'required|exists:lenders,id',
             'lender_visibilities.*.lender_product_category_id' => 'required|integer|exists:lender_product_categories,id',
-            'lender_visibilities.*.min_fico'             => ['required', 'integer', 'min:0', 'digits_between:1,8'],
-            'lender_visibilities.*.min_business_credit_score' => ['nullable', 'integer', 'min:0', 'digits_between:1,8'],
+            'lender_visibilities.*.min_fico'             => ['required', new FicoScore()],
+            'lender_visibilities.*.min_business_credit_score' => ['nullable', new BusinessCreditScore()],
             'lender_visibilities.*.min_tib_months'       => ['required', 'integer', 'min:0', 'digits_between:1,8'],
             'lender_visibilities.*.min_monthly_revenue'  => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
             'lender_visibilities.*.min_monthly_deposits' => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],

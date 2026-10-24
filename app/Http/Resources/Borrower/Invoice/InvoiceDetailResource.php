@@ -2,10 +2,17 @@
 
 namespace App\Http\Resources\Borrower\Invoice;
 
+use App\Services\FCH\Common\Invoice\InvoicePartyResolver;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * The invoice detail payload read by the borrower portal's invoice page and
+ * preview modal - only the fields those screens use.
+ *
+ * Every figure is the invoice's own. The subscription is read for its plan
+ * name only, and only on an invoice that bills for that plan.
+ */
 class InvoiceDetailResource extends JsonResource
 {
     /**
@@ -15,49 +22,25 @@ class InvoiceDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
-
         return [
             'id' => $this->id,
             'invoice_id' => $this->invoice_id,
-            'borrower_id' => $this->borrower_id,
-            'partner_id' => $this->partner_id,
             'entity_type' => $this->entity_name,
-            'entity_id' => $this->entity_id,
-            'customer_name' => $this->customer_name,
-            'email' => $this->email,
-            'country' => $this->country,
+            'type' => $this->getFormattedType(),
+            'status' => $this->status,
             'payment_amount' => (float) $this->payment_amount,
-            'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'displayable_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'payment_date' => toDateOnly($this->payment_date),
-            'status' => $this->status,
-            'type' => $this->getFormattedType(),
-            'note' => $this->note,
-            'details' => $this->details,
-            'items' => $this->items,
-            'enrollment_type' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
-                ? __('invoice.commission_payout')
-                : $this->subscription?->enrollment_type,
-            'monthly_platform_fee' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
-                ? null
-                : $this->subscription?->monthly_platform_fee,
-            'payable_amount_sub' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
-                ? $this->payment_amount
-                : $this->subscription?->payable_amount, // Renamed to avoid collision with invoice amount
+            'created_at' => toDateOnly($this->created_at),
+            'enrollment_type' => $this->when(
+                $this->resource->billsSubscriptionPlan(),
+                fn() => $this->subscription?->enrollment_type
+            ),
 
-            // Consolidated Billing Info (Borrower priority for Preview)
-            'name' => $this->borrower
-                ? $this->borrower->full_name
-                : ($this->partner?->full_name ?? $this->partner?->company_name),
-            'email' => $this->borrower?->email ?? $this->partner?->email,
-            'phone' => $this->borrower?->phone_number ?? $this->partner?->phone_number,
-            'address' => $this->borrower
-                ? ($this->borrower->business_address_line_1 ?: $this->borrower->business_postal_code)
-                : ($this->partner ? ($this->partner->address_line_1 ?: $this->partner->postal_code) : null),
+            // Who issued the invoice and who pays it - see InvoicePartyResolver.
+            ...app(InvoicePartyResolver::class)->resolve($this->resource),
 
             'branding' => $this->resolveBrandingData(),
-            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
         ];
     }
 
@@ -93,28 +76,15 @@ class InvoiceDetailResource extends JsonResource
             $this->entity_type,
             $this->partner_id ? (int) $this->partner_id : null
         );
-        $partner = $resolved['partner'];
         $branding = $resolved['branding'];
 
         // Invoice paper is white, so this is the document logo, falling back to
-        // the sidebar logo when this tenant uploaded no document one.
-        // `primary_logo` and `logo` are kept as aliases for consumers not yet
-        // migrated, but they now point at the document logo too - they used to
-        // carry the white-on-transparent one, invisible on white paper.
-        $documentLogo = $resolved['logo'];
-        $sidebarLogo = $branding['logo_sidebar_full_url'] ?? '';
-
+        // the sidebar logo when this tenant uploaded no document one. The
+        // issuer's address is not repeated here: billed_from carries it.
         return [
             'site_name' => $branding['site_name'] ?? '',
-            'logo_document_full_url' => $documentLogo,
-            'logo_sidebar_full_url' => $sidebarLogo,
-            'primary_logo' => $documentLogo,
-            'logo' => $documentLogo,
-            'address' => $partner?->address_line_1 ?? '',
-            'city' => $partner?->city ?? '',
-            'state' => $partner?->state ?? '',
-            'postal_code' => $partner?->postal_code ?? '',
-            'country' => $partner?->country ?? '',
+            'logo_document_full_url' => $resolved['logo'],
+            'logo_sidebar_full_url' => $branding['logo_sidebar_full_url'] ?? '',
         ];
     }
 }

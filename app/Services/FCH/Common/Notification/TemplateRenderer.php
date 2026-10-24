@@ -38,7 +38,9 @@ class TemplateRenderer
 
     /**
      * Links are frontend routes, so only an in-portal path ("/...") is kept;
-     * placeholder values are URL-encoded so they cannot add path segments.
+     * placeholder values are URL-encoded so they cannot add path segments. An
+     * empty value at the end of the path leaves its parent page ("/items/{{id}}"
+     * without an id is "/items"), not a dangling slash.
      */
     private function url(?string $template, array $data): ?string
     {
@@ -47,6 +49,9 @@ class TemplateRenderer
         }
 
         $url = $this->fill($template, $data, true);
+        if (strlen($url) > 1) {
+            $url = rtrim($url, '/');
+        }
 
         return str_starts_with($url, '/') && !str_starts_with($url, '//') ? $url : null;
     }

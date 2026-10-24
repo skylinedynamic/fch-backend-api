@@ -156,12 +156,8 @@ class SubmitEmbedFormRequestTest extends TestCase
 
     private function creditScoreRules(): array
     {
-        return ['credit_score' => [
-            'nullable',
-            'integer',
-            'min:' . config('funding_application.credit_score.min'),
-            'max:' . config('funding_application.credit_score.max'),
-        ]];
+        // As SubmitEmbedFormRequest declares it: the shared FICO rule.
+        return ['credit_score' => ['nullable', new \App\Rules\FicoScore()]];
     }
 
     #[Test]

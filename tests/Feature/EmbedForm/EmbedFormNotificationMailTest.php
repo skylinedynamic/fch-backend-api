@@ -27,11 +27,12 @@ use Tests\TestCase;
  *   Recipient - the form's own notification_email, otherwise the partner's
  *               `email` column. NOT contact_person_email: that is a contact for
  *               the partner's staff, not the address the platform notifies.
- *   Sender    - a White-Label partner sends through its own mail configuration
- *               or not at all. The host's credentials are not a fallback for it,
- *               because mail leaving under the host's mailbox is exactly what
- *               the white-label tier exists to prevent. A Certified or host
- *               partner still falls back to the host's configuration.
+ *   Sender    - every partner, White-Label included, is mailed the same way:
+ *               through its own verified mail configuration, otherwise the
+ *               platform fallback kept by the host (still under the partner's
+ *               own sender name - see MailSenderName). The notice goes to the
+ *               partner itself, so a white-label partner whose own settings are
+ *               missing or unverified must still hear about its applications.
  *
  * Mail is faked, so nothing here depends on a transport: the assertions are
  * about the decision to send and the address chosen.
@@ -108,7 +109,7 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     #[Test]
-    public function a_white_label_partner_without_its_own_mail_config_sends_nothing(): void
+    public function a_white_label_partner_without_its_own_mail_config_is_mailed_through_the_fallback(): void
     {
         $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, [
             'email' => 'wl@example.test',
@@ -116,7 +117,22 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        $this->assertNoMailTo('wl@example.test');
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test') && !$mail->hostCopy);
+    }
+
+    #[Test]
+    public function a_white_label_partner_whose_config_is_not_verified_is_mailed_through_the_fallback(): void
+    {
+        // Saved SMTP settings that never passed verification - the case a
+        // partner reported: the host was mailed, the partner was not.
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, [
+            'email' => 'wl@example.test',
+        ]);
+        $this->mailConfig($partner, ['verified' => '0']);
+
+        $this->notify($partner);
+
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test') && !$mail->hostCopy);
     }
 
     #[Test]
@@ -133,10 +149,10 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     #[Test]
-    public function a_white_label_partner_whose_config_is_incomplete_sends_nothing(): void
+    public function a_white_label_partner_whose_config_is_incomplete_is_mailed_through_the_fallback(): void
     {
         // A row exists as soon as the settings screen is opened, so "has rows" is
-        // not the same as "can connect".
+        // not the same as "can connect" - the fallback covers it.
         $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, [
             'email' => 'wl@example.test',
         ]);
@@ -144,11 +160,11 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        $this->assertNoMailTo('wl@example.test');
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test'));
     }
 
     #[Test]
-    public function a_white_label_partner_who_has_not_enabled_its_config_sends_nothing(): void
+    public function a_white_label_partner_who_has_not_enabled_its_config_is_mailed_through_the_fallback(): void
     {
         $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, [
             'email' => 'wl@example.test',
@@ -157,7 +173,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        $this->assertNoMailTo('wl@example.test');
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test'));
     }
 
     #[Test]
@@ -212,17 +228,15 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     #[Test]
-    public function a_white_label_partner_without_mail_config_still_gets_the_bell(): void
+    public function a_white_label_partner_without_mail_config_gets_the_bell_and_the_email(): void
     {
-        // The mailbox rule is about whose name an email leaves under. The bell
-        // leaves under nobody's, so it is not held back with the email.
         Notification::fake();
         $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['email' => 'wl@example.test']);
         $login = $this->loginFor($partner);
 
         $this->notify($partner);
 
-        $this->assertNoMailTo('wl@example.test');
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test'));
         Notification::assertSentTo($login, DynamicNotification::class);
     }
 
@@ -446,7 +460,8 @@ class EmbedFormNotificationMailTest extends TestCase
     /**
      * A verified SMTP configuration - the partner's default, or with no partner
      * the platform fallback. `enable_custom_configuration` => '0' leaves it
-     * saved but not the default; blank host/username leave it incomplete.
+     * saved but not the default; blank host/username leave it incomplete;
+     * `verified` => '0' leaves it saved but never verified.
      *
      * @param  array<string, string>  $overrides
      */
@@ -456,6 +471,7 @@ class EmbedFormNotificationMailTest extends TestCase
             'enable_custom_configuration' => '1',
             'smtp_host' => 'smtp.example.test',
             'smtp_username' => 'mailer@example.test',
+            'verified' => '1',
         ], $overrides);
 
         $config = MailConfiguration::create([
@@ -472,7 +488,9 @@ class EmbedFormNotificationMailTest extends TestCase
             'is_default' => $partner !== null && $values['enable_custom_configuration'] === '1',
         ]);
 
-        $config->forceFill(['verified_at' => now(), 'verified_fingerprint' => $config->fingerprint()])->save();
+        if ($values['verified'] === '1') {
+            $config->forceFill(['verified_at' => now(), 'verified_fingerprint' => $config->fingerprint()])->save();
+        }
     }
 
     /**

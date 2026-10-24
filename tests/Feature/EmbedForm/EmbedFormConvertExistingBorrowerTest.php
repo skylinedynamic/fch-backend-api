@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\EmbedForm;
 
+use App\Mail\EmbedForm\EmbedFormConverted;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
@@ -186,5 +187,42 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
         $this->convert(['confirm_existing_borrower' => true])->assertStatus(422);
 
         $this->assertSame(0, FundingApplication::count());
+    }
+
+    // -- The emails: no client was created, so none of them may say one was ---
+
+    #[Test]
+    public function the_staff_email_says_a_new_application_was_added_to_the_existing_client(): void
+    {
+        $this->convert(['confirm_existing_borrower' => true])->assertOk();
+
+        Mail::assertQueued(EmbedFormConverted::class, function (EmbedFormConverted $mail) {
+            if (!$mail->forStaff) {
+                return false;
+            }
+            $html = $mail->render();
+
+            return $mail->envelope()->subject === 'New funding application for an existing client — Odessa Mccall'
+                && str_contains($html, 'existing client')
+                && str_contains($html, 'No new client account was created')
+                && !str_contains($html, 'has been converted to a client');
+        });
+    }
+
+    #[Test]
+    public function the_applicants_email_says_it_was_added_to_their_existing_account(): void
+    {
+        $this->convert(['confirm_existing_borrower' => true])->assertOk();
+
+        Mail::assertQueued(EmbedFormConverted::class, function (EmbedFormConverted $mail) {
+            if ($mail->forStaff) {
+                return false;
+            }
+            $html = $mail->render();
+
+            return $mail->hasTo('odessa@example.test')
+                && str_contains($html, 'added to your existing account')
+                && !str_contains($html, 'is now open');
+        });
     }
 }

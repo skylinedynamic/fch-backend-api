@@ -26,11 +26,6 @@ class IsoftpullParserService implements CreditProfileParserInterface
         $linesCount = count($lines);
         $fullText = implode("\n", $lines);
 
-        // Consumer report text is FCRA material - log its size, never its contents.
-        Log::info('IsoftpullParser: starting parse', [
-            'line_count' => $linesCount,
-        ]);
-
         $personalInfo = $this->parsePersonalInfo($fullText);
         $metrics = $this->parseMetrics($fullText, $lines, $linesCount);
         $addresses = $this->parseAddresses($lines, $linesCount);
@@ -46,12 +41,6 @@ class IsoftpullParserService implements CreditProfileParserInterface
         }
         $metrics['delinquent_accounts'] = $delinquentCount;
         $metrics['summary'] = $this->generateSummary($personalInfo, $metrics, $tradeAccounts, $inquiries);
-
-        Log::info('IsoftpullParser: parse complete', [
-            'trade_count' => count($tradeAccounts),
-            'address_count' => count($addresses),
-            'inquiry_count' => count($inquiries),
-        ]);
 
         return [
             'personal_info' => $personalInfo,
@@ -431,21 +420,18 @@ class IsoftpullParserService implements CreditProfileParserInterface
         // Strategy 1: Line-by-line Company: markers
         $result = $this->parseTradeAccountsByCompanyMarker($lines, $linesCount);
         if (!empty($result)) {
-            Log::info('IsoftpullParser: Strategy 1 (Company marker) found trades', ['count' => count($result)]);
             return $result;
         }
 
         // Strategy 2: Regex block extraction from full text
         $result = $this->parseTradeAccountsFallback($fullText);
         if (!empty($result)) {
-            Log::info('IsoftpullParser: Strategy 2 (regex fallback) found trades', ['count' => count($result)]);
             return $result;
         }
 
         // Strategy 3: Deep scan - find any field patterns in the trade section
         $result = $this->parseTradeAccountsDeepScan($lines, $linesCount, $fullText);
         if (!empty($result)) {
-            Log::info('IsoftpullParser: Strategy 3 (deep scan) found trades', ['count' => count($result)]);
             return $result;
         }
 

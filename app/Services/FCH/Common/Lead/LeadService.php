@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use App\Mail\Lead\LeadNotificationMail;
+use App\Mail\Lead\LeadConvertedOnBehalfMail;
 
 class LeadService
 {
@@ -40,7 +41,7 @@ class LeadService
         $authUser = Auth::user();
         $query = Lead::query()
             ->with(['salesperson', 'partner'])
-            ->where('leads.partner_id', $authUser->partner_id)
+            ->visibleTo($authUser)
             ->select('leads.*');
 
         // Top-level Dropdown Filters (Robust Normalization)
@@ -48,6 +49,16 @@ class LeadService
         $statusValue = is_array($filters['status'] ?? null) ? ($filters['status']['value'] ?? null) : ($filters['status'] ?? null);
         $salespersonId = is_array($filters['salesperson_id'] ?? null) ? ($filters['salesperson_id']['value'] ?? null) : ($filters['salesperson_id'] ?? null);
 
+        // The host's Partner filter; within visibleTo, so a partner naming
+        // another partner's id only narrows its own list to nothing.
+        if (!empty($filters['partner_id'])) {
+            $query->where('leads.partner_id', $filters['partner_id']);
+        }
+
+        // Snapshot before the search, dropdown and column filters, so the summary
+        // cards show true totals instead of recounting whatever the table is
+        // currently narrowed to (as the Partners and Clients lists do).
+        $statsQuery = clone $query;
 
         // Apply Dropdown Filters - Strictly skip if null or empty string to show "All" data
         if ($leadType !== null && $leadType !== '') {
@@ -99,7 +110,8 @@ class LeadService
                 $value = $constraint['value'] ?? null;
                 if ($value) {
                     $query->whereHas('partner', function ($q) use ($value) {
-                        $q->where('full_name', 'like', "%{$value}%");
+                        $q->where(fn ($p) => $p->where('company_name', 'like', "%{$value}%")
+                            ->orWhere('full_name', 'like', "%{$value}%"));
                     });
                 }
             }
@@ -117,7 +129,7 @@ class LeadService
             $skipSorting = true;
         } elseif ($sortField === 'partner_name') {
             $query->orderBy(
-                Partner::select('full_name')
+                Partner::select('company_name')
                     ->whereColumn('partners.id', 'leads.partner_id')
                     ->limit(1),
                 $sortOrder
@@ -148,8 +160,7 @@ class LeadService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-        // Calculate statistics based on the filtered query (before pagination)
-        $statistics = $this->getStats(clone $query);
+        $statistics = $this->getStats($statsQuery);
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
@@ -369,17 +380,17 @@ class LeadService
     }
 
     /**
-     * Delete several of a partner's leads at once, each logged as a single
-     * delete is. Ids of other partners' leads are skipped. Returns how many
-     * were deleted.
+     * Delete several leads at once, each logged as a single delete is. Ids of
+     * leads the user may not see are skipped, and a selection holding a
+     * converted lead is refused whole. Returns how many were deleted.
      */
-    public function deleteMultiple(array $ids, int $partnerId): int
+    public function deleteMultiple(array $ids, User $user): int
     {
         if (empty($ids)) {
             return 0;
         }
 
-        $leads = Lead::where('partner_id', $partnerId)->whereIn('id', $ids)->get();
+        $leads = Lead::visibleTo($user)->whereIn('id', $ids)->get();
 
         // A lead already converted to a borrower or partner is kept. Refuse the
         // whole selection and name each one; nothing is deleted or changed.
@@ -497,7 +508,7 @@ class LeadService
                 'business_start_date' => $lead->business_start_date,
                 'duns_number' => $lead->duns_number,
                 'state_file_number' => $lead->state_file_number,
-                'last_4_ssn' => $lead->ssn_last_4,
+                'ssn' => $lead->ssn,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
                 'country' => $lead->country,
@@ -508,7 +519,7 @@ class LeadService
                 'home_address' => $lead->business_address,
                 'home_phone' => $lead->business_phone,
                 'assign_id' => $lead->salesperson_id,
-                'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
+                'partner_id' => $this->borrowerPartnerId($lead),
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
                 'is_free_trail' => $data['is_free_trail'] ?? null,
@@ -535,12 +546,17 @@ class LeadService
             $preQualification = PreQualificationRequest::where('lead_id', $lead->id)->first();
             if ($preQualification) {
                 $preQualification->update([
-                    'partner_id' => $lead->partner_id,
+                    'partner_id' => $borrower->partner_id,
                     'borrower_id' => $borrower->id,
                 ]);
             }
 
             DB::commit();
+
+            if ($lead->convertsOnBehalfOfPartnerFor(Auth::user())) {
+                $this->notifyConvertedOnBehalf($lead, $borrower);
+            }
+
             return $borrower;
         } catch (Throwable $e) {
             DB::rollBack();
@@ -647,6 +663,42 @@ class LeadService
     }
 
 
+    /**
+     * The partner a converted lead's borrower is filed under: always the
+     * lead's own partner - the host converting another partner's lead does so
+     * on that partner's behalf. A lead with no partner goes to the converter's.
+     */
+    private function borrowerPartnerId(Lead $lead): ?int
+    {
+        return $lead->partner_id ?: (Auth::user()?->partner_id ?? null);
+    }
+
+    /**
+     * Tell the lead's partner - in its bell and by email from the host - that
+     * the host converted its lead to its borrower. Failures are logged, never
+     * thrown: a notice must not undo a conversion already committed.
+     */
+    private function notifyConvertedOnBehalf(Lead $lead, Borrower $borrower): void
+    {
+        try {
+            $partner = $lead->partner;
+            $host = Auth::user()->partner;
+
+            app(Notifier::class)->send('partner.lead.converted_on_behalf', $partner, [
+                'name' => $lead->contact_person ?: $lead->company_name,
+                'host' => $host->company_name ?: $host->full_name,
+                'borrower_id' => $borrower->id,
+            ], mail: $partner->email
+                ? (new LeadConvertedOnBehalfMail($lead, $borrower, $host, $partner))->to($partner->email)
+                : null);
+        } catch (Throwable $e) {
+            Log::error('Failed to notify the partner of a lead converted on its behalf', [
+                'lead_id' => $lead->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     /** Placeholders for the lead.created bell. */
     private function leadBellData(Lead $lead): array
     {
@@ -683,11 +735,7 @@ class LeadService
     public function getStats($query = null): array
     {
         if (!$query) {
-            $authUser = Auth::user();
-            $query = Lead::query();
-            if ($authUser->partner_id) {
-                $query->where('partner_id', $authUser->partner_id);
-            }
+            $query = Lead::query()->visibleTo(Auth::user());
         }
 
         $baseQuery = clone $query;

@@ -74,15 +74,19 @@ class PaymentResource extends JsonResource
         ];
     }
 
-    private function getCompanyName(): string
+    /**
+     * The payer's company only - the list shows it beside the person's name, so
+     * this never falls back to that name. A borrower's is their business; any
+     * other payer (a partner, or a user paying on a partner's account) carries
+     * the partner's.
+     */
+    private function getCompanyName(): ?string
     {
-        if ($this->borrower) {
-            return $this->borrower->business_name ?? ($this->borrower->first_name . ' ' . $this->borrower->last_name);
-        }
-        if ($this->partner) {
-            return $this->partner->company_name ?? $this->partner->full_name;
-        }
-        return __('payment.na');
+        $company = $this->entity_type === Borrower::class
+            ? $this->borrower?->business_name
+            : $this->partner?->company_name;
+
+        return $company ?: null;
     }
 
     private function getPaymentDetails(): string

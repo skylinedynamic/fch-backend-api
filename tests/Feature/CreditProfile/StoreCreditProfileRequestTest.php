@@ -128,6 +128,21 @@ class StoreCreditProfileRequestTest extends TestCase
     }
 
     #[Test]
+    public function a_stored_request_is_not_logged(): void
+    {
+        // "Starting ... / Successfully stored ..." on every submission: noise.
+        // A failure is still logged.
+        $logged = [];
+        \Illuminate\Support\Facades\Log::listen(function ($message) use (&$logged) {
+            $logged[] = $message->level . ': ' . $message->message;
+        });
+
+        $this->submit()->assertOk();
+
+        $this->assertSame([], array_values(array_filter($logged, fn ($line) => stripos($line, 'CreditProfileRequest') !== false)));
+    }
+
+    #[Test]
     public function the_consents_are_not_written_onto_the_request_row(): void
     {
         // They have no columns here. Passing them through was the 500.
@@ -240,6 +255,60 @@ class StoreCreditProfileRequestTest extends TestCase
         Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.credit_profile.requested'
             && $n->toArray($hostLogin)['body'] === 'Odessa Mccall submitted a credit profile request.'
             && $n->toArray($hostLogin)['url'] === "/intake-review/credit-profile-requests/{$id}");
+    }
+
+    /**
+     * "Request Update" on a pulled credit profile told the host in the bell but
+     * linked to the list, so clicking it never opened the borrower's request.
+     */
+    #[Test]
+    public function an_update_request_links_the_host_to_the_borrowers_request(): void
+    {
+        Notification::fake();
+        $hostLogin = $this->hostLogin();
+        $id = $this->submit()->assertOk()->json('data.id');
+        $profile = \App\Models\Borrower\BorrowerCreditProfile::create(['borrower_id' => $this->borrower->id, 'fico_score' => 700]);
+
+        $this->postJson("/api/v1/borrower/profile/credit-profile/update-request/{$profile->id}", [
+            'credit_authorization_accepted' => true,
+            'e_consent_accepted' => true,
+        ])->assertOk();
+
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.credit_profile.update_requested'
+            && $n->toArray($hostLogin)['url'] === "/intake-review/credit-profile-requests/{$id}");
+    }
+
+    #[Test]
+    public function an_update_request_without_a_request_on_file_links_to_the_one_it_opens(): void
+    {
+        // A profile the host pulled without the borrower ever asking: the update
+        // request opens a credit profile request from their profile
+        // (CreditProfileRequestService::requestUpdate), and the bell opens it.
+        Notification::fake();
+        $hostLogin = $this->hostLogin();
+        $profile = \App\Models\Borrower\BorrowerCreditProfile::create(['borrower_id' => $this->borrower->id, 'fico_score' => 700]);
+
+        $this->postJson("/api/v1/borrower/profile/credit-profile/update-request/{$profile->id}", [
+            'credit_authorization_accepted' => true,
+            'e_consent_accepted' => true,
+        ])->assertOk();
+
+        $id = CreditProfileRequest::where('borrower_id', $this->borrower->id)->sole()->id;
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.credit_profile.update_requested'
+            && $n->toArray($hostLogin)['url'] === "/intake-review/credit-profile-requests/{$id}");
+    }
+
+    private function hostLogin(): User
+    {
+        return User::create([
+            'name' => 'Host Owner',
+            'email' => 'owner@example.test',
+            'password' => bcrypt('password'),
+            'user_type' => User::PARTNER,
+            'partner_id' => $this->borrower->partner_id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->borrower->partner_id,
+        ]);
     }
 
     #[Test]

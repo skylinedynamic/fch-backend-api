@@ -4,7 +4,9 @@ namespace App\Http\Resources\FCH\PaymentMethod;
 
 use App\Models\PaymentMethod\PaymentMethodBankDetail;
 use App\Models\PaymentMethod\PaymentProvider;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Support\Payment\PaymentCredentials;
+use App\Support\Payment\PaymentSetup;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -38,6 +40,14 @@ class PartnerPaymentProviderResource extends JsonResource
             'is_default' => (bool) ($this->is_default ?? false),
             'configuration' => empty($configuration) ? new \stdClass() : $configuration,
             'bank_details' => $isBank && $this->partner_id ? PaymentMethodBankDetail::where('partner_id', $this->partner_id)->get() : [],
+            // What the method is still missing for its active mode, and whether
+            // payers are offered it meanwhile; nothing for the unsaved
+            // placeholder of a method never set up.
+            'setup_issues' => $this->resource instanceof PartnerPaymentProvider
+                ? PaymentSetup::issues($this->resource, $provider?->name)
+                : [],
+            'can_take_payments' => $this->resource instanceof PartnerPaymentProvider
+                && PaymentSetup::isReady($this->resource, $provider?->name),
         ];
     }
 }

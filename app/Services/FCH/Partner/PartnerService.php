@@ -642,6 +642,21 @@ class PartnerService
     }
 
     /**
+     * Every partner for a filter dropdown - the host and archived partners
+     * included, so records filed under them stay filterable - sorted by name.
+     * Unpaginated and just the columns a dropdown shows; the Partners table
+     * uses list() instead.
+     */
+    public function options()
+    {
+        return Partner::query()
+            ->select(['id', 'full_name', 'company_name'])
+            ->orderBy('full_name')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * List partners with pagination, search, filtering and sorting.
      */
     public function list(array $filters)
@@ -664,8 +679,9 @@ class PartnerService
         // Snapshot the query before any user-facing filter is applied, so the
         // summary cards keep showing true totals instead of recounting whatever the
         // table is currently filtered to. Archived partners are excluded: they are
-        // not active business.
-        $statsQuery = (clone $query)->notArchived();
+        // not active business. The host's own row stays in the table but is not
+        // one of its partners, so it is not counted.
+        $statsQuery = (clone $query)->notArchived()->excludingHost();
 
         // Filter based on authenticated user's host status
         // if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {

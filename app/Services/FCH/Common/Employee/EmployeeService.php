@@ -245,7 +245,8 @@ class EmployeeService
                     'subscription_id' => $subscription->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $partner->id,
-                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $employee->full_name,
+                    // The person billed, never the company (see InvoiceCustomerNameTest).
+                    'customer_name' => $partner ? $partner->full_name : $employee->full_name,
                     'email' => $partner ? $partner->email : $employee->email,
                     'payment_amount' => $amount,
                     'payment_date' => null,

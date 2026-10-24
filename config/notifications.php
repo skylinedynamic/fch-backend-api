@@ -198,6 +198,18 @@ return [
             'url' => '/leads/{{id}}',
         ],
 
+        // The host converted a partner's lead on that partner's behalf; the
+        // borrower is the partner's. Sent from the host.
+        'partner.lead.converted_on_behalf' => [
+            'name' => 'Lead converted on your behalf (partner)',
+            'category' => 'funding',
+            'icon' => 'ri-user-follow-line',
+            'channels' => $bellAndMail,
+            'title' => 'Your lead was converted to a borrower',
+            'body' => '{{host}} converted your lead {{name}} to a borrower on your behalf.',
+            'url' => '/clients/{{borrower_id}}',
+        ],
+
         'partner.embed_form.submitted' => [
             'name' => 'Embedded form submitted',
             'category' => 'funding',
@@ -228,6 +240,18 @@ return [
             'title' => 'New Embedded Form application',
             'body' => "{{name}} submitted {{partner}}'s embedded application form.",
             'url' => '/embed-form/loan-applications/{{id}}',
+        ],
+
+        // The host changed one of the partner's settings from Partner profile ›
+        // Configuration. Bell only (stored + pushed live), no email.
+        'partner.configuration.updated' => [
+            'name' => 'Settings changed by the host (partner)',
+            'category' => 'system',
+            'icon' => 'ri-settings-3-line',
+            'channels' => ['database', 'broadcast'],
+            'title' => 'Your settings were updated',
+            'body' => '{{host}} updated your {{area}}.',
+            'url' => '/settings/{{section}}',
         ],
 
         'partner.embed_form.converted' => [
