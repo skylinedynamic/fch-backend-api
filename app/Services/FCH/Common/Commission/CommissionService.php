@@ -4,14 +4,23 @@ namespace App\Services\FCH\Common\Commission;
 
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Common\Commission\CommissionResource;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
+use App\Models\Partner\Partner;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class CommissionService
 {
     use PaginatesApi;
+
+    /** The commissions columns the list may be sorted by as they are. */
+    private const SORT_COLUMNS = [
+        'id', 'created_at', 'commission_status', 'payment_status', 'payout_date',
+        'total_commission_amount', 'admin_commission_amount', 'partner_commission_amount',
+    ];
 
     /**
      * Get a list of commissions.
@@ -63,12 +72,15 @@ class CommissionService
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
+        $this->applySort($query, (string) $sortField, $sortOrder);
+
         $query = QueryFilter::apply(
             $query,
             $sortField,
             $sortOrder,
             $filters['filters'] ?? [],
             [
+                'skip_sorting' => true,
                 'aliases' => [
                     'created_at' => 'date_range',
                 ]
@@ -90,6 +102,35 @@ class CommissionService
             200,
             ['statistics' => $statistics]
         );
+    }
+
+    /**
+     * Sort by one of the list's columns (BUG-073). Borrower, Partner, Requested
+     * and Funded Amount are not commissions columns - they come from the
+     * funding application and the partner, archived ones included as on the
+     * list. Any other field sorts by the key instead of reaching the database.
+     */
+    private function applySort(Builder $query, string $field, string $order): void
+    {
+        $related = [
+            'borrower_name' => FundingApplication::withTrashed()->select('full_name')
+                ->whereColumn('funding_applications.id', 'commissions.funding_application_id'),
+            'requested_amount' => FundingApplication::withTrashed()->select('requested_amount')
+                ->whereColumn('funding_applications.id', 'commissions.funding_application_id'),
+            'funded_amount' => FundingApplication::withTrashed()->select('total_funded_amount')
+                ->whereColumn('funding_applications.id', 'commissions.funding_application_id'),
+            'partner_name' => Partner::withTrashed()->select('full_name')
+                ->whereColumn('partners.id', 'commissions.partner_id'),
+        ];
+
+        if (isset($related[$field])) {
+            $query->orderBy($related[$field], $order);
+        } elseif (in_array($field, self::SORT_COLUMNS, true)) {
+            $query->orderBy('commissions.' . $field, $order);
+        }
+
+        // A steady order for ties and the fallback for anything else.
+        $query->orderBy('commissions.id', $order);
     }
 
     /**
