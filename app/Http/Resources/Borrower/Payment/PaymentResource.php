@@ -12,6 +12,20 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class PaymentResource extends JsonResource
 {
     /**
+     * The `details` fields a borrower may see: who verified the payment and
+     * how, and where a manual payment went. Everything else in the column -
+     * a card payment's gateway PaymentIntent (client_secret, customer and
+     * charge ids), what was sent to the gateway, internal ids - stays server
+     * side (BUG-062).
+     */
+    private const BORROWER_DETAIL_FIELDS = [
+        'provider', 'bank_name', 'account_name', 'account_number', 'instructions', 'transaction_number',
+        'decision', 'note', 'approval_note', 'approved_at', 'approved_by',
+        'reason', 'rejection_reason', 'rejected_at', 'rejected_by',
+        'error',
+    ];
+
+    /**
      * Transform the resource into an array.
      *
      * @return array<string, mixed>
@@ -19,7 +33,7 @@ class PaymentResource extends JsonResource
     public function toArray(Request $request): array
     {
         $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
-        $rawDetails = $this->details;
+        $rawDetails = $this->borrowerDetails();
         if (is_array($rawDetails)) {
             if (!empty($rawDetails['approved_at'])) {
                 $rawDetails['approved_at'] = toTimezone($rawDetails['approved_at']);
@@ -87,6 +101,28 @@ class PaymentResource extends JsonResource
             : $this->partner?->company_name;
 
         return $company ?: null;
+    }
+
+    /**
+     * The readable part of `details`: the allowed fields that hold plain
+     * values, and the account a manual payment was paid into by its last four.
+     */
+    private function borrowerDetails(): array
+    {
+        if (!is_array($this->details)) {
+            return [];
+        }
+
+        $details = array_filter(
+            array_intersect_key($this->details, array_flip(self::BORROWER_DETAIL_FIELDS)),
+            fn ($value) => is_scalar($value) && $value !== ''
+        );
+
+        if (isset($details['account_number'])) {
+            $details['account_number'] = '****' . substr((string) $details['account_number'], -4);
+        }
+
+        return $details;
     }
 
     private function getPaymentDetails(): string
