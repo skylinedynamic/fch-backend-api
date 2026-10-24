@@ -238,6 +238,97 @@ class PartnerConfigurationChangeRecordTest extends TestCase
     }
 
     #[Test]
+    public function the_payment_entry_never_shows_the_providers_keys(): void
+    {
+        Http::fake([
+            'https://api.stripe.com/v1/tokens' => Http::response(['id' => 'tok_123']),
+            'https://api.stripe.com/v1/tokens/tok_123' => Http::response(['id' => 'tok_123']),
+        ]);
+        $stripe = PaymentProvider::create(['name' => PaymentProvider::STRIPE, 'display_name' => 'Stripe', 'status' => true]);
+
+        $this->postJson('/api/v1/common/partner-payment-providers', [
+            'partner_id' => $this->partner->id,
+            'payment_provider_id' => $stripe->id,
+            'payment_mode' => PaymentProvider::MODE_SANDBOX,
+            'status' => true,
+            'configuration' => ['sandbox' => ['publishable_key' => 'pk_test_abc123', 'secret_key' => 'sk_test_abc123']],
+        ])->assertOk();
+
+        $log = $this->onlyLog();
+        $this->assertStringContainsString('updated the Stripe payment settings', $log->description);
+        $stored = json_encode($log->getAttributes());
+        $this->assertStringNotContainsString('pk_test_abc123', $stored);
+        $this->assertStringNotContainsString('sk_test_abc123', $stored);
+    }
+
+    #[Test]
+    public function the_notification_links_to_the_changed_settings_page(): void
+    {
+        $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload(['partner_id' => $this->partner->id]))->assertOk();
+
+        Notification::assertSentTo($this->partnerLogin, DynamicNotification::class, function (DynamicNotification $n) {
+            return str_ends_with((string) ($n->toArray($this->partnerLogin)['url'] ?? ''), '/settings/sms-configuration');
+        });
+    }
+
+    // -- What the partner's activity list returns -----------------------------
+
+    #[Test]
+    public function the_partner_profile_activity_list_returns_the_entry_with_its_changes_table(): void
+    {
+        $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload(['partner_id' => $this->partner->id, 'is_enabled' => false]))->assertOk();
+        ActivityLog::query()->delete();
+        $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload(['partner_id' => $this->partner->id, 'auth_token' => 'a-new-token']))->assertOk();
+        $id = $this->onlyLog()->id;
+
+        // Seen by the partner itself: logged with visibility "everyone".
+        $this->actingAsUser($this->partnerLogin);
+        $entry = collect($this->postJson('/api/v1/common/activity-logs/fetch-all-activities', [
+            'partner_id' => $this->partner->id,
+            'limit' => 50,
+        ])->assertOk()->json('data'))->firstWhere('id', $id);
+
+        $this->assertNotNull($entry, 'the partner sees the entry');
+        $this->assertSame(['label' => 'Enabled', 'from' => 'No', 'to' => 'Yes'], $entry['field_changes']['is_enabled']);
+        $this->assertSame(['label' => 'Auth token', 'from' => null, 'to' => 'Changed'], $entry['field_changes']['auth_token']);
+    }
+
+    #[Test]
+    public function an_entry_with_list_shaped_changes_has_no_changes_table(): void
+    {
+        // The first version stored "changes" as a list of lines; it rendered as rows "0 — —".
+        $log = ActivityLog::create([
+            'log_name' => ActivityLog::LOG_TYPE_PARTNER_CONFIGURATION_UPDATE,
+            'description' => 'Hana Host updated the SMS configuration.',
+            'subject_type' => Partner::class,
+            'subject_id' => $this->partner->id,
+            'partner_id' => $this->partner->id,
+            'visibility' => ActivityLog::VISIBILITY_EVERYONE,
+            'properties' => ['area' => 'sms', 'changes' => ['Enabled: No → Yes']],
+        ]);
+
+        $resource = (new \App\Http\Resources\FCH\ActivityLog\ActivityLogResource($log))->toArray(request());
+        $this->assertNull($resource['field_changes']);
+    }
+
+    #[Test]
+    public function a_failure_to_record_does_not_undo_the_change(): void
+    {
+        $this->mock(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)
+            ->shouldReceive('logSystemEvent')->andThrow(new \RuntimeException('activity store down'));
+        \Illuminate\Support\Facades\Log::spy();
+
+        $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload([
+            'partner_id' => $this->partner->id,
+            'from_number' => '+15005550009',
+        ]))->assertOk();
+
+        $this->assertDatabaseHas('sms_configurations', ['partner_id' => $this->partner->id, 'from_number' => '+15005550009']);
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('error')
+            ->withArgs(fn ($message) => $message === 'Failed to record a partner configuration change');
+    }
+
+    #[Test]
     public function a_partners_change_to_its_own_settings_records_nothing(): void
     {
         $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload())->assertOk();
