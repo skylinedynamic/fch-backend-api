@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
 use App\Rules\BusinessEin;
@@ -11,6 +12,7 @@ use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\Ssn;
 use App\Rules\FicoScore;
+use App\Rules\PartnerTeamMember;
 use App\Rules\BusinessCreditScore;
 
 class StoreBorrowerRequest extends BaseApiRequest
@@ -85,7 +87,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'fico_score'     => ['nullable', new FicoScore()],
             'paydex_score'   => ['nullable', new BusinessCreditScore()],
             'is_free_trail'  => ['nullable', 'boolean'],
-            'assign_id'      => ['nullable', 'integer', 'exists:users,id'],
+            'assign_id'      => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner(), null, __('borrower_validation.assign_id_not_in_team'))],
             'partner_id'     => ['nullable', 'integer', 'exists:partners,id'],
             'free_trail_end_date' => ['nullable'],
 
@@ -111,6 +113,20 @@ class StoreBorrowerRequest extends BaseApiRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * The partner the new client is filed under, as BorrowerService::store()
+     * decides it: the host may name a partner, anyone else gets their own.
+     */
+    private function clientPartner(): ?Partner
+    {
+        $user = $this->user();
+        $partnerId = $this->integer('partner_id');
+
+        return $partnerId && $user?->partner?->is_host
+            ? Partner::find($partnerId)
+            : $user?->partner;
     }
 
     public function messages(): array

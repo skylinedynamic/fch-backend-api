@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
+use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
@@ -13,6 +14,7 @@ use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\Ssn;
 use App\Rules\FicoScore;
+use App\Rules\PartnerTeamMember;
 use App\Rules\BusinessCreditScore;
 
 class UpdateBorrowerRequest extends BaseApiRequest
@@ -100,7 +102,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'partner_id'       => ['nullable', 'integer', 'exists:partners,id'],
             'status'           => ['nullable', 'string', 'max:255'],
             'current_tier'     => ['nullable'],
-            'assign_id'        => ['nullable', 'integer', 'exists:users,id'],
+            'assign_id'        => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner($borrower), $borrower?->assign_id, __('borrower_validation.assign_id_not_in_team'))],
             'notes'            => ['nullable', 'string'],
             'additional_data'  => ['nullable', 'json'],
             'fico_score'       => ['nullable', new FicoScore()],
@@ -134,6 +136,21 @@ class UpdateBorrowerRequest extends BaseApiRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * The partner the client is filed under after this save: its own, or the
+     * one the host moves it to.
+     */
+    private function clientPartner(?Borrower $borrower): ?Partner
+    {
+        $partnerId = $this->integer('partner_id');
+
+        if ($partnerId && $this->user()?->partner?->is_host) {
+            return Partner::find($partnerId);
+        }
+
+        return $borrower?->partner ?? $this->user()?->partner;
     }
 
     public function messages(): array
