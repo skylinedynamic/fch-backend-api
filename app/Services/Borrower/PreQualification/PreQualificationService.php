@@ -343,12 +343,19 @@ class PreQualificationService
                 'status' => PreQualificationRequest::ON_HOLD,
             ]);
 
-            // business_start_date is derived from the borrower's own record, never
-            // borrower-entered on this step (years_in_business above is the only
-            // display field the wizard collects) — only set it when the borrower
-            // actually has one, so we never overwrite an existing value with null.
+            // business_start_date belongs to the borrower's profile. A borrower who
+            // has none sets it here and it is saved to the profile (BUG-037); one
+            // already saved is never overwritten from this step - changing it is a
+            // profile change request. Time in Business is always derived from it.
+            $enteredStartDate = $payload['business_start_date'] ?? null;
+            unset($payload['business_start_date']);
+            if ($borrower && !$borrower->business_start_date && $enteredStartDate) {
+                $borrower->update(['business_start_date' => $enteredStartDate]);
+            }
+
             if ($borrower?->business_start_date) {
                 $payload['business_start_date'] = $borrower->business_start_date;
+                $payload['years_in_business'] = calculateTimeInBusiness($borrower->business_start_date);
             }
 
             return $this->saveOnHoldStep($payload, (int) $user->entity_id, $user->partner_id, $requestedId);

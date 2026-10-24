@@ -97,6 +97,34 @@ class FundingRequestReviewApiTest extends TestCase
         $this->assertCount(2, $this->postJson('/api/v1/common/funding-request')->assertOk()->json('data'));
     }
 
+    /**
+     * Defect (BUG-008, OP-FREQ-04): the FUNDING SEQUENCE column sorted by the
+     * sequence's id, not the name it shows, so the second (descending) click
+     * gave "Colt Bright / Equipment Leasing / Vendor Credit / Business Credit".
+     */
+    #[Test]
+    public function the_list_sorts_by_the_funding_sequence_name_both_ways(): void
+    {
+        // Created in an order that is not alphabetical, so id order != name order.
+        $byName = ['Business Lines of Credit' => $this->myRequestId];
+        foreach (['Vendor Credit', 'Business Credit', 'Equipment Leasing'] as $name) {
+            $sequence = DB::table('funding_sequencings')->insertGetId(['name' => $name, 'status' => 'Active', 'created_at' => now(), 'updated_at' => now()]);
+            $request = $this->requestFor($this->myBorrower);
+            DB::table('funding_requests')->where('id', $request)->update(['funding_sequence_id' => $sequence]);
+            $byName[$name] = $request;
+        }
+        ksort($byName);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/common/funding-request', [
+            'sort_field' => 'funding_sequence_id',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame(array_values($byName), $sorted('asc'));
+        $this->assertSame(array_reverse(array_values($byName)), $sorted('desc'));
+    }
+
     #[Test]
     public function the_list_narrows_to_one_client(): void
     {

@@ -28,7 +28,10 @@ class BusinessInfoRequest extends BaseApiRequest
             'business_structure' => ['required','string','max:255'],
             'monthly_revenue' => ['required','numeric','min:0','max:9999999999999'],
             'annual_revenue' => ['required','numeric','min:0','max:9999999999999'],
-            'years_in_business' => ['required','string','max:255'],
+            // A borrower whose profile has no business start date enters it on
+            // this step; Time in Business is then worked out from it (BUG-037).
+            'business_start_date' => ['nullable','date','before_or_equal:today'],
+            'years_in_business' => ['required_without:business_start_date','nullable','string','max:255'],
         ];
     }
 
@@ -57,7 +60,10 @@ class BusinessInfoRequest extends BaseApiRequest
             'annual_revenue.min' => __('borrower_validation.annual_revenue_min'),
             'annual_revenue.max' => __('borrower_validation.prequalification_annual_revenue_max'),
 
-            'years_in_business.required' => __('borrower_validation.years_in_business_required'),
+            'business_start_date.date' => __('borrower_validation.business_start_date_date'),
+            'business_start_date.before_or_equal' => __('borrower_validation.business_start_date_future'),
+
+            'years_in_business.required_without' => __('borrower_validation.prequalification_business_start_date_required'),
             'years_in_business.string' => __('borrower_validation.years_in_business_string'),
             'years_in_business.max' => __('borrower_validation.years_in_business_max'),
         ];

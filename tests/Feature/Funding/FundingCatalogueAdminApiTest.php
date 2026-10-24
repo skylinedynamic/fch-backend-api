@@ -177,6 +177,36 @@ class FundingCatalogueAdminApiTest extends TestCase
     }
 
     /**
+     * Defect (BUG-050, OP-LEND-11): a duplicate product category name showed the
+     * raw key "lender.category_name_unique" - the key was never defined.
+     * BUG-049 (OP-FSEQ-12): an edit says "updated", not "added".
+     */
+    #[Test]
+    public function duplicate_names_and_edits_get_readable_messages(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categories = '/api/v1/admin/lenders/product-categories';
+        $groups = '/api/v1/admin/funding-groups';
+
+        $this->postJson($categories, ['name' => 'Equipment'])->assertCreated();
+        $other = $this->postJson($categories, ['name' => 'Inventory'])->assertCreated()->json('data.id');
+        $this->postJson($categories, ['name' => 'Equipment'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.name', 'This category name already exists.');
+        $this->putJson("{$categories}/{$other}", ['name' => 'Equipment'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.name', 'This category name already exists.');
+        $this->putJson("{$categories}/{$other}", ['name' => 'Inventory finance'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Category updated successfully');
+
+        $group = $this->postJson($groups, ['name' => 'Loans'])->assertCreated()->json('data.id');
+        $this->putJson("{$groups}/{$group}", ['name' => 'Term Loans'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Funding group updated successfully.');
+    }
+
+    /**
      * Defect (findings O31): create took any phone but edit demanded a unique
      * one, so two lenders on one number could be made and then neither could
      * be edited. A phone number is not unique - lenders share support lines.

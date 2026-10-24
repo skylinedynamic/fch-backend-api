@@ -162,6 +162,8 @@ return [
     'years_in_business_required' => 'Years in business is required',
     'years_in_business_string' => 'Years in business must be a string',
     'years_in_business_max' => 'Years in business cannot exceed 255 characters',
+    'prequalification_business_start_date_required' => 'Business start date is required to work out Time in Business',
+    'business_start_date_future' => 'Business start date cannot be in the future',
 
     'avg_bank_balance_numeric' => 'Average bank balance must be a number',
     'avg_bank_balance_min' => 'Average bank balance cannot be negative',

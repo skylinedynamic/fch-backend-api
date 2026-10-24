@@ -5,6 +5,7 @@ namespace Tests\Feature\FundingRequest;
 use App\Http\Controllers\Api\V1\Borrower\Funding\FundingRequestController;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -88,6 +89,60 @@ class BorrowerFundingRequestApiTest extends TestCase
         $ids = collect($this->postJson('/api/v1/borrower/funding/requests/list')->assertOk()->json('data'))->pluck('id');
 
         $this->assertSame([$this->myRequestId], $ids->all());
+    }
+
+    /**
+     * Defect (BUG-009, CP-FREQ-05): clicking a column a second time to sort it
+     * descending kept the ascending order on every column.
+     */
+    #[Test]
+    public function my_requests_sort_by_a_column_in_both_directions(): void
+    {
+        DB::table('funding_requests')->where('id', $this->myRequestId)->update(['requested_amount' => 20000]);
+        $bigger = $this->requestFor($this->me);
+        DB::table('funding_requests')->where('id', $bigger)->update(['requested_amount' => 50000]);
+        $this->actingAsUser($this->me);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/borrower/funding/requests/list', [
+            'sort_field' => 'requested_amount',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$this->myRequestId, $bigger], $sorted('asc'));
+        $this->assertSame([$bigger, $this->myRequestId], $sorted('desc'));
+    }
+
+    /**
+     * Defect (BUG-009, 19-Oct note): APPLICATION STATUS is sortable on the
+     * screen, but `application_status` is not a funding_requests column, so the
+     * list fell back to newest first and the order never changed. It now
+     * follows the application lifecycle - no application yet, Draft, ...,
+     * Funded - in both directions.
+     */
+    #[Test]
+    public function my_requests_sort_by_application_status_both_ways(): void
+    {
+        $funded = $this->requestFor($this->me);
+        $draft = $this->requestFor($this->me);
+        foreach ([$funded => FundingApplication::FUNDED, $draft => FundingApplication::DRAFT] as $requestId => $status) {
+            DB::table('funding_applications')->insert([
+                'funding_request_id' => $requestId,
+                'borrower_id' => $this->me->entity_id,
+                'partner_id' => $this->me->partner_id,
+                'status' => $status,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $this->actingAsUser($this->me);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/borrower/funding/requests/list', [
+            'sort_field' => 'application_status',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$this->myRequestId, $draft, $funded], $sorted('asc'));
+        $this->assertSame([$funded, $draft, $this->myRequestId], $sorted('desc'));
     }
 
     #[Test]

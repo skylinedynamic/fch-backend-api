@@ -279,19 +279,15 @@ class BillingService
                 $skipSorting = true;
                 break;
 
+            // The Name column shows whoever is billed - partner, client or seat -
+            // so it sorts on that name, not the partner's alone: on a white-label
+            // partner's list every row is a client and sorted on NULL (BUG-009).
+            // No join either: an unselected join let the partner's id and status
+            // overwrite the subscription's own on every row.
             case 'partner_name':
-                $query->leftJoin('partners', function ($join) {
-                    $join->on('subscriptions.entity_id', '=', 'partners.id')
-                        ->where('subscriptions.entity_type', '=', Partner::class);
-                })->orderBy('partners.full_name', $sortOrder);
-                $skipSorting = true;
-                break;
-
             case 'borrower_name':
-                $query->leftJoin('borrowers', function ($join) {
-                    $join->on('subscriptions.entity_id', '=', 'borrowers.id')
-                        ->where('subscriptions.entity_type', '=', Borrower::class);
-                })->orderByRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) {$sortOrder}");
+            case 'subscriber_name':
+                $query->orderBySubscriberName($sortOrder);
                 $skipSorting = true;
                 break;
 

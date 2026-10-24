@@ -44,16 +44,37 @@ class AppConfigurationService
     }
 
     /**
+     * Save a value from a settings screen. A secret comes back masked or blank
+     * when the user did not retype it (the screen never holds it), so the
+     * stored one is kept.
+     */
+    public function setFromScreen(string $key, $value, ?string $module = null, ?int $partnerId = null)
+    {
+        if (AppConfiguration::keepsStoredSecret($key, $value)) {
+            return null;
+        }
+
+        return $this->set($key, $value, $module, $partnerId);
+    }
+
+    /** A single value as a settings screen may see it: a stored secret masked. */
+    public function getForScreen(string $key, ?string $module = null, ?int $partnerId = null)
+    {
+        return AppConfiguration::forDisplay($key, $this->get($key, null, $module, $partnerId));
+    }
+
+    /**
      * Get configurations belonging to a specific module.
      */
     public function getByModule(string $module, ?int $partnerId = null): array
     {
-        return AppConfiguration::query()
+        // Read by the settings screens only: secrets go out masked (BUG-022).
+        return AppConfiguration::maskSecrets(AppConfiguration::query()
             ->where('module', $module)
             ->when($partnerId, fn($q) => $q->where('partner_id', $partnerId))
             ->get()
             ->pluck('value', 'key')
-            ->toArray();
+            ->toArray());
     }
 
     /**
@@ -61,13 +82,14 @@ class AppConfigurationService
      */
     public function getMultiple(array $keys, ?string $module = null, ?int $partnerId = null): array
     {
-        return AppConfiguration::query()
+        // Read by the settings screens only: secrets go out masked (BUG-022).
+        return AppConfiguration::maskSecrets(AppConfiguration::query()
             ->whereIn('key', $keys)
             ->when($module, fn($q) => $q->where('module', $module))
             ->when($partnerId, fn($q) => $q->where('partner_id', $partnerId))
             ->get()
             ->pluck('value', 'key')
-            ->toArray();
+            ->toArray());
     }
 
     /**

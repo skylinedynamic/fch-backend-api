@@ -73,6 +73,46 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertCount(2, $this->postJson('/api/v1/common/embed-forms/submissions/fetch')->assertOk()->json('data'));
     }
 
+    /**
+     * Defect (BUG-009, OP-EMB-11): clicking Applicant, Contact Info or Desired
+     * Funding did nothing - the list was always newest first, whatever the sort.
+     */
+    #[Test]
+    public function the_inbox_sorts_by_each_sortable_column_in_both_directions(): void
+    {
+        $zed = $this->submissionFor($this->partner, ['first_name' => 'Zed', 'email' => 'a@example.test', 'desired_funding_amount' => 5000, 'status' => EmbedFormSubmission::STATUS_REVIEWING, 'created_at' => now()->subDay()]);
+        $amy = $this->submissionFor($this->partner, ['first_name' => 'Amy', 'email' => 'z@example.test', 'desired_funding_amount' => 50000, 'status' => EmbedFormSubmission::STATUS_NEW, 'created_at' => now()]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $field, string $order) => collect($this->postJson('/api/v1/common/embed-forms/submissions/fetch', [
+            'sort_field' => $field,
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$amy, $zed], $sorted('first_name', 'asc'));
+        $this->assertSame([$zed, $amy], $sorted('first_name', 'desc'));
+        $this->assertSame([$zed, $amy], $sorted('email', 'asc'));
+        $this->assertSame([$amy, $zed], $sorted('email', 'desc'));
+        $this->assertSame([$zed, $amy], $sorted('desired_funding_amount', 'asc'));
+        $this->assertSame([$amy, $zed], $sorted('desired_funding_amount', 'desc'));
+        $this->assertSame([$amy, $zed], $sorted('status', 'asc'));
+        $this->assertSame([$zed, $amy], $sorted('created_at', 'asc'));
+        $this->assertSame([$amy, $zed], $sorted('created_at', 'desc'));
+    }
+
+    #[Test]
+    public function an_unknown_sort_field_falls_back_to_newest_first(): void
+    {
+        $older = $this->submissionFor($this->partner, ['created_at' => now()->subDay()]);
+        $newer = $this->submissionFor($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/embed-forms/submissions/fetch', ['sort_field' => 'ssn; drop table users', 'sort_order' => 'asc'])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newer)
+            ->assertJsonPath('data.1.id', $older);
+    }
+
     #[Test]
     public function i_open_and_move_my_partners_submission(): void
     {

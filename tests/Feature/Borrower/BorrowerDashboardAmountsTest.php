@@ -69,4 +69,52 @@ class BorrowerDashboardAmountsTest extends TestCase
             // The raw numbers stay, for anything that calculates with them.
             ->assertJsonPath('data.states.total_requested_amount', fn ($value) => (float) $value === 37249000.0);
     }
+
+    /**
+     * Defect (BUG-027, CP-MYAPP-01): a funding application the borrower had
+     * started (On Hold) was not counted on the dashboard - FUNDING APPLICATIONS
+     * said 0 while the funding request said one had been started.
+     */
+    #[Test]
+    public function an_application_started_on_hold_is_counted_and_listed(): void
+    {
+        $partner = Partner::create([
+            'is_host' => true,
+            'status' => Partner::STATUS_ACTIVE,
+            'company_name' => 'Four Corner Funding',
+            'full_name' => 'Host Owner',
+            'email' => 'host-' . uniqid() . '@example.test',
+        ]);
+        $borrower = Borrower::create([
+            'partner_id' => $partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Michael',
+            'last_name' => 'Chen',
+            'email' => 'borrower-' . uniqid() . '@example.test',
+        ]);
+        $started = DB::table('funding_applications')->insertGetId([
+            'application_number' => 'FUND-ON-HOLD',
+            'borrower_id' => $borrower->id,
+            'partner_id' => $partner->id,
+            'status' => FundingApplication::ON_HOLD,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Passport::actingAs(User::create([
+            'name' => 'Michael Chen',
+            'email' => 'login-' . uniqid() . '@example.test',
+            'password' => bcrypt('password'),
+            'status' => true,
+            'user_type' => User::BORROWER,
+            'entity_type' => Borrower::class,
+            'entity_id' => $borrower->id,
+            'partner_id' => $partner->id,
+        ]), [], 'api');
+
+        $this->getJson('/api/v1/borrower/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.states.funding_applications', 1)
+            ->assertJsonPath('data.latest_funding_applications.0.id', $started);
+    }
 }

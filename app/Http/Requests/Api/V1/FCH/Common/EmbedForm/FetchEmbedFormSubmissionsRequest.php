@@ -28,6 +28,8 @@ class FetchEmbedFormSubmissionsRequest extends BaseApiRequest
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'sort_field' => ['nullable', 'string', 'max:64'],
+            'sort_order' => ['nullable', 'string', 'in:asc,desc'],
 
             // Host only, enforced in the controller - a partner sending this
             // still gets scoped to their own submissions.

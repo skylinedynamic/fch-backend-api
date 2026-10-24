@@ -91,10 +91,15 @@ class DashboardService
 
         $data['pending_reminders_count'] = $totalPendingReminders;
 
+        // The host sees the newest across every partner - what Intake & Review >
+        // Funding Application ("View All") lists. Its own partner record only
+        // holds the host's direct clients, so the newest were missing (BUG-013).
         $data['latest_funding_applications'] = DashboardFundingApplicationResource::collection(
-            $partner->fundingApplications()->with('partner')    
+            ($isHost ? FundingApplication::query() : $partner->fundingApplications())
+                ->with('partner')
                 ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->latest()
+                ->orderByDesc('id')
                 ->take(5)
                 ->get()
         );
