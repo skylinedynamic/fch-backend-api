@@ -14,9 +14,6 @@ use Tests\TestCase;
  */
 class NavigationMapTest extends TestCase
 {
-    /** The WLP portal's Settings section slugs (/settings/<slug>), relative to its src folder. */
-    private const SETTINGS_SECTIONS = 'config/settingsSections.ts';
-
     /**
      * Where each portal's checkout may sit, relative to this repo. The first
      * folder that exists is used - add yours if it is cloned under another name.
