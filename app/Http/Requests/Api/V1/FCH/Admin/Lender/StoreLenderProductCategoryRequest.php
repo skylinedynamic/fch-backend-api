@@ -36,7 +36,7 @@ class StoreLenderProductCategoryRequest extends BaseApiRequest
             'name.required' => __('lender.name_required'),
             'name.string' => __('lender.name_string'),
             'name.max' => __('lender.name_max'),
-            'name.unique' => __('lender.category_name_unique', ['default' => 'The category name has already been taken.']),
+            'name.unique' => __('lender.category_name_unique'),
             'status.in' => __('lender.status_in'),
         ];
     }

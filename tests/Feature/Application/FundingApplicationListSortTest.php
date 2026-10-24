@@ -172,4 +172,25 @@ class FundingApplicationListSortTest extends TestCase
         $this->assertSame($expected, $this->list('status', 'asc'));
         $this->assertSame(array_reverse($expected), $this->list('status', 'desc'));
     }
+
+    /**
+     * Defect (BUG-048, OP-FAPP-03): the Status filter did nothing - the list
+     * accepted `status` but never applied it, so every status showed the same
+     * rows.
+     */
+    #[Test]
+    public function the_status_filter_keeps_only_applications_in_that_status(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $ids = fn (?string $status) => collect($this->postJson('/api/v1/common/request-application/funding-application', [
+            'status' => $status,
+        ])->assertOk()->json('data'))->pluck('id')->sort()->values()->all();
+
+        $this->assertSame([$this->rows['A']], $ids(FundingApplication::PENDING));
+        $this->assertSame([$this->rows['C']], $ids(FundingApplication::FUNDED));
+        $this->assertSame([], $ids(FundingApplication::DENIED));
+        // "All Status" sends an empty value: no filter.
+        $this->assertCount(3, $ids(''));
+    }
 }

@@ -173,6 +173,12 @@ class RequestApplicationService
                 $query->search($search);
             }
 
+            // Status filter: accepted but never applied before, so every status
+            // showed the same rows (BUG-048).
+            if (!empty($filters['status'])) {
+                $query->where('funding_applications.status', $filters['status']);
+            }
+
             // Date Range: whole days in the viewer's timezone - the DATE column
             // shows created_at there - turned into UTC bounds for the stored
             // value. It used to be ignored altogether.
