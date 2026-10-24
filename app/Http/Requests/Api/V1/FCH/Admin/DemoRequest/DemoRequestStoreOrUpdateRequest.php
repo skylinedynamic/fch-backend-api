@@ -8,12 +8,26 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\BusinessEin;
 
 class DemoRequestStoreOrUpdateRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * A Tax ID is an EIN: the screen writes it XX-XXXXXXX, the column keeps the
+     * nine digits. Anything that is not a writing of an EIN is left for
+     * BusinessEin to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('tax_id')) {
+            $this->merge(['tax_id' => BusinessEin::canonical($this->input('tax_id'))]);
+        }
     }
 
     public function rules(): array
@@ -23,19 +37,18 @@ class DemoRequestStoreOrUpdateRequest extends FormRequest
 
             'customer_name' => ['required', 'string', 'max:191'],
             'full_name'     => ['nullable', 'string', 'max:191'],
-            'phone'         => ['nullable', 'string', 'max:50'],
+            'phone'         => ['nullable', 'string', new UsPhoneNumber()],
             'email'         => ['nullable', 'email', 'max:191'],
             'state'         => ['nullable', 'string', 'max:100'],
             'country'       => ['nullable', 'string', 'max:100'],
             'zip_code'      => ['nullable', 'string', new UsPostalCode()],
             'joining_date'  => ['nullable', 'date'],
-            'tax_id'        => ['nullable', 'string', 'max:100'],
+            'tax_id'        => ['nullable', 'string', new BusinessEin()],
             'website'       => ['nullable', 'url', 'max:191'],
 
             'assigned_to'   => ['nullable', 'integer', Rule::exists('users', 'id')],
             'assigned_email'=> ['nullable', 'email', 'max:191'],
-            'assigned_phone'=> ['nullable', 'string', 'max:50'],
-
+            'assigned_phone'=> ['nullable', 'string', new UsPhoneNumber()],
             'demo_start'    => ['nullable', 'date'],
             'demo_end'      => ['nullable', 'date', 'after_or_equal:demo_start'],
             'duration_days' => ['nullable', 'integer', 'min:1', 'max:365'],

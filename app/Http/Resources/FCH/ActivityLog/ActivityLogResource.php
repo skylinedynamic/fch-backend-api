@@ -181,7 +181,11 @@ class ActivityLogResource extends JsonResource
             // On an "application edited" entry: each field that changed, with its
             // old and new value ({ field: { label, from, to } }). Sensitive ones
             // (SSN and the like) arrive as "[hidden]".
-            'field_changes' => is_array($this->properties['changes'] ?? null) && ($this->properties['changes'] ?? []) !== []
+            // Only a field => {label, from, to} map makes the "Show changes"
+            // table; a plain list (older entries) would render as rows "0, 1, …".
+            'field_changes' => is_array($this->properties['changes'] ?? null)
+                && ($this->properties['changes'] ?? []) !== []
+                && !array_is_list($this->properties['changes'])
                 ? $this->properties['changes']
                 : null,
             // On a submit / re-submit entry: the signature that was replaced

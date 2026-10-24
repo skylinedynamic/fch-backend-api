@@ -274,6 +274,15 @@ class Partner extends Model
     }
 
     /**
+     * The partners the host manages: everyone but the host's own record. Used by
+     * the partner count cards (dashboard and Partners list) so they agree.
+     */
+    public function scopeExcludingHost($query)
+    {
+        return $query->where($this->qualifyColumn('is_host'), false);
+    }
+
+    /**
      * Scope: apply text search across common partner fields.
      */
     public function scopeSearch($query, ?string $search)

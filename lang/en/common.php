@@ -21,6 +21,9 @@ return [
     'business_ein_invalid' => 'Enter a 9-digit EIN as XX-XXXXXXX, e.g. 12-3456789.',
     'ssn_invalid' => 'Enter a valid 9-digit SSN as XXX-XX-XXXX.',
     'duns_number_invalid' => 'Enter a 9-digit D-U-N-S number, e.g. 123456789.',
+    'routing_number_invalid' => 'Enter a 9-digit routing number, e.g. 021000021.',
+    'fico_score_invalid' => 'Enter a FICO score as a whole number between :min and :max.',
+    'business_credit_score_invalid' => 'Enter the business credit score as a whole number of 0 or more.',
     // Shown when an operation fails unexpectedly. The real exception is logged;
     // it is never returned to the client, because its text can carry SQL,
     // file paths and other internals.

@@ -134,8 +134,11 @@ class SmsConfigurationApiTest extends TestCase
     }
 
     #[Test]
-    public function a_partner_only_ever_edits_its_own_configuration(): void
+    public function without_partner_id_a_partner_edits_its_own_configuration(): void
     {
+        // Naming another partner with `partner_id` is for Partner profile ›
+        // Configuration (see PartnerConfigurationOnBehalfTest); who may do it is
+        // decided by the admin panel, not checked here.
         $other = Partner::create([
             'is_host' => false,
             'status' => Partner::STATUS_ACTIVE,
@@ -146,7 +149,7 @@ class SmsConfigurationApiTest extends TestCase
         ]);
         $this->actAsPartnerAdmin();
 
-        $this->postJson(self::URL, $this->validPayload(['partner_id' => $other->id]))->assertOk();
+        $this->postJson(self::URL, $this->validPayload())->assertOk();
 
         $this->assertSame(1, SmsConfiguration::where('partner_id', $this->partner->id)->count());
         $this->assertSame(0, SmsConfiguration::where('partner_id', $other->id)->count());
@@ -167,11 +170,29 @@ class SmsConfigurationApiTest extends TestCase
     }
 
     #[Test]
-    public function a_disabled_configuration_can_be_saved_incomplete(): void
+    public function a_configuration_is_never_saved_with_empty_credentials_even_when_disabled(): void
     {
         $this->actAsPartnerAdmin();
 
-        $this->postJson(self::URL, $this->validPayload(['is_enabled' => false, 'auth_token' => null, 'from_number' => null]))
+        $this->postJson(self::URL, $this->validPayload([
+            'is_enabled' => false, 'account_sid' => null, 'auth_token' => null, 'from_number' => null,
+        ]))->assertUnprocessable()->assertJsonValidationErrors(['account_sid', 'auth_token']);
+
+        $this->assertSame(0, SmsConfiguration::count());
+    }
+
+    #[Test]
+    public function a_complete_configuration_can_be_saved_disabled_and_switched_off_later(): void
+    {
+        $this->actAsPartnerAdmin();
+
+        $this->postJson(self::URL, $this->validPayload(['is_enabled' => false]))
+            ->assertOk()
+            ->assertJsonPath('data.configuration.is_enabled', false);
+
+        // Switching a saved account off again: the masked token keeps the stored one.
+        $this->postJson(self::URL, $this->validPayload(['is_enabled' => true]))->assertOk();
+        $this->postJson(self::URL, $this->validPayload(['is_enabled' => false, 'auth_token' => '••••••••']))
             ->assertOk()
             ->assertJsonPath('data.configuration.is_enabled', false);
     }

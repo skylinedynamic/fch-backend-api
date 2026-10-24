@@ -9,6 +9,7 @@ use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Commission\CommissionViewer;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\FCH\Common\Dashboard\DashboardAppointmentResource;
 use App\Http\Resources\FCH\Common\Dashboard\DashboardFundingApplicationResource;
@@ -29,25 +30,40 @@ class DashboardService
         $isHost = (bool) $partner->is_host;
         $data = [];
 
+        // The cards count what the Clients and Leads list cards count: deleted and
+        // archived records left out, and visibleTo() limiting a non-host partner
+        // to its own (the host sees every partner's).
+        $totalClients = Borrower::visibleTo($user)->notArchived()->count();
+        $totalLeads = Lead::visibleTo($user)->count();
+
+        // The commission card, in the viewer's terms - the same figures as the
+        // Commissions list cards (see CommissionViewer).
+        $data['commission'] = $this->commissionCard(CommissionViewer::for($user));
+
         if ($isHost) {
             // --- HOST VIEW ---
             $data['counts'] = [
-                'total_partners' => $partner->count(),
-                'total_clients' => Borrower::count(),
-                'total_leads' => Lead::count(),
-                'total_commission' => Commission::where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('admin_commission_amount'),
+                'total_partners' => Partner::notArchived()->excludingHost()->count(),
+                'total_clients' => $totalClients,
+                'total_leads' => $totalLeads,
             ];
 
         } else {
             // --- PARTNER VIEW ---
             $data['counts'] = [
-                'total_clients' => $partner->borrowers->count(),
-                'total_leads' => $partner->leads->count(),
-                'total_commission' => $partner->commissions->where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('partner_commission_amount'),
-                'funding_application' => FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)->where('partner_id', $partner->id)->count(),
+                'total_clients' => $totalClients,
+                'total_leads' => $totalLeads,
+                // On Hold included, as on the Funding Applications page card.
+                'funding_application' => FundingApplication::where('partner_id', $partner->id)->count(),
             ];
         }
 
+
+        // Kept for older screens: what this viewer has been paid. Partner staff
+        // see no commission money.
+        if (array_key_exists('paid_amount', $data['commission'])) {
+            $data['counts']['total_commission'] = $data['commission']['paid_amount'];
+        }
 
         $data['upcoming_meetings'] = DashboardAppointmentResource::collection(
             Appointment::where('appointment_date', '>=', now())
@@ -100,5 +116,32 @@ class DashboardService
 
 
         return $data;
+    }
+
+    /** The dashboard's commission card for this viewer. */
+    private function commissionCard(CommissionViewer $viewer): array
+    {
+        $summary = $viewer->summarize($viewer->scope(Commission::query()));
+
+        // The headline is what was earned: commission on funded deals, paid out
+        // or not. A deal not funded yet (Pending) has earned nothing.
+        return match ($viewer->role) {
+            CommissionViewer::HOST_STAFF => [
+                'viewer' => $viewer->role,
+                'earned_amount' => round($summary['my_paid_amount'] + $summary['my_expected_amount'], 2),
+                'paid_amount' => $summary['my_paid_amount'],
+                'expected_amount' => $summary['my_expected_amount'],
+                'expected_deals' => $summary['my_expected_deals'],
+            ],
+            CommissionViewer::PARTNER_STAFF => [
+                'viewer' => $viewer->role,
+                'deals' => $summary['total_deals'],
+                'completed_deals' => $summary['completed_deals'],
+            ],
+            default => ['earned_amount' => round($summary['paid_amount'] + $summary['unpaid_amount'], 2)]
+                + array_intersect_key($summary, array_flip([
+                    'viewer', 'paid_amount', 'pending_amount', 'unpaid_amount', 'paid_to_staff',
+                ])),
+        };
     }
 }

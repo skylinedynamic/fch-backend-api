@@ -8,7 +8,7 @@ return [
     'test_message' => 'This is a test message from :name. Your SMS configuration is working.',
     'not_configured' => 'Save complete SMS credentials before sending a test message.',
     'no_partner' => 'SMS configuration is only available to partner accounts.',
-    'required_when_enabled' => 'This field is required to enable SMS.',
+    'required' => 'This field is required.',
 
     // Validation
     'country_required' => 'Please select a country.',

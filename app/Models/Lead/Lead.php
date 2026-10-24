@@ -2,10 +2,12 @@
 
 namespace App\Models\Lead;
 
+use App\Http\Middleware\EnsureHostPartner;
 use App\Models\Contact\Contact;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\HasEncryptedSsn;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,6 +18,8 @@ use Spatie\Activitylog\Contracts\Activity;
 class Lead extends Model
 {
     use HasFactory, SoftDeletes;
+    // The full SSN, encrypted in ssn_encrypted - as on a client's profile.
+    use HasEncryptedSsn;
 
     protected $table = 'leads';
 
@@ -152,5 +156,31 @@ class Lead extends Model
                         ->orWhere('company_name', 'like', "%{$search}%");
                 });
         });
+    }
+
+    /**
+     * The leads a user may see and work: every partner's for the host partner
+     * and its staff, only their own partner's for anyone else.
+     */
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        if (EnsureHostPartner::allows($user)) {
+            return $query;
+        }
+
+        return $query->where('leads.partner_id', $user?->partner_id);
+    }
+
+    /**
+     * Whether this user converting this lead does so on the lead partner's
+     * behalf: the host converting another partner's borrower lead. The
+     * borrower stays that partner's either way.
+     */
+    public function convertsOnBehalfOfPartnerFor(?User $user): bool
+    {
+        return $this->lead_type === self::BORROWER_TYPE_LEAD
+            && $this->partner_id !== null
+            && (int) $this->partner_id !== (int) $user?->partner_id
+            && EnsureHostPartner::allows($user);
     }
 }

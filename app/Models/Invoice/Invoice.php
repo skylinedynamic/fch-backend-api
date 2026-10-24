@@ -96,6 +96,27 @@ class Invoice extends Model
     ];
 
     /**
+     * The invoice types that bill for the subscription's plan itself.
+     *
+     * Only these may describe themselves with the subscription's plan (its
+     * enrollment type). A borrower fee and a platform fee also hang off a
+     * subscription, but they charge something else, so the plan is not theirs.
+     */
+    const PLAN_INVOICE_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+    ];
+
+    /**
+     * Whether this invoice bills for its subscription's plan.
+     */
+    public function billsSubscriptionPlan(): bool
+    {
+        return in_array($this->type, self::PLAN_INVOICE_TYPES, true);
+    }
+
+    /**
      * An unpaid invoice that is the subscription's own billing cycle.
      *
      * The single definition of "this subscriber still owes us for their plan", used

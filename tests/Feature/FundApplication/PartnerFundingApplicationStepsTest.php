@@ -125,6 +125,44 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->assertTrue((bool) $application->is_partner_prepared);
     }
 
+    #[Test]
+    public function a_partner_saves_a_written_ssn_as_its_nine_digits(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'funding_request_id' => $this->myRequestId,
+            'ssn' => '123-45-6789',
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'ssn' => '234-56-7890']],
+        ]))->assertOk();
+
+        $this->assertSame('123456789', DB::table('funding_applications')->where('id', $this->myApplicationId)->value('ssn'));
+        $this->assertSame('234567890', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
+    }
+
+    #[Test]
+    public function a_partners_ownership_step_checks_the_owner_and_co_borrower_formats(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'funding_request_id' => $this->myRequestId,
+            'ssn' => '666-12-3456', 'phone_number' => '(124) 982-7457', 'zip_code' => '7330',
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ssn' => 'abc', 'zip_code' => '1', 'mobile_phone' => '1234567890']],
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'ssn' => __('common.ssn_invalid'),
+            'phone_number' => __('embed_form.phone_invalid'),
+            'zip_code' => __('common.postal_code_invalid'),
+            'co_borrowers.0.ssn' => __('common.ssn_invalid'),
+            'co_borrowers.0.zip_code' => __('common.postal_code_invalid'),
+            'co_borrowers.0.mobile_phone' => __('embed_form.phone_invalid'),
+        ]);
+    }
+
     /**
      * The document step opens the borrower's file folder (borrowers/{id}). The
      * partner portal had no borrower id here and used the signed-in user's own

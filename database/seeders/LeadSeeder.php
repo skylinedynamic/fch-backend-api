@@ -60,7 +60,7 @@ class LeadSeeder extends Seeder
                     'entity_type' => $faker->randomElement(['LLC', 'Corporation', 'Partnership']),
                     'industry_type' => $faker->word,
                     'business_start_date' => $faker->date(),
-                    'ssn_last_4' => $faker->randomNumber(4, true),
+                    'ssn' => $faker->numerify('2##-##-####'),
                     'requirement_details' => $faker->paragraph,
                     'created_by' => null,
                     'updated_by' => null,

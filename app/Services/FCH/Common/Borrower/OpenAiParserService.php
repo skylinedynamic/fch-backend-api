@@ -24,11 +24,6 @@ class OpenAiParserService implements CreditProfileParserInterface
     {
         $prompt = $this->buildPrompt();
 
-        Log::info('OpenAI parser: starting request', [
-            'model' => $this->model,
-            'text_length' => strlen($text),
-        ]);
-
         try {
             $payload = [
                 'model' => $this->model,
@@ -87,11 +82,6 @@ class OpenAiParserService implements CreditProfileParserInterface
             $content = preg_replace('/\n?```\s*$/i', '', $content);
             $content = trim($content);
 
-            // The response is the extracted consumer report - log its size, never its contents.
-            Log::info('OpenAI parser: received response', [
-                'content_length' => strlen($content),
-            ]);
-
             $parsed = $this->parseOpenAiResponse($content);
 
             if ($parsed === null) {
@@ -108,12 +98,6 @@ class OpenAiParserService implements CreditProfileParserInterface
                 $parsed['trade_accounts'] ?? [],
                 $parsed['inquiries'] ?? []
             );
-
-            Log::info('OpenAI parser: extraction result', [
-                'trade_accounts_count' => count($parsed['trade_accounts'] ?? []),
-                'addresses_count' => count($parsed['addresses'] ?? []),
-                'inquiries_count' => count($parsed['inquiries'] ?? []),
-            ]);
 
             return $parsed;
 

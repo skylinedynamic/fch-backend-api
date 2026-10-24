@@ -27,7 +27,7 @@ class CommonController extends Controller
     public function getAllUsers(Request $request)
     {
         try {
-            $users = $this->commonService->getAllUsers();
+            $users = $this->commonService->getAllUsers($request->integer('partner_id') ?: null);
 
             return ApiResponse::success(
                 $users,

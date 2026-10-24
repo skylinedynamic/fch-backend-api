@@ -166,18 +166,26 @@ class PublicWebsiteApiTest extends TestCase
     }
 
     #[Test]
+    public function a_website_lead_needs_a_real_us_phone_number(): void
+    {
+        $this->postJson('/api/v1/website/leads', $this->contactForm(['phone_number' => '(124) 982-7457']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['phone_number' => __('embed_form.phone_invalid')]);
+    }
+
+    #[Test]
     public function a_website_lead_is_filed_with_the_host_and_its_phone_normalised(): void
     {
         $this->postJson('/api/v1/website/leads', [
             'contact_person' => 'Visitor Vee',
             'email' => 'vee@example.test',
-            'phone_number' => '5551234567',
+            'phone_number' => '5552345678',
             'company_name' => 'Vee Co',
         ])->assertOk();
 
         $lead = Lead::where('email', 'vee@example.test')->firstOrFail();
         $this->assertSame($this->host->id, $lead->partner_id);
-        $this->assertSame('(555) 123-4567', $lead->phone_number);
+        $this->assertSame('(555) 234-5678', $lead->phone_number);
     }
 
     #[Test]

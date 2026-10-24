@@ -2,29 +2,33 @@
 
 namespace App\Services\Borrower\Profile;
 
-use App\Services\FCH\Common\Notification\Notifier;
-use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Models\Borrower\Borrower;
-use App\Models\Employee\Employee;
-use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\Global\Account\EmailChangeService;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class ProfileService
 {
+    public function __construct(protected EmailChangeService $emailChange) {}
+
     /**
-     * Update borrower profile
+     * Update borrower profile.
      *
-     * @param User $user
-     * @param array $data
-     * @return User
+     * A new email isn't saved with the rest: like every sign-in email change it
+     * waits as pending until it's confirmed (with the password) from the link
+     * sent to the new address, and the old address is told and can cancel.
+     *
+     * @return string|null the new email now awaiting confirmation, if the save asked for one
+     * @throws ValidationException when another account already uses the new email
      * @throws Exception
      */
-    public function updateProfile(User $user, array $data): User
+    public function updateProfile(User $user, array $data): ?string
     {
+        // Checked before anything is written, so a taken email fails the whole save.
+        $newEmail = $this->emailChange->takeFrom($data, $user, $user->email);
+
         try {
             DB::beginTransaction();
 
@@ -33,7 +37,6 @@ class ProfileService
                 'first_name' => $data['first_name'],
                 'middle_name' => $data['middle_name'] ?? null,
                 'last_name' => $data['last_name'],
-                'email' => $data['email'],
                 'phone_number' => $data['phone_number'],
                 'country' => $data['country'],
                 'country_code' => $data['country_code'],
@@ -62,59 +65,25 @@ class ProfileService
                 $borrower->update($updateData);
             }
 
-            // Update the user
-            $userData = [
+            User::where('id', $user->id)->update([
                 // personName() rather than concatenation: it drops the blank
                 // parts, so someone with no middle name does not end up with a
                 // double space in the middle of their name.
                 'name' => personName($data['first_name'], $data['middle_name'] ?? null, $data['last_name']),
                 'phone_number' => $data['phone_number'],
-            ];
-
-            $emailChanged = (isset($data['email']) && $user->email !== $data['email']);
-            $plainPassword = null;
-
-            if ($emailChanged) {
-                $plainPassword = bin2hex(random_bytes(4)); // 8 chars
-                $userData['email'] = $data['email'];
-                $userData['password'] = Hash::make($plainPassword);
-                Log::info('Password reset for Borrower user due to email change via Profile', ['user_id' => $user->id]);
-            }
-
-            User::where('id', $user->id)->update($userData);
-
-            if ($emailChanged) {
-                $hostPartner = Partner::where('is_host', 1)->first();
-                $updatedUser = User::where('id', $user->id)->first();
-
-                $mailData = [
-                    'user' => $updatedUser,
-                    'plain_password' => $plainPassword,
-                    'business_info' => [
-                        'company_name' => $hostPartner->company_name ?? config('app.name'),
-                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
-                        'email' => $hostPartner->email ?? config('mail.from.address'),
-                        'phone_number' => $hostPartner->phone_number ?? '',
-                        'address_line_1' => $hostPartner->address_line_1 ?? '',
-                    ],
-                    'is_update' => true,
-                ];
-                Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
-
-                try {
-                    app(Notifier::class)->send('borrower.account.login_updated', $updatedUser,
-                        mail: (new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id))->to($updatedUser->email));
-                } catch (\Exception $e) {
-                    Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
-                }
-            }
+            ]);
 
             DB::commit();
-            return $user->fresh();
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception(__('borrower.failed_to_update_profile: ' . $e->getMessage()));
         }
+
+        if ($newEmail) {
+            $this->emailChange->request($user, $newEmail);
+        }
+
+        return $newEmail;
     }
 
 

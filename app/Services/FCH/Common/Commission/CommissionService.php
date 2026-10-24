@@ -5,7 +5,6 @@ namespace App\Services\FCH\Common\Commission;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Common\Commission\CommissionResource;
 use App\Models\Commission\Commission;
-use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
@@ -19,10 +18,8 @@ class CommissionService
      */
     public function getCommissions(array $filters)
     {
-        $authUser = Auth::user();
-        $query = Commission::when($authUser->user_type === User::PARTNER, function ($query) use($authUser) {
-            $query->where('partner_id', $authUser->partner_id);
-        })
+        $viewer = CommissionViewer::for(Auth::user());
+        $query = $viewer->scope(Commission::query())
         // A commission outlives an archived client: the deal was funded and the
         // money is still owed or paid. Loading the archived (soft-deleted) rows
         // keeps those deals on the list with their names - without them one such
@@ -33,10 +30,20 @@ class CommissionService
             'borrower' => fn($q) => $q->withTrashed(),
         ]);
 
+        // A host staff member's row shows their payout, worked out from these.
+        if ($viewer->is(CommissionViewer::HOST_STAFF)) {
+            $query->with(['borrower.partner', 'borrower.assignedUser', 'payout.invoice']);
+        }
+
         // Filter by Partner ID
         if (isset($filters['partner_id']) && !empty($filters['partner_id'])) {
             $query->where('partner_id', $filters['partner_id']);
         }
+
+        // Snapshot before the payment/commission status, search and column
+        // filters, so the summary cards show true totals instead of recounting
+        // whatever the table is narrowed to (the host's Partner filter still applies).
+        $statsQuery = clone $query;
 
         // Filter by Payment Status
         if (isset($filters['payment_status']) && !empty($filters['payment_status'])) {
@@ -71,33 +78,8 @@ class CommissionService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-        // Calculate statistics before pagination
-        $amountField = ($authUser && $authUser->user_type === User::PARTNER) 
-            ? 'partner_commission_amount' 
-            : 'admin_commission_amount';
-
-        $rateField = ($authUser && $authUser->user_type === User::PARTNER) 
-            ? 'partner_commission' 
-            : 'admin_commission';    
-
-        $statistics = [
-            'total_commission_amount' => (clone $query)->sum($amountField),
-            'avg_commission_rate' => round((float) ((clone $query)->avg($rateField) ?? 0), 2),
-            'total_deals' => (clone $query)->count(),
-        ];
-
-        if($authUser->user_type == User::ADMIN) {
-            $statistics['partner_commission_amount'] = (clone $query)->sum('partner_commission_amount');
-        }
-
-        $statistics['total_funded_amount'] = (clone $query)
-            ->whereHas('fundingApplication', function ($q) {
-                $q->withTrashed()->whereNotNull('total_funded_amount');
-            })
-            ->withSum(['fundingApplication as total_funded_amount_sum' => fn($q) => $q->withTrashed()], 'total_funded_amount')
-            ->get()
-            ->sum('total_funded_amount_sum');
-
+        // The cards, in this viewer's terms (see CommissionViewer).
+        $statistics = $viewer->summarize($statsQuery);
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
@@ -115,10 +97,7 @@ class CommissionService
      */
     public function getCommissionById(int $id)
     {
-        $authUser = Auth::user();
-        return Commission::when($authUser->user_type === User::PARTNER, function ($query) use($authUser) {
-            $query->where('partner_id', $authUser->partner_id);
-        })
+        return CommissionViewer::for(Auth::user())->scope(Commission::query())
             ->with(['fundingApplication', 'partner', 'borrower.partner', 'borrower.assignedUser', 'payout.invoice', 'payout.payment'])
             ->findOrFail($id);
     }

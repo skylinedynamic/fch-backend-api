@@ -3,9 +3,12 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\Concerns\LeadPartnerRules;
 
 class StoreLeadDetailsRequest extends BaseApiRequest
 {
+    use LeadPartnerRules;
+
     public function authorize(): bool
     {
         return true;
@@ -14,10 +17,10 @@ class StoreLeadDetailsRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            // A new lead is filed under the creator's partner (LeadService::storeDetails)
+            ...$this->leadPartnerRules($this->user()?->partner),
             'probability' => ['required', 'string', 'max:255'],
-            'lead_type' => ['required', 'string', 'in:Partner,Borrower'],
             'status' => ['required', 'string', 'max:255'],
-            'salesperson_id' => ['nullable', 'exists:users,id'],
             'company_name' => ['required', 'string', 'max:255'],
             'contact_person' => ['required', 'string', 'max:255'],
             'domain' => ['nullable', 'string', 'max:255'],
@@ -31,6 +34,7 @@ class StoreLeadDetailsRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
+            ...$this->leadPartnerMessages($this->user()?->partner),
             'probability.required' => __('lead.probability_required'),
             'lead_type.required' => __('lead.lead_type_required'),
             'status.required' => __('lead.status_required'),

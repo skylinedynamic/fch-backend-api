@@ -54,7 +54,8 @@ class LeadResource extends JsonResource
             'industry_type' => $this->industry_type,
             'industry_type_note' => $this->industry_type_note,
             'business_start_date' => $this->business_start_date?->format('Y-m-d'),
-            'ssn_last_4' => $this->ssn_last_4,
+            // The full SSN, for the partner's own lead screen - as a client's profile reads it.
+            'ssn' => $this->ssn,
             'requirement_details' => $this->requirement_details,
             'convert_to' => $this->convert_to,
             'convert_email_already' => $this->email ? (
@@ -67,7 +68,13 @@ class LeadResource extends JsonResource
             'partner' => [
                 'id' => $this->partner_id,
                 'full_name' => $this->partner?->full_name,
+                'company_name' => $this->partner?->company_name,
             ],
+
+            // The partner the host converts another partner's lead for
+            'convert_on_behalf_of' => $this->convertsOnBehalfOfPartnerFor($request->user())
+                ? ['id' => $this->partner_id, 'company_name' => $this->partner?->company_name]
+                : null,
 
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),

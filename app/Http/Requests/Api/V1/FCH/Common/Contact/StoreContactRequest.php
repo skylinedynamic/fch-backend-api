@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Contact;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
 
 class StoreContactRequest extends BaseApiRequest
 {
@@ -27,7 +28,8 @@ class StoreContactRequest extends BaseApiRequest
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255'],
-            'mobile_number' => ['required', 'string', 'regex:/^\(\d{3}\) \d{3}-\d{4}$/'],
+            // Stored as sent, so the written form is still required here.
+            'mobile_number' => ['required', 'string', 'regex:/^\(\d{3}\) \d{3}-\d{4}$/', new UsPhoneNumber()],
             'email' => [
                 'required',
                 // Format only: a DNS lookup on every save was slow, failed offline

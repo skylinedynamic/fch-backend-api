@@ -25,6 +25,10 @@ return [
             ['name' => 'create partners', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update partners', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'delete partners', 'is_certified' => 0, 'is_host' => 1],
+            // Partner profile › Configuration: view and edit a partner's Email,
+            // SMS, Branding and Payment settings. Checked by the admin panel;
+            // keyed for PartnerConfigurationPermissionSeeder.
+            'manage_configuration' => ['name' => 'manage partner configuration', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 

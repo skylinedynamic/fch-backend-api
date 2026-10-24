@@ -22,7 +22,7 @@ class BorrowerMappingService
             'email'               => ['db_column' => 'email',               'visible_column' => 'Email Address',          'type' => 'string',  'model' => $borrowerModel],
             'phone_number'        => ['db_column' => 'phone_number',        'visible_column' => 'Phone Number',           'type' => 'string',  'model' => $borrowerModel],
             'date_of_birth'       => ['db_column' => 'date_of_birth',       'visible_column' => 'Date of Birth',          'type' => 'date',    'model' => $borrowerModel],
-            'last_4_ssn'          => ['db_column' => 'last_4_ssn',          'visible_column' => 'Last 4 SSN Number',      'type' => 'string',  'model' => $borrowerModel],
+            'ssn'                 => ['db_column' => 'ssn',                 'visible_column' => 'Social Security Number', 'type' => 'string',  'model' => $borrowerModel],
             'zip_code'            => ['db_column' => 'postal_code',         'visible_column' => 'Zip Code',               'type' => 'string',  'model' => $borrowerModel],
             'country'             => ['db_column' => 'country',             'visible_column' => 'Country',                'type' => 'string',  'model' => $borrowerModel],
             'country_code'        => ['db_column' => 'country_code',        'visible_column' => 'Country Code',           'type' => 'string',  'model' => $borrowerModel],

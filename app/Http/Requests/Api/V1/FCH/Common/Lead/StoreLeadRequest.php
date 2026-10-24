@@ -5,6 +5,10 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\BusinessEin;
+use App\Rules\DunsNumber;
+use App\Rules\UsPhoneNumber;
+use App\Rules\Ssn;
 
 class StoreLeadRequest extends BaseApiRequest
 {
@@ -29,7 +33,7 @@ class StoreLeadRequest extends BaseApiRequest
             'phone_number' => [
                 'nullable',
                 'string',
-                'regex:/^(\(\d{3}\) \d{3}-\d{4}|\d{10})$/',
+                new UsPhoneNumber(),
             ],
             'email' => [
                 'nullable',
@@ -39,22 +43,23 @@ class StoreLeadRequest extends BaseApiRequest
                 Rule::unique('users', 'email')->whereNull('deleted_at'),
             ],
             'legal_business_name' => ['nullable', 'string', 'max:255'],
-            'business_ein' => ['nullable', 'string', 'max:20'],
+            'business_ein' => ['nullable', 'string', new BusinessEin()],
             'state_file_number' => ['nullable', 'string', 'max:255'],
-            'duns_number' => ['nullable', 'string', 'max:20'],
+            'duns_number' => ['nullable', 'string', new DunsNumber()],
             'business_address' => ['nullable', 'string', 'max:500'],
             'country' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'other_city' => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', new UsPostalCode()],
-            'business_phone' => ['nullable', 'string', 'max:20'],
+            'business_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'entity_type' => ['nullable', 'string', 'max:255'],
             'entity_type_note' => ['nullable', 'string'],
             'industry_type' => ['nullable', 'string', 'max:255'],
             'industry_type_note' => ['nullable', 'string'],
             'business_start_date' => ['nullable', 'date'],
-            'ssn_last_4' => ['nullable', 'string', 'max:4'],
+            // The full SSN, kept encrypted (Lead::ssn), as on a client's profile.
+            'ssn' => ['nullable', 'string', new Ssn()],
             'requirement_details' => ['nullable', 'string'],
             'lead_source_note' => ['nullable', 'string'],
         ];
@@ -62,6 +67,16 @@ class StoreLeadRequest extends BaseApiRequest
 
     protected function prepareForValidation()
     {
+        // A written EIN (12-3456789) is kept as its nine digits.
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
+        }
+
+        // A written SSN (123-45-6789) is kept as its nine digits.
+        if ($this->has('ssn')) {
+            $this->merge(['ssn' => Ssn::canonical($this->input('ssn'))]);
+        }
+
         if ($this->phone_number) {
             $phoneNumber = preg_replace('/\D/', '', $this->phone_number);
             

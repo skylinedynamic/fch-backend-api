@@ -2,9 +2,21 @@
 
 namespace App\Http\Resources\FCH\Invoice;
 
-use App\Models\Invoice\Invoice;
+use App\Services\FCH\Common\Invoice\InvoicePartyResolver;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
+/**
+ * The invoice detail payload read by the invoice page, the preview modal and
+ * the seat-purchase payment flow - only the fields those screens use.
+ *
+ * Extends the list resource for its type label and branding lookup only. The
+ * list's own row fields (payment_id, can_approve, is_receiver, ...) are not
+ * inherited: they cost queries and no detail screen reads them.
+ *
+ * Every figure is the invoice's own. The subscription is read for its plan
+ * name only, and only on an invoice that bills for that plan.
+ */
 class InvoiceDetailResource extends InvoiceResource
 {
     /**
@@ -14,49 +26,36 @@ class InvoiceDetailResource extends InvoiceResource
      */
     public function toArray(Request $request): array
     {
-        $data = parent::toArray($request);
-
-        $subscription = $this->relationLoaded('subscription') ? $this->subscription : null;
-        $borrower = $this->relationLoaded('borrower') ? $this->borrower : null;
-        $partner = $this->relationLoaded('partner') ? $this->partner : null;
-
-        $isCommissionPayout = $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT;
-
-        $detailFields = [
+        return [
+            'id' => $this->id,
+            'invoice_id' => $this->invoice_id,
+            'entity_type' => $this->entity_name,
+            'type' => $this->getFormattedType(),
+            'status' => $this->status,
+            'payment_amount' => (float) $this->payment_amount,
+            'displayable_payment_amount' => currencyFormat(
+                $this->payment_amount,
+                2,
+                $this->currency_symbol ?? '$',
+                $this->conversion_rate ?? 1
+            ),
+            'payment_date' => toDateOnly($this->payment_date),
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
+            'enrollment_type' => $this->when(
+                $this->resource->billsSubscriptionPlan(),
+                fn () => $this->subscription?->enrollment_type
+            ),
             'note' => $this->note,
-            'details' => $this->details,
-            'enrollment_type' => $isCommissionPayout
-                ? ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT))
-                : $subscription?->enrollment_type,
-            'monthly_platform_fee' => $isCommissionPayout
-                ? null
-                : $subscription?->monthly_platform_fee,
-            'payable_amount_sub' => $isCommissionPayout
-                ? $this->payment_amount
-                : $subscription?->payable_amount,
 
-            // Consolidated Billing Info (Borrower priority for Preview)
-            'name' => $borrower
-                ? $borrower->full_name
-                : ($partner?->full_name ?? $partner?->company_name),
-            'phone' => $borrower?->phone_number ?? $partner?->phone_number,
-            'address' => $borrower
-                ? ($borrower->business_address_line_1 ?: $borrower->business_postal_code)
-                : ($partner ? ($partner->address_line_1 ?: $partner->postal_code) : null),
+            // Who issued the invoice and who pays it - see InvoicePartyResolver.
+            ...app(InvoicePartyResolver::class)->resolve($this->resource),
+
+            // The issuer's address is not repeated here: billed_from carries it.
+            'branding' => Arr::only($this->resolveBrandingData(), [
+                'site_name',
+                'logo_document_full_url',
+                'logo_sidebar_full_url',
+            ]),
         ];
-
-        $typePos = array_search('type', array_keys($data), true);
-
-        if ($typePos !== false) {
-            $before = array_slice($data, 0, $typePos + 1, true);
-            $after = array_slice($data, $typePos + 1, null, true);
-
-            // Remove parent 'details' from $after since $detailFields provides it in exact order
-            unset($after['details']);
-
-            return $before + $detailFields + $after;
-        }
-
-        return array_merge($data, $detailFields);
     }
 }
