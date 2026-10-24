@@ -25,6 +25,15 @@ class CapitalAccessSequence extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
+    /**
+     * The steps a borrower is offered: those whose credit account is available
+     * - not inactivated or deleted by the host (BUG-042).
+     */
+    public function scopeOffered($query)
+    {
+        return $query->whereHas('creditAccount', fn ($q) => $q->available());
+    }
+
     public function creditAccount()
     {
         return $this->belongsTo(CreditAccount::class, 'credit_account_id');

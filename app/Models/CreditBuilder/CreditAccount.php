@@ -39,6 +39,37 @@ class CreditAccount extends Model
         return $this->hasMany(CreditAccountApplication::class);
     }
 
+    /** Borrowers' applications for this card as a step of a Capital Access play. */
+    public function playApplications()
+    {
+        return $this->hasManyThrough(
+            CapitalAccessApplication::class,
+            CapitalAccessSequence::class,
+            'credit_account_id',
+            'capital_access_sequence_id'
+        );
+    }
+
+    /**
+     * Whether a borrower has applied for this card - from Credit Accounts or
+     * through a play. Such a card is kept (inactivate it instead); others can
+     * be deleted (BUG-042). Uses withApplicationFlags() when loaded.
+     */
+    public function hasBorrowerApplications(): bool
+    {
+        if (array_key_exists('applications_exists', $this->attributes)) {
+            return (bool) $this->applications_exists || (bool) $this->play_applications_exists;
+        }
+
+        return $this->applications()->exists() || $this->playApplications()->exists();
+    }
+
+    /** Loads hasBorrowerApplications() for a list in two subqueries. */
+    public function scopeWithApplicationFlags($query)
+    {
+        return $query->withExists(['applications', 'playApplications']);
+    }
+
     /**
      * Scope search for filtering credit accounts.
      *
@@ -68,9 +99,15 @@ class CreditAccount extends Model
      * the list and apply - apply checking less than the list showed is how an
      * application came to be recorded against an account never offered.
      */
+    /** Switched on by the host: not Inactive (no status reads as Active). */
+    public function scopeAvailable($query)
+    {
+        return $query->where(fn ($q) => $q->where('status', '!=', self::STATUS_INACTIVE)->orWhereNull('status'));
+    }
+
     public function scopeOfferedTo($query, ?\App\Models\Borrower\Borrower $borrower)
     {
-        $query->where(fn ($q) => $q->where('status', '!=', 'Inactive')->orWhereNull('status'));
+        $query->available();
 
         if ($borrower) {
             $score = (int) ($borrower->fico_score ?? 0);
