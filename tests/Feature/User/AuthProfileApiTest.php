@@ -126,7 +126,7 @@ class AuthProfileApiTest extends TestCase
         $this->postJson('/api/v1/common/auth-profile/update-profile', [
             'first_name' => 'Pat',
             'last_name' => 'Owner',
-            'phone_number' => '5550100',
+            'phone_number' => '5552340100',
             'email' => $user->email,
         ])->assertOk()->assertJsonPath('data.name', 'Pat Owner');
 
@@ -141,13 +141,13 @@ class AuthProfileApiTest extends TestCase
         $this->postJson('/api/v1/common/auth-profile/update-profile', [
             'first_name' => 'Sam',
             'last_name' => 'Staff',
-            'phone_number' => '5550199',
+            'phone_number' => '5552340199',
             'email' => $staff->email,
         ])->assertOk();
 
         $employee = Employee::find($staff->entity_id);
         $this->assertSame('Sam Staff', $employee->first_name);
-        $this->assertSame('5550199', $employee->phone_number_1);
+        $this->assertSame('5552340199', $employee->phone_number_1);
     }
 
     #[Test]

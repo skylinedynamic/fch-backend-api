@@ -41,3 +41,17 @@
 - **The migration deletes rows on deploy** (merged duplicates; their consents are repointed first). Before deploying to stage/production, count them: `SELECT borrower_id, COUNT(*) FROM credit_profile_requests GROUP BY borrower_id HAVING COUNT(*) > 1;` (includes soft-deleted rows). The local database has none.
 - Push = Reverb broadcast; it needs the queue worker and Reverb running on the server (the bell and both mails are queued).
 - The 18 pre-qualification failures need the fix from `e2e-missing-tests` merged into this branch.
+
+## Follow-up: credit profile notifications open the request (2026-10-15)
+**Problem:** clicking "Credit profile update requested" in the host's bell opened the Request Credit Profile list, not the borrower's request: the type linked to the list and was sent without the request id. Old "New credit profile request" notifications could also point at a request removed by the one-per-borrower merge.
+
+**Fix:**
+- `config/notifications.php`: `host.credit_profile.update_requested` links to `/intake-review/credit-profile-requests/{{id}}`. `BorrowerCreditProfileController::requestUpdate()` sends the request `id`.
+- `TemplateRenderer`: a link whose last value is empty opens the parent page (`/items/{{id}}` without an id becomes `/items`), so a borrower with no request on file gets the list.
+- Migration `2026_10_15_130000_link_credit_profile_notifications_to_their_request` repairs stored notifications of both types that link to the list or to a request that no longer exists. Notifications carry only the borrower name, so it matches by name, and only where exactly one request has that name. Others keep their link. `down()` is a no-op. Runs after the merge migration.
+
+**Tests (written, not run, as asked):**
+- `StoreCreditProfileRequestTest`: the update request links to the borrower's request; with no request it links to the list.
+- `TemplateRendererTest`: an empty last value opens the parent page.
+- `CreditProfileNotificationLinksMigrationTest` (new, 6 tests).
+- Admin portal: no change. Its bell already navigates to `data.url`.

@@ -42,7 +42,11 @@ class CommissionPayoutTest extends TestCase
         Mail::fake();
 
         $this->host = $this->partner('Host LLC', true);
-        $this->admin = $this->user('admin@host.test', $this->host);
+        // The host's own login (its owner), who sees and pays every commission.
+        $this->admin = $this->user('admin@host.test', $this->host, [
+            'entity_type' => Partner::class,
+            'entity_id' => $this->host->id,
+        ]);
     }
 
     private function partner(string $name, bool $isHost): Partner
@@ -446,6 +450,35 @@ class CommissionPayoutTest extends TestCase
         $this->assertSame('Reseller Co', $payout->name);
         $this->assertSame($invoice->id, $payout->invoice_id);
         $this->assertSame($payment->id, $payout->payment_id);
+    }
+
+    #[Test]
+    public function a_partner_payout_invoice_is_in_the_owners_name_never_the_company(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $commission = $this->commission($other, null);
+
+        $this->pay($commission, ['partner_payment_method' => 'Cash'])->assertOk();
+
+        $this->assertSame(
+            'Reseller Co Owner',
+            Invoice::where('type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)->sole()->customer_name
+        );
+    }
+
+    #[Test]
+    public function a_partner_with_no_owner_name_does_not_get_the_company_as_the_payout_name(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $other->update(['full_name' => null]);
+        $commission = $this->commission($other, null);
+
+        $this->pay($commission, ['partner_payment_method' => 'Cash'])->assertOk();
+
+        $this->assertNotSame(
+            'Reseller Co',
+            Invoice::where('type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)->sole()->customer_name
+        );
     }
 
     #[Test]

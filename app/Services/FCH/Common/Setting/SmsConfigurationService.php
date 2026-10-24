@@ -56,9 +56,9 @@ class SmsConfigurationService
             'credentials' => $credentials,
         ]);
 
-        if ($configuration->is_enabled) {
-            $this->assertComplete($configuration);
-        }
+        // Never stored with empty credentials, enabled or not: an incomplete
+        // account is refused rather than saved as a row of nulls.
+        $this->assertComplete($configuration);
 
         $configuration->save();
 
@@ -172,7 +172,7 @@ class SmsConfigurationService
         $missing = $this->missing($configuration);
 
         if ($missing !== []) {
-            throw ValidationException::withMessages(array_fill_keys($missing, __('sms_config.required_when_enabled')));
+            throw ValidationException::withMessages(array_fill_keys($missing, __('sms_config.required')));
         }
     }
 

@@ -55,14 +55,15 @@ class CreditBuilderStepGuideService
 
 
         if ($migratedTask->isNotEmpty()) {
+            // The same latest-request lookup the Overview's progress counts with.
+            $board = new BorrowerTaskBoard($borrower);
 
             foreach ($response as $key => $res) {
                 $newTasks = [];
                 foreach ($migratedTask as $mTask) {
                     if ($mTask->tier_to == $res['id']) {
 
-                        /** @var \App\Models\CreditBuilder\BorrowerTaskVerificationRequest|null $borrower_task */
-                        $borrower_task = $mTask->task?->latestBorrowerTierTask?->where('migrated_task_id', $mTask->id)->first();
+                        $borrower_task = $board->migratedRequest($mTask->id);
 
                         $newTasks[] = [
                             'id' => $mTask->task->id,

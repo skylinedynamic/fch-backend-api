@@ -537,6 +537,18 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
+     * A partner's team - the users who may own its leads (get-all-users): the
+     * host's Admin logins, or another partner's Partner logins. Never a
+     * borrower's login.
+     */
+    public function scopeTeamOf($query, Partner $partner)
+    {
+        return $query
+            ->where('partner_id', $partner->id)
+            ->where('user_type', $partner->is_host ? self::ADMIN : self::PARTNER);
+    }
+
+    /**
      * The logins a user manages on the Users screen: their own partner's team -
      * partner and employee accounts, the set that screen lists - never a
      * borrower's login and never another partner's. A borrower manages none.

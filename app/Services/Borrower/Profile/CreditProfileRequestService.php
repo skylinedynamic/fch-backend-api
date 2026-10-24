@@ -21,8 +21,6 @@ class CreditProfileRequestService
      */
     public function store(User $user, array $data): CreditProfileRequest
     {
-        Log::info("Starting CreditProfileRequest creation/update for Borrower ID: {$user->entity_id}");
-        
         try {
             DB::beginTransaction();
 
@@ -55,8 +53,6 @@ class CreditProfileRequestService
             $user->update(['is_refresh' => true]);
 
             DB::commit();
-
-            Log::info("Successfully stored/updated CreditProfileRequest for Borrower ID: {$user->entity_id} (Request ID: {$creditProfileRequest->id})");
 
             return $creditProfileRequest;
         } catch (Exception $e) {

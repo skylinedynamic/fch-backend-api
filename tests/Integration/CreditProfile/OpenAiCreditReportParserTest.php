@@ -139,7 +139,8 @@ class OpenAiCreditReportParserTest extends TestCase
 
         $this->parse();
 
-        $this->assertNotEmpty($this->logged);
+        // A successful extraction is not logged at all - not even its size.
+        $this->assertSame([], array_filter($this->logged, fn ($m) => $m->level === 'info'));
         foreach ($this->logged as $message) {
             $line = $message->message . json_encode($message->context);
             $this->assertStringNotContainsString('WHITFIELD', strtoupper($line));

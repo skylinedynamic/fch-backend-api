@@ -33,4 +33,18 @@ class PaymentMethodBankDetail extends Model
     {
         return $this->belongsTo(Partner::class, 'partner_id');
     }
+
+    /**
+     * The accounts a payer can be shown for a partner in one mode: switched on,
+     * and either saved for that mode or for none (rows from before modes).
+     */
+    public function scopeAvailableFor($query, ?int $partnerId, string $mode)
+    {
+        return $query->where('partner_id', $partnerId)
+            ->where(function ($q) use ($mode) {
+                $q->where('payment_mode', $mode)
+                    ->orWhereNull('payment_mode');
+            })
+            ->where('status', true);
+    }
 }

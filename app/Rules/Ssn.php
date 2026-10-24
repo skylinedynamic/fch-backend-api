@@ -103,6 +103,20 @@ class Ssn implements ValidationRule
     }
 
     /**
+     * What a request should hand this rule: a writing of an SSN reduced to its
+     * nine digits, so the column holds one form - and anything else exactly as
+     * sent, so the rule still sees the letters normalize() would strip.
+     */
+    public static function canonical(mixed $value): mixed
+    {
+        if (!is_string($value) || !preg_match('/^[\d\s-]+$/', $value)) {
+            return $value;
+        }
+
+        return self::normalize($value);
+    }
+
+    /**
      * The number as it may be echoed back: last four only.
      *
      * Here rather than at each call site, so nowhere has to decide for itself

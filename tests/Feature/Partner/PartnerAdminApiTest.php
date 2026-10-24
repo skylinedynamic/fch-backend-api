@@ -47,13 +47,39 @@ class PartnerAdminApiTest extends TestCase
             'full_name' => 'Pat Partner',
             'company_name' => 'Pat Co ' . uniqid(),
             'email' => 'pat-' . uniqid() . '@example.test',
-            'phone_number' => '(555) 123-4567',
+            'phone_number' => '(555) 234-5678',
             'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
             'country' => 'United States',
             'partner_domain' => 'pat' . uniqid(),
             'is_free_trail' => true,
             'free_trail_end_date' => now()->addDays(14)->format('Y-m-d'),
         ], $overrides);
+    }
+
+    #[Test]
+    public function a_partners_phone_zip_and_tax_id_are_checked_against_the_shared_formats(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners', $this->newPartnerPayload([
+            'phone_number' => '(124) 982-7457', 'zip_code' => '1234', 'tax_id' => 'not an ein',
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'phone_number' => __('embed_form.phone_invalid'),
+            'zip_code' => __('common.postal_code_invalid'),
+            'tax_id' => __('common.business_ein_invalid'),
+        ]);
+    }
+
+    /** The screen writes a Tax ID (an EIN) as XX-XXXXXXX; the nine digits are kept. */
+    #[Test]
+    public function a_partners_tax_id_is_kept_as_its_nine_digits(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+        $payload = $this->newPartnerPayload(['tax_id' => '46-7346734']);
+
+        $this->postJson('/api/v1/admin/partners', $payload)->assertSuccessful();
+
+        $this->assertDatabaseHas('partners', ['email' => $payload['email'], 'tax_id' => '467346734']);
     }
 
     public static function partnerRoutes(): array
@@ -126,6 +152,26 @@ class PartnerAdminApiTest extends TestCase
         $ids = collect($this->postJson('/api/v1/admin/partners/fetch-partners')->assertOk()->json('data'))->pluck('id');
 
         $this->assertEqualsCanonicalizing([$this->host->id, $partner->id], $ids->all());
+    }
+
+    /**
+     * Defect: Total Partners (and the active count) counted the host's own
+     * record, so the card showed one more partner than the host has.
+     */
+    #[Test]
+    public function the_partner_cards_leave_out_the_host_and_deleted_or_archived_partners(): void
+    {
+        $this->makeCertifiedPartner();
+        $this->makeWhiteLabelPartner(['status' => Partner::STATUS_INACTIVE]);
+        $this->makeCertifiedPartner()->delete();
+        $this->makeCertifiedPartner()->forceFill(['archived_at' => now()])->save();
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/fetch-partners')
+            ->assertOk()
+            ->assertJsonPath('statistics.total_partners', 2)
+            ->assertJsonPath('statistics.active_partners', 1)
+            ->assertJsonPath('statistics.inactive_partners', 1);
     }
 
     #[Test]

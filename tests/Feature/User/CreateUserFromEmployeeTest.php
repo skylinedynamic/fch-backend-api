@@ -66,7 +66,7 @@ class CreateUserFromEmployeeTest extends TestCase
             'partner_id' => $partner->id,
             'first_name' => "$first Doe", // first_name holds the whole name
             'email' => strtolower($first) . '@example.test',
-            'phone_number_1' => '(555) 123-4567',
+            'phone_number_1' => '(555) 234-5678',
         ], $attributes));
     }
 
@@ -87,7 +87,7 @@ class CreateUserFromEmployeeTest extends TestCase
         return array_merge([
             'name' => 'Jane Doe',
             'email' => 'jane.user@example.test',
-            'phone_number' => '(555) 000-1111',
+            'phone_number' => '(555) 200-1111',
             'password' => 'secret123',
             'role_id' => $this->role->id,
         ], $overrides);
@@ -109,7 +109,7 @@ class CreateUserFromEmployeeTest extends TestCase
             ->assertJsonPath('data.0.first_name', 'Free Doe')
             ->assertJsonPath('data.0.full_name', 'Free Doe')
             ->assertJsonPath('data.0.email', 'free@example.test')
-            ->assertJsonPath('data.0.phone_number_1', '(555) 123-4567');
+            ->assertJsonPath('data.0.phone_number_1', '(555) 234-5678');
     }
 
     #[Test]

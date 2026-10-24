@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\EmailChangeController as ProfileEmailChangeController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
@@ -77,6 +78,10 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/financial-info', [FinancialInfoController::class, 'update']);
                     Route::get('/completion', [ProfileCompletionController::class, 'check']);
                     Route::post('/change-request', [ChangeRequestController::class, 'store']);
+                    // The borrower's own pending sign-in email change (started by
+                    // saving a new email above, completed by the emailed link).
+                    Route::post('/email-change/resend', [ProfileEmailChangeController::class, 'resend'])->middleware('throttle:6,1');
+                    Route::post('/email-change/cancel', [ProfileEmailChangeController::class, 'cancel']);
                     Route::get('/credit-profile-request', [CreditProfileRequestController::class, 'show']);
                     Route::post('/credit-profile-request', [CreditProfileRequestController::class, 'store']);
                     Route::get('/credit-profile', [BorrowerCreditProfileController::class, 'show']);

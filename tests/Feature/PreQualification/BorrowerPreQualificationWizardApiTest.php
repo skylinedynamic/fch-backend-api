@@ -47,7 +47,7 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
             'first_name' => 'Bo',
             'last_name' => 'Rrower',
             'email' => 'bo@example.org',
-            'phone_number' => '5550100',
+            'phone_number' => '5552340100',
             'state_of_incorporation' => 'Texas',
         ], $overrides);
     }

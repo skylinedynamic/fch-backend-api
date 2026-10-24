@@ -111,6 +111,20 @@ class ChangeRequestReviewApiTest extends TestCase
     }
 
     #[Test]
+    public function an_approved_ssn_change_replaces_the_full_ssn_on_file(): void
+    {
+        $this->myBorrower()->update(['ssn' => '123456789']);
+        $id = $this->file(['field_name' => 'ssn', 'new_value' => '234-56-7890']);
+        $this->actingAsUser($this->reviewer);
+
+        $this->patchJson("/api/v1/admin/change-requests/{$id}", ['status' => BorrowerChangeRequest::STATUS_APPROVED])->assertOk();
+
+        $this->assertSame('234567890', $this->myBorrower()->ssn);
+        // Still sealed after the decision is written.
+        $this->assertStringNotContainsString('7890', (string) BorrowerChangeRequest::find($id)->getRawOriginal('new_value'));
+    }
+
+    #[Test]
     public function an_approved_bank_account_change_lands_on_that_account(): void
     {
         $account = BorrowerBankAccount::create(['borrower_id' => $this->me->entity_id, 'bank_name' => 'Old Bank']);

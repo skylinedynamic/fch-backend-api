@@ -10,9 +10,9 @@
     </p>
 
     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 24px;">
-        <p style="margin: 0 0 8px 0;"><strong>Credit Profile Name:</strong> {{ trim(preg_replace('/\s+/', ' ', $creditRequest->first_name . ' ' . $creditRequest->middle_name . ' ' . $creditRequest->last_name)) }}</p>
-        <p style="margin: 0 0 8px 0;"><strong>Credit Profile Email:</strong> {{ $creditRequest->email }}</p>
-        <p style="margin: 0 0 8px 0;"><strong>Credit Profile Phone:</strong> {{ $creditRequest->phone }}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Name:</strong> {{ trim(preg_replace('/\s+/', ' ', $creditRequest->first_name . ' ' . $creditRequest->middle_name . ' ' . $creditRequest->last_name)) }}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> {{ $creditRequest->email }}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Phone No:</strong> {{ $creditRequest->phone }}</p>
     </div>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">

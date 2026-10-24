@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\FicoScore;
+use App\Rules\BusinessCreditScore;
 
 class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
 {
@@ -61,8 +63,8 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'monthly_deposit_count'     => ['nullable', 'integer', 'min:0'],
             'profit_margin'             => ['nullable', 'numeric'],
             'current_business_debt'     => ['nullable', 'numeric', 'min:0'],
-            'fico_score'                => ['nullable', 'integer', 'min:0'],
-            'paydex_score'              => ['nullable', 'integer', 'min:0'],
+            'fico_score'                => ['nullable', new FicoScore()],
+            'paydex_score'              => ['nullable', new BusinessCreditScore()],
             'number_of_employees'       => ['nullable', 'integer', 'min:0'],
             'nsf_count'                 => ['nullable', 'integer', 'min:0', 'max:99999'],
             'negative_days'             => ['nullable', 'integer', 'min:0', 'max:99999'],

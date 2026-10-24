@@ -37,7 +37,8 @@ class CommissionPayoutPaymentEntryTest extends TestCase
 
         $this->host = $this->partner('Host LLC', true);
         $this->reseller = $this->partner('Reseller Co', false);
-        $this->admin = $this->user('admin@host.test', $this->host);
+        // The host's own login (its owner), who pays commissions out.
+        $this->admin = $this->user('admin@host.test', $this->host, ['entity_type' => Partner::class, 'entity_id' => $this->host->id]);
         $this->resellerUser = $this->user('owner@reseller.test', $this->reseller, ['user_type' => User::PARTNER, 'name' => 'Reseller Owner']);
         $this->seller = $this->user('seller@host.test', $this->host);
 

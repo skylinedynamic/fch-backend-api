@@ -42,6 +42,7 @@ class UsPhoneNumberTest extends TestCase
             'formatted' => ['(813) 391-3333'],
             'bare' => ['8133913333'],
             'with country code' => ['+1 813 391 3333'],
+            'dotted' => ['813.391.3333'],
         ];
     }
 
@@ -59,6 +60,10 @@ class UsPhoneNumberTest extends TestCase
             'too short' => ['12345'],
             'letters' => ['call me maybe'],
             'exchange starts with 1' => ['8131913333'],
+            // Now the rule guards every phone field, not just the public form, so
+            // a valid number must not pass because its letters were stripped.
+            'a valid number with letters around it' => ['tel 813-391-3333'],
+            'a valid number with trailing text' => ['(813) 391-3333 ext'],
         ];
     }
 

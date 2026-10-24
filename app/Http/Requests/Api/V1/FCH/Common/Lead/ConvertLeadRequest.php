@@ -19,9 +19,12 @@ class ConvertLeadRequest extends BaseApiRequest
      */
     private function getLeadType(): ?string
     {
-        $id = $this->route('id');
-        $lead = Lead::find($id);
-        return $lead?->lead_type;
+        return $this->lead()?->lead_type;
+    }
+
+    private function lead(): ?Lead
+    {
+        return Lead::find($this->route('id'));
     }
 
     /**

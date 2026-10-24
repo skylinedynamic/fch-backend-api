@@ -7,6 +7,7 @@ use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentMethodBankDetail;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
+use App\Support\Payment\PaymentSetup;
 use Illuminate\Support\Facades\Log;
 
 class PaymentMethodService
@@ -51,6 +52,11 @@ class PaymentMethodService
             ->get();
 
         return $providers
+            // Only what can take a payment is offered. A method switched on but
+            // not set up for its mode (Stripe without usable keys, Bank Transfer
+            // without an account) left the payer at a form that could never work;
+            // the partner's settings list says what it is missing instead.
+            ->filter(fn (PaymentProvider $provider) => PaymentSetup::isReady($provider->partnerPaymentProviders->first(), $provider->name))
             ->map(function (PaymentProvider $provider) use ($recipientPartnerId) {
                 $partnerProvider = $provider->partnerPaymentProviders->first();
                 $publishableKey = null;
@@ -66,12 +72,7 @@ class PaymentMethodService
                 }
 
                 if ($provider->name === PaymentProvider::BANK_TRANSFER && $partnerProvider) {
-                    $bankDetails = PaymentMethodBankDetail::where('partner_id', $recipientPartnerId)
-                        ->where(function ($q) use ($environment) {
-                            $q->where('payment_mode', $environment)
-                                ->orWhereNull('payment_mode');
-                        })
-                        ->where('status', true)
+                    $bankDetails = PaymentMethodBankDetail::availableFor($recipientPartnerId, $environment)
                         ->orderBy('is_default', 'desc')
                         ->get()
                         ->map(function ($bank) {

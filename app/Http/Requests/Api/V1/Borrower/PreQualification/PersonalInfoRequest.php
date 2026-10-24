@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\PreQualification;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPhoneNumber;
 
 class PersonalInfoRequest extends BaseApiRequest
 {
@@ -27,7 +28,7 @@ class PersonalInfoRequest extends BaseApiRequest
             'last_name' => ['required','string','max:255'],
             'business_website' => ['nullable','url','max:255'],
             'email' => ['required','email','max:255'],
-            'phone_number' => ['required','string','max:25'],
+            'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'state_of_incorporation' => ['required','string','max:255'],
         ];
     }

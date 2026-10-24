@@ -6,6 +6,9 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\UsPostalCode;
 use App\Models\Borrower\FundingApplication;
 use App\Rules\VisibleToUser;
+use App\Rules\Ssn;
+use App\Rules\UsPhoneNumber;
+use Illuminate\Validation\Validator;
 
 class StoreOwnershipInfoRequest extends BaseApiRequest
 {
@@ -15,6 +18,36 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * An SSN is nine digits; the hyphens are only how it is written. This used
+     * to demand bare digits, and the value is stored as sent, so a written SSN
+     * is reduced here - one stored form - while anything else is left for the
+     * rule to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        $merge = [];
+
+        if ($this->has('ssn')) {
+            $merge['ssn'] = Ssn::canonical($this->input('ssn'));
+        }
+
+        // The co-borrowers saved with this step are stored as sent too.
+        $coBorrowers = $this->input('co_borrowers');
+        if (is_array($coBorrowers)) {
+            foreach ($coBorrowers as $index => $coBorrower) {
+                if (is_array($coBorrower) && array_key_exists('ssn', $coBorrower)) {
+                    $coBorrowers[$index]['ssn'] = Ssn::canonical($coBorrower['ssn']);
+                }
+            }
+            $merge['co_borrowers'] = $coBorrowers;
+        }
+
+        if ($merge) {
+            $this->merge($merge);
+        }
     }
 
     /**
@@ -30,9 +63,9 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'date_of_birth' => 'required|date',
-            'ssn' => 'required|string|digits:9',
+            'ssn' => ['required', 'string', new Ssn()],
             'country' => 'nullable|string|max:255',
-            'phone_number' => 'required|string|max:255',
+            'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'citizenship_status' => 'required|string|max:255',
             'street_address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
@@ -75,5 +108,30 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'has_co_borrower.boolean' => __('borrower_validation.has_co_borrower_boolean'),
         ];
     }
-}
+    /**
+     * The co-borrowers saved with this step, in the shared formats when given.
+     *
+     * Checked here rather than as `co_borrowers.*.ssn` rules: nested rules would
+     * cut each co-borrower in validated() down to the fields that have one, and
+     * the service saves the rest (names, address, ownership) from it too.
+     * Optional - a co-borrower may be saved part-filled.
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator) {
+            $formats = [
+                'ssn' => new Ssn(),
+                'zip_code' => new UsPostalCode(),
+                'mobile_phone' => new UsPhoneNumber(),
+                'home_phone' => new UsPhoneNumber(),
+            ];
 
+            foreach ((array) $this->input('co_borrowers', []) as $index => $coBorrower) {
+                foreach ($formats as $field => $rule) {
+                    $key = "co_borrowers.{$index}.{$field}";
+                    $rule->validate($key, is_array($coBorrower) ? ($coBorrower[$field] ?? null) : null, fn ($message) => $validator->errors()->add($key, $message));
+                }
+            }
+        }];
+    }
+}

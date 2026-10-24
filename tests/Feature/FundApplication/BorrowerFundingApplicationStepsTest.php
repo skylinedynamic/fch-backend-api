@@ -99,7 +99,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         return [
             'ownership' => ['ownership-info', [
                 'first_name' => 'Bo', 'last_name' => 'Rower', 'date_of_birth' => '1985-04-12',
-                'ssn' => '123456789', 'phone_number' => '(555) 123-4567', 'citizenship_status' => 'US Citizen',
+                'ssn' => '123456789', 'phone_number' => '(555) 234-5678', 'citizenship_status' => 'US Citizen',
                 'street_address' => '1 Main St', 'city' => 'Austin', 'state' => 'TX', 'zip_code' => '73301',
                 'ownership' => 100,
             ], 'is_ownership_info_saved'],
@@ -203,6 +203,57 @@ class BorrowerFundingApplicationStepsTest extends TestCase
             'approved_funding' => 'Line of Credit', 'preferred_funding_type' => 'Line of Credit',
             'funding_request_id' => $theirRequest,
         ])->assertStatus(422)->assertJsonValidationErrors(['funding_request_id']);
+    }
+
+    #[Test]
+    public function a_written_ssn_is_stored_as_its_nine_digits(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'ssn' => '123-45-6789',
+        ]))->assertOk();
+
+        $this->assertSame('123456789', DB::table('funding_applications')->where('id', $this->myApplicationId)->value('ssn'));
+    }
+
+    #[Test]
+    public function the_ownership_step_checks_the_owner_and_co_borrower_formats(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'ssn' => '000-12-3456', 'phone_number' => '(124) 982-7457', 'zip_code' => '7330',
+            'has_co_borrower' => true,
+            'co_borrowers' => [[
+                'first_name' => 'Co', 'last_name' => 'Owner',
+                'ssn' => '123-45-678', 'zip_code' => '1', 'mobile_phone' => '1234567890', 'home_phone' => '555-0100',
+            ]],
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'ssn' => __('common.ssn_invalid'),
+            'phone_number' => __('embed_form.phone_invalid'),
+            'zip_code' => __('common.postal_code_invalid'),
+            'co_borrowers.0.ssn' => __('common.ssn_invalid'),
+            'co_borrowers.0.zip_code' => __('common.postal_code_invalid'),
+            'co_borrowers.0.mobile_phone' => __('embed_form.phone_invalid'),
+            'co_borrowers.0.home_phone' => __('embed_form.phone_invalid'),
+        ]);
+    }
+
+    #[Test]
+    public function a_co_borrowers_written_ssn_is_stored_as_its_nine_digits(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'ssn' => '123-45-6789']],
+        ]))->assertOk();
+
+        $this->assertSame('123456789', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
     }
 
     #[Test]

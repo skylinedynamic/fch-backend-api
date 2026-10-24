@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\FicoScore;
 
 class UpdateCreditAccountRequest extends BaseApiRequest
 {
@@ -25,7 +26,7 @@ class UpdateCreditAccountRequest extends BaseApiRequest
             'card_name' => 'required|string|max:255',
             'issuer' => 'required|string|max:255',
             'credit_category' => 'nullable|string|max:255',
-            'typical_personal_fico_min' => 'required|regex:/^[0-9]+$/',
+            'typical_personal_fico_min' => ['required', new FicoScore()],
             'time_in_business_min_months' => 'required|regex:/^[0-9]+$/',
             'image_url' => ['required', 'string'],
             'reference_url' => 'required|url|max:500',
