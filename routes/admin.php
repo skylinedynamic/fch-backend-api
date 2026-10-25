@@ -70,34 +70,31 @@ Route::prefix('v1/admin')
         // 🏆 Credit Builder
         Route::prefix('credit-builder')->group(
             function () {
-            // Each screen is behind the permission its menu item already asks
-            // for (BUG-125): host staff without it used to get the data by URL.
-
             // Tiers (Manage Tier)
-            Route::post('tiers/fetch-tiers', [TierController::class, 'index'])->middleware('permission:view tier');
-            Route::post('tiers', [TierController::class, 'store'])->middleware('permission:update tier');
-            Route::get('tiers/{id}', [TierController::class, 'show'])->middleware('permission:view tier');
-            Route::put('tiers/{id}', [TierController::class, 'update'])->middleware('permission:update tier');
-            Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete'])->middleware('permission:update tier');
-            Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi'])->middleware('permission:view tier');
+            Route::post('tiers/fetch-tiers', [TierController::class, 'index']);
+            Route::post('tiers', [TierController::class, 'store']);
+            Route::get('tiers/{id}', [TierController::class, 'show']);
+            Route::put('tiers/{id}', [TierController::class, 'update']);
+            Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
+            Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
             // A client's own credit builder progress, read from the client page.
             Route::post('tiers/borrowers/tier-wise-tasklist', [TierController::class, 'getBorrowerTierTaskList']);
             Route::post('tiers/borrowers/progress', [TierController::class, 'getBorrowerProgress']);
 
             // Tier Tasks (Manage Tier)
-            Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index'])->middleware('permission:view tier');
-            Route::post('tier-tasks', [TierTaskController::class, 'store'])->middleware('permission:update tier');
-            Route::get('tier-tasks/{id}', [TierTaskController::class, 'show'])->middleware('permission:view tier');
-            Route::put('tier-tasks/{id}', [TierTaskController::class, 'update'])->middleware('permission:update tier');
-            Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete'])->middleware('permission:update tier');
-            Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus'])->middleware('permission:update verification request');
+            Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
+            Route::post('tier-tasks', [TierTaskController::class, 'store']);
+            Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
+            Route::put('tier-tasks/{id}', [TierTaskController::class, 'update']);
+            Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
+            Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus']);
 
             // Vendors (Manage Tier)
-            Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index'])->middleware('permission:view tier');
-            Route::post('vendors', [CreditBuilderVendorController::class, 'store'])->middleware('permission:update tier');
-            Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show'])->middleware('permission:view tier');
-            Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update'])->middleware('permission:update tier');
-            Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy'])->middleware('permission:update tier');
+            Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index']);
+            Route::post('vendors', [CreditBuilderVendorController::class, 'store']);
+            Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);
+            Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update']);
+            Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy']);
 
             // Credit Accounts
             Route::post('credit-accounts/fetch-accounts', [CreditAccountController::class, 'index']);
@@ -111,62 +108,59 @@ Route::prefix('v1/admin')
         );
 
         // 💰 Funding Groups (CRUD)
-        // Funding Sequence and Lenders share these lists (BUG-125).
         Route::prefix('funding-groups')->group(function () {
-            Route::get('/', [FundingGroupController::class, 'index'])->middleware('permission:view funding|view lenders');
-            Route::post('/', [FundingGroupController::class, 'store'])->middleware('permission:create funding');
-            Route::put('{id}', [FundingGroupController::class, 'update'])->middleware('permission:update funding');
-            Route::delete('{id}', [FundingGroupController::class, 'destroy'])->middleware('permission:delete funding');
+            Route::get('/', [FundingGroupController::class, 'index']);
+            Route::post('/', [FundingGroupController::class, 'store']);
+            Route::put('{id}', [FundingGroupController::class, 'update']);
+            Route::delete('{id}', [FundingGroupController::class, 'destroy']);
         });
 
-        // 🏦 Lenders (CRUD) - behind the Lenders menu's permissions (BUG-125).
-        // The two lists the Funding Sequence form also loads accept either.
+        // 🏦 Lenders (CRUD)
         Route::prefix('lenders')->group(function () {
             // Product Categories
             Route::prefix('product-categories')->group(function () {
-                Route::get('/', [LenderProductCategoryController::class, 'index'])->middleware('permission:view lenders|view funding');
-                Route::post('/', [LenderProductCategoryController::class, 'store'])->middleware('permission:create lenders');
-                Route::put('{id}', [LenderProductCategoryController::class, 'update'])->middleware('permission:update lenders');
-                Route::delete('{id}', [LenderProductCategoryController::class, 'destroy'])->middleware('permission:delete lenders');
+                Route::get('/', [LenderProductCategoryController::class, 'index']);
+                Route::post('/', [LenderProductCategoryController::class, 'store']);
+                Route::put('{id}', [LenderProductCategoryController::class, 'update']);
+                Route::delete('{id}', [LenderProductCategoryController::class, 'destroy']);
             });
 
-            Route::get('/', [LenderController::class, 'index'])->middleware('permission:view lenders');
-            Route::get('get/all', [LenderController::class, 'getAll'])->middleware('permission:view lenders|view funding');
-            Route::post('multiple-delete', [LenderController::class, 'multipleDelete'])->middleware('permission:delete lenders');
-            Route::post('check-deletable', [LenderController::class, 'checkDeletable'])->middleware('permission:delete lenders');
-            Route::post('/', [LenderController::class, 'store'])->middleware('permission:create lenders');
-            Route::get('{id}', [LenderController::class, 'show'])->middleware('permission:view lenders');
-            Route::put('{id}', [LenderController::class, 'update'])->middleware('permission:update lenders');
-            Route::delete('{id}', [LenderController::class, 'destroy'])->middleware('permission:delete lenders');
+            Route::get('/', [LenderController::class, 'index']);
+            Route::get('get/all', [LenderController::class, 'getAll']);
+            Route::post('multiple-delete', [LenderController::class, 'multipleDelete']);
+            Route::post('check-deletable', [LenderController::class, 'checkDeletable']);
+            Route::post('/', [LenderController::class, 'store']);
+            Route::get('{id}', [LenderController::class, 'show']);
+            Route::put('{id}', [LenderController::class, 'update']);
+            Route::delete('{id}', [LenderController::class, 'destroy']);
         });
 
         // 💰 Funding Types (CRUD)
         Route::prefix('funding-types')->group(function () {
-            Route::get('/', [FundingTypeController::class, 'index'])->middleware('permission:view funding|view lenders');
-            Route::post('/', [FundingTypeController::class, 'store'])->middleware('permission:create funding');
-            Route::put('{id}', [FundingTypeController::class, 'update'])->middleware('permission:update funding');
-            Route::delete('{id}', [FundingTypeController::class, 'destroy'])->middleware('permission:delete funding');
+            Route::get('/', [FundingTypeController::class, 'index']);
+            Route::post('/', [FundingTypeController::class, 'store']);
+            Route::put('{id}', [FundingTypeController::class, 'update']);
+            Route::delete('{id}', [FundingTypeController::class, 'destroy']);
         });
 
 
         // 💰 Funding Sequencings
-        // Behind the Funding Sequence menu's permissions (BUG-125).
         Route::prefix('funding-sequencings')->group(function () {
-            Route::post('fetch', [FundingSequencingController::class, 'index'])->middleware('permission:view funding');
-            Route::post('multiple-delete', [FundingSequencingController::class, 'multipleDelete'])->middleware('permission:delete funding');
-            Route::post('check-deletable', [FundingSequencingController::class, 'checkDeletable'])->middleware('permission:delete funding');
-            Route::get('grouped', [FundingSequencingController::class, 'grouped'])->middleware('permission:view funding');
-            Route::post('/', [FundingSequencingController::class, 'store'])->middleware('permission:create funding');
-            Route::post('{id}/visibilities/fetch', [FundingSequencingController::class, 'fetchVisibilities'])->middleware('permission:view funding');
-            Route::get('{id}', [FundingSequencingController::class, 'show'])->middleware('permission:view funding');
-            Route::put('{id}', [FundingSequencingController::class, 'update'])->middleware('permission:update funding');
-            Route::put('{id}/display', [FundingSequencingController::class, 'updateDisplay'])->middleware('permission:update funding');
-            Route::put('{id}/visibility', [FundingSequencingController::class, 'updateVisibility'])->middleware('permission:update funding');
-            Route::post('{id}/lender/{lenderId}/visibility', [FundingSequencingController::class, 'updateSingleLenderVisibility'])->middleware('permission:update funding');
-            Route::post('{id}/lender/{lenderId}/category/{categoryId}/visibility', [FundingSequencingController::class, 'updateSingleCategoryVisibility'])->middleware('permission:update funding');
-            Route::delete('{id}/visibilities', [FundingSequencingController::class, 'deleteVisibilities'])->middleware('permission:update funding');
-            Route::patch('{id}/status', [FundingSequencingController::class, 'updateStatus'])->middleware('permission:update funding');
-            Route::delete('{id}', [FundingSequencingController::class, 'destroy'])->middleware('permission:delete funding');
+            Route::post('fetch', [FundingSequencingController::class, 'index']);
+            Route::post('multiple-delete', [FundingSequencingController::class, 'multipleDelete']);
+            Route::post('check-deletable', [FundingSequencingController::class, 'checkDeletable']);
+            Route::get('grouped', [FundingSequencingController::class, 'grouped']);
+            Route::post('/', [FundingSequencingController::class, 'store']);
+            Route::post('{id}/visibilities/fetch', [FundingSequencingController::class, 'fetchVisibilities']);
+            Route::get('{id}', [FundingSequencingController::class, 'show']);
+            Route::put('{id}', [FundingSequencingController::class, 'update']);
+            Route::put('{id}/display', [FundingSequencingController::class, 'updateDisplay']);
+            Route::put('{id}/visibility', [FundingSequencingController::class, 'updateVisibility']);
+            Route::post('{id}/lender/{lenderId}/visibility', [FundingSequencingController::class, 'updateSingleLenderVisibility']);
+            Route::post('{id}/lender/{lenderId}/category/{categoryId}/visibility', [FundingSequencingController::class, 'updateSingleCategoryVisibility']);
+            Route::delete('{id}/visibilities', [FundingSequencingController::class, 'deleteVisibilities']);
+            Route::patch('{id}/status', [FundingSequencingController::class, 'updateStatus']);
+            Route::delete('{id}', [FundingSequencingController::class, 'destroy']);
         });
 
 
