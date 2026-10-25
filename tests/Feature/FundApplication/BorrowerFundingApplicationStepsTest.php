@@ -249,11 +249,38 @@ class BorrowerFundingApplicationStepsTest extends TestCase
 
         $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
             'id' => $this->myApplicationId,
+            // Owner and co-borrowers together may hold at most 100% (BUG-108).
+            'ownership' => 60,
             'has_co_borrower' => true,
             'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'ssn' => '123-45-6789']],
         ]))->assertOk();
 
         $this->assertSame('123456789', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
+    }
+
+    /**
+     * Defect: BUG-108. Owner 100% plus a 50% co-borrower (150% of the
+     * business) was saved and the wizard moved on; the owner's own share had
+     * no 0-100 range either.
+     */
+    #[Test]
+    public function the_owner_and_co_borrowers_together_cannot_hold_more_than_100_percent(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'ownership' => 100,
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 50]],
+        ]))->assertUnprocessable()->assertJsonValidationErrors('ownership');
+
+        $this->assertSame(0, FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->count());
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'ownership' => 120,
+        ]))->assertUnprocessable()->assertJsonValidationErrors('ownership');
     }
 
     #[Test]
@@ -263,6 +290,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
 
         $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
             'id' => $this->myApplicationId,
+            'ownership' => 60,
             'has_co_borrower' => true,
             'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40]],
         ]))->assertOk();

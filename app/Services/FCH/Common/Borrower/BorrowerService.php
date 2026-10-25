@@ -855,18 +855,23 @@ class BorrowerService
         // used to fail with "Failed to delete borrower(s)." on stage).
         $borrowers = Borrower::visibleTo(auth()->user())->with('user')->whereIn('borrowers.id', $ids)->get();
 
-        // A client with a paid invoice is kept (the payment record must stay).
-        // Refuse the whole selection and name each blocked client, so the user
-        // knows to set them Inactive or Suspended instead.
+        // A client with a paid invoice is kept (the payment record must stay),
+        // and so is one - paid or free - with a pre-qualification or funding
+        // application. Refuse the whole selection and name each blocked client,
+        // so the user knows to change their status instead.
         $blocked = $borrowers->reject(fn (Borrower $borrower) => $borrower->isDeletable());
         if ($blocked->isNotEmpty()) {
-            // One client: the plain sentence. Several: name the blocked ones.
+            // One client: why that client is kept. Several: name the blocked ones.
             $message = $borrowers->count() === 1
-                ? __('borrower.delete_blocked_paid_invoice')
+                ? $blocked->first()->notDeletableReason()
                 : __('borrower.delete_blocked_paid_invoice_named', ['names' => $blocked->pluck('full_name')->implode(', ')]);
 
             return ApiResponse::error($message, 422, [
-                'blocked' => $blocked->map(fn (Borrower $b) => ['id' => $b->id, 'name' => $b->full_name])->values(),
+                'blocked' => $blocked->map(fn (Borrower $b) => [
+                    'id' => $b->id,
+                    'name' => $b->full_name,
+                    'reason_code' => $b->notDeletableReasonCode(),
+                ])->values(),
             ]);
         }
 
@@ -894,12 +899,13 @@ class BorrowerService
         $results = [];
 
         foreach ($borrowers as $borrower) {
-            $is_deletable = $borrower->isDeletable();
+            $reasonCode = $borrower->notDeletableReasonCode();
             $results[] = [
                 'id' => $borrower->id,
                 'name' => $borrower->full_name,
-                'is_deletable' => $is_deletable,
-                'reason' => !$is_deletable ? $borrower->notDeletableReason() : null
+                'is_deletable' => $reasonCode === null,
+                'reason' => $reasonCode !== null ? $borrower->notDeletableReason() : null,
+                'reason_code' => $reasonCode,
             ];
         }
 

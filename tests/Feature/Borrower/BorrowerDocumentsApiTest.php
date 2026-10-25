@@ -316,4 +316,74 @@ class BorrowerDocumentsApiTest extends TestCase
         $this->getJson('/api/v1/common/doc-types')->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/api/v1/common/borrower-document-types')->assertOk()->assertJsonCount(2, 'data');
     }
+    // ── The client is told about the review (BUG-087) ─────────────────
+
+    /**
+     * Defect (BUG-087): marking a document Accepted or Rejected told the client
+     * nothing - no bell, no email - although the rejection modal says the
+     * reason is shared with the borrower. A rejection now rings the bell and
+     * emails the reason; an acceptance rings the bell.
+     */
+    #[Test]
+    public function a_rejection_rings_the_clients_bell_and_emails_them_the_reason(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        \Illuminate\Support\Facades\Mail::fake();
+        $client = $this->makeBorrowerUser($this->partner);
+        $borrower = Borrower::findOrFail($client->entity_id);
+        $document = $this->documentFor($borrower);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/borrowers-documents/update-status/{$document->id}", [
+            'status' => BorrowerDocument::STATUS_REJECTED,
+            'rejection_reason' => 'Statement is older than 90 days',
+        ])->assertOk();
+
+        \Illuminate\Support\Facades\Notification::assertSentTo($client, \App\Notifications\DynamicNotification::class, function ($n) use ($client) {
+            $data = $n->toArray($client);
+
+            return $n->typeKey === 'borrower.document.reviewed'
+                && $data['url'] === '/documents'
+                && str_contains($data['body'], 'Rejected')
+                && str_contains($data['body'], 'Statement is older than 90 days');
+        });
+        \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\Borrower\BorrowerDocumentReviewedMail::class, fn ($mail) => $mail->hasTo($client->email));
+    }
+
+    #[Test]
+    public function an_acceptance_rings_the_clients_bell_without_an_email(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        \Illuminate\Support\Facades\Mail::fake();
+        $client = $this->makeBorrowerUser($this->partner);
+        $document = $this->documentFor(Borrower::findOrFail($client->entity_id));
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/borrowers-documents/update-status/{$document->id}", [
+            'status' => BorrowerDocument::STATUS_ACCEPTED,
+        ])->assertOk();
+
+        \Illuminate\Support\Facades\Notification::assertSentTo($client, \App\Notifications\DynamicNotification::class, function ($n) use ($client) {
+            return $n->typeKey === 'borrower.document.reviewed'
+                && str_contains($n->toArray($client)['body'], 'Accepted');
+        });
+        \Illuminate\Support\Facades\Mail::assertNothingQueued();
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function a_refused_review_notifies_no_one(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        $client = $this->makeBorrowerUser($this->otherPartner);
+        $document = $this->documentFor(Borrower::findOrFail($client->entity_id));
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/borrowers-documents/update-status/{$document->id}", [
+            'status' => BorrowerDocument::STATUS_REJECTED,
+            'rejection_reason' => 'Not yours',
+        ])->assertNotFound();
+
+        \Illuminate\Support\Facades\Notification::assertNothingSent();
+    }
 }

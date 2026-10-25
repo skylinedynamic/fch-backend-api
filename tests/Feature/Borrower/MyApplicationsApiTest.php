@@ -136,6 +136,36 @@ class MyApplicationsApiTest extends TestCase
         }
     }
 
+    /**
+     * Defect: BUG-108. "+ Add Co-Borrower" accepted 50% next to an owner
+     * holding 100%: each share was checked alone. The form now sends what the
+     * owner and the other co-borrowers already hold, and the new share must
+     * fit in what is left.
+     */
+    #[Test]
+    public function a_co_borrowers_share_must_fit_in_what_the_others_leave(): void
+    {
+        $coBorrower = [
+            'first_name' => 'Co', 'last_name' => 'Owner', 'role' => 'Partner',
+            'email' => 'co@example.org', 'mobile_phone' => '(555) 210-0100', 'date_of_birth' => '1980-02-03',
+            'ssn' => '123456789', 'street_address' => '1 Main St', 'country' => 'United States',
+            'state' => 'TX', 'city' => 'Austin', 'zip_code' => '73301',
+        ];
+        $partnerAdmin = $this->makePartnerAdmin($this->makeWhiteLabelPartner());
+
+        foreach ([
+            [$this->me, '/api/v1/borrower/myapplication/funding-application/co-borrower-validation'],
+            [$partnerAdmin, '/api/v1/common/funding-application/co-borrower-validation'],
+        ] as [$user, $url]) {
+            $this->actingAsUser($user);
+
+            $this->postJson($url, ['ownership' => 50, 'other_ownership_total' => 100] + $coBorrower)
+                ->assertUnprocessable()->assertJsonValidationErrors('ownership');
+            $this->postJson($url, ['ownership' => 40, 'other_ownership_total' => 60] + $coBorrower)
+                ->assertJsonMissingValidationErrors('ownership');
+        }
+    }
+
     /** Home phone is optional on both forms: left empty, it is no error. */
     #[Test]
     public function an_empty_home_phone_is_not_an_error(): void

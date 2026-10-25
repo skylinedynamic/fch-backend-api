@@ -118,11 +118,18 @@ class FundingApplicationDocumentService
         }
 
         $brandingData = self::getBrandingData($application);
-        $pdf = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData));
-        if (!empty($password)) {
-            $pdf->setEncryption($password);
+        // The signed copy itself when there is one and no password is asked
+        // for (BUG-094). An existing PDF cannot be encrypted afterwards, so a
+        // password-protected copy is rendered - from the same as-signed data.
+        $signedCopy = empty($password) ? $this->signedApplicationPdf($application) : null;
+        $pdf = null;
+        if ($signedCopy === null) {
+            $pdf = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData));
+            if (!empty($password)) {
+                $pdf->setEncryption($password);
+            }
         }
-        
+
         $filename = 'Funding_Application_' . ($application->application_number ?? $application->id) . '.pdf';
         
         $isHost = $authUser && ($authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int)($authUser->partner->is_host ?? 0) === 1));
@@ -141,9 +148,9 @@ class FundingApplicationDocumentService
             $isHost ? ActivityLog::VISIBILITY_INTERNAL : ($isPartner ? ActivityLog::VISIBILITY_PARTNER : ActivityLog::VISIBILITY_EVERYONE)
         );
         
-        $pdfBinary = $pdf->output();
+        $pdfBinary = $signedCopy ?? $pdf->output();
         $sha256 = hash('sha256', $pdfBinary);
-        
+
         $savedPath = 'funding-applications/' . $application->id . '/downloads/' . $filename;
         Storage::disk('public')->put($savedPath, $pdfBinary);
 
@@ -164,15 +171,30 @@ class FundingApplicationDocumentService
             'sha256_hash' => $sha256,
             'ip_address' => request()->ip(),
             'downloaded_at' => now(),
+            // Never the password itself: whether one was used is the action.
             'details' => array_filter(array_merge([
-                'password' => $password,
                 'file_path' => $savedPath
             ], $this->getDeviceInfo())),
         ]);
-        
+
         return response($pdfBinary, 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    /**
+     * The application PDF frozen when it was signed, or null when it was
+     * never signed or the file is missing.
+     */
+    private function signedApplicationPdf(FundingApplication $application): ?string
+    {
+        $path = (is_array($application->signature_data) ? $application->signature_data : [])['signed_application_path'] ?? null;
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return Storage::disk('public')->get($path);
     }
 
     public function downloadSignaturePdf($id, $password = null)
@@ -242,8 +264,8 @@ class FundingApplicationDocumentService
             'sha256_hash' => $sha256,
             'ip_address' => request()->ip(),
             'downloaded_at' => now(),
+            // Never the password itself: whether one was used is the action.
             'details' => array_filter(array_merge([
-                'password' => $password,
                 'file_path' => $savedPath
             ], $this->getDeviceInfo())),
         ]);
@@ -273,7 +295,9 @@ class FundingApplicationDocumentService
         }
 
         // Generate standard PDFs (the ZIP archive itself will handle the password protection)
-        $appContent = $this->generateApplicationPdfContent($application, null);
+        // The signed copy itself when there is one (BUG-094); the ZIP does the
+        // password protection.
+        $appContent = $this->signedApplicationPdf($application) ?? $this->generateApplicationPdfContent($application, null);
         $sigContent = $this->generateSignaturePdfContent($application, $signatureData, null);
 
         $appNumber = $application->application_number ?? $application->id;
@@ -357,8 +381,8 @@ class FundingApplicationDocumentService
             'sha256_hash' => $sha256,
             'ip_address' => request()->ip(),
             'downloaded_at' => now(),
+            // Never the password itself: whether one was used is the action.
             'details' => array_filter(array_merge([
-                'password' => $password,
                 'file_path' => $savedPath
             ], $this->getDeviceInfo())),
         ]);
@@ -542,40 +566,53 @@ class FundingApplicationDocumentService
         return ['', $boxWidth, $boxHeight];
     }
 
+    /**
+     * The applicant and business as the application was submitted and signed
+     * (BUG-094). The application's own copy comes first; the borrower's live
+     * profile only fills a field the application does not hold (EIN, start
+     * date, email, home phone) or an older application left empty. Reading
+     * the profile first made a signed application change whenever the profile
+     * did.
+     */
     private static function getBorrowerBusinessInfo($application)
     {
         $borrower = $application->borrower ?? null;
 
-        $businessName = ($borrower ? $borrower->business_name : null) ?: ($application->business_name ?: 'N/A');
-        $businessPhone = ($borrower ? $borrower->business_phone : null) ?: ($application->business_phone ?: 'N/A');
-        $businessAddress = ($borrower ? $borrower->business_address : null) ?: ($application->street_address ?: 'N/A');
-        $businessCity = ($borrower ? $borrower->business_city : null) ?: ($application->city ?: 'N/A');
-        $personalCreditScore = ($borrower ? $borrower->personal_credit_score : null) ?: ($application->self_reported_personal_credit_score ?: 'N/A');
-        $businessEin = ($borrower ? $borrower->business_ein : null) ?: ($application->federal_tax_id_ein ?: 'N/A');
-        $businessEmail = ($borrower ? $borrower->business_email : null) ?: ($application->business_email ?: 'N/A');
-        $businessCountry = ($borrower ? $borrower->business_country : null) ?: ($application->country ?: 'N/A');
-        $businessState = ($borrower ? $borrower->business_state : null) ?: ($application->state ?: 'N/A');
-        $businessZipCode = ($borrower ? $borrower->business_postal_code : null) ?: ($application->zip_code ?: 'N/A');
-        
-        $rawStartDate = ($borrower ? $borrower->business_start_date : null) ?: ($application->business_start_date ?? null);
-        $businessStartDate = toDateOnly($rawStartDate, 'M j, Y') ?? 'N/A';
-        $timeInBusinessCount = calculateTimeInBusiness($rawStartDate);
-        
-        $businessCreditScore = $application->self_reported_business_credit_score ?: 'N/A';
-        $businessIndustryType = ($borrower ? $borrower->business_industry_type : null) ?: ($application->industry_type ?: 'N/A');
+        $asSubmitted = static fn ($own, $profile = null) => filled($own) ? $own : (filled($profile) ? $profile : 'N/A');
 
-        $firstName = ($borrower ? $borrower->first_name : null) ?: ($application->first_name ?: 'N/A');
-        $lastName = ($borrower ? $borrower->last_name : null) ?: ($application->last_name ?: 'N/A');
-        $email = ($borrower ? $borrower->email : null) ?: ($application->email ?: 'N/A');
-        $phoneNumber = ($borrower ? $borrower->phone_number : null) ?: ($application->phone_number ?: 'N/A');
-        $homeAddress = ($borrower ? $borrower->home_address : null) ?: ($application->home_street_address ?: 'N/A');
-        $homeState = ($borrower ? $borrower->state : null) ?: ($application->home_state ?: 'N/A');
-        $homeCity = ($borrower ? $borrower->city : null) ?: ($application->home_city ?: 'N/A');
-        $homeZipCode = ($borrower ? $borrower->postal_code : null) ?: ($application->home_zip_code ?: 'N/A');
-        $homeCountry = ($borrower ? $borrower->country : null) ?: ($application->home_country ?: 'N/A');
-        $homePhone = ($borrower ? $borrower->home_phone : null) ?: ($application->home_phone ?: 'N/A');
-        
-        $rawDob = ($borrower ? $borrower->date_of_birth : null) ?: ($application->date_of_birth ?? null);
+        $businessName = $asSubmitted($application->business_name, $borrower?->business_name);
+        $businessPhone = $asSubmitted($application->business_phone_no, $borrower?->business_phone);
+        $businessAddress = $asSubmitted($application->business_address, $borrower?->business_address);
+        $businessCity = $asSubmitted($application->business_city, $borrower?->business_city);
+        $personalCreditScore = $asSubmitted($application->self_reported_personal_credit_score, $borrower?->personal_credit_score);
+        $businessEin = $asSubmitted(null, $borrower?->business_ein);
+        $businessEmail = $asSubmitted($application->business_email, $borrower?->business_email);
+        $businessCountry = $asSubmitted($application->business_country, $borrower?->business_country);
+        $businessState = $asSubmitted($application->business_state, $borrower?->business_state);
+        $businessZipCode = $asSubmitted($application->business_postal_code, $borrower?->business_postal_code);
+
+        // Counted to the day it was signed, so the signed document does not
+        // grow a day older with every download.
+        $rawStartDate = $borrower?->business_start_date;
+        $businessStartDate = toDateOnly($rawStartDate, 'M j, Y') ?? 'N/A';
+        $signedAt = (is_array($application->signature_data) ? $application->signature_data : [])['signed_at'] ?? null;
+        $timeInBusinessCount = calculateTimeInBusiness($rawStartDate, $signedAt);
+
+        $businessCreditScore = $application->self_reported_business_credit_score ?: 'N/A';
+        $businessIndustryType = $asSubmitted($application->industry_type, $borrower?->business_industry_type);
+
+        $firstName = $asSubmitted($application->first_name, $borrower?->first_name);
+        $lastName = $asSubmitted($application->last_name, $borrower?->last_name);
+        $email = $asSubmitted(null, $borrower?->email);
+        $phoneNumber = $asSubmitted($application->phone_number, $borrower?->phone_number);
+        $homeAddress = $asSubmitted($application->street_address, $borrower?->home_address);
+        $homeState = $asSubmitted($application->state, $borrower?->state);
+        $homeCity = $asSubmitted($application->city, $borrower?->city);
+        $homeZipCode = $asSubmitted($application->zip_code, $borrower?->postal_code);
+        $homeCountry = $asSubmitted($application->country, $borrower?->country);
+        $homePhone = $asSubmitted(null, $borrower?->home_phone);
+
+        $rawDob = $application->date_of_birth ?: $borrower?->date_of_birth;
         $dateOfBirth = toDateOnly($rawDob, 'M j, Y') ?? 'N/A';
         
         $ssn = self::ssnForDocument($application, $borrower);

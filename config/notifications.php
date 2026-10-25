@@ -441,6 +441,18 @@ return [
             'url' => '/profile',
         ],
 
+        // A borrower document Accepted or Rejected by the host or partner
+        // (BUG-087). {{reason}} is " Reason: ..." for a rejection, empty otherwise.
+        'borrower.document.reviewed' => [
+            'name' => 'Document reviewed (borrower)',
+            'category' => 'document',
+            'icon' => 'ri-file-check-line',
+            'channels' => $bellAndMail,
+            'title' => 'Document {{status}}',
+            'body' => 'Your {{document}} was {{status}}.{{reason}}',
+            'url' => '/documents',
+        ],
+
         'host.credit_builder.verification_requested' => [
             'name' => 'Credit builder tasks submitted (host)',
             'category' => 'document',

@@ -87,9 +87,27 @@ class BorrowerActivityLogService
         }
         
         if (isset($filters['funding_application_id']) && $filters['funding_application_id']) {
-            $query->where(function ($q) use ($filters) {
-                $q->where('subject_type', FundingApplication::class)
-                    ->where('subject_id', $filters['funding_application_id']);
+            // With include_client_notes the client portal's application panel
+            // also gets the notes added on the client's own page (subject =
+            // this borrower), which otherwise never reach the client (BUG-103).
+            // Which of those they may see is still visibleTo()'s call above.
+            $clientNotesFor = filter_var($filters['include_client_notes'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                && $user->entity_type === Borrower::class
+                ? (int) $user->entity_id
+                : null;
+
+            $query->where(function ($q) use ($filters, $clientNotesFor) {
+                $q->where(function ($sq) use ($filters) {
+                    $sq->where('subject_type', FundingApplication::class)
+                        ->where('subject_id', $filters['funding_application_id']);
+                });
+
+                if ($clientNotesFor) {
+                    $q->orWhere(function ($sq) use ($clientNotesFor) {
+                        $sq->where('subject_type', Borrower::class)
+                            ->where('subject_id', $clientNotesFor);
+                    });
+                }
             });
         }
 

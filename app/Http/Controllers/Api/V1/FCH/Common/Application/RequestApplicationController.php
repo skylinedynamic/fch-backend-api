@@ -149,8 +149,12 @@ class RequestApplicationController extends Controller
     public function downloadApplication(Request $request, $id)
     {
         try {
-            $password = $request->query('password');
-            return $this->documentService->downloadApplicationPdf($id, $password);
+            // The password travels in the body, never the URL (BUG-094): a
+            // query string is written to server and proxy logs.
+            if ($request->query->has('password')) {
+                return ApiResponse::error(__('application.download_password_in_body'), 422);
+            }
+            return $this->documentService->downloadApplicationPdf($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('application.error_downloading_funding_application'));
         }
@@ -162,8 +166,12 @@ class RequestApplicationController extends Controller
     public function downloadSignature(Request $request, $id)
     {
         try {
-            $password = $request->query('password');
-            return $this->documentService->downloadSignaturePdf($id, $password);
+            // The password travels in the body, never the URL (BUG-094): a
+            // query string is written to server and proxy logs.
+            if ($request->query->has('password')) {
+                return ApiResponse::error(__('application.download_password_in_body'), 422);
+            }
+            return $this->documentService->downloadSignaturePdf($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('application.error_downloading_signature'));
         }
@@ -175,8 +183,12 @@ class RequestApplicationController extends Controller
     public function downloadZip(Request $request, $id)
     {
         try {
-            $password = $request->query('password');
-            return $this->documentService->downloadZip($id, $password);
+            // The password travels in the body, never the URL (BUG-094): a
+            // query string is written to server and proxy logs.
+            if ($request->query->has('password')) {
+                return ApiResponse::error(__('application.download_password_in_body'), 422);
+            }
+            return $this->documentService->downloadZip($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError('An error occurred while generating the ZIP file.');
         }

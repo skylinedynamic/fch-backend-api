@@ -34,8 +34,12 @@ class FundingRequestResource extends JsonResource
             ?? $request->input('fundingRequestId') 
             ?? null;
 
+        // Only the signed-in borrower's own request (BUG-082): the id can come
+        // straight from the URL.
         if (!$fundingReq && $fundingRequestId) {
-            $fundingReq = FundingRequest::with('fundingSequence')->find($fundingRequestId);
+            $fundingReq = FundingRequest::with('fundingSequence')
+                ->where('borrower_id', auth()->user()?->entity_id)
+                ->find($fundingRequestId);
         }
 
         if (!$fundingReq && auth()->check() && auth()->user()->entity_id) {
@@ -73,13 +77,6 @@ class FundingRequestResource extends JsonResource
 
         if (!$approvedFunding && $fundingReq) {
             $approvedFunding = $fundingReq->funding_type ?: $fundingReq->use_of_funds;
-        }
-
-        if (!$approvedFunding && $fundingRequestId) {
-            $seq = FundingSequencing::find($fundingRequestId);
-            if ($seq) {
-                $approvedFunding = $seq->name;
-            }
         }
 
         $preferredFundingType = ($fundingApp ? $fundingApp->preferred_funding_type : null)

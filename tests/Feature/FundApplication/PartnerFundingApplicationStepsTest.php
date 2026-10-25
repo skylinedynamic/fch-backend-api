@@ -109,6 +109,36 @@ class PartnerFundingApplicationStepsTest extends TestCase
         return "/api/v1/common/funding-application/{$step}";
     }
 
+    /**
+     * The host's admin may edit any partner's borrower's application - a
+     * White-Label's and a Certified partner's alike - from /fund-application/{id}.
+     */
+    #[Test]
+    #[DataProvider('steps')]
+    public function the_host_admin_edits_each_step_of_any_partners_borrowers_application(string $step, array $payload, string $flag): void
+    {
+        $whiteLabel = $this->makeWhiteLabelPartner();
+        $wlBorrower = $this->makeBorrower($whiteLabel);
+        $wlRequestId = $this->fundingRequestFor($wlBorrower->id, $whiteLabel->id);
+        $wlApplicationId = $this->applicationFor($wlBorrower->id, $whiteLabel->id, $wlRequestId);
+
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        foreach ([[$this->theirApplicationId, $this->theirRequestId], [$wlApplicationId, $wlRequestId]] as [$applicationId, $requestId]) {
+            // The admin wizard reads with the request id and saves with both ids.
+            $this->getJson($this->url($step) . "?funding_request_id={$requestId}")
+                ->assertOk()
+                ->assertJsonPath('data.id', $applicationId);
+
+            $this->postJson($this->url($step), array_merge($payload, [
+                'id' => $applicationId,
+                'funding_request_id' => $requestId,
+            ]))->assertOk();
+
+            $this->assertTrue((bool) FundingApplication::findOrFail($applicationId)->{$flag}, "{$step} for application {$applicationId}");
+        }
+    }
+
     #[Test]
     #[DataProvider('steps')]
     public function a_partner_prepares_each_step_for_its_own_borrower(string $step, array $payload, string $flag): void
@@ -134,12 +164,29 @@ class PartnerFundingApplicationStepsTest extends TestCase
             'id' => $this->myApplicationId,
             'funding_request_id' => $this->myRequestId,
             'ssn' => '123-45-6789',
+            // Owner and co-borrowers together may hold at most 100% (BUG-108).
+            'ownership' => 60,
             'has_co_borrower' => true,
             'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'ssn' => '234-56-7890']],
         ]))->assertOk();
 
         $this->assertSame('123456789', DB::table('funding_applications')->where('id', $this->myApplicationId)->value('ssn'));
         $this->assertSame('234567890', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
+    }
+
+    /** Defect: BUG-108, on the partner's form too. */
+    #[Test]
+    public function a_partner_cannot_save_more_than_100_percent_ownership(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'funding_request_id' => $this->myRequestId,
+            'ownership' => 100,
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 50]],
+        ]))->assertUnprocessable()->assertJsonValidationErrors('ownership');
     }
 
     #[Test]

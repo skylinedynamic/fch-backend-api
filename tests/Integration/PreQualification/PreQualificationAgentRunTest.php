@@ -398,6 +398,74 @@ class PreQualificationAgentRunTest extends TestCase
         $this->assertSame(2, $reads, 'the timed-out read should have been tried again');
     }
 
+    /**
+     * BUG-060: the first underwriting run failed and only "Try again" worked. A
+     * transient failure of the run itself (a 5xx from OpenAI) is now tried
+     * again inside the same evaluation, so the first submit completes.
+     */
+    #[Test]
+    public function a_first_run_that_fails_upstream_is_retried_and_completes(): void
+    {
+        config(['openai.max_attempts' => 3, 'openai.retry_delay_ms' => 0]);
+
+        $runs = 0;
+
+        Http::fake(function (Request $request) use (&$runs) {
+            if (str_starts_with($request->url(), self::AGENTS)) {
+                return Http::response(self::SAVED_AGENT);
+            }
+
+            $runs++;
+            if ($runs === 1) {
+                return Http::response(['error' => ['message' => 'upstream unavailable']], 503);
+            }
+
+            return Http::response([
+                'id' => 'resp_1',
+                'model' => self::SAVED_AGENT['model'],
+                'output' => [[
+                    'type' => 'message',
+                    'role' => 'assistant',
+                    'content' => [['type' => 'output_text', 'text' => json_encode(self::RESULT)]],
+                ]],
+            ]);
+        });
+
+        $result = $this->runStep();
+
+        $this->assertTrue($result['ok'], (string) ($result['error'] ?? ''));
+        $this->assertSame(2, $runs, 'the failed first run should have been tried again');
+    }
+
+    /**
+     * BUG-060: when every attempt fails the step reports the failure at once -
+     * the caller marks the application FAILED and the borrower is offered a
+     * retry, instead of the application sitting at PENDING.
+     */
+    #[Test]
+    public function a_run_that_fails_on_every_attempt_reports_the_failure(): void
+    {
+        config(['openai.max_attempts' => 3, 'openai.retry_delay_ms' => 0]);
+
+        $runs = 0;
+
+        Http::fake(function (Request $request) use (&$runs) {
+            if (str_starts_with($request->url(), self::AGENTS)) {
+                return Http::response(self::SAVED_AGENT);
+            }
+
+            $runs++;
+
+            return Http::response(['error' => ['message' => 'upstream unavailable']], 503);
+        });
+
+        $result = $this->runStep();
+
+        $this->assertFalse($result['ok']);
+        $this->assertNotEmpty($result['error'] ?? null);
+        $this->assertSame(3, $runs, 'every allowed attempt should have been made, and no more');
+    }
+
     #[Test]
     public function a_bad_agent_id_is_not_retried(): void
     {

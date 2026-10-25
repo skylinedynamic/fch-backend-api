@@ -313,6 +313,8 @@ return [
     'citizenship_status_string' => 'Citizenship status must be a string',
     'citizenship_status_max' => 'Citizenship status cannot exceed 255 characters',
     'ownership_numeric' => 'Ownership must be a number',
+    'ownership_between' => 'Ownership must be between 0% and 100%.',
+    'ownership_total_max' => 'Total ownership of the owner and co-borrowers cannot be more than 100% (now :total%).',
     'has_co_borrower_boolean' => 'Has co-borrower must be true or false',
 
     // Funding Application Financial Info
