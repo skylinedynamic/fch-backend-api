@@ -88,6 +88,20 @@ class BorrowerCreditBuilderApiTest extends TestCase
     }
 
     #[Test]
+    public function the_overview_gives_the_estimated_access_in_full_and_compact(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $data = $this->getJson('/api/v1/borrower/capital-access/overview')->assertOk()->json('data');
+
+        // In full for the Credit Card Stacking page; compact, as the dashboard's
+        // top cards show amounts ($4.53M), for the dashboard hero.
+        $this->assertSame(currencyFormat(0), $data['estimated_total_access']);
+        $this->assertSame(formatCompactCurrency(0), $data['estimated_total_access_compact']);
+        $this->assertSame('$0', $data['estimated_total_access_compact']);
+    }
+
+    #[Test]
     public function a_strategy_opens_in_each_of_its_views(): void
     {
         $this->actingAsUser($this->me);

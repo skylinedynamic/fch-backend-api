@@ -10,6 +10,15 @@ class Tier extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const FOUNDATION_CODE = 'T0';
+
+    /** Tier 0, the foundation: by its code, else the first tier. */
+    public static function foundation(): ?self
+    {
+        return static::where('code', self::FOUNDATION_CODE)->first()
+            ?? static::orderBy('order', 'asc')->first();
+    }
+
     protected $fillable = [
         'name',
         'title',
