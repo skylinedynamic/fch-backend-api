@@ -246,6 +246,7 @@ return [
     // Service & Admin
     'partner_id_exists' => 'Selected partner does not exist',
     'assign_id_exists' => 'Selected assigned user does not exist',
+    'assign_id_not_in_team' => 'Assign the client to someone on the client\'s partner team.',
     'notes_max' => 'Notes cannot exceed 1000 characters',
     'id_integer' => 'ID must be an integer',
     'id_exists' => 'Selected record not found',

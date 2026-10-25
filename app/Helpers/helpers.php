@@ -88,9 +88,9 @@ if (!function_exists('currencyFormat')) {
 
 if (!function_exists('formatCompactCurrency')) {
     /**
-     * Money for a dashboard card: the full amount with commas under a million
-     * ("$45,000"), then three significant figures in millions or billions
-     * ("$4.33M", "$37.2M", "$1.25B").
+     * Money for a dashboard card: whole dollars under a thousand ("$950"),
+     * then three significant figures in thousands, millions or billions
+     * ("$1.5K", "$920K", "$4.33M", "$37.2M", "$1.25B").
      */
     function formatCompactCurrency(int|float|string|null $amount, string $symbol = '$'): string
     {
@@ -98,13 +98,16 @@ if (!function_exists('formatCompactCurrency')) {
         $sign = $value < 0 ? '-' : '';
         $value = abs($value);
 
-        if ($value < 1_000_000) {
+        if (round($value) < 1_000) {
             return $sign . $symbol . number_format(round($value));
         }
 
-        // Three significant figures; 999,999,999 rounds up to $1B, not "$1000M".
-        foreach ([[1_000_000_000, 'B'], [1_000_000, 'M']] as [$unit, $suffix]) {
-            if ($value < $unit) {
+        // Largest unit first. Three significant figures; an amount that rounds
+        // up to a thousand of one unit becomes one of the next: 999,999 is
+        // $1M and 999,999,999 is $1B, never "$1000K" or "$1000M".
+        $units = [[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'K']];
+        foreach ($units as $i => [$unit, $suffix]) {
+            if ($value < $unit && $suffix !== 'K') {
                 continue;
             }
 
@@ -112,11 +115,15 @@ if (!function_exists('formatCompactCurrency')) {
             $decimals = $scaled < 10 ? 2 : ($scaled < 100 ? 1 : 0);
             $rounded = round($scaled, $decimals);
 
-            if ($suffix === 'M' && $rounded >= 1000) {
-                return $sign . $symbol . '1B';
+            if ($rounded >= 1000 && $i > 0) {
+                return $sign . $symbol . '1' . $units[$i - 1][1];
             }
 
-            $text = rtrim(rtrim(number_format($rounded, $decimals, '.', ''), '0'), '.');
+            $text = number_format($rounded, $decimals, '.', '');
+            // Drop trailing zeros after the point only: 1.50 -> 1.5, but 920 stays 920.
+            if ($decimals > 0) {
+                $text = rtrim(rtrim($text, '0'), '.');
+            }
 
             return $sign . $symbol . $text . $suffix;
         }

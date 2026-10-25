@@ -3,7 +3,8 @@
 @section('title', 'Appointment Scheduled')
 
 @php
-    $startTime = \Carbon\Carbon::parse($appointment->appointment_date);
+    // Stored in UTC; shown in the zone it was booked in, which the email names.
+    $startTime = \App\Support\Appointment\AppointmentTime::inBookedZone($appointment->appointment_date, $appointment->timezone);
     $endTime = (clone $startTime)->addMinutes($appointment->duration_minutes);
 @endphp
 
@@ -58,7 +59,7 @@
                                 style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #878a99; margin-bottom: 2px;">
                                 Time Zone</div>
                             <div class="detail-value" style="font-size: 14px; font-weight: 700; color: #1a2e44;">
-                                {{ $appointment->timezone ?? 'UTC (GMT+00:00)' }}</div>
+                                {{ \App\Support\Appointment\AppointmentTime::zone($appointment->timezone) ?? 'UTC' }} (GMT{{ $startTime->format('P') }})</div>
                         </div>
                     </div>
                 </td>

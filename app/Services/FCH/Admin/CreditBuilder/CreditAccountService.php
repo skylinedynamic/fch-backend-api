@@ -2,7 +2,9 @@
 
 namespace App\Services\FCH\Admin\CreditBuilder;
 
+use App\Exceptions\CreditAccountAppliedException;
 use App\Models\CreditBuilder\CreditAccount;
+use Illuminate\Support\Facades\DB;
 use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
@@ -20,7 +22,7 @@ class CreditAccountService
      */
     public function list(array $filters = [])
     {
-        $query = CreditAccount::query();
+        $query = CreditAccount::query()->withApplicationFlags();
 
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
@@ -87,7 +89,7 @@ class CreditAccountService
      */
     public function allActive($search = null)
     {
-        $query = CreditAccount::where('status', 'Active');
+        $query = CreditAccount::withApplicationFlags()->where('status', CreditAccount::STATUS_ACTIVE);
         if (!empty($search)) {
             $query->search($search);
         }
@@ -156,7 +158,39 @@ class CreditAccountService
      */
     public function delete($id)
     {
-        $account = CreditAccount::findOrFail($id);
-        return $account->delete();
+        CreditAccount::findOrFail($id);
+
+        return $this->deleteMultiple([(int) $id]) === 1;
+    }
+
+    /**
+     * Deletes the selected cards (soft delete). A card a borrower has applied
+     * for is kept: if the selection has one, nothing is deleted and those
+     * cards are named.
+     *
+     * @param  int[]  $ids
+     * @return int how many were deleted
+     *
+     * @throws CreditAccountAppliedException
+     */
+    public function deleteMultiple(array $ids): int
+    {
+        $accounts = CreditAccount::withApplicationFlags()->whereIn('id', $ids)->get();
+
+        $applied = $accounts->filter(fn (CreditAccount $account) => $account->hasBorrowerApplications());
+        if ($applied->isNotEmpty()) {
+            throw new CreditAccountAppliedException(
+                $accounts->count() === 1
+                    ? __('credit_account.delete_blocked_applied')
+                    : __('credit_account.delete_blocked_applied_named', ['names' => $applied->pluck('card_name')->implode(', ')]),
+                $applied->map(fn (CreditAccount $a) => ['id' => $a->id, 'name' => $a->card_name])->values()->all()
+            );
+        }
+
+        return DB::transaction(function () use ($accounts) {
+            $accounts->each(fn (CreditAccount $account) => $account->delete());
+
+            return $accounts->count();
+        });
     }
 }

@@ -3,7 +3,10 @@
 namespace Tests\Integration\CreditBuilder;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerBankAccount;
 use App\Models\Borrower\BorrowerCreditProfile;
+use App\Models\Borrower\BorrowerCreditTrade;
+use App\Models\Common\ScoreConfiguration;
 use App\Services\Borrower\CapitalAccess\BorrowerContext;
 use App\Services\Borrower\CapitalAccess\ReadinessScoreCalculationService;
 use Carbon\Carbon;
@@ -158,6 +161,125 @@ class ReadinessScoreCalculationTest extends TestCase
         $this->assertSame((int) min(100, round($weighted)), $result['total_score']);
         $this->assertNotEmpty($result['score_label']);
         $this->assertCount(6, $result['factors']);
+    }
+
+    // -- BUG-031: Tradeline Depth -------------------------------------------
+
+    /**
+     * Gives the borrower a pulled credit file with these trades.
+     *
+     * @param  array<int, array{status: string, limit: float|int|null}>  $trades
+     */
+    private function withTrades(Borrower $borrower, array $trades): Borrower
+    {
+        $profile = BorrowerCreditProfile::create(['borrower_id' => $borrower->id]);
+        foreach ($trades as $i => $trade) {
+            BorrowerCreditTrade::create([
+                'borrower_credit_profile_id' => $profile->id,
+                'company' => "Lender {$i}",
+                'status' => $trade['status'],
+                'limit' => $trade['limit'],
+            ]);
+        }
+
+        return $borrower->fresh();
+    }
+
+    private static function open(int $count, float $limit): array
+    {
+        return array_fill(0, $count, ['status' => 'OPEN', 'limit' => $limit]);
+    }
+
+    public static function tradelineFiles(): array
+    {
+        // A high-limit account: an open trade with a limit of $5,000 or more.
+        return [
+            '5 open, 2 high-limit, $16,000 in limits' => [
+                [...self::open(2, 6000), ...self::open(3, 1000)], ScoreConfiguration::STATUS_TRADE_MULTIPLE_HIGH,
+            ],
+            '3 open, 1 high-limit, $10,000 in limits' => [
+                [...self::open(1, 6000), ...self::open(2, 2000)], ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH,
+            ],
+            '3 open but no high-limit account' => [
+                self::open(3, 4000), ScoreConfiguration::STATUS_TRADE_MODERATE,
+            ],
+            '1 open' => [
+                self::open(1, 9000), ScoreConfiguration::STATUS_TRADE_THIN,
+            ],
+            'closed trades do not count' => [
+                [...self::open(1, 6000), ['status' => 'CLOSED', 'limit' => 20000], ['status' => 'CLOSED', 'limit' => 20000]],
+                ScoreConfiguration::STATUS_TRADE_THIN,
+            ],
+        ];
+    }
+
+    /**
+     * Defect: only open_accounts was read; high_limit_accounts and limit were
+     * taken as 0, so the two upper tiers could never match and every file
+     * with 2+ open trades read the same.
+     */
+    #[Test]
+    #[DataProvider('tradelineFiles')]
+    public function tradeline_depth_reads_open_accounts_high_limit_accounts_and_limits(array $trades, string $expected): void
+    {
+        $factor = $this->factor($this->withTrades($this->borrower(), $trades), 'tradeline_depth');
+
+        $this->assertSame($expected, $factor['status']);
+        $this->assertSame($expected, $factor['value']);
+    }
+
+    /** Defect: with no credit file the factor had no value and showed blank. */
+    #[Test]
+    public function tradeline_depth_says_so_when_there_is_no_credit_file(): void
+    {
+        $factor = $this->factor($this->borrower(), 'tradeline_depth');
+
+        $this->assertSame('No credit file', $factor['value']);
+        $this->assertEquals(0, $factor['raw_score']);
+    }
+
+    // -- BUG-031: wording ------------------------------------------------------
+
+    public static function bankAccounts(): array
+    {
+        // 2026-06-15 is "now".
+        return [
+            'none' => [[], '/^No bank accounts$/'],
+            'one' => [['2021-03-15'], '/^1 account\b(?!s)/'],
+            'two' => [['2021-03-15', '2024-06-15'], '/^2 accounts\b/'],
+        ];
+    }
+
+    /** Defect: "1 accounts, oldest relationship 63 months" and "0 account(s)". */
+    #[Test]
+    #[DataProvider('bankAccounts')]
+    public function banking_relationships_reads_as_a_sentence(array $opened, string $pattern): void
+    {
+        $borrower = $this->borrower();
+        foreach ($opened as $date) {
+            BorrowerBankAccount::create(['borrower_id' => $borrower->id, 'bank_name' => 'Bank', 'account_open_date' => $date]);
+        }
+
+        $value = $this->factor($borrower->fresh(), 'banking_relationships')['value'];
+
+        $this->assertMatchesRegularExpression($pattern, $value);
+        $this->assertStringNotContainsString('(s)', $value);
+    }
+
+    public static function businessAgeWording(): array
+    {
+        return [
+            'one month' => ['2026-05-15', '1 month+'],
+            'eleven months' => ['2025-07-15', '11 months+'],
+        ];
+    }
+
+    /** Defect: "1 months+". */
+    #[Test]
+    #[DataProvider('businessAgeWording')]
+    public function time_in_business_reads_as_a_sentence(string $start, string $expected): void
+    {
+        $this->assertSame($expected, $this->factor($this->borrower(['business_start_date' => $start]), 'time_in_business')['value']);
     }
 
     /**

@@ -25,6 +25,20 @@ class CapitalAccessStrategyService
     use HasEvaluatedChecklist;
 
     /**
+     * Eager loads for a play's steps and their cards: only the steps whose
+     * card is still offered - not inactivated or deleted (BUG-042).
+     *
+     * @return array<int|string, mixed>
+     */
+    private function offeredSequences(): array
+    {
+        return [
+            'sequences' => fn ($query) => $query->offered(),
+            'sequences.creditAccount',
+        ];
+    }
+
+    /**
      * Get a lightweight list of active strategies for selection.
      */
     public function listForSelection(): JsonResponse
@@ -55,7 +69,7 @@ class CapitalAccessStrategyService
      */
     public function listForBorrower(Borrower $borrower): JsonResponse
     {
-        $strategies = CapitalAccess::with('sequences.creditAccount')->active()->get();
+        $strategies = CapitalAccess::with($this->offeredSequences())->active()->get();
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower);
 
@@ -83,7 +97,7 @@ class CapitalAccessStrategyService
      */
     public function list(): JsonResponse
     {
-        $strategies = CapitalAccess::with('sequences.creditAccount')->active()->get();
+        $strategies = CapitalAccess::with($this->offeredSequences())->active()->get();
         $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower);
@@ -112,7 +126,7 @@ class CapitalAccessStrategyService
      */
     public function show(int $id): JsonResponse
     {
-        $strategy = CapitalAccess::with('sequences.creditAccount')->active()->findOrFail($id);
+        $strategy = CapitalAccess::with($this->offeredSequences())->active()->findOrFail($id);
         $strategies = CapitalAccess::active()->get();
         $borrower = auth()->user()?->borrower;
 
@@ -222,7 +236,7 @@ class CapitalAccessStrategyService
      */
     public function showRoadmap(int $id): JsonResponse
     {
-        $strategy = CapitalAccess::with('sequences.creditAccount')->active()->findOrFail($id);
+        $strategy = CapitalAccess::with($this->offeredSequences())->active()->findOrFail($id);
         $strategies = CapitalAccess::active()->get();
         $borrower = auth()->user()?->borrower;
 
@@ -319,7 +333,7 @@ class CapitalAccessStrategyService
 
         // Verify the sequence belongs to this strategy
         try {
-            $seq = $strategy->sequences()->with('creditAccount', 'capitalAccess')->findOrFail($sequenceId);
+            $seq = $strategy->sequences()->offered()->with('creditAccount', 'capitalAccess')->findOrFail($sequenceId);
         } catch (ModelNotFoundException) {
             return ApiResponse::error('This step does not exist for the selected strategy.', 403);
         }
@@ -392,7 +406,7 @@ class CapitalAccessStrategyService
 
         // Verify the sequence belongs to this strategy
         try {
-            $seq = $strategy->sequences()->findOrFail($sequenceId);
+            $seq = $strategy->sequences()->offered()->findOrFail($sequenceId);
         } catch (ModelNotFoundException) {
             return ApiResponse::error('This step does not exist for the selected strategy.', 403);
         }
@@ -432,7 +446,7 @@ class CapitalAccessStrategyService
         );
 
         // --- Maintain separate status in borrower_capital_access_plays ---
-        $totalSteps = $strategy->sequences()->count();
+        $totalSteps = $strategy->sequences()->offered()->count();
         $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
             ->where('capital_access_id', $strategy->id)
             ->where('status', CapitalAccessApplication::STATUS_APPROVED)
@@ -522,7 +536,7 @@ class CapitalAccessStrategyService
                         // plays were tracked are backfilled by the migration
                         // 2026_10_12_000100_backfill_borrower_capital_access_plays,
                         // and new ones are written when a step is submitted.
-                        $totalSteps = $strat->sequences()->count();
+                        $totalSteps = $strat->sequences()->offered()->count();
                         $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
                             ->where('capital_access_id', $strat->id)
                             ->where('status', CapitalAccessApplication::STATUS_APPROVED)
@@ -645,7 +659,7 @@ class CapitalAccessStrategyService
         }
 
         // 2. Check preceding steps completion (all previous steps must be approved)
-        $sequences = $strategy->sequences()->get();
+        $sequences = $strategy->sequences()->offered()->get();
         $timeOrder = [
             CapitalAccess::ACCESS_TIME_MORNING => 0,
             CapitalAccess::ACCESS_TIME_EVENING => 1,

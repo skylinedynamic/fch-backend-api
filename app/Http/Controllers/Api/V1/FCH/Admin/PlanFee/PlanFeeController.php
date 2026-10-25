@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\PlanFee;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Services\FCH\Admin\PlanFee\PlanFeeService;
+use App\Http\Requests\Api\V1\FCH\Admin\PlanFee\UpdateSubscriptionPlanRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -58,7 +59,7 @@ class PlanFeeController extends Controller
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, $id)
+    public function update(UpdateSubscriptionPlanRequest $request, $id)
     {
         $user = Auth::user();
         if (!$user) {
@@ -74,13 +75,8 @@ class PlanFeeController extends Controller
             return ApiResponse::error('Access denied. Host admin permissions required.', 403);
         }
 
-        $validated = $request->validate([
-            'total_amount'                 => ['nullable', 'numeric', 'min:0'],
-            'platform_fee'                 => ['nullable', 'numeric', 'min:0'],
-            'total_installment_count_upto' => ['nullable', 'integer', 'min:1'],
-            'total_seat_count'             => ['nullable', 'integer', 'min:0'],
-            'include_existing_subscription'=> ['nullable', 'boolean'],
-        ]);
+        // Each value is checked by UpdateSubscriptionPlanRequest (BUG-096).
+        $validated = $request->validated();
 
         try {
             $plan = $this->planFeeService->updateSubscriptionPlan((int) $id, $validated);

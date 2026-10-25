@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder;
 
 use App\Helpers\ApiResponse;
+use App\Exceptions\CreditAccountAppliedException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\DeleteCreditAccountsRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\StoreCreditAccountRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\UpdateCreditAccountRequest;
 use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
@@ -127,11 +129,34 @@ class CreditAccountController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $this->service->delete($id);
+        try {
+            $this->service->delete($id);
+        } catch (CreditAccountAppliedException $e) {
+            return ApiResponse::error($e->getMessage(), 422, ['applied' => $e->applied]);
+        }
 
         return ApiResponse::success(
             null,
             __('credit_account.credit_account_deleted')
         );
+    }
+
+    /**
+     * Delete the cards selected in the list. A card a borrower has applied
+     * for is kept: the whole selection is refused and those cards named.
+     */
+    public function multipleDelete(DeleteCreditAccountsRequest $request): JsonResponse
+    {
+        try {
+            $deleted = $this->service->deleteMultiple($request->validated()['ids']);
+        } catch (CreditAccountAppliedException $e) {
+            return ApiResponse::error($e->getMessage(), 422, ['applied' => $e->applied]);
+        }
+
+        if ($deleted === 0) {
+            return ApiResponse::notFound(__('credit_account.credit_account_not_found'));
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], __('credit_account.credit_accounts_deleted'));
     }
 }

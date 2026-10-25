@@ -38,7 +38,7 @@ class DashboardService
             'funding_requests' => $borrower->fundingRequests->where('status','!=', \App\Models\FundingRequest\FundingRequest::STATUS_CANCELED)->count(),
             'total_requested_amount' => $totalRequested,
             'total_funded_amount' => $totalFunded,
-            // As the top cards show them: $37.2M, $45,000.
+            // As the top cards show them: $37.2M, $45K.
             'total_requested_amount_formatted' => formatCompactCurrency($totalRequested),
             'total_funded_amount_formatted' => formatCompactCurrency($totalFunded),
         ];

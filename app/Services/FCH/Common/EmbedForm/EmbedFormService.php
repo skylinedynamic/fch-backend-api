@@ -246,6 +246,31 @@ class EmbedFormService
     /**
      * Reduce a URL or bare domain to a comparable lowercase host.
      */
+    /**
+     * The sites the browser may show the form page in an iframe on - only the
+     * Allowed Domains, each with and without "www." (BUG-092). The submit's
+     * Origin check above cannot do this: inside an iframe the form's own page
+     * sends the request, so the browser reports the form's host, never the
+     * site around it. Null when the list is empty: unrestricted.
+     */
+    public function frameAncestors(EmbedFormConfig $config): ?string
+    {
+        $allowed = is_array($config->allowed_domains) ? $config->allowed_domains : [];
+
+        $sources = [];
+        foreach ($allowed as $domain) {
+            $host = $this->normalizeHost($domain);
+            if (!$host) {
+                continue;
+            }
+            $scheme = preg_match('#^http://#i', trim((string) $domain)) ? 'http' : 'https';
+            $sources[] = "{$scheme}://{$host}";
+            $sources[] = "{$scheme}://www.{$host}";
+        }
+
+        return $sources ? implode(' ', array_values(array_unique($sources))) : null;
+    }
+
     protected function normalizeHost(?string $value): ?string
     {
         if (!$value) {
