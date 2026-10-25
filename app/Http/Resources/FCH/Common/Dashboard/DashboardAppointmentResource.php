@@ -18,9 +18,10 @@ class DashboardAppointmentResource extends JsonResource
             'id' => $this->id,
             'subject' => $this->subject,
             'status' => $this->status,
-            'appointment_date' => $this->appointment_date,
+            // Stored in UTC; read in the viewer's zone (X-Timezone) - BUG-080.
+            'appointment_date' => \App\Support\Appointment\AppointmentTime::forViewer($this->appointment_date),
             'meeting_type' => $this->meeting_type,
-            'formatted_appointment_date' => \Carbon\Carbon::parse($this->appointment_date)->format('M d, Y'),
+            'formatted_appointment_date' => \App\Support\Appointment\AppointmentTime::forViewer($this->appointment_date, null, 'M d, Y'),
             'scheduled_by' => $this->whenLoaded('scheduledBy', function () {
                 return [
                     'id' => $this->scheduledBy->id,

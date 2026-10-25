@@ -26,6 +26,8 @@ class CreditAccountResource extends JsonResource
             'full_image_url' => $this->full_image_url,
             'reference_url' => $this->reference_url,
             'status' => $this->status ?? CreditAccount::STATUS_ACTIVE,
+            // No borrower has applied for it, so the list may delete it.
+            'can_delete' => !$this->resource->hasBorrowerApplications(),
             'personal_guarantee' => $this->personal_guarantee,
             'business_credit_profile' => $this->business_credit_profile,
             'final_approval' => $this->final_approval,

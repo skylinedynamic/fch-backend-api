@@ -21,6 +21,7 @@ return [
     'validation_tier_id_required' => 'A tier is required.',
     'validation_tier_id_exists' => 'The selected tier does not exist.',
     'validation_related_api_id_exists' => 'The selected related API does not exist.',
+    'validation_vendor_required' => 'Vendor is required',
     'validation_title_required' => 'Task title is required.',
     'validation_title_max' => 'Task title may not be longer than 255 characters.',
     'validation_status_max' => 'Status may not be longer than 50 characters.',

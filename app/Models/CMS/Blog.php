@@ -69,11 +69,20 @@ class Blog extends Model
         return encodeUrl(asset('storage/' . $path));
     }
 
+    /**
+     * The post's web address, from its title: unique within the partner (as
+     * the blogs (slug, partner_id) index, deleted posts included), so a
+     * repeated title becomes "title-2", "title-3" (BUG-045). Set once - editing
+     * the post keeps its address.
+     */
     public function getSlugOptions(): SlugOptions
     {
         return SlugOptions::create()
             ->generateSlugsFrom('title')
-            ->saveSlugsTo('slug');
+            ->saveSlugsTo('slug')
+            ->startSlugSuffixFrom(2)
+            ->extraScope(fn ($query) => $query->where('partner_id', $this->partner_id))
+            ->doNotGenerateSlugsOnUpdate();
     }
 
     public function category(): BelongsTo

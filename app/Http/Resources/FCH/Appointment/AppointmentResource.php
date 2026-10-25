@@ -4,6 +4,7 @@ namespace App\Http\Resources\FCH\Appointment;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\Appointment\AppointmentTime;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
@@ -21,7 +22,8 @@ class AppointmentResource extends JsonResource
             'appointment_code' => $this->appointment_code,
             'subject' => $this->subject,
             'description' => $this->description,
-            'appointment_date' => $this->appointment_date,
+            // Stored in UTC; read in the viewer's zone (X-Timezone) - BUG-080.
+            'appointment_date' => AppointmentTime::forViewer($this->appointment_date),
             'timezone' => $this->timezone,
             'duration_minutes' => $this->duration_minutes,
             'status' => $this->status,

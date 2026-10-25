@@ -156,6 +156,8 @@ class CapitalAccessOverviewController extends Controller
             'readiness_status_color' => $result['score_label_color'] ?? null,
             'factors'                => $result['factors'] ?? [],
             'estimated_total_access' => $estimatedAccess,
+            // As the dashboard's top cards show amounts: $920K, $4.53M.
+            'estimated_total_access_compact' => formatCompactCurrency($totalExposureMax),
             'exposure_breakdown'     => $exposureBreakdown,
             'current_play'           => $currentPlay,
             'reason_code'            => $reasonCode,

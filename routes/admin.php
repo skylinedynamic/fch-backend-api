@@ -15,7 +15,6 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationControll
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
@@ -101,12 +100,13 @@ Route::prefix('v1/admin')
             Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy'])->middleware('permission:update tier');
 
             // Credit Accounts
-            Route::post('credit-accounts/fetch-accounts', [CreditAccountController::class, 'index'])->middleware('permission:view credit accounts');
-            Route::post('credit-accounts', [CreditAccountController::class, 'store'])->middleware('permission:create credit accounts');
-            Route::get('credit-accounts/{id}', [CreditAccountController::class, 'show'])->middleware('permission:view credit accounts');
-            Route::put('credit-accounts/{id}', [CreditAccountController::class, 'update'])->middleware('permission:update credit accounts');
-            Route::patch('credit-accounts/{id}/status', [CreditAccountController::class, 'updateStatus'])->middleware('permission:update credit accounts');
-            Route::delete('credit-accounts/{id}', [CreditAccountController::class, 'destroy'])->middleware('permission:delete credit accounts');
+            Route::post('credit-accounts/fetch-accounts', [CreditAccountController::class, 'index']);
+            Route::post('credit-accounts/multiple-delete', [CreditAccountController::class, 'multipleDelete']);
+            Route::post('credit-accounts', [CreditAccountController::class, 'store']);
+            Route::get('credit-accounts/{id}', [CreditAccountController::class, 'show']);
+            Route::put('credit-accounts/{id}', [CreditAccountController::class, 'update']);
+            Route::patch('credit-accounts/{id}/status', [CreditAccountController::class, 'updateStatus']);
+            Route::delete('credit-accounts/{id}', [CreditAccountController::class, 'destroy']);
         }
         );
 

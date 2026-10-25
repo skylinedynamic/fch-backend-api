@@ -451,7 +451,10 @@ class BorrowerActivityLogService
                 );
             }
         } elseif ($model instanceof Appointment) {
-            $timeStr = !empty($model->appointment_date) ? \Carbon\Carbon::parse($model->appointment_date)->format('M d, Y h:i A') : 'N/A';
+            // Stored in UTC; written in the zone it was booked in, named.
+            $timeStr = !empty($model->appointment_date)
+                ? \App\Support\Appointment\AppointmentTime::inBookedZone($model->appointment_date, $model->timezone)->format('M d, Y h:i A T')
+                : 'N/A';
             $entity = $model->entity;
             $entityName = $entity?->full_name ?? $entity?->name ?? $entity?->company_name ?? (isset($entity->first_name) ? "{$entity->first_name} {$entity->last_name}" : 'Client');
 

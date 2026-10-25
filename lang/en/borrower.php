@@ -5,6 +5,9 @@ return [
     'update_personal_profile' => 'Update Borrower Profile',
     'update_personal_profile_failed' => 'Failed to update profile. Please try again.',
     'fetch_profile_completion' => 'Fetch Profile Completion Status',
+    'onboarding_step_not_skippable' => 'This step can no longer be skipped. Refresh the page to see your next step.',
+    'onboarding_step_not_resumable' => 'This step is not waiting for you any more. Refresh the page to see your next step.',
+    'onboarding_path_not_available' => 'That choice is not available yet. It opens once your results are ready.',
     'failed_to_update_profile' => 'Failed to update profile',
     'signup_id_not_found' => 'Signup ID not found',
 

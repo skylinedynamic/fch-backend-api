@@ -7,9 +7,13 @@ use App\Models\Common\ScoreConfiguration;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ReadinessScoreCalculationService
 {
+    /** An open trade with at least this credit limit counts as a high-limit account (Tradeline Depth). */
+    public const HIGH_LIMIT_ACCOUNT_MIN = 5000;
+
     /**
      * Calculate the Capital Access Readiness Scores.
      *
@@ -184,7 +188,7 @@ class ReadinessScoreCalculationService
 
         return [
             'score' => $value * ($subScoreWeight / 100),
-            'value' => $months > 0 ? floor($months) . ' months+' : 'New business',
+            'value' => $months > 0 ? sprintf('%d %s+', $months, Str::plural('month', (int) $months)) : 'New business',
             'status' => $status,
         ];
     }
@@ -352,12 +356,19 @@ class ReadinessScoreCalculationService
     private function getTradelineDepthSubscore(Borrower $borrower, float $subScoreWeight, Collection $tiers): array
     {
         if (!$borrower->creditProfile) {
-            return ['score' => 0, 'value' => null, 'status' => null];
+            return ['score' => 0, 'value' => 'No credit file', 'status' => null];
         }
 
-        $openAccounts = $borrower->creditProfile->trades->filter(
+        // The tiers are written on three figures of the open trades (BUG-031:
+        // only the first was read, the others counted as 0).
+        $openTrades = $borrower->creditProfile->trades->filter(
             fn($trade) => strtoupper($trade->status ?? '') === 'OPEN'
-        )->count();
+        );
+        $tradeFigures = [
+            'open_accounts' => $openTrades->count(),
+            'high_limit_accounts' => $openTrades->filter(fn($trade) => (float) $trade->limit >= self::HIGH_LIMIT_ACCOUNT_MIN)->count(),
+            'limit' => (float) $openTrades->sum(fn($trade) => (float) $trade->limit),
+        ];
 
         $value = 0;
         $status = null;
@@ -371,7 +382,7 @@ class ReadinessScoreCalculationService
                     if (!is_array($val) || !isset($val['operator'], $val['value'])) {
                         continue;
                     }
-                    $borrowerValue = $field === 'open_accounts' ? $openAccounts : 0;
+                    $borrowerValue = $tradeFigures[$field] ?? 0;
                     $results[] = $this->compareValues($borrowerValue, $val['operator'], $val['value']);
                 }
 
@@ -449,12 +460,14 @@ class ReadinessScoreCalculationService
                 $value = (float) $tier->numeric_value;
                 $status = $tier->label;
 
+                $accounts = fn (int $count) => $count === 0 ? 'No bank accounts' : sprintf('%d %s', $count, Str::plural('account', $count));
+                $months = fn ($count) => sprintf('%d %s', $count, Str::plural('month', (int) $count));
                 if ($each && $checkingMonthsRule) {
-                    $message = sprintf('%d accounts, each older than %d months', (int) $accountsRule['value'], $checkingMonthsRule['value']);
+                    $message = sprintf('%s, each older than %s', $accounts((int) $accountsRule['value']), $months($checkingMonthsRule['value']));
                 } elseif (!$each && $checkingMonthsRule) {
-                    $message = sprintf('%d accounts, oldest relationship %d months', $totalAccounts, $accountAges->max() ?: 0);
+                    $message = sprintf('%s, oldest relationship %s', $accounts($totalAccounts), $months($accountAges->max() ?: 0));
                 } else {
-                    $message = sprintf('%d account(s)', $totalAccounts);
+                    $message = $accounts($totalAccounts);
                 }
                 break;
             }

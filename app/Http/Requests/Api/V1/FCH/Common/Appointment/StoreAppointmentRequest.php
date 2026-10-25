@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Appointment;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Appointment\Concerns\AppointmentTimeRules;
 use App\Models\Appointment\Appointment;
 use App\Rules\AttendeesEntity;
 use App\Rules\BookableAttendee;
@@ -10,6 +11,18 @@ use Illuminate\Validation\Rule;
 
 class StoreAppointmentRequest extends BaseApiRequest
 {
+    use AppointmentTimeRules;
+
+    protected function prepareForValidation(): void
+    {
+        $this->prepareAppointmentTime();
+    }
+
+    protected function appointmentBeingEdited(): ?Appointment
+    {
+        return null;
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -21,7 +34,7 @@ class StoreAppointmentRequest extends BaseApiRequest
             'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
             'appointment_date' => 'required',
-            'timezone' => 'required|string',
+            'timezone' => $this->timezoneRules(true),
             'duration_minutes' => 'required|integer|min:1',
             'status' => ['nullable', Rule::in(array_keys(Appointment::STATUSES))],
             'meeting_type' => ['required', Rule::in(array_keys(Appointment::MEETING_TYPES))],

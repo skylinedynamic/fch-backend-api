@@ -176,6 +176,18 @@ return [
             'url' => '/fund-application/{{id}}',
         ],
 
+        // Bell only: the borrower portal's pre-qualification page shows the
+        // status and note, and there is no status email for it yet (BUG-063).
+        'borrower.pre_qualification.status_changed' => [
+            'name' => 'Pre-qualification status changed (borrower)',
+            'category' => 'funding',
+            'icon' => 'ri-survey-line',
+            'channels' => ['database', 'broadcast'],
+            'title' => 'Pre-qualification {{status}}',
+            'body' => 'Your pre-qualification is now {{status}}.{{note}}',
+            'url' => '/pre-qualification',
+        ],
+
         'partner.pre_qualification.submitted' => [
             'name' => 'Pre-qualification submitted',
             'category' => 'funding',
