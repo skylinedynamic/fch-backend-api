@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use App\Services\FCH\Common\Scoring\CreditScoreService;
 use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
@@ -62,7 +63,7 @@ class EmbedFormPageController extends Controller
         $primaryColor = $branding['primary_color'] ?? '#0d6efd';
         $secondaryColor = $branding['secondary_color'] ?? '#198754';
 
-        return view('embed-form.index', [
+        $response = response()->view('embed-form.index', [
             'config' => $config,
             'partnerName' => $partnerName,
             'logoUrl' => $logoUrl,
@@ -96,6 +97,15 @@ class EmbedFormPageController extends Controller
             'minimumAge' => (int) config('funding_application.embed_form.minimum_age', 18),
             'postalCodeLength' => UsPostalCode::length(),
         ]);
+
+        // Only the Allowed Domains may show this page in an iframe; the
+        // browser enforces it (BUG-092). No list: unrestricted.
+        $frameAncestors = app(EmbedFormService::class)->frameAncestors($config);
+        if ($frameAncestors) {
+            $response->headers->set('Content-Security-Policy', "frame-ancestors {$frameAncestors}");
+        }
+
+        return $response;
     }
 
     /**

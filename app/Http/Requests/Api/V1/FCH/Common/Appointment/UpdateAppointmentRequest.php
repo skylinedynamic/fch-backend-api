@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Appointment;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Appointment\Concerns\AppointmentTimeRules;
 use App\Models\Appointment\Appointment;
 use App\Rules\AttendeesEntity;
 use App\Rules\BookableAttendee;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateAppointmentRequest extends BaseApiRequest
 {
+    use AppointmentTimeRules;
+
     public function authorize(): bool
     {
         return true;
@@ -28,6 +31,13 @@ class UpdateAppointmentRequest extends BaseApiRequest
 
         $this->appointment = Appointment::where(fn ($q) => $q->where('scheduled_by', $userId)->orWhere('assigned_for', $userId))
             ->findOrFail($this->route('appointment'));
+
+        $this->prepareAppointmentTime();
+    }
+
+    protected function appointmentBeingEdited(): ?Appointment
+    {
+        return $this->appointment;
     }
 
     public function rules(): array
@@ -36,7 +46,7 @@ class UpdateAppointmentRequest extends BaseApiRequest
             'subject' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'appointment_date' => 'sometimes|date_format:Y-m-d H:i:s',
-            'timezone' => 'sometimes|string',
+            'timezone' => $this->timezoneRules(false),
             'duration_minutes' => 'sometimes|integer|min:1',
             'status' => ['sometimes', Rule::in(array_keys(Appointment::STATUSES))],
             'meeting_type' => ['sometimes', Rule::in(array_keys(Appointment::MEETING_TYPES))],

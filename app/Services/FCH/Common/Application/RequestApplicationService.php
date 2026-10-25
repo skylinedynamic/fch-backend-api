@@ -10,6 +10,7 @@ use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\DownloadHistory;
 use App\Models\Borrower\FundingApplication;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
 use App\Models\Common\AppConfiguration;
@@ -377,11 +378,21 @@ class RequestApplicationService
             return ApiResponse::error(__('application.pre_qualification_not_found'));
         }
 
+        $oldStatus = $application->status;
         $application->status = $data['status'];
         if (isset($data['status_note'])) {
             $application->status_note = $data['status_note'];
         }
         $application->save();
+
+        // The client hears of each real status change in their bell (BUG-063).
+        if ($oldStatus !== $application->status && $application->borrower) {
+            app(Notifier::class)->send('borrower.pre_qualification.status_changed', $application->borrower, [
+                'id' => $application->id,
+                'status' => $application->status,
+                'note' => filled($data['status_note'] ?? null) ? ' Note: ' . $data['status_note'] : '',
+            ]);
+        }
 
         return ApiResponse::success(new PreQualificationRequestResource($application), __('application.status_updated'));
     }

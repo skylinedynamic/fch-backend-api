@@ -6,6 +6,7 @@ use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Services\Global\Website\Lead\LeadService;
+use App\Support\Lead\WebsiteBusinessOptions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -24,16 +25,22 @@ class PreQualificationService
     {
         DB::beginTransaction();
         try {
-            // 1. Create Lead
+            // 1. Create Lead - its entity and industry in the portal's own
+            // options, and the country its US state of incorporation is in (BUG-090).
+            [$entityType, $entityNote] = WebsiteBusinessOptions::entity($data['business_structure'] ?? null);
+            [$industryType, $industryNote] = WebsiteBusinessOptions::industry($data['industry_type'] ?? null);
             $leadData = [
                 'contact_person' => $data['first_name'] . ' ' . $data['last_name'],
                 'email' => $data['email'],
                 'phone_number' => $data['phone_number'],
                 'domain' => $data['business_website'] ?? null,
                 'state' => $data['state_of_incorporation'] ?? null,
+                'country' => Lead::DEFAULT_COUNTRY,
                 'company_name' => $data['business_name'] ?? null,
-                'industry_type' => $data['industry_type'] ?? null,
-                'entity_type' => $data['business_structure'] ?? null,
+                'industry_type' => $industryType,
+                'industry_type_note' => $industryNote,
+                'entity_type' => $entityType,
+                'entity_type_note' => $entityNote,
                 'requirement_details' => $data['notes'] ?? null,
             ];
 

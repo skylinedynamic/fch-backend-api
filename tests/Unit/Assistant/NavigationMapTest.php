@@ -20,7 +20,7 @@ class NavigationMapTest extends TestCase
      */
     private const PORTALS = [
         'wlp_support' => ['../Fch-admin-frontend-react', '../react-fch'],
-        'borrower_support' => ['../fch-borrower-react', '../borrower-fch'],
+        'borrower_support' => ['../fch-borrower-react', '../borrower-fch', '../client-fch'],
     ];
 
     /** @return array<string, array{string, string, string, string}> */

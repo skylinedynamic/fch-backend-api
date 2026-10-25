@@ -98,6 +98,7 @@ Route::prefix('v1/admin')
 
             // Credit Accounts
             Route::post('credit-accounts/fetch-accounts', [CreditAccountController::class, 'index']);
+            Route::post('credit-accounts/multiple-delete', [CreditAccountController::class, 'multipleDelete']);
             Route::post('credit-accounts', [CreditAccountController::class, 'store']);
             Route::get('credit-accounts/{id}', [CreditAccountController::class, 'show']);
             Route::put('credit-accounts/{id}', [CreditAccountController::class, 'update']);

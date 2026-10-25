@@ -105,4 +105,6 @@ class DatabaseSeeder extends Seeder
     }
 }
 
-// set "SEED_DRY_RUN=false" && php artisan db:seed --class=InvoiceCustomerNameRepairSeeder
+
+// php artisan db:seed --class=PartnerConfigurationPermissionSeeder //run in production
+// php artisan db:seed --class=CreditProfileRequestPermissionSeeder
