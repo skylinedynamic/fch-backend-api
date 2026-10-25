@@ -17,6 +17,7 @@ use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Mail\Partner\BorrowerSubmittedFundingApplicationMail;
@@ -39,9 +40,33 @@ class FundingApplicationService
         return Borrower::where('id', auth()->user()->entity_id)->first();
     }
 
+    /**
+     * Refuse a funding request id that is not this borrower's (BUG-082).
+     *
+     * The wizard names the request in the URL, so any id can be typed in.
+     * Without this the read leaked the other borrower's funding option and a
+     * save attached a new application to their request.
+     */
+    private function assertOwnFundingRequest($fundingRequestId): void
+    {
+        if (empty($fundingRequestId)) {
+            return;
+        }
+
+        $owned = FundingRequest::whereKey($fundingRequestId)
+            ->where('borrower_id', auth()->user()->entity_id)
+            ->exists();
+
+        if (!$owned) {
+            throw new ModelNotFoundException(__('borrower.funding_request_not_found'));
+        }
+    }
+
     public function getFundingInfo()
     {
         $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
+        $this->assertOwnFundingRequest($fundingRequestId);
+
         $query = FundingApplication::where('borrower_id', auth()->user()->entity_id)
             ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence');
 
@@ -77,10 +102,13 @@ class FundingApplicationService
             $data['partner_id'] = auth()->user()->partner_id;
 
             if (empty($data['funding_request_id'])) {
-                $data['funding_request_id'] = request()->input('funding_request_id') 
-                    ?? request()->input('fundingRequestId') 
+                $data['funding_request_id'] = request()->input('funding_request_id')
+                    ?? request()->input('fundingRequestId')
                     ?? request()->route('fundingRequestId');
             }
+
+            // Before anything is written: only the borrower's own request.
+            $this->assertOwnFundingRequest($data['funding_request_id'] ?? null);
 
             $matchId = $data['id'] ?? null;
             $existing = null;
@@ -135,7 +163,9 @@ class FundingApplicationService
             // 5. Setup sequence ID defaults based on the resolved request
             $req = null;
             if (!empty($data['funding_request_id'])) {
-                $req = FundingRequest::with('fundingSequence')->find($data['funding_request_id']);
+                $req = FundingRequest::with('fundingSequence')
+                    ->where('borrower_id', $borrowerId)
+                    ->find($data['funding_request_id']);
                 if ($req && empty($data['funding_sequence_id'])) {
                     $data['funding_sequence_id'] = $req->funding_sequence_id;
                 }

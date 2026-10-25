@@ -7,6 +7,7 @@ use App\Mail\ActivityLog\ActivityLogMail;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Mail\Borrower\BorrowerMigrationMail;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;
+use App\Mail\Borrower\BorrowerDocumentReviewedMail;
 use App\Mail\Borrower\BorrowerVerificationStatusMail;
 use App\Mail\Borrower\ChangeRequestStatusMail;
 use App\Mail\CreditBuilder\TaskVerificationRequestedMail;
@@ -106,6 +107,7 @@ class AccountAndPaymentMailRenderTest extends TestCase
             'partner migrated' => [fn (self $t) => new PartnerMigrationMail(['partner_id' => $t->partner->id, 'user' => $t->user, 'business_info' => $t->businessInfo(), 'payment_link' => 'https://pay.example.test/pm/1', 'amount' => 99, 'enrollment_type' => 'Monthly'], $t->host->id), 'https://pay.example.test/pm/1'],
             'partner payment link' => [fn (self $t) => new PartnerPaymentLinkMail(['partner_id' => $t->partner->id, 'user' => $t->user, 'business_info' => $t->businessInfo(), 'payment_link' => 'https://pay.example.test/pp/1', 'amount' => 99, 'plain_password' => 'Temp#4821', 'enrollment_type' => 'Monthly'], $t->host->id), 'https://pay.example.test/pp/1'],
             'verification decided' => [fn (self $t) => new BorrowerVerificationStatusMail(['subject' => 'Verification update', 'borrower_name' => 'Dana Whitfield', 'status' => 'approved', 'note' => 'All documents check out', 'task_results' => [['task_name' => 'Open a business bank account', 'tier_name' => 'Tier 1', 'is_verified' => true]]], $t->partner->id), 'Open a business bank account'],
+            'document rejected (BUG-087)' => [fn (self $t) => new BorrowerDocumentReviewedMail(['borrower_name' => 'Dana Whitfield', 'document_name' => 'Business Bank Statements', 'status' => 'Rejected', 'reason' => 'Statement is older than 90 days'], $t->partner->id), 'Statement is older than 90 days'],
             'change request decided' => [fn (self $t) => new ChangeRequestStatusMail(['subject' => 'Change request', 'borrower_name' => 'Dana Whitfield', 'field_name' => 'Business phone', 'status' => 'Approved', 'new_value' => '+1 555 0199', 'note' => null], $t->partner->id), '+1 555 0199'],
             'verification requested' => [fn (self $t) => new TaskVerificationRequestedMail(['borrower_name' => 'Dana Whitfield', 'borrower_email' => 'dana@example.test', 'borrower_id' => $t->user->entity_id, 'host_name' => 'Four Corner Funding', 'partner_name' => 'Lakeside Capital', 'tasks' => [['task_name' => 'Get a DUNS number', 'tier_name' => 'Tier 2']]], $t->host->id), 'Get a DUNS number'],
             'card reauthorization' => [fn (self $t) => new CardReauthorizationRequiredMail($t->payment(['card_no' => '4242', 'portal_url' => 'https://app.example.test/billing']), $t->partner->id), 'INV-0042'],

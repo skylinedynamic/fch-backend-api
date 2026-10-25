@@ -122,6 +122,7 @@ return [
     'delete_failed' => 'Failed to delete borrower(s).',
     'delete_blocked_paid_invoice' => "This client has related records and cannot be deleted. Please change the client's status instead.",
     'delete_blocked_paid_invoice_named' => 'Some selected clients have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',
+    'delete_blocked_applications' => "This client has a pre-qualification or funding application and cannot be deleted. Please change the client's status instead.",
     'fetch_failed' => 'Failed to fetch borrower details.',
     'users_fetch_failed' => 'Failed to retrieve users.',
     'document_types_fetch_failed' => 'Failed to fetch document types.',
@@ -131,6 +132,9 @@ return [
     'document_delete_failed' => 'Failed to delete document.',
     'document_not_found' => 'Document not found.',
     'document_status_updated' => 'Document status updated successfully.',
+    'document_reviewed_mail' => [
+        'subject' => 'Your document was :status',
+    ],
     'document_status_update_failed' => 'Failed to update document status.',
     'documents_fetched_successfully' => 'Documents fetched successfully.',
     'documents_fetched_failed' => 'Failed to fetch documents.',

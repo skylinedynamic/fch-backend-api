@@ -276,6 +276,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
+                // The same downloads with the password in the body (BUG-094).
+                Route::post('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
+                Route::post('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
+                Route::post('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
                 Route::get('download-history/{historyId}/download', [RequestApplicationController::class, 'downloadFromHistory']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
@@ -327,23 +331,26 @@ Route::prefix('v1')->group(function () {
 
             // Host-only screens in the partner portal (HostRoute): the
             // Verification Center and the Capital Access catalogue.
+            // Each one also behind the permission its menu item asks for
+            // (BUG-125): host-only alone let any host staff read them by URL.
             Route::prefix('credit-builder')->middleware('host-only')->group(function () {
-                Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll']);
-                Route::post('verification-center-borrower-requests', [VerificationCenterController::class, 'fetchBorrowerRequests']);
-                Route::post('verification-center-status-update', [VerificationCenterController::class, 'statusUpdate']);
+                Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll'])->middleware('permission:view verification request');
+                Route::post('verification-center-borrower-requests', [VerificationCenterController::class, 'fetchBorrowerRequests'])->middleware('permission:view verification request');
+                Route::post('verification-center-status-update', [VerificationCenterController::class, 'statusUpdate'])->middleware('permission:update verification request');
 
                 // Fetch all active credit accounts for Capital Access builder (no pagination)
-                Route::post('credit-accounts/all', [AdminCreditAccountController::class, 'allActive']);
+                Route::post('credit-accounts/all', [AdminCreditAccountController::class, 'allActive'])->middleware('permission:view credit accounts');
             });
 
-            // Capital Access CRUD
+            // Capital Access CRUD - its menu item uses the credit account
+            // permissions, so the API does too.
             Route::prefix('capital-accesses')->middleware('host-only')->group(function () {
-                Route::post('fetch-all', [CommonCapitalAccessController::class, 'index']);
-                Route::post('/', [CommonCapitalAccessController::class, 'store']);
-                Route::get('{id}', [CommonCapitalAccessController::class, 'show']);
-                Route::put('{id}', [CommonCapitalAccessController::class, 'update']);
-                Route::patch('{id}/status', [CommonCapitalAccessController::class, 'updateStatus']);
-                Route::delete('{id}', [CommonCapitalAccessController::class, 'destroy']);
+                Route::post('fetch-all', [CommonCapitalAccessController::class, 'index'])->middleware('permission:view credit accounts');
+                Route::post('/', [CommonCapitalAccessController::class, 'store'])->middleware('permission:create credit accounts');
+                Route::get('{id}', [CommonCapitalAccessController::class, 'show'])->middleware('permission:view credit accounts');
+                Route::put('{id}', [CommonCapitalAccessController::class, 'update'])->middleware('permission:update credit accounts');
+                Route::patch('{id}/status', [CommonCapitalAccessController::class, 'updateStatus'])->middleware('permission:update credit accounts');
+                Route::delete('{id}', [CommonCapitalAccessController::class, 'destroy'])->middleware('permission:delete credit accounts');
             });
 
             // Appointment routes

@@ -17,6 +17,7 @@ use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Mail\Partner\FundingApplicationSubmittedMail as PartnerFundingApplicationSubmittedMail;
@@ -121,7 +122,8 @@ class PartnerFundingApplicationService
             }
 
             if (!$borrowerId) {
-                throw new \Exception("Could not determine borrower ID.");
+                // Neither an application nor a request the caller may reach.
+                throw new ModelNotFoundException(__('borrower.funding_request_not_found'));
             }
 
             // Status, the edit lock and the resign rules are all applied further
@@ -159,8 +161,15 @@ class PartnerFundingApplicationService
 
             $req = null;
             if (!empty($data['funding_request_id'])) {
-                $req = FundingRequest::with('fundingSequence')->find($data['funding_request_id']);
-                if ($req && empty($data['funding_sequence_id'])) {
+                // The request must be this borrower's (BUG-082): otherwise the
+                // application was attached to another borrower's request.
+                $req = FundingRequest::with('fundingSequence')
+                    ->where('borrower_id', $borrowerId)
+                    ->find($data['funding_request_id']);
+                if (!$req) {
+                    throw new ModelNotFoundException(__('borrower.funding_request_not_found'));
+                }
+                if (empty($data['funding_sequence_id'])) {
                     $data['funding_sequence_id'] = $req->funding_sequence_id;
                 }
             }
@@ -221,7 +230,8 @@ class PartnerFundingApplicationService
 
             if (!$isNew && $existing) {
                 try {
-                    $decision = $this->editGuard->applyEditRules($existing, $data, $status);
+                    // With the editor: the host's team may edit at any status.
+                    $decision = $this->editGuard->applyEditRules($existing, $data, $status, auth()->user());
                 } catch (FundingApplicationLockedException $e) {
                     $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_PARTNER);
                     throw $e;

@@ -404,4 +404,64 @@ class ActivityLogVisibilityTest extends TestCase
         ])->assertOk()->json('data'))->pluck('id')->all();
         $this->assertEqualsCanonicalizing([$ids['everyone']], $borrowerIds);
     }
+    // ── The client portal's application Activity panel (BUG-103) ──────
+
+    /**
+     * Defect (BUG-103): a note added on the client's page is about the client
+     * (subject Borrower), but the client portal's only activity view asks for
+     * one application's entries, so an "Everyone" note never reached the
+     * client. With include_client_notes the panel gets the application's
+     * entries and the client's own Everyone notes - never Private, Internal
+     * or Partner ones, and never another client's.
+     */
+    #[Test]
+    public function the_application_panel_also_shows_the_clients_everyone_notes(): void
+    {
+        $applicationId = DB::table('funding_applications')->insertGetId([
+            'application_number' => 'FUND-' . uniqid(),
+            'borrower_id' => $this->borrower->id,
+            'partner_id' => $this->partner->id,
+            'status' => \App\Models\Borrower\FundingApplication::PENDING,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $statusChange = $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_EVERYONE, [
+            'subject_type' => \App\Models\Borrower\FundingApplication::class,
+            'subject_id' => $applicationId,
+            'description' => 'Status changed',
+        ])->id;
+        $everyone = $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_EVERYONE, ['description' => 'Everyone note'])->id;
+        $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_PRIVATE, ['description' => 'Private note']);
+        $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_INTERNAL, ['description' => 'Internal note']);
+        $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_PARTNER, ['description' => 'Partner note']);
+
+        $neighbour = Borrower::create([
+            'partner_id' => $this->partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Other',
+            'last_name' => 'Client',
+            'email' => 'neighbour-' . uniqid() . '@example.test',
+        ]);
+        $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_EVERYONE, [
+            'subject_id' => $neighbour->id,
+            'description' => 'Another client note',
+            'properties' => ['partner_id' => $this->partner->id, 'borrower_id' => $neighbour->id],
+        ]);
+
+        Passport::actingAs($this->borrowerUser, [], 'api');
+
+        $withNotes = collect($this->postJson('/api/v1/borrower/activity-logs/fetch-all-activities', [
+            'funding_application_id' => $applicationId,
+            'include_client_notes' => true,
+            'limit' => 50,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$statusChange, $everyone], $withNotes);
+
+        // Without the option the panel is the application's entries only, as before.
+        $applicationOnly = collect($this->postJson('/api/v1/borrower/activity-logs/fetch-all-activities', [
+            'funding_application_id' => $applicationId,
+            'limit' => 50,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+        $this->assertSame([$statusChange], $applicationOnly);
+    }
 }

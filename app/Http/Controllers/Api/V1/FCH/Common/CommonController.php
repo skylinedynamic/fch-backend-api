@@ -99,16 +99,19 @@ class CommonController extends Controller
         $isEmailFresh = $partner ? app(EmailConfigurationService::class)->hasAnyConfiguration($partner->id) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', AppConfiguration::BRANDING_FRESHNESS_KEYS)->exists()) : true;
 
+        // Payments are judged on the signed-in user's own partner, not the
+        // branding partner above (BUG-115): getConfigPartner() hands a
+        // Certified partner the host, whose gateways are always on, so the
+        // Configuration Incomplete guard never fired for it. A Certified
+        // partner's gateways are saved under its own id.
         $isPaymentFresh = false;
-        if ($partner) {
-            // Find default active provider, or first active provider
-            $partnerProvider = PartnerPaymentProvider::where('partner_id', $partner->id)
-                ->where('status', true)
-                ->first();
-
+        $paymentPartnerId = auth()->user()?->partner_id ?? $partner?->id;
+        if ($paymentPartnerId) {
             // An active linkage always resolves to one mode or the other, so this
             // flag says only that the partner has configured payments at all.
-            $isPaymentFresh = (bool) $partnerProvider;
+            $isPaymentFresh = PartnerPaymentProvider::where('partner_id', $paymentPartnerId)
+                ->where('status', true)
+                ->exists();
         }
 
         if (auth()->check()) {
