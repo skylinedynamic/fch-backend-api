@@ -70,13 +70,28 @@ class FundingRequestService
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
-        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name'];
-        
+        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name', 'lender_names'];
+
         if (in_array($sortField, $allowedSortFields)) {
             if ($sortField === 'borrower_name') {
+                // As the column shows it: first name, then last name.
                 $query->orderBy(
                     Borrower::select('first_name')
                         ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
+                        ->limit(1),
+                    $sortOrder
+                )->orderBy(
+                    Borrower::select('last_name')
+                        ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
+                        ->limit(1),
+                    $sortOrder
+                );
+            } elseif ($sortField === 'lender_names') {
+                // ASSIGNED LENDER: the name of the lender set on the request. It
+                // was not a sortable field, so the click fell back to newest first.
+                $query->orderBy(
+                    Lender::select('name')
+                        ->whereColumn('lenders.id', 'funding_requests.assign_lender')
                         ->limit(1),
                     $sortOrder
                 );
@@ -87,12 +102,24 @@ class FundingRequestService
                         ->limit(1),
                     $sortOrder
                 );
+            } elseif ($sortField === 'funding_sequence_id') {
+                // The FUNDING SEQUENCE column shows the sequence's name, so it
+                // sorts by name - by id the order looked random (BUG-008).
+                $query->orderBy(
+                    FundingSequencing::select('name')
+                        ->whereColumn('funding_sequencings.id', 'funding_requests.funding_sequence_id')
+                        ->limit(1),
+                    $sortOrder
+                );
             } else {
-                $query->orderBy($sortField, $sortOrder);
+                $query->orderBy('funding_requests.' . $sortField, $sortOrder);
             }
-        } else {
-            $query->orderBy('id', 'desc'); // Fallback
         }
+
+        // Rows with an equal value (many $300,000 requests) need one fixed order,
+        // or a row can show on two pages and another on none. Newest first is
+        // also the list's default when nothing (or an unknown field) is sorted.
+        $query->orderBy('funding_requests.id', 'desc');
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;

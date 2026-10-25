@@ -88,6 +88,69 @@ class AppAndOpenAiConfigurationApiTest extends TestCase
         $this->assertDatabaseMissing('app_configurations', ['module' => AppConfiguration::MODULE_OPENAI]);
     }
 
+    /**
+     * Defect (BUG-022, OP-SET-07): the MicroBilt client secret (and the Credit
+     * Profile OpenAI key) came back in full from the generic settings read; the
+     * form only hid it visually. A secret is reported as set (masked) only.
+     */
+    #[Test]
+    public function a_stored_secret_is_masked_on_every_read(): void
+    {
+        AppConfiguration::set('microbilt_client_id_production', 'client-id-plain', AppConfiguration::MODULE_MICROBILT, $this->host->id);
+        AppConfiguration::set('microbilt_client_secret_production', 'mb-secret-16char', AppConfiguration::MODULE_MICROBILT, $this->host->id);
+        AppConfiguration::set('microbilt_client_secret_sandbox', '', AppConfiguration::MODULE_MICROBILT, $this->host->id);
+        AppConfiguration::set('credit_profile_openai_api_key', 'sk-credit-profile', AppConfiguration::MODULE_CREDIT_PROFILE, $this->host->id);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->postJson('/api/v1/common/app-configurations', ['module' => AppConfiguration::MODULE_MICROBILT])
+            ->assertOk()
+            ->assertJsonPath('data.microbilt_client_id_production', 'client-id-plain')
+            ->assertJsonPath('data.microbilt_client_secret_production', AppConfiguration::SECRET_MASK)
+            // Nothing stored: nothing to mask, so the form asks for one.
+            ->assertJsonPath('data.microbilt_client_secret_sandbox', '')
+            ->assertDontSee('mb-secret-16char');
+
+        $this->postJson('/api/v1/common/app-configurations', ['module' => AppConfiguration::MODULE_MICROBILT, 'key' => 'microbilt_client_secret_production'])
+            ->assertOk()
+            ->assertJsonPath('data.value', AppConfiguration::SECRET_MASK);
+
+        $this->postJson('/api/v1/common/app-configurations', ['module' => AppConfiguration::MODULE_CREDIT_PROFILE])
+            ->assertOk()
+            ->assertJsonPath('data.credit_profile_openai_api_key', AppConfiguration::SECRET_MASK)
+            ->assertDontSee('sk-credit-profile');
+    }
+
+    #[Test]
+    public function saving_a_masked_or_blank_secret_keeps_the_stored_one(): void
+    {
+        AppConfiguration::set('microbilt_client_secret_production', 'mb-secret-16char', AppConfiguration::MODULE_MICROBILT, $this->host->id);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+        $stored = fn () => AppConfiguration::get('microbilt_client_secret_production', null, AppConfiguration::MODULE_MICROBILT, $this->host->id);
+
+        foreach (['', null, AppConfiguration::SECRET_MASK] as $sentBack) {
+            $this->postJson('/api/v1/common/app-configurations/save', [
+                'module' => AppConfiguration::MODULE_MICROBILT,
+                'microbilt_mode' => 'production',
+                'microbilt_client_secret_production' => $sentBack,
+            ])->assertOk();
+            $this->assertSame('mb-secret-16char', $stored());
+        }
+
+        $this->postJson('/api/v1/common/app-configurations/save', [
+            'module' => AppConfiguration::MODULE_MICROBILT,
+            'key' => 'microbilt_client_secret_production',
+            'value' => AppConfiguration::SECRET_MASK,
+        ])->assertOk();
+        $this->assertSame('mb-secret-16char', $stored());
+
+        $this->postJson('/api/v1/common/app-configurations/save', [
+            'module' => AppConfiguration::MODULE_MICROBILT,
+            'microbilt_client_secret_production' => 'mb-rotated',
+        ])->assertOk();
+        $this->assertSame('mb-rotated', $stored());
+        $this->assertSame('production', AppConfiguration::get('microbilt_mode', null, AppConfiguration::MODULE_MICROBILT, $this->host->id));
+    }
+
     #[Test]
     public function the_host_saves_the_openai_key_encrypted_and_never_reads_it_back(): void
     {

@@ -174,9 +174,32 @@ class RequestApplicationService
                 $query->search($search);
             }
 
+            // Status filter: accepted but never applied before, so every status
+            // showed the same rows (BUG-048).
+            if (!empty($filters['status'])) {
+                $query->where('funding_applications.status', $filters['status']);
+            }
+
+            // Date Range: whole days in the viewer's timezone - the DATE column
+            // shows created_at there - turned into UTC bounds for the stored
+            // value. It used to be ignored altogether.
+            $timezone = $this->validTimezone($filters['timezone'] ?? null);
+            if (!empty($filters['start_date'])) {
+                $query->where('funding_applications.created_at', '>=', Carbon::parse($filters['start_date'], $timezone)->startOfDay()->utc());
+            }
+            if (!empty($filters['end_date'])) {
+                $query->where('funding_applications.created_at', '<=', Carbon::parse($filters['end_date'], $timezone)->endOfDay()->utc());
+            }
+
             $sortField = $filters['sort_field'] ?? 'id';
             $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
             $advancedFilters = $filters['filters'] ?? [];
+
+            // DATE shows created_at ("20 Oct 2026"); `date` is not a column, so
+            // sorting on it never changed the order.
+            if ($sortField === 'date') {
+                $sortField = 'created_at';
+            }
 
             // Sorting on status follows the lifecycle (key 1-19), not the
             // alphabet - "Approved" is not the first thing that happens.
@@ -194,6 +217,10 @@ class RequestApplicationService
                 $sortByStatusKey ? ['skip_sorting' => true] : []
             );
 
+            // Equal values (two applications on the same day) keep one order
+            // across pages.
+            $query->orderBy('funding_applications.id', 'desc');
+
             $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
             $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -205,6 +232,14 @@ class RequestApplicationService
                 __('application.funding_application_retrieved')
             );
         }
+
+    /** The viewer's timezone if it is a real one, else the app's. */
+    private function validTimezone(?string $timezone): string
+    {
+        return $timezone && in_array($timezone, \DateTimeZone::listIdentifiers(), true)
+            ? $timezone
+            : config('app.timezone');
+    }
     /**
      * Get Pre-Qualification Application By ID
      */

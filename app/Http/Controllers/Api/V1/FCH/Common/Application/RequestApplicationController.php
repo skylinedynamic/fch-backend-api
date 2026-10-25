@@ -71,6 +71,11 @@ class RequestApplicationController extends Controller
                 'sort_order'    => $input['sort_order'] ?? null,
                 'status'        => $input['status'] ?? null,
                 'borrower_id'   => $input['borrower_id'] ?? null,
+                // The Date Range filter, in the viewer's days (the DATE column
+                // shows created_at in their timezone).
+                'start_date'    => $input['start_date'] ?? null,
+                'end_date'      => $input['end_date'] ?? null,
+                'timezone'      => $request->header('X-Timezone') ?? config('app.timezone'),
             ];
 
             return $this->requestApplicationService->getFundingApplicationList($filters);

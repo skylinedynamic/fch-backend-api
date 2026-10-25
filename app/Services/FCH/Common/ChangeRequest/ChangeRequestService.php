@@ -64,8 +64,15 @@ class ChangeRequestService
 
         // Apply advanced filters and sorting if QueryFilter is suitable here
         // For now using manual sort as it was before but cleaner
+        $sortOrder = strtolower((string) $sortOrder) === 'asc' ? 'asc' : 'desc';
+
         if (in_array($sortField, ['id', 'field_name', 'old_value', 'new_value', 'status', 'created_at', 'note'])) {
             $query->orderBy($sortField, $sortOrder);
+        } elseif ($sortField === 'borrower_business_name') {
+            $query->orderBy(
+                Borrower::select('business_name')->whereColumn('borrowers.id', 'borrower_change_requests.borrower_id')->limit(1),
+                $sortOrder
+            );
         } else {
             $query->orderBy('created_at', 'desc');
         }

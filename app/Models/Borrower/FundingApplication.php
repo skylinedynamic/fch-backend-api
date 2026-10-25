@@ -310,11 +310,29 @@ class FundingApplication extends Model
      */
     public function scopeOrderByStatusKey($query, string $direction = 'asc')
     {
-        $keys = self::statusKeys();
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
 
-        if ($keys === []) {
+        if (self::statusKeys() === []) {
             return $query->orderBy($query->qualifyColumn('status'), $direction);
+        }
+
+        [$case, $bindings] = self::statusKeyCase($query->qualifyColumn('status'));
+
+        return $query->orderByRaw("{$case} {$direction}", $bindings);
+    }
+
+    /**
+     * SQL turning a status column into its lifecycle key (unknown statuses
+     * last), with its bindings - for ordering by status from another table,
+     * e.g. a funding request by its application's status.
+     *
+     * @return array{0: string, 1: array<int, string>}
+     */
+    public static function statusKeyCase(string $column): array
+    {
+        $keys = self::statusKeys();
+        if ($keys === []) {
+            return ['0', []];
         }
 
         $cases = '';
@@ -334,10 +352,7 @@ class FundingApplication extends Model
 
         $unknown = max($keys) + 1;
 
-        return $query->orderByRaw(
-            "CASE {$query->qualifyColumn('status')}{$cases} ELSE {$unknown} END {$direction}",
-            $bindings
-        );
+        return ["CASE {$column}{$cases} ELSE {$unknown} END", $bindings];
     }
 
     /**

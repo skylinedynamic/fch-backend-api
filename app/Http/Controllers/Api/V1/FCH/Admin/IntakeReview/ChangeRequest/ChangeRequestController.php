@@ -31,6 +31,8 @@ class ChangeRequestController extends Controller
                 'status' => $request->validated()['status'] ?? null,
                 'partner_id' => $request->validated()['partner_id'] ?? null,
                 'borrower_id' => $request->validated()['borrower_id'] ?? null,
+                'sort_field' => $request->validated()['sort_field'] ?? null,
+                'sort_order' => $request->validated()['sort_order'] ?? null,
             ];
 
             return $this->service->list($filters);

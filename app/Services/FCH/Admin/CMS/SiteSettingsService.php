@@ -56,7 +56,8 @@ class SiteSettingsService
             } elseif (in_array($key, self::IMAGE_KEYS, true)) {
                 $data[$key] = $this->buildImageUrl($key, $row);
             } else {
-                $data[$key] = $row;
+                // The reCAPTCHA secret is reported as set, never sent (BUG-022).
+                $data[$key] = AppConfiguration::forDisplay($key, $row);
             }
         }
 
@@ -72,6 +73,11 @@ class SiteSettingsService
         DB::beginTransaction();
         try {
             foreach ($data as $key => $value) {
+                if (AppConfiguration::keepsStoredSecret($key, $value)) {
+                    // Masked or left blank: the form never holds the secret.
+                    continue;
+                }
+
                 if ($key === 'social_links') {
                     $links = is_array($value)
                         ? $value
