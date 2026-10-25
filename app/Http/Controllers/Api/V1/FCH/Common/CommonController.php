@@ -99,10 +99,15 @@ class CommonController extends Controller
         $isEmailFresh = $partner ? app(EmailConfigurationService::class)->hasAnyConfiguration($partner->id) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', AppConfiguration::BRANDING_FRESHNESS_KEYS)->exists()) : true;
 
+        // Payments are the signed-in partner's own, unlike branding: a Certified
+        // partner trades under the host's brand (getConfigPartner() is the host)
+        // but its clients pay through its own gateways (BUG-115).
+        $paymentPartner = auth()->user()?->partner ?? $partner;
+
         $isPaymentFresh = false;
-        if ($partner) {
+        if ($paymentPartner) {
             // Find default active provider, or first active provider
-            $partnerProvider = PartnerPaymentProvider::where('partner_id', $partner->id)
+            $partnerProvider = PartnerPaymentProvider::where('partner_id', $paymentPartner->id)
                 ->where('status', true)
                 ->first();
 
