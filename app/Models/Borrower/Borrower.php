@@ -407,6 +407,38 @@ class Borrower extends Model
         return $this->hasOne(\App\Models\Borrower\BorrowerCreditProfile::class, 'borrower_id');
     }
 
+    /**
+     * Whether the borrower may see their credit score: their credit profile is
+     * verified and the iSoftPull report has been uploaded for it (their
+     * BorrowerCreditProfile). Submitting the credit profile form sets
+     * `credit_profile_updated` by itself, so the flag alone is not enough.
+     */
+    public function hasVerifiedCreditScore(): bool
+    {
+        return (bool) $this->credit_profile_updated && $this->creditProfile !== null;
+    }
+
+    /**
+     * Verifying every required Tier 0 task moves `current_tier` on (see
+     * TaskVerificationService), so Tier 0 is done once the borrower has left it.
+     */
+    public function hasCompletedTier0(): bool
+    {
+        if (!$this->current_tier) {
+            return false;
+        }
+
+        $tier0 = \App\Models\CreditBuilder\Tier::foundation();
+
+        return $tier0 !== null && (int) $this->current_tier !== (int) $tier0->id;
+    }
+
+    /** Credit Card Stacking opens once the credit profile is verified and Tier 0 is done. */
+    public function hasUnlockedCreditCardStacking(): bool
+    {
+        return $this->hasVerifiedCreditScore() && $this->hasCompletedTier0();
+    }
+
     public function bankAccounts()
     {
         return $this->hasMany(\App\Models\Borrower\BorrowerBankAccount::class, 'borrower_id');

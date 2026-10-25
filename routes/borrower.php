@@ -76,6 +76,10 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::get('/financial-info', [FinancialInfoController::class, 'index']);
                     Route::post('/financial-info', [FinancialInfoController::class, 'update']);
                     Route::get('/completion', [ProfileCompletionController::class, 'check']);
+                    Route::post('/onboarding/complete', [ProfileCompletionController::class, 'completeOnboarding']);
+                    Route::post('/onboarding/skip', [ProfileCompletionController::class, 'skipOnboardingStep']);
+                    Route::post('/onboarding/resume', [ProfileCompletionController::class, 'resumeOnboardingStep']);
+                    Route::post('/onboarding/path', [ProfileCompletionController::class, 'chooseOnboardingPath']);
                     Route::post('/change-request', [ChangeRequestController::class, 'store']);
                     Route::get('/credit-profile-request', [CreditProfileRequestController::class, 'show']);
                     Route::post('/credit-profile-request', [CreditProfileRequestController::class, 'store']);
