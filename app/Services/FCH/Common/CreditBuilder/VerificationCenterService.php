@@ -411,9 +411,12 @@ class VerificationCenterService
                 // Only trigger tier update if it's successfully transitioning to COMPLETED
                 $shouldTriggerTierUpdate = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED && $verificationRequest->status != BorrowerTaskVerificationRequest::COMPLETED);
 
-                $noteToSave = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED)
+                // The reviewer's own note on a verify or a reject; the automated
+                // check's wording only when that check is what failed (BUG-083).
+                $isManualDecision = $canUpdateStatus;
+                $noteToSave = $isManualDecision
                     ? ($data['note'] ?? null)
-                    : __('verification_center.no_matching_business_record');
+                    : ($errorMessage ?: __('verification_center.no_matching_business_record'));
 
                 $verificationRequest->update([
                     'status' => $statusToWrite,
@@ -433,7 +436,12 @@ class VerificationCenterService
                     'task_name' => $taskName,
                     'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => $isVerified,
-                    'message' => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.verification_failed')),
+                    'message' => match (true) {
+                        $isVerified => __('verification_center.verified'),
+                        $isManualDecision && !empty($data['note']) => __('verification_center.rejected_with_reason', ['reason' => $data['note']]),
+                        $isManualDecision => __('verification_center.rejected'),
+                        default => $errorMessage ?: __('verification_center.verification_failed'),
+                    },
                 ];
             } else {
                 $results[] = [
