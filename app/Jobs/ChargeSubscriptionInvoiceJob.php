@@ -415,8 +415,12 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
      */
     protected function stopAfterTooManyFailures(): void
     {
+        // Only the cron's own attempts: declined "Pay Now" attempts are the payer
+        // trying by hand and do not use up the six (BUG-035).
         $failures = Payment::where('invoice_id', $this->invoice->id)
             ->where('status', Payment::STATUS_FAILED)
+            ->get()
+            ->reject(fn ($failure) => ($failure->details[Payment::DETAIL_FAILURE_SOURCE] ?? null) === Payment::FAILURE_SOURCE_CHECKOUT)
             ->count();
 
         if ($failures < (int) config('subscription.auto_charge_max_failed_attempts', 6)) {

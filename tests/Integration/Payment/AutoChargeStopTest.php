@@ -223,6 +223,28 @@ class AutoChargeStopTest extends TestCase
         $this->assertNotNull($invoice->fresh()->auto_charge_stopped_at);
     }
 
+    /**
+     * BUG-035: declined "Pay Now" attempts are recorded as FAILED too, but they
+     * are the payer trying by hand - they must not use up the cron's six.
+     */
+    #[Test]
+    public function declined_checkout_attempts_do_not_count_towards_the_six(): void
+    {
+        $invoice = $this->invoiceFor($this->partnerPayer(withCard: false));
+        foreach (range(1, 6) as $_) {
+            (new Payment())->createRecord([
+                'invoice_id' => $invoice->id, 'partner_id' => $invoice->partner_id, 'entity_type' => $invoice->entity_type,
+                'entity_id' => $invoice->entity_id, 'transaction_id' => 'FAILED_' . uniqid(), 'amount' => 2497.00,
+                'currency' => 'USD', 'payment_from' => PaymentProvider::STRIPE, 'status' => Payment::STATUS_FAILED,
+                'details' => [Payment::DETAIL_FAILURE_SOURCE => Payment::FAILURE_SOURCE_CHECKOUT],
+            ]);
+        }
+
+        $this->runCron($invoice);
+
+        $this->assertNull($invoice->fresh()->auto_charge_stopped_at);
+    }
+
     #[Test]
     public function a_partner_paying_its_own_invoice_is_told_once_that_auto_charge_stopped(): void
     {
