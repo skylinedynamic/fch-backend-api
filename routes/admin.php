@@ -62,6 +62,8 @@ Route::prefix('v1/admin')
         // 💰 Plan & Fee (Admin/Host Partner only)
         Route::post('plan-fee/fetch-subscription-plans', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'index']);
         Route::put('plan-fee/update-subscription-plan/{id}', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'update']);
+        // Check the values with the same rules, saving nothing - before the confirmation (BUG-096).
+        Route::put('plan-fee/validate-subscription-plan/{id}', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'validatePlan']);
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);

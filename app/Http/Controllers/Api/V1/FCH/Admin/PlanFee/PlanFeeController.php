@@ -59,6 +59,18 @@ class PlanFeeController extends Controller
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
+    /**
+     * Check a plan's new values without saving them (BUG-096): the screen asks
+     * this before its "Confirm rate changes" dialog, so a bad value is refused
+     * with its field's message instead of being offered for confirmation.
+     * UpdateSubscriptionPlanRequest does the checking - the same rules, and the
+     * same host-only access, as update().
+     */
+    public function validatePlan(UpdateSubscriptionPlanRequest $request, $id)
+    {
+        return ApiResponse::success(null, __('plan_fee.values_valid'));
+    }
+
     public function update(UpdateSubscriptionPlanRequest $request, $id)
     {
         $user = Auth::user();
