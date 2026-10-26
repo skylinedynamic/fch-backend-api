@@ -31,7 +31,7 @@ class CapitalAccessService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'asc' : 'desc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         $query = QueryFilter::apply(
             $query,

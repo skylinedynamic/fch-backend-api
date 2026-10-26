@@ -258,7 +258,10 @@ class BillingService
             case 'next_billing_date':
             case 'paid_through_date':
             case 'subscription_end_date':
-                $query->orderBy('subscriptions.subscription_end_date', $sortOrder);
+                // Undated rows (awaiting a first payment) go after every dated
+                // one either way - MySQL would put NULLs first on ascending (BUG-012).
+                $query->orderByRaw('subscriptions.subscription_end_date IS NULL')
+                    ->orderBy('subscriptions.subscription_end_date', $sortOrder);
                 $skipSorting = true;
                 break;
 
