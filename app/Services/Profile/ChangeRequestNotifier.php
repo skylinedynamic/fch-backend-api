@@ -88,6 +88,12 @@ class ChangeRequestNotifier
             app(Notifier::class)->send('borrower.change_request.decided', $borrower, [
                 'field' => $this->fieldOf($changeRequest),
                 'status' => strtolower((string) $changeRequest->status),
+                // The reviewer's note is the only account of why; without it a
+                // rejected client has nothing to act on (BUG-076). Rejections
+                // only, as for documents - "Reason:" on an approval reads wrong.
+                'reason' => $changeRequest->status === BorrowerChangeRequest::STATUS_REJECTED && trim((string) $changeRequest->note) !== ''
+                    ? ' Reason: ' . trim((string) $changeRequest->note)
+                    : '',
             ], mail: $email ? (new ChangeRequestStatusMail([
                 'subject' => __('profile.change_request_status_subject'),
                 'borrower_name' => $this->nameOf($borrower),

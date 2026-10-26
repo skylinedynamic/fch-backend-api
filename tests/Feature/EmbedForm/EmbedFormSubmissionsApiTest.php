@@ -100,6 +100,29 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertSame([$amy, $zed], $sorted('created_at', 'desc'));
     }
 
+    /**
+     * Defect: Desired Funding asc/desc did nothing on the host's Loan
+     * Applications. Since the funding-application rewrite a submission stores
+     * requested_amount and leaves desired_funding_amount null; the column shows
+     * requested_amount, but the sort only read the (null) legacy column.
+     */
+    #[Test]
+    public function desired_funding_sorts_by_the_amount_the_column_shows(): void
+    {
+        $small = $this->submissionFor($this->partner, ['desired_funding_amount' => null, 'requested_amount' => 20000, 'created_at' => now()->subDays(2)]);
+        $large = $this->submissionFor($this->partner, ['desired_funding_amount' => null, 'requested_amount' => 80000, 'created_at' => now()]);
+        $legacy = $this->submissionFor($this->partner, ['desired_funding_amount' => 40000, 'requested_amount' => null, 'created_at' => now()->subDay()]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/common/embed-forms/submissions/fetch', [
+            'sort_field' => 'desired_funding_amount',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$small, $legacy, $large], $sorted('asc'));
+        $this->assertSame([$large, $legacy, $small], $sorted('desc'));
+    }
+
     #[Test]
     public function an_unknown_sort_field_falls_back_to_newest_first(): void
     {

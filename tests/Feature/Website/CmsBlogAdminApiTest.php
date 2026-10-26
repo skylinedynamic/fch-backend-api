@@ -172,6 +172,109 @@ class CmsBlogAdminApiTest extends TestCase
             ->assertJsonValidationErrors('slug');
     }
 
+    /**
+     * Defect (BUG-059): "QA-TEST Category" could be added three times, and a
+     * tag twice — names were not checked, only slugs (which were auto-numbered).
+     */
+    #[Test]
+    public function a_category_or_tag_name_cannot_be_repeated(): void
+    {
+        $this->actingAsUser($this->editor);
+
+        foreach (['blog-categories', 'blog-tags'] as $resource) {
+            $first = $this->postJson("/api/v1/admin/cms/{$resource}", ['name' => 'QA-TEST Name'])->assertCreated()->json('data.id');
+            $second = $this->postJson("/api/v1/admin/cms/{$resource}", ['name' => 'Other'])->assertCreated()->json('data.id');
+
+            $this->postJson("/api/v1/admin/cms/{$resource}", ['name' => '  QA-TEST Name '])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('name');
+            $this->postJson("/api/v1/admin/cms/{$resource}/{$second}", ['name' => 'QA-TEST Name'])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('name');
+
+            // Saving a record under its own name is not a duplicate.
+            $this->postJson("/api/v1/admin/cms/{$resource}/{$first}", ['name' => 'QA-TEST Name'])->assertOk();
+        }
+    }
+
+    /** BUG-059: the admin's Existing Categories / Tags list the newest first. */
+    #[Test]
+    public function categories_and_tags_are_listed_newest_first(): void
+    {
+        $this->actingAsUser($this->editor);
+
+        foreach (['blog-categories', 'blog-tags'] as $resource) {
+            $this->travelTo(now()->subDays(2));
+            $this->postJson("/api/v1/admin/cms/{$resource}", ['name' => 'Oldest'])->assertCreated();
+            $this->travelBack();
+            $this->travelTo(now()->subDay());
+            $this->postJson("/api/v1/admin/cms/{$resource}", ['name' => 'Middle'])->assertCreated();
+            $this->travelBack();
+            $this->postJson("/api/v1/admin/cms/{$resource}", ['name' => 'Newest'])->assertCreated();
+
+            $this->assertSame(['Newest', 'Middle', 'Oldest'], collect($this->getJson("/api/v1/admin/cms/{$resource}")->assertOk()->json('data'))->pluck('name')->all());
+        }
+    }
+
+    /**
+     * BUG-059: a category or tag on a blog post was deleted anyway. It is kept:
+     * the API answers 422 naming it (errors.blocked), deletes nothing in that
+     * call, and an unused one is still deleted.
+     */
+    #[Test]
+    public function a_category_or_tag_on_a_blog_post_is_not_deleted(): void
+    {
+        $this->actingAsUser($this->editor);
+        $used = $this->postJson('/api/v1/admin/cms/blog-categories', ['name' => 'Used Category'])->json('data.id');
+        $free = $this->postJson('/api/v1/admin/cms/blog-categories', ['name' => 'Free Category'])->json('data.id');
+        $usedTag = $this->postJson('/api/v1/admin/cms/blog-tags', ['name' => 'Used Tag'])->json('data.id');
+        $freeTag = $this->postJson('/api/v1/admin/cms/blog-tags', ['name' => 'Free Tag'])->json('data.id');
+        $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'Funding 101', 'content' => '<p>Body</p>', 'category_id' => $used, 'blog_tag_id' => [$usedTag]])->assertCreated();
+
+        $this->postJson('/api/v1/admin/cms/blog-categories-multiple-delete', ['ids' => [$used, $free]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('blog.category_in_use'))
+            ->assertJsonPath('errors.blocked', [['id' => $used, 'name' => 'Used Category']]);
+        $this->assertNotNull(BlogCategory::find($used));
+        $this->assertNotNull(BlogCategory::find($free), 'all or none: nothing is deleted when one is refused');
+
+        $this->postJson('/api/v1/admin/cms/blog-tags-multiple-delete', ['ids' => [$usedTag]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('blog.tag_in_use'))
+            ->assertJsonPath('errors.blocked', [['id' => $usedTag, 'name' => 'Used Tag']]);
+        $this->assertNotNull(BlogTag::find($usedTag));
+
+        $this->postJson('/api/v1/admin/cms/blog-categories-multiple-delete', ['ids' => [$free]])->assertOk();
+        $this->postJson('/api/v1/admin/cms/blog-tags-multiple-delete', ['ids' => [$freeTag]])->assertOk();
+        $this->assertNull(BlogCategory::find($free));
+        $this->assertNull(BlogTag::find($freeTag));
+    }
+
+    /** The tag list counts the posts carrying each tag, so the editor can tell a used tag apart. */
+    #[Test]
+    public function the_tag_list_counts_the_posts_carrying_each_tag(): void
+    {
+        $this->actingAsUser($this->editor);
+        $a = $this->postJson('/api/v1/admin/cms/blog-tags', ['name' => 'A'])->json('data.id');
+        $b = $this->postJson('/api/v1/admin/cms/blog-tags', ['name' => 'B'])->json('data.id');
+        $this->postJson('/api/v1/admin/cms/blog-tags', ['name' => 'C'])->assertCreated();
+        $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'One', 'content' => '<p>x</p>', 'blog_tag_id' => [$a, $b]])->assertCreated();
+        $this->postJson('/api/v1/admin/cms/blogs', ['title' => 'Two', 'content' => '<p>x</p>', 'blog_tag_id' => [$a]])->assertCreated();
+
+        $counts = collect($this->getJson('/api/v1/admin/cms/blog-tags')->assertOk()->json('data'))->pluck('blogs_count', 'name')->sortKeys()->all();
+        $this->assertSame(['A' => 2, 'B' => 1, 'C' => 0], $counts);
+    }
+
+    #[Test]
+    public function a_deleted_category_name_can_be_used_again(): void
+    {
+        $this->actingAsUser($this->editor);
+        $id = $this->postJson('/api/v1/admin/cms/blog-categories', ['name' => 'Funding'])->json('data.id');
+        $this->postJson('/api/v1/admin/cms/blog-categories-multiple-delete', ['ids' => [$id]])->assertOk();
+
+        $this->postJson('/api/v1/admin/cms/blog-categories', ['name' => 'Funding'])->assertCreated();
+    }
+
     #[Test]
     public function categories_and_tags_are_listed_and_deleted(): void
     {

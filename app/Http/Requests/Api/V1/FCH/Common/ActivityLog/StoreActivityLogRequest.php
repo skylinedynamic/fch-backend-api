@@ -46,7 +46,8 @@ class StoreActivityLogRequest extends BaseApiRequest
             ],
 
             'subject'       => ['required', 'string', 'max:200'],
-            'description'   => ['required', 'string'],
+            // The New Event form's Message has no *; an email needs its body.
+            'description'   => [Rule::requiredIf($this->log_type === ActivityLog::TYPE_EMAIL), 'nullable', 'string'],
 
             'to_emails' => [
                 Rule::requiredIf($this->log_type === ActivityLog::TYPE_EMAIL),
@@ -127,7 +128,10 @@ class StoreActivityLogRequest extends BaseApiRequest
             'to_emails.max'          => __('validation.max.string', ['attribute' => 'email', 'max' => 255]),
             'reference.required'     => __('activity_log.reference_required'),
             'activity_date.required' => __('activity_log.activity_date_required'),
-            'subject.required'       => __('activity_log.subject_required'),
+            // The New Event form labels `subject` Summary; the email form, Subject.
+            'subject.required'       => $this->log_type === ActivityLog::TYPE_ACTIVITY
+                ? __('activity_log.summary_required')
+                : __('activity_log.subject_required'),
             'subject.max'            => 'The summary may not be greater than 200 characters.',
             'description.required'   => __('activity_log.description_required'),
             'attachments.*.file'     => __('activity_log.attachment_file'),

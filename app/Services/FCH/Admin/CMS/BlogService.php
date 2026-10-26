@@ -5,6 +5,7 @@ namespace App\Services\FCH\Admin\CMS;
 use App\Models\CMS\Blog;
 use App\Models\CMS\BlogCategory;
 use App\Models\CMS\BlogTag;
+use App\Exceptions\BlogTaxonomyInUseException;
 use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\Storage;
 
@@ -120,7 +121,8 @@ class BlogService
     {
         $query = BlogCategory::withCount('blogs');
         if ($partnerId) $query->where('partner_id', $partnerId);
-        return $query->get();
+        // Newest first: Existing Categories shows the latest at the top (BUG-059).
+        return $query->latest()->latest('id')->get();
     }
 
     public function storeCategory(array $data): BlogCategory
@@ -136,17 +138,53 @@ class BlogService
         return $category->fresh();
     }
 
+    /**
+     * All or none: a category still on a blog post is kept, and then nothing in
+     * this call is deleted (BUG-059).
+     *
+     * @throws BlogTaxonomyInUseException
+     */
     public function deleteCategories(array $ids)
     {
+        $blocked = BlogCategory::whereIn('id', $ids)->has('blogs')->get(['id', 'name'])
+            ->map(fn ($category) => ['id' => $category->id, 'name' => $category->name])->values()->all();
+        if ($blocked) {
+            throw new BlogTaxonomyInUseException(__('blog.category_in_use'), $blocked);
+        }
+
         BlogCategory::whereIn('id', $ids)->delete();
         return true;
     }
 
     public function getTags($partnerId = null)
     {
-        $query = BlogTag::withCount('blogs');
+        $query = BlogTag::query();
         if ($partnerId) $query->where('partner_id', $partnerId);
-        return $query->get();
+        // Newest first: Existing Tags shows the latest at the top (BUG-059).
+        $tags = $query->latest()->latest('id')->get();
+
+        // A post holds its tags as a JSON list, which withCount() cannot match - count them here.
+        $counts = $this->postsPerTag();
+        $tags->each(fn ($tag) => $tag->setAttribute('blogs_count', $counts[$tag->id] ?? 0));
+
+        return $tags;
+    }
+
+    /**
+     * How many (not deleted) blog posts carry each tag.
+     *
+     * @return array<int, int> tag id => post count
+     */
+    private function postsPerTag(): array
+    {
+        $counts = [];
+        foreach (Blog::whereNotNull('blog_tag_id')->pluck('blog_tag_id') as $tagIds) {
+            foreach (array_unique(array_map('intval', (array) $tagIds)) as $tagId) {
+                $counts[$tagId] = ($counts[$tagId] ?? 0) + 1;
+            }
+        }
+
+        return $counts;
     }
 
     public function storeTag(array $data): BlogTag
@@ -162,8 +200,22 @@ class BlogService
         return $tag->fresh();
     }
 
+    /**
+     * All or none: a tag still on a blog post is kept, and then nothing in this
+     * call is deleted (BUG-059).
+     *
+     * @throws BlogTaxonomyInUseException
+     */
     public function deleteTags(array $ids)
     {
+        $counts = $this->postsPerTag();
+        $blocked = BlogTag::whereIn('id', $ids)->get(['id', 'name'])
+            ->filter(fn ($tag) => ($counts[$tag->id] ?? 0) > 0)
+            ->map(fn ($tag) => ['id' => $tag->id, 'name' => $tag->name])->values()->all();
+        if ($blocked) {
+            throw new BlogTaxonomyInUseException(__('blog.tag_in_use'), $blocked);
+        }
+
         BlogTag::whereIn('id', $ids)->delete();
         return true;
     }
