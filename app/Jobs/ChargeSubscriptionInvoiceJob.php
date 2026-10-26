@@ -140,6 +140,28 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        // Auto-charge has stopped for this invoice (BUG-005): it is paid by hand
+        // from now on. The dispatcher skips these; a job queued earlier or by
+        // hand ends here.
+        if ($invoice->auto_charge_stopped_at) {
+            return;
+        }
+
+        // Paid already, whatever the status says: older code recorded a Stripe
+        // payment and left the invoice Unpaid, and this job kept charging it
+        // twice a day. Stripe forgets an idempotency key after 24 hours, so a
+        // working card would have paid twice. Stop, and have it reconciled.
+        if ($invoice->isCoveredBySucceededPayments()) {
+            if ($this->stopAutoCharge($invoice, Invoice::AUTO_CHARGE_STOP_ALREADY_PAID)) {
+                $this->notifyAdmins(__('payment.auto_charge_stopped.already_paid_alert', [
+                    'invoice' => $invoice->invoice_id ?: $invoice->id,
+                    'amount' => number_format((float) $invoice->payment_amount, 2),
+                ]));
+            }
+
+            return;
+        }
+
         $subscription = $invoice->subscription;
 
         // Never take money off-session while billing is paused. The dispatcher
@@ -380,6 +402,49 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
 
         Log::error("[Queue AutoCharge] Failed auto-charge for invoice #{$this->invoice->invoice_id}: {$reason}");
 
+        $this->notifyAdmins($reason);
+
+        $this->stopAfterTooManyFailures();
+    }
+
+    /**
+     * After config('subscription.auto_charge_max_failed_attempts') failures the
+     * invoice is no longer auto-charged (BUG-005) - the cron used to retry it
+     * twice a day forever. The payer, and a client's partner, are told once;
+     * the invoice stays Unpaid and payable by hand.
+     */
+    protected function stopAfterTooManyFailures(): void
+    {
+        $failures = Payment::where('invoice_id', $this->invoice->id)
+            ->where('status', Payment::STATUS_FAILED)
+            ->count();
+
+        if ($failures < (int) config('subscription.auto_charge_max_failed_attempts', 6)) {
+            return;
+        }
+
+        if ($this->stopAutoCharge($this->invoice, Invoice::AUTO_CHARGE_STOP_TOO_MANY_FAILURES)) {
+            app(PaymentMailService::class)->sendAutoChargeStopped($this->invoice, $failures);
+        }
+    }
+
+    /**
+     * Stop auto-charging the invoice. True only for the call that stopped it,
+     * so whoever is told about it is told once.
+     */
+    protected function stopAutoCharge(Invoice $invoice, string $reason): bool
+    {
+        return Invoice::whereKey($invoice->id)
+            ->whereNull('auto_charge_stopped_at')
+            ->update([
+                'auto_charge_stopped_at' => now(),
+                'auto_charge_stop_reason' => $reason,
+            ]) === 1;
+    }
+
+    /** The ops mailbox (CRON_NOTIFY_EMAILS). */
+    protected function notifyAdmins(string $reason): void
+    {
         $emails = array_filter(array_map('trim', explode(',', config('app.cron_notify_emails', ''))));
 
         if (!empty($emails)) {

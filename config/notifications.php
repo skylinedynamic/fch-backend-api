@@ -389,6 +389,38 @@ return [
             'url' => '/my-subscription',
         ],
 
+        // BUG-005: auto-charge stopped after too many failed attempts. The payer
+        // pays by hand from then on; a client's partner is told too.
+        'borrower.payment.auto_charge_stopped' => [
+            'name' => 'Automatic payment stopped (borrower)',
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => 'Automatic payment stopped',
+            'body' => "We stopped trying to charge invoice {{invoice}} automatically. Please pay it from your billing page.",
+            'url' => '/billing-details',
+        ],
+
+        'partner.payment.auto_charge_stopped' => [
+            'name' => 'Automatic payment stopped (partner)',
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => 'Automatic payment stopped',
+            'body' => "We stopped trying to charge invoice {{invoice}} automatically. Please pay it from My Subscription.",
+            'url' => '/my-subscription',
+        ],
+
+        'partner.client_auto_charge_stopped' => [
+            'name' => "A client's automatic payment stopped",
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => "Client's automatic payment stopped",
+            'body' => "We stopped trying to charge {{client}}'s invoice {{invoice}} automatically. They need to pay it themselves.",
+            'url' => '/invoices',
+        ],
+
         'invoice.sent' => [
             'name' => 'Invoice sent',
             'category' => 'payment',
