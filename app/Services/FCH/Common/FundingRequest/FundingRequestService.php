@@ -169,7 +169,34 @@ class FundingRequestService
         // the application's lifecycle key, not from a list of status names.
         $review->fundingApplication?->append(['status_key', 'is_editable']);
 
+        // When each status was reached, so the tracker keeps the dates of the
+        // steps in between once the request is decided (BUG-070).
+        $review->setAttribute('status_dates', $this->statusDates($review));
+
         return ApiResponse::success($review);
+    }
+
+    /**
+     * Status => when the request last reached it, from the status-change log.
+     * Submission is created_at, which the tracker already shows.
+     *
+     * @return array<string, string>
+     */
+    private function statusDates(FundingRequest $review): array
+    {
+        $dates = [];
+
+        ActivityLog::where('subject_type', FundingRequest::class)
+            ->where('subject_id', $review->id)
+            ->where('log_name', ActivityLog::LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE)
+            ->oldest()->oldest('id')
+            ->get(['properties', 'created_at'])
+            ->each(function ($log) use (&$dates) {
+                $status = $log->properties['status'] ?? null;
+                if ($status) $dates[$status] = $log->created_at->toIso8601String();
+            });
+
+        return array_filter($dates);
     }
 
     /**
@@ -401,7 +428,8 @@ class FundingRequestService
             $review->id,
             $review->partner_id,
             $review->borrower_id,
-            "Lenders Assigned to Request",
+            // The lender goes in the title: it is what tells one assignment from the next.
+            (count($lenderNames) > 1 ? 'Lenders Assigned: ' : 'Lender Assigned: ') . $lendersStr,
             "Assigned Lender(s): " . $lendersStr,
             'update',
             [

@@ -437,7 +437,8 @@ return [
             'icon' => 'ri-edit-box-line',
             'channels' => $bellAndMail,
             'title' => 'Profile change request {{status}}',
-            'body' => 'Your request to change your {{field}} was {{status}}.',
+            // {{reason}} is " Reason: ..." for a rejection with a note (BUG-076), empty otherwise.
+            'body' => 'Your request to change your {{field}} was {{status}}.{{reason}}',
             'url' => '/profile',
         ],
 

@@ -9,7 +9,9 @@ use App\Models\Borrower\BorrowerChangeRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Notifications\DynamicNotification;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
@@ -148,6 +150,40 @@ class ChangeRequestReviewApiTest extends TestCase
 
         $this->assertSame('Old Co', $this->myBorrower()->business_name);
         $this->assertSame(BorrowerChangeRequest::STATUS_REJECTED, BorrowerChangeRequest::find($id)->status);
+    }
+
+    /**
+     * Defect (BUG-076): the client was told only "Your request to change your
+     * Business Phone No was rejected." - the reviewer's note reached no screen.
+     */
+    #[Test]
+    public function the_client_is_told_why_a_change_was_rejected(): void
+    {
+        $id = $this->file(['field_name' => 'business_name', 'new_value' => 'New Co']);
+        Notification::fake();
+        $this->actingAsUser($this->reviewer);
+
+        $this->patchJson("/api/v1/admin/change-requests/{$id}", ['status' => BorrowerChangeRequest::STATUS_REJECTED, 'note' => 'not verified'])->assertOk();
+
+        Notification::assertSentTo($this->me, DynamicNotification::class, function ($n) {
+            $body = $n->toArray($this->me)['body'];
+
+            return $n->typeKey === 'borrower.change_request.decided'
+                && str_contains($body, 'rejected')
+                && str_contains($body, 'Reason: not verified');
+        });
+    }
+
+    #[Test]
+    public function an_approval_gives_no_reason(): void
+    {
+        $id = $this->file(['field_name' => 'business_name', 'new_value' => 'New Co']);
+        Notification::fake();
+        $this->actingAsUser($this->reviewer);
+
+        $this->patchJson("/api/v1/admin/change-requests/{$id}", ['status' => BorrowerChangeRequest::STATUS_APPROVED, 'note' => 'checked'])->assertOk();
+
+        Notification::assertSentTo($this->me, DynamicNotification::class, fn ($n) => !str_contains($n->toArray($this->me)['body'], 'Reason'));
     }
 
     #[Test]

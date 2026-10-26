@@ -57,6 +57,33 @@ class BorrowerRecordsApiTest extends TestCase
         ], $overrides);
     }
 
+    /**
+     * BUG-017 (Add Client): an empty form - as the admin posts it, an
+     * enrollment with no plan - gets every required error in one response,
+     * the enrollment plan included.
+     */
+    #[Test]
+    public function an_empty_client_form_gets_every_required_error_at_once(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        // Exactly what the admin's Add Client form posts when Save is clicked on an empty form.
+        $emptyForm = [
+            'first_name' => '', 'last_name' => '', 'date_of_birth' => '', 'phone_number' => '', 'country_code' => '+1', 'email' => '',
+            'business_website' => '', 'business_name' => '', 'business_ein' => '', 'business_state_file_number' => '',
+            'business_duns_number' => '', 'business_address' => '', 'business_country' => 'United States', 'business_country_code' => '+1',
+            'business_state' => '', 'business_city' => '', 'business_other_city' => '', 'business_postal_code' => '', 'business_phone' => '',
+            'business_entity_type' => '', 'business_industry_type' => '', 'business_start_date' => '', 'business_last_4_ssn' => '',
+            'home_address' => '', 'country' => 'United States', 'state' => '', 'city' => '', 'other_city' => '', 'postal_code' => '',
+            'is_free_trail' => false, 'free_trail_end_date' => '', 'status' => 'OnBoarding', 'notes' => '', 'fico_score' => '',
+            'paydex_score' => '', 'bank_accounts' => [], 'entity_type' => 'Borrower', 'enrollment' => ['amount' => 0],
+        ];
+
+        $this->postJson('/api/v1/common/borrowers', $emptyForm)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['first_name', 'last_name', 'email', 'phone_number', 'enrollment.plan_id']);
+    }
+
     #[Test]
     public function creating_a_borrower_also_creates_their_login_under_the_creators_partner(): void
     {
@@ -319,6 +346,38 @@ class BorrowerRecordsApiTest extends TestCase
 
         $this->postJson('/api/v1/common/borrowers/unarchive', ['ids' => [$borrower->id]])->assertOk();
         $this->assertNull($borrower->fresh()->archived_at);
+    }
+
+    /**
+     * BUG-054: with "Active Only" (archived = '') the owner's client list must
+     * not show an archived client. Sent the way the Clients screen sends it.
+     */
+    #[Test]
+    public function an_archived_client_is_left_out_of_the_owners_active_only_list(): void
+    {
+        $kept = $this->makeBorrower($this->partner);
+        $archived = $this->makeBorrower($this->partner);
+        $owner = $this->grant($this->makePartnerAdmin($this->host), ['update clients']);
+        $this->actingAsUser($owner);
+
+        $this->postJson('/api/v1/common/borrowers/archive', ['ids' => [$archived->id]])->assertOk();
+
+        $ids = collect($this->postJson('/api/v1/common/borrowers/fetch-all-borrowers', [
+            'search' => '', 'partner_id' => '', 'assigned_user_id' => '', 'current_tier' => '',
+            'status' => '', 'is_free_trail' => '', 'archived' => '',
+            // The DataTable default column filters, all empty.
+            'filters' => [
+                'global' => ['value' => null, 'matchMode' => 'contains'],
+                'full_name' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'contains']]],
+                'email' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'contains']]],
+                'partner_name' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'contains']]],
+                'status' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'equals']]],
+            ],
+            'page' => 1, 'per_page' => 10, 'sort_field' => 'id', 'sort_order' => 'desc',
+        ])->assertOk()->json('data'))->pluck('id');
+
+        $this->assertContains($kept->id, $ids);
+        $this->assertNotContains($archived->id, $ids);
     }
 
     #[Test]

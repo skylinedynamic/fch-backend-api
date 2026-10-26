@@ -61,6 +61,27 @@ class MyApplicationsApiTest extends TestCase
     }
 
     /**
+     * Defect (BUG-028): My Applications dated a pre-qualification by its last
+     * update, the dashboard by its submission - so the same record showed two
+     * dates. Both show the submission date.
+     */
+    #[Test]
+    public function a_pre_qualification_shows_the_same_date_as_on_the_dashboard(): void
+    {
+        $me = Borrower::find($this->me->entity_id);
+        $request = $this->preQualification($me, PreQualificationRequest::PENDING);
+        $request->forceFill(['created_at' => '2026-10-06 10:00:00', 'updated_at' => '2026-10-13 09:00:00'])->saveQuietly();
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/myapplication/pre-qualification')
+            ->assertOk()
+            ->assertJsonPath('data.0.date', '06 Oct 2026');
+        $this->getJson('/api/v1/borrower/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.latest_pre_qualifications.0.formatted_created_at', 'Oct 06, 2026');
+    }
+
+    /**
      * Defect (BUG-027, CP-MYAPP-01): an application the borrower had started
      * (On Hold) was left out, so My Applications said "No funding applications
      * found." while the funding request said one had been started. It is
