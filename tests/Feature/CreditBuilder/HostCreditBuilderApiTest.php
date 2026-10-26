@@ -236,4 +236,21 @@ class HostCreditBuilderApiTest extends TestCase
         $this->getJson("/api/v1/common/borrowers/{$borrower->id}/capital-access-overview")->assertOk();
         $this->getJson("/api/v1/common/borrowers/{$borrower->id}/capital-access-strategies")->assertOk();
     }
+
+    /**
+     * BUG-031: the admin's Capital Access tab shows the estimate short ($1.4M),
+     * as the client portal does - so the overview sends the compact form too,
+     * from the same helper (formatCompactCurrency).
+     */
+    #[Test]
+    public function the_overview_sends_the_estimate_in_short_form_too(): void
+    {
+        $borrower = $this->makeBorrower($this->partner);
+        $this->actingAsUser($this->hostAdmin);
+
+        $data = $this->getJson("/api/v1/common/borrowers/{$borrower->id}/capital-access-overview")->assertOk()->json('data');
+
+        $this->assertArrayHasKey('estimated_total_access_compact', $data);
+        $this->assertSame(formatCompactCurrency(0), $data['estimated_total_access_compact']);
+    }
 }
