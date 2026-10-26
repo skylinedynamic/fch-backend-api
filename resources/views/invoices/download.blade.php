@@ -388,8 +388,23 @@
     </div>
 
     <!-- Payment Details -->
+    @php
+        // Nothing has been paid on these yet, so there is no method, card or
+        // card holder to print - only what is due (BUG-093).
+        $notPaidYet = $invoice->type !== \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+            && !in_array($invoice->status, [
+                \App\Models\Invoice\Invoice::STATUS_PAID,
+                \App\Models\Invoice\Invoice::STATUS_SUCCESS,
+                \App\Models\Invoice\Invoice::STATUS_PROCESSING,
+            ], true);
+    @endphp
     <div class="payment-details">
         <div class="title">Payment Details:</div>
+        @if ($notPaidYet)
+        <p><strong>Payment Method:</strong> <span class="val">Not paid yet</span></p>
+        <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
+        <p><strong>Amount Due:</strong> <span class="val">${{ number_format($invoice->payment_amount, 2) }}</span></p>
+        @else
         @if ($invoice->type !== \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)
         <p><strong>Payment Method:</strong> <span
                 class="val">{{ $invoice->details['payment_method'] ?? 'Stripe' }}</span></p>
@@ -403,6 +418,7 @@
             </p>
         @endif
         <p><strong>Total Amount:</strong> <span class="val">${{ number_format($invoice->payment_amount, 2) }}</span></p>
+        @endif
     </div>
 
     <!-- Notes -->

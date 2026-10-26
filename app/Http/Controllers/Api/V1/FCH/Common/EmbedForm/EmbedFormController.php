@@ -282,7 +282,7 @@ class EmbedFormController extends Controller
      */
     /**
      * The submission the signed-in partner may convert, or the response that
-     * refuses it (not found, another partner's, already converted).
+     * refuses it (not found, another partner's, already converted, rejected).
      */
     private function convertibleSubmission(int $id): EmbedFormSubmission|JsonResponse
     {
@@ -301,6 +301,12 @@ class EmbedFormController extends Controller
 
         if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
             return ApiResponse::error(__('embed_form.already_converted'), 422);
+        }
+
+        // A rejected application is moved back to New or In Review before it
+        // can be converted, so a rejection is never undone by one click (BUG-098).
+        if ($submission->status === EmbedFormSubmission::STATUS_REJECTED) {
+            return ApiResponse::error(__('embed_form.rejected_cannot_convert'), 422);
         }
 
         return $submission;

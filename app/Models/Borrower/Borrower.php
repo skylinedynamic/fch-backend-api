@@ -249,6 +249,11 @@ class Borrower extends Model
         return $this->hasMany(FundingApplication::class, 'borrower_id');
     }
 
+    public function commissions()
+    {
+        return $this->hasMany(\App\Models\Commission\Commission::class, 'borrower_id');
+    }
+
     public function fundingRequests()
     {
         return $this->hasMany(FundingRequest::class, 'borrower_id');
@@ -354,6 +359,14 @@ class Borrower extends Model
             $this->fundingApplications()->delete();
             $this->preQualificationRequests()->delete();
             $this->verificationRequests()->delete();
+
+            // Commissions not paid out go with the deal they were on; left
+            // behind, they counted in the Commissions totals against a funding
+            // application nobody could see any more (BUG-107). One already
+            // paid out stays, as the record of that payout.
+            $this->commissions()
+                ->where('payment_status', '!=', \App\Models\Commission\Commission::PAYMENT_STATUS_PAID)
+                ->delete();
 
             // 6. Finally Delete Borrower record
             $this->delete();

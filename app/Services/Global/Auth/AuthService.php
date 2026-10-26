@@ -44,7 +44,7 @@ class AuthService
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
 
-            return ApiResponse::tooManyRequests(__('auth.too_many_login_attempts', [
+            return ApiResponse::tooManyRequests(trans_choice('auth.too_many_login_attempts', (int) $decayMinutes, [
                 'time' => $decayMinutes,
             ]));
         }
@@ -63,7 +63,7 @@ class AuthService
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
 
-            return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
+            return ApiResponse::loginError(__('auth.invalid_login'), 'password', $remainingAttempts, $maxAttempts);
         }
 
         // Every user belongs to a partner; one whose partner is missing or
@@ -76,7 +76,7 @@ class AuthService
         $portalIsolationService = app(PortalIsolationService::class);
         $domain = $portalIsolationService->resolveDomain($request);
         if (!$portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
-            return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'email');
+            return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'password');
         }
 
         $userSeatSubscription = Subscription::where(function ($q) use ($user) {
@@ -154,15 +154,16 @@ class AuthService
             $status = $partner?->status;
 
             if (!in_array($status, Partner::LOGIN_ALLOWED_STATUSES, true)) {
-                $name = $partner?->company_name ?? $partner?->full_name ?? 'your partner';
-
                 // Keep the specific wording where there is some, so a suspended
-                // partner is not told their account is merely inactive.
+                // partner is not told their account is merely inactive. Both
+                // send the partner to the administrator: it is the host that
+                // sets a partner's status, so naming the partner itself sent
+                // its owner to contact themselves (BUG-113).
                 $message = $status === Partner::STATUS_SUSPENDED
                     ? 'auth.partner_suspended'
                     : 'auth.partner_inactive';
 
-                return ApiResponse::loginError(__($message, ['partner' => $name]), 'email');
+                return ApiResponse::loginError(__($message), 'email');
             }
         } elseif ($user->entity_type === Borrower::class) {
             $status = $user->borrower?->status;
@@ -181,7 +182,7 @@ class AuthService
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
 
-            return ApiResponse::loginError(__('auth.invalid_password'), 'password', $remainingAttempts, $maxAttempts);
+            return ApiResponse::loginError(__('auth.invalid_login'), 'password', $remainingAttempts, $maxAttempts);
         }
 
         RateLimiter::clear($key);
