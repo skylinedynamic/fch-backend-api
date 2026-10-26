@@ -11,54 +11,47 @@ use Illuminate\Support\Facades\Auth;
 class OverviewService
 {
     /**
-     * Get credit builder overview data.
+     * Get credit builder overview data for the signed-in borrower.
      *
      * @return array
      */
     public function myProgress(): array
     {
-        $borrower = Borrower::with('tier')->where('id',auth()->user()->entity_id)->first();
-        $currentTier = $borrower->tier; 
+        return $this->progressFor(Borrower::with('tier')->where('id', auth()->user()->entity_id)->firstOrFail());
+    }
+
+    /**
+     * A borrower's Credit Builder progress - the Overview's, and the admin's
+     * view of the same client (TierService::getBorrowerProgress), so the two
+     * and the Step-By-Step Guide always agree (BUG-024).
+     */
+    public function progressFor(Borrower $borrower): array
+    {
+        $currentTier = $borrower->tier;
         $tiers = Tier::orderBy('order', 'asc')->withCount('tasks')->get();
 
-        // Counted from the tasks the Step-By-Step Guide lists, by their latest
-        // status, so the Overview and the Guide always agree (BUG-024).
+        // Counted from the tasks the Step-By-Step Guide lists, by their latest status.
         $board = new BorrowerTaskBoard($borrower);
 
-        $overall = $board->count($tiers->pluck('id'));
+        $overall = $board->count($tiers);
         $totalCompletedTasks = $overall['completed'];
         $totalTasksRemaining = max(0, $overall['total'] - $totalCompletedTasks);
         $totalCompletePercentage = $overall['total'] > 0 ? round(($totalCompletedTasks / $overall['total']) * 100) : 0;
 
-        // Current Tier Stats
-        $currentTierCompletedTasks = 0;
-        $tasksRemaining = 0;
-        $taskCompletePercentage = 0;
-        $currentTierEstimatedDays = 0;
-
-        if ($currentTier) {
-            $tierTasks = $board->tierTasks($currentTier->id);
-            $openTasks = $tierTasks->where('status', '!==', BorrowerTaskVerificationRequest::COMPLETED);
-
-            $currentTierCompletedTasks = $tierTasks->count() - $openTasks->count();
-            $tasksRemaining = $openTasks->count();
-            $currentTierEstimatedDays = $openTasks->sum('estimated_completion_days');
-
-            // A tier with no tasks at all is effectively complete.
-            $taskCompletePercentage = $tierTasks->isNotEmpty()
-                ? round(($currentTierCompletedTasks / $tierTasks->count()) * 100)
-                : 100;
-        }
+        // The current tier, out of the tasks it needs (task_to_complete).
+        $tier = $currentTier
+            ? $board->tierProgress($currentTier)
+            : ['completed' => 0, 'remaining' => 0, 'percentage' => 0, 'estimated_days' => 0];
 
         return [
             'current_tier' => $currentTier,
             'tiers' => $tiers,
-            'tasks_remaining_count' => $tasksRemaining,
-            'current_tier_completed_tasks' => $currentTierCompletedTasks,
-            'task_complete_percentage' => $taskCompletePercentage,
+            'tasks_remaining_count' => $tier['remaining'],
+            'current_tier_completed_tasks' => $tier['completed'],
+            'task_complete_percentage' => $tier['percentage'],
             'total_tasks_remaining' => $totalTasksRemaining,
             'total_complete_percentage' => $totalCompletePercentage,
-            'current_tier_estimated_completion_days' => (int) $currentTierEstimatedDays,
+            'current_tier_estimated_completion_days' => $tier['estimated_days'],
             'total_completed_tasks' => $totalCompletedTasks,
         ];
     }
