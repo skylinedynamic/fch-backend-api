@@ -329,7 +329,7 @@
             <td style="width: 25%;">
                 <div class="label">DATE</div>
                 <div class="value">
-                    {{ $invoice->payment_date ? $invoice->payment_date->format('d M Y') : $invoice->created_at->format('d M Y') }}
+                    {{ toDateOnly($invoice->payment_date ?: $invoice->created_at, 'd M Y') }}
                 </div>
             </td>
             <td style="width: 25%;">

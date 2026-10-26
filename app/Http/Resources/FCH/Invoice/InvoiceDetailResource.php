@@ -40,7 +40,8 @@ class InvoiceDetailResource extends InvoiceResource
                 $this->conversion_rate ?? 1
             ),
             'payment_date' => toDateOnly($this->payment_date),
-            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
+            // The invoice's own date, as the PDF shows it - not shifted into the viewer's zone (BUG-122).
+            'created_at' => toDateOnly($this->created_at),
             'enrollment_type' => $this->when(
                 $this->resource->billsSubscriptionPlan(),
                 fn () => $this->subscription?->enrollment_type
