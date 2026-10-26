@@ -26,6 +26,8 @@ class SeoController extends Controller
             'sort_field' => $request->sort_field ?? $request->input('params.sort_field', 'id'),
             'sort_order' => $request->sort_order ?? $request->input('params.sort_order', 'asc'),
             'partner_id' => $request->user() ? $request->user()->partner_id : null,
+            // Column filters of the table: filters[page_name|path|meta_title] = {value, match_mode}
+            'columns'    => $request->input('filters', $request->input('params.filters', [])),
         ];
         $result = $this->seoService->list($filters);
         $settings = $result['paginator'];
