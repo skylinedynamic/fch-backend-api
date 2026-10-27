@@ -15,7 +15,6 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationControll
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
@@ -73,17 +72,18 @@ Route::prefix('v1/admin')
         // 🏆 Credit Builder
         Route::prefix('credit-builder')->group(
             function () {
-            // Tiers
+            // Tiers (Manage Tier)
             Route::post('tiers/fetch-tiers', [TierController::class, 'index']);
             Route::post('tiers', [TierController::class, 'store']);
             Route::get('tiers/{id}', [TierController::class, 'show']);
             Route::put('tiers/{id}', [TierController::class, 'update']);
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
             Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
+            // A client's own credit builder progress, read from the client page.
             Route::post('tiers/borrowers/tier-wise-tasklist', [TierController::class, 'getBorrowerTierTaskList']);
             Route::post('tiers/borrowers/progress', [TierController::class, 'getBorrowerProgress']);
 
-            // Tier Tasks
+            // Tier Tasks (Manage Tier)
             Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
             Route::post('tier-tasks', [TierTaskController::class, 'store']);
             Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
@@ -91,7 +91,7 @@ Route::prefix('v1/admin')
             Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
             Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus']);
 
-            // Vendors
+            // Vendors (Manage Tier)
             Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index']);
             Route::post('vendors', [CreditBuilderVendorController::class, 'store']);
             Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);

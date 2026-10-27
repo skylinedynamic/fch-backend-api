@@ -7,6 +7,7 @@ use App\Models\Commission\Commission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -515,11 +516,45 @@ class FundingApplication extends Model
     }
 
     /**
-     * Editability, for serialising alongside a raw model (`append`).
+     * The host's own team - its admin and staff, not a borrower of the host and
+     * not a partner. It may edit any partner's borrower's application at any
+     * status; the status lock is for borrowers and partners.
+     */
+    public static function isHostTeam(?User $user): bool
+    {
+        return $user !== null
+            && $user->user_type !== User::BORROWER
+            && $user->entity_type !== Borrower::class
+            && (bool) $user->partner?->is_host;
+    }
+
+    /**
+     * Whether this user may change the application's data: the host's team
+     * always, everyone else while the status is still editable.
+     */
+    public function isEditableBy(?User $user): bool
+    {
+        return self::isHostTeam($user) || $this->isEditable();
+    }
+
+    /**
+     * Whether a real change by this user costs the borrower's signature. The
+     * host editing past the lock is changing figures the borrower signed, so
+     * the borrower signs again then too.
+     */
+    public function invalidatesSignatureOnEditBy(?User $user): bool
+    {
+        return $this->invalidatesSignatureOnEdit()
+            || (self::isHostTeam($user) && $this->isLockedForEdit() && $this->hasBeenSubmitted());
+    }
+
+    /**
+     * Editability, for serialising alongside a raw model (`append`), for the
+     * signed-in user.
      */
     public function getIsEditableAttribute(): bool
     {
-        return $this->isEditable();
+        return $this->isEditableBy(auth()->user());
     }
 
     /**
@@ -579,9 +614,10 @@ class FundingApplication extends Model
      *
      * @return array<string, mixed>
      */
-    public function editingState(): array
+    public function editingState(?User $user = null): array
     {
-        $isLocked = $this->isLockedForEdit();
+        // For the given user: the host's team is never locked out.
+        $isLocked = ! $this->isEditableBy($user);
 
         return [
             'status_key' => self::statusKey($this->status),
@@ -591,7 +627,7 @@ class FundingApplication extends Model
             'requires_resign' => (bool) $this->requires_resign,
             // True when the form is open but a change will cost the signature -
             // what the portal warns about before letting an edit through.
-            'edit_requires_resign' => ! $isLocked && $this->invalidatesSignatureOnEdit(),
+            'edit_requires_resign' => ! $isLocked && $this->invalidatesSignatureOnEditBy($user),
             // True when the form is open and the application has been submitted
             // at some point, whatever status it sits at now - On Hold and Draft
             // included. The portal asks before letting an edit through on these;

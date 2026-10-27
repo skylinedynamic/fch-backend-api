@@ -533,16 +533,20 @@ if (!function_exists('toTimezone')) {
 }
 
 if (!function_exists('calculateTimeInBusiness')) {
-    function calculateTimeInBusiness($startDate)
+    /**
+     * @param mixed $asOf Count to this date instead of today - the signed
+     *                    application counts to the day it was signed.
+     */
+    function calculateTimeInBusiness($startDate, $asOf = null)
     {
         if (empty($startDate)) {
             return 'N/A';
         }
 
         $start = Carbon::parse($startDate);
-        $now = now();
+        $now = $asOf ? Carbon::parse($asOf) : now();
 
-        if ($start->isFuture()) {
+        if ($start->greaterThan($now)) {
             return '0 Days';
         }
 

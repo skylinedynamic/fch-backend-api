@@ -209,6 +209,53 @@ class FundingRequestReviewApiTest extends TestCase
             ->assertStatus(422);
     }
 
+    /**
+     * Defect (BUG-070): the activity entry read "Lenders Assigned to Request"
+     * with the lender only in the collapsed description, so two assignments
+     * could not be told apart.
+     */
+    /**
+     * Defect (BUG-070): the tracker had only created_at and updated_at, so once
+     * the request was approved the dates of the steps in between were gone. The
+     * detail carries when each status was reached (from the status-change log).
+     */
+    #[Test]
+    public function the_detail_keeps_the_date_each_status_was_reached(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $steps = [
+            FundingRequest::STATUS_ACCEPTED => '2026-10-20 09:00:00',
+            FundingRequest::STATUS_IN_PROGRESS => '2026-10-21 10:30:00',
+            FundingRequest::STATUS_APPROVED => '2026-10-22 15:45:00',
+        ];
+        foreach ($steps as $status => $at) {
+            $this->travelTo(\Carbon\Carbon::parse($at));
+            $this->postJson('/api/v1/common/funding-request/status-update', ['id' => $this->myRequestId, 'status' => $status])->assertOk();
+            $this->travelBack();
+        }
+
+        $dates = $this->getJson("/api/v1/common/funding-request/{$this->myRequestId}")->assertOk()->json('data.status_dates');
+
+        foreach ($steps as $status => $at) {
+            $this->assertSame($at, \Carbon\Carbon::parse($dates[$status])->format('Y-m-d H:i:s'), $status);
+        }
+    }
+
+    #[Test]
+    public function the_assignment_activity_names_the_lender(): void
+    {
+        $lenderId = DB::table('lenders')->insertGetId(['name' => 'Big Bank', 'created_at' => now(), 'updated_at' => now()]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->myRequestId, 'lender_ids' => [$lenderId]])->assertOk();
+
+        $this->assertSame('Lender Assigned: Big Bank', DB::table('activity_log')
+            ->where('subject_type', FundingRequest::class)
+            ->where('subject_id', $this->myRequestId)
+            ->latest('id')
+            ->value('event'));
+    }
+
     #[Test]
     public function the_funding_catalogue_loads(): void
     {

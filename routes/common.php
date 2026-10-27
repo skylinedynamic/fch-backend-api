@@ -276,6 +276,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
+                // The same downloads with the password in the body (BUG-094).
+                Route::post('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
+                Route::post('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
+                Route::post('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
                 Route::get('download-history/{historyId}/download', [RequestApplicationController::class, 'downloadFromHistory']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
@@ -336,7 +340,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('credit-accounts/all', [AdminCreditAccountController::class, 'allActive']);
             });
 
-            // Capital Access CRUD
+            // Capital Access CRUD - its menu item uses the credit account
+            // permissions, so the API does too.
             Route::prefix('capital-accesses')->middleware('host-only')->group(function () {
                 Route::post('fetch-all', [CommonCapitalAccessController::class, 'index']);
                 Route::post('/', [CommonCapitalAccessController::class, 'store']);

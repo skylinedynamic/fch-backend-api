@@ -306,20 +306,48 @@ class Borrower extends Model
     /** Invoice statuses that mean money was received - a client with one is kept. */
     public const PAID_INVOICE_STATUSES = [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS];
 
+    /** Why a client cannot be deleted - see notDeletableReasonCode(). */
+    public const DELETE_BLOCKED_PAID_INVOICE = 'paid_invoice';
+    public const DELETE_BLOCKED_APPLICATIONS = 'applications';
+
     /**
-     * A client can be deleted only while none of their invoices is paid.
+     * A client can be deleted only while none of their invoices is paid and,
+     * paid or free, they have no pre-qualification and no funding application.
      */
     public function isDeletable(): bool
     {
-        return !$this->invoices()
-            ->whereIn('status', self::PAID_INVOICE_STATUSES)
-            ->exists();
+        return $this->notDeletableReasonCode() === null;
+    }
+
+    /**
+     * What keeps this client, or null when nothing does. A paid invoice is
+     * reported first: the payment record is the stronger reason to keep them.
+     */
+    public function notDeletableReasonCode(): ?string
+    {
+        if ($this->invoices()->whereIn('status', self::PAID_INVOICE_STATUSES)->exists()) {
+            return self::DELETE_BLOCKED_PAID_INVOICE;
+        }
+
+        // An embed-form conversion that created a funding application counts
+        // too, even if that application row is no longer there.
+        if ($this->preQualificationRequests()->exists()
+            || $this->fundingApplications()->exists()
+            || \App\Models\EmbedForm\EmbedFormSubmission::where('converted_borrower_id', $this->id)
+                ->whereNotNull('converted_funding_application_id')
+                ->exists()) {
+            return self::DELETE_BLOCKED_APPLICATIONS;
+        }
+
+        return null;
     }
 
     /** Why this client cannot be deleted, and what to do instead. */
     public function notDeletableReason(): string
     {
-        return __('borrower.delete_blocked_paid_invoice');
+        return $this->notDeletableReasonCode() === self::DELETE_BLOCKED_APPLICATIONS
+            ? __('borrower.delete_blocked_applications')
+            : __('borrower.delete_blocked_paid_invoice');
     }
 
     /**

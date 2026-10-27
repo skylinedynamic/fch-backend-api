@@ -29,6 +29,7 @@ use App\Services\FCH\Common\PartnerFundApplication\PartnerFundingApplicationServ
 use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\RequestApplicationService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -62,6 +63,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_business_info')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_business_info_failed'), 500);
         }
@@ -88,6 +92,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             \Log::error('saveBusinessInfo error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
@@ -111,6 +118,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_ownership_info')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_ownership_info_failed'), 500);
         }
@@ -135,6 +145,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);
         }
@@ -157,6 +170,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_financial_info')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_financial_info_failed'), 500);
         }
@@ -181,6 +197,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.financial_info_update_failed'), 500);
         }
@@ -202,6 +221,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_funding_request')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_funding_request_failed'), 500);
         }
@@ -225,6 +247,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.funding_request_update_failed'), 500);
         }
@@ -244,6 +269,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_disclosures_and_consent')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_disclosures_and_consent_failed'), 500);
         }
@@ -264,6 +292,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.disclosures_and_consent_update_failed'), 500);
         }
@@ -283,6 +314,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_federal_compliance_disclosures')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_federal_compliance_disclosures_failed'), 500);
         }
@@ -313,6 +347,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.federal_compliance_disclosures_update_failed'), 500);
         }
@@ -331,6 +368,9 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.fetch_attestation_and_authorization')
             );
 
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_attestation_and_authorization_failed'), 500);
         }
@@ -387,6 +427,9 @@ class PartnerFundingApplicationController extends Controller
             // 423, not 500: the request itself was fine, this application just
             // isn't theirs to change any more.
             return ApiResponse::error($e->getMessage(), 423);
+        } catch (ModelNotFoundException $e) {
+            // A funding request that is not this borrower's (BUG-082).
+            return ApiResponse::notFound($e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.attestation_and_authorization_update_failed') . ': ' . $e->getMessage(), 500);
         }

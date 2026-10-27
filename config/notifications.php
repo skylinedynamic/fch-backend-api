@@ -469,8 +469,21 @@ return [
             'icon' => 'ri-edit-box-line',
             'channels' => $bellAndMail,
             'title' => 'Profile change request {{status}}',
-            'body' => 'Your request to change your {{field}} was {{status}}.',
+            // {{reason}} is " Reason: ..." for a rejection with a note (BUG-076), empty otherwise.
+            'body' => 'Your request to change your {{field}} was {{status}}.{{reason}}',
             'url' => '/profile',
+        ],
+
+        // A borrower document Accepted or Rejected by the host or partner
+        // (BUG-087). {{reason}} is " Reason: ..." for a rejection, empty otherwise.
+        'borrower.document.reviewed' => [
+            'name' => 'Document reviewed (borrower)',
+            'category' => 'document',
+            'icon' => 'ri-file-check-line',
+            'channels' => $bellAndMail,
+            'title' => 'Document {{status}}',
+            'body' => 'Your {{document}} was {{status}}.{{reason}}',
+            'url' => '/documents',
         ],
 
         'host.credit_builder.verification_requested' => [

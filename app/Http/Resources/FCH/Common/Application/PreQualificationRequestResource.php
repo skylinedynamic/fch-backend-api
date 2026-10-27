@@ -52,19 +52,19 @@ class PreQualificationRequestResource extends JsonResource
 
         // Access & Visibility Rules:
         // - Host Admin (is_host == 1): Can see both internal and client AUE.
-        // - White-Label Partner (partner_type == Partner::PARTNER_TYPE_WHITE_LABEL): Can see Client_AUE ONLY.
-        // - Certified Partner (partner_type == Partner::PARTNER_TYPE_CERTIFIED) or non-WLP: CANNOT see any AUE.
+        // - White-Label and Certified Partners: Can see Client_AUE ONLY.
+        // - Anyone else: CANNOT see any AUE.
         $user = auth()->user();
         $partner = $user?->partner;
         $isHost = (bool) ($partner?->is_host ?? false);
-        $isWhiteLabel = ($partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL);
+        $isPartnerViewer = in_array($partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED], true);
 
         if (!$isHost) {
-            if (!$isWhiteLabel) {
-                // Certified partners / non-WLP partners must NEVER see any underwriting output
+            if (!$isPartnerViewer) {
+                // Viewers that are not a known partner type must NEVER see any underwriting output
                 $aiResult = null;
             } elseif ($aiResult) {
-                // Strictly strip internal evaluation and internal-only metadata for WLP
+                // Strictly strip internal evaluation and internal-only metadata for partners
                 unset($aiResult['internal']);
                 unset($aiResult['admin_status_note']);
                 unset($aiResult['model']);
@@ -101,16 +101,16 @@ class PreQualificationRequestResource extends JsonResource
             'status_class' => $this->status_class,
             // Validator findings carry internal_message / suggested_action written
             // for FCH staff, so they follow the same host-only rule as the Internal AUE.
-            'validation_status' => ($isHost || $isWhiteLabel) ? $this->validation_status : null,
+            'validation_status' => ($isHost || $isPartnerViewer) ? $this->validation_status : null,
             'validation_summary' => $isHost ? $this->validation_summary : null,
             'validation_issues' => $isHost ? $this->validation_issues : null,
             'validated_at' => ($isHost && $this->validated_at) ? toTimezone($this->validated_at, null, 'Y-m-d h:i A') : null,
-            'gpt_status' => ($isHost || $isWhiteLabel) ? $this->gpt_status : null,
+            'gpt_status' => ($isHost || $isPartnerViewer) ? $this->gpt_status : null,
             // Converted to the viewer's timezone, like validated_at and
             // created_at beside it. It was formatted straight off the stored UTC
             // value, so "Evaluated" read hours away from every other time on the
             // same screen.
-            'gpt_generated_at' => ($isHost || $isWhiteLabel) ? toTimezone($this->gpt_generated_at, null, 'Y-m-d h:i A') : null,
+            'gpt_generated_at' => ($isHost || $isPartnerViewer) ? toTimezone($this->gpt_generated_at, null, 'Y-m-d h:i A') : null,
             'ai_result' => $aiResult,
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),

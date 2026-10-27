@@ -210,7 +210,8 @@ class ActivityLogService
                 'visibility' => $this->resolveStoreVisibility($data, $logType),
                 'status' => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
                 'event' => $data['subject'] ?? ($logType === ActivityLog::TYPE_EMAIL ? 'Email Sent' : 'Activity Created'),
-                'description' => $data['description'] ?? $data['subject'] ?? 'Activity Log',
+                // An activity's Message is optional: none stays empty (the column is NOT NULL).
+                'description' => $data['description'] ?? ($logType === ActivityLog::TYPE_ACTIVITY ? '' : ($data['subject'] ?? 'Activity Log')),
                 'properties' => [
                     'subject' => $data['subject'] ?? null,
                     'description' => $data['description'] ?? null,

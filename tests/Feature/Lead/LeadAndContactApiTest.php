@@ -199,6 +199,67 @@ class LeadAndContactApiTest extends TestCase
         $this->assertNull($lead->fresh()->ssn);
     }
 
+    /**
+     * BUG-017: the admin form now sends an empty lead instead of stopping at
+     * Contact Person, so the API must name every required field in one go.
+     */
+    #[Test]
+    public function an_empty_lead_gets_every_required_error_at_once(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/leads/details', [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'probability' => __('lead.probability_required'),
+                'lead_type' => __('lead.lead_type_required'),
+                'status' => __('lead.status_required'),
+                'company_name' => __('lead.company_name_required'),
+                'contact_person' => __('lead.contact_person_required'),
+            ]);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'contact_person' => __('lead.contact_person_required'),
+                'email' => __('lead.email_required'),
+                'phone_number' => __('lead.phone_number_required'),
+                'country' => __('lead.country_required'),
+            ]);
+    }
+
+    /** BUG-018: Lead Source is optional on create, so it stays optional on update. */
+    #[Test]
+    public function a_lead_created_without_a_lead_source_can_be_updated_without_one(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $id = $this->postJson('/api/v1/common/leads/details', $this->leadDetails(['lead_source' => null]))
+            ->assertSuccessful()
+            ->json('data.id');
+
+        $this->postJson("/api/v1/common/leads/{$id}/details", $this->leadDetails(['lead_source' => null, 'status' => 'Working']))
+            ->assertOk()
+            ->assertJsonMissingValidationErrors('lead_source');
+        $this->assertSame('Working', Lead::find($id)->status);
+    }
+
+    /** BUG-021: QA's values - an EIN of "12.5" and a DUNS of "12" - are refused. */
+    #[Test]
+    public function a_fractional_ein_and_a_short_duns_are_refused(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['business_ein' => '12.5', 'duns_number' => '12']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'business_ein' => __('common.business_ein_invalid'),
+                'duns_number' => __('common.duns_number_invalid'),
+            ]);
+        $this->assertNull($lead->fresh()->business_ein);
+    }
+
     #[Test]
     public function a_leads_ein_is_kept_as_its_nine_digits(): void
     {
