@@ -43,7 +43,7 @@ class RateLimitServiceProvider extends ServiceProvider
                     $attempts = RateLimiter::attempts($key);
                     $remainingAttempts = max(0, $maxAttempts - $attempts);
                     
-                    return ApiResponse::tooManyRequests(__('auth.too_many_login_attempts'), [
+                    return ApiResponse::tooManyRequests(trans_choice('auth.too_many_login_attempts', $time / 60, ['time' => $time / 60]), [
                         'retry_after' => $time,
                         'time' => now()->toISOString(),
                         'remaining_attempts' => $remainingAttempts,

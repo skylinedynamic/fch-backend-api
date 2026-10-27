@@ -61,7 +61,8 @@ class InvoiceResource extends JsonResource
                 $isBorrowerInvoice = ($entityClass === \App\Models\Borrower\Borrower::class || $this->entity_name === 'Borrower' || !empty($this->borrower_id));
                 return $isBorrowerInvoice && ((int) $this->partner_id === (int) $authUser->partner_id);
             })(),
-            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
+            // The invoice's own date, as the PDF shows it - not shifted into the viewer's zone (BUG-122).
+            'created_at' => toDateOnly($this->created_at),
         ];
     }
 

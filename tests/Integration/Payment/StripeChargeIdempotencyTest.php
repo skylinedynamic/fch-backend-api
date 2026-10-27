@@ -5,6 +5,7 @@ namespace Tests\Feature\Payment;
 use App\Jobs\ChargeSubscriptionInvoiceJob;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
+use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Services\FCH\Common\Setting\PaymentMethodConfigurationService;
 use App\Services\GlobalPayment\Drivers\StripePaymentDriver;
@@ -217,6 +218,10 @@ class StripeChargeIdempotencyTest extends TestCase
             // database, so an Eloquent update would see nothing dirty and write
             // nothing at all.
             Invoice::where('id', $invoice->id)->update(['status' => Invoice::STATUS_UNPAID]);
+            // "Not recorded" means no payment row either. A recorded one now
+            // stops the job before Stripe is called at all (BUG-005, see
+            // AutoChargeStopTest); the idempotency key is what covers the rest.
+            Payment::where('invoice_id', $invoice->id)->forceDelete();
 
             app()->call([new ChargeSubscriptionInvoiceJob($invoice->fresh()), 'handle']);
 

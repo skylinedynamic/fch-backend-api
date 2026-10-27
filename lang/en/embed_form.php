@@ -30,6 +30,7 @@ return [
     'converted_to_borrower' => 'Submission successfully converted to a Free Plan Borrower.',
     'conversion_failed' => 'Conversion failed.',
     'already_converted' => 'This application has already been converted.',
+    'rejected_cannot_convert' => 'This application was rejected. Change its status before converting it.',
     'email_required_conversion' => 'Email is required for conversion.',
     'borrower_exists_email' => 'A borrower with this email already exists.',
     'user_exists_email' => 'A user account with this email already exists.',

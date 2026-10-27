@@ -123,6 +123,6 @@ class PortalIsolationService
      */
     public function getUnauthorizedMessage(User $user, string $domain): string
     {
-        return __('auth.invalid_email');
+        return __('auth.invalid_login');
     }
 }

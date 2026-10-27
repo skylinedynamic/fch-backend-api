@@ -36,6 +36,9 @@ class FakeStripeHttpClient implements ClientInterface
      */
     public $onRequest = null;
 
+    /** @var array<string, array{0: int, 1: array}> Endpoints that answer with an error. */
+    private array $failures = [];
+
     public function __construct()
     {
         $this->responses = [
@@ -83,6 +86,17 @@ class FakeStripeHttpClient implements ClientInterface
     public function willReturn(string $resource, array $body): self
     {
         $this->responses[$resource] = $body;
+
+        return $this;
+    }
+
+    /**
+     * Answer an endpoint with a Stripe error instead, e.g. a declined card:
+     * willFail('payment_intents', 402, ['type' => 'card_error', 'code' => 'card_declined', ...]).
+     */
+    public function willFail(string $resource, int $status, array $error): self
+    {
+        $this->failures[$resource] = [$status, $error];
 
         return $this;
     }
@@ -175,6 +189,12 @@ class FakeStripeHttpClient implements ClientInterface
 
         if (is_callable($this->onRequest)) {
             ($this->onRequest)($absUrl);
+        }
+
+        foreach ($this->failures as $resource => [$status, $error]) {
+            if (str_contains($absUrl, '/v1/' . $resource)) {
+                return [json_encode(['error' => $error]), $status, []];
+            }
         }
 
         foreach ($this->responses as $resource => $body) {

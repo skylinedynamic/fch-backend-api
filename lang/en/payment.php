@@ -78,5 +78,11 @@ return [
     'mail_subject_default_rejected' => ':company - Payment Verification Notice',
     'log_mail_constructed' => '[:mail] Constructed',
     'log_mail_send_error' => 'Failed to send :mail email: :error',
+
+    // BUG-005: the scheduler stopped auto-charging an invoice.
+    'auto_charge_stopped' => [
+        'subject' => 'Automatic payment stopped - :site',
+        'already_paid_alert' => 'Invoice :invoice is Unpaid but succeeded payments already cover its :amount. Auto-charge stopped so it is not charged twice - reconcile it with php artisan invoices:reconcile-paid.',
+    ],
 ];
 

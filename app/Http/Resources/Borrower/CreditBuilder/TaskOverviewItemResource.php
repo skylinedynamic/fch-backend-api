@@ -23,7 +23,8 @@ class TaskOverviewItemResource extends JsonResource
             'description' => $this->task->description,
             'tier' => $this->tier->name,
             'status' => $this->status,
-            'rejection_reason' => $this->rejection_reason,
+            // The reviewer's note is the reason on a rejected request (BUG-083).
+            'rejection_reason' => $this->status === BorrowerTaskVerificationRequest::REJECTED ? $this->note : null,
             'completed_at' => ($this->verified_at) ? date('d M Y', strtotime($this->verified_at)) : null,
         ];
     }

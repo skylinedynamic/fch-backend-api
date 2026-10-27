@@ -139,7 +139,13 @@ class CommissionService
     public function getCommissionById(int $id)
     {
         return CommissionViewer::for(Auth::user())->scope(Commission::query())
-            ->with(['fundingApplication', 'partner', 'borrower.partner', 'borrower.assignedUser', 'payout.invoice', 'payout.payment'])
+            // Trashed too: a commission paid out on a client deleted since
+            // still shows the deal it was paid on (BUG-107).
+            ->with([
+                'fundingApplication' => fn ($q) => $q->withTrashed(),
+                'borrower' => fn ($q) => $q->withTrashed(),
+                'partner', 'borrower.partner', 'borrower.assignedUser', 'payout.invoice', 'payout.payment',
+            ])
             ->findOrFail($id);
     }
 }

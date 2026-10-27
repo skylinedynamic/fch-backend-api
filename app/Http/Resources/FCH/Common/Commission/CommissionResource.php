@@ -49,7 +49,8 @@ class CommissionResource extends JsonResource
             'currency_symbol' => $this->currency_symbol,
             'conversion_rate' => $this->conversion_rate,
             'note' => $this->note,
-            'date' => date('Y/m/d', strtotime($this->created_at)),
+            // The viewer's day (X-Timezone), not the UTC one (BUG-120).
+            'date' => toTimezone($this->created_at, null, __('commission.list_date_format')),
         ]);
     }
 }

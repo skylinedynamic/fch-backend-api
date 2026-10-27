@@ -99,7 +99,7 @@ class EmployeeService
 
         // Sorting
         $sortField = $filters['sort_field'] ? ($filters['sort_field'] == 'full_name' ? 'first_name' : $filters['sort_field']) : 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'desc' : 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         if ($sortField === 'phone_number') {
             $sortField = 'phone_number_1';

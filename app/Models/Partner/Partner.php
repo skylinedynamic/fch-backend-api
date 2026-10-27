@@ -24,6 +24,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
 use App\Models\Concerns\Archivable;
+use App\Support\Branding\PartnerDomain;
 
 class Partner extends Model
 {
@@ -109,6 +110,21 @@ class Partner extends Model
         self::STATUS_SUSPENDED => self::STATUS_SUSPENDED,
         self::STATUS_ONBOARDING => self::STATUS_ONBOARDING,
     ];
+
+    /**
+     * A domain's cached partner is cleared when a partner takes, changes or
+     * gives up a domain, and when it is deleted or restored (BUG-118).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Partner $partner) {
+            if ($partner->wasRecentlyCreated || $partner->wasChanged(PartnerDomain::COLUMNS)) {
+                PartnerDomain::forgetPartner($partner);
+            }
+        });
+        static::deleted(fn (Partner $partner) => PartnerDomain::forgetPartner($partner));
+        static::restored(fn (Partner $partner) => PartnerDomain::forgetPartner($partner));
+    }
 
     /**
      * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.

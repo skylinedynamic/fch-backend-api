@@ -171,6 +171,27 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertSame(0, DB::table('borrowers')->where('partner_id', $this->partner->id)->count());
     }
 
+    /**
+     * BUG-098: a Rejected submission could still be converted, and ended up
+     * Converted. It has to be moved out of Rejected first.
+     */
+    #[Test]
+    public function a_rejected_submission_cannot_be_converted_or_previewed(): void
+    {
+        $rejected = $this->submissionFor($this->partner, ['status' => EmbedFormSubmission::STATUS_REJECTED]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson("/api/v1/common/embed-forms/submissions/{$rejected}/conversion-preview")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('embed_form.rejected_cannot_convert'));
+        $this->postJson("/api/v1/common/embed-forms/submissions/{$rejected}/convert-to-borrower")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('embed_form.rejected_cannot_convert'));
+
+        $this->assertSame(EmbedFormSubmission::STATUS_REJECTED, DB::table('embedded_form_submissions')->where('id', $rejected)->value('status'));
+        $this->assertSame(0, DB::table('borrowers')->where('partner_id', $this->partner->id)->count());
+    }
+
     #[Test]
     public function an_unknown_submission_is_not_found(): void
     {

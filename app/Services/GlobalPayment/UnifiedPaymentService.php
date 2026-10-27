@@ -16,6 +16,7 @@ use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
+use Stripe\Exception\CardException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\GlobalPayment\PaymentMailService;
@@ -148,14 +149,23 @@ class UnifiedPaymentService
                 ];
             } else {
                 $driver = $this->gatewayManager->driverFor($partnerProvider);
-                $gatewayResult = $driver->charge([
-                    'amount' => $invoice->payment_amount,
-                    'currency' => $invoice->currency ?? 'USD',
-                    'payment_method_id' => $data['payment_method_id'],
-                    'payment_token' => $data['payment_token'] ?? null,
-                    'invoice_id' => $invoice->id,
-                    'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
-                ]);
+                try {
+                    $gatewayResult = $driver->charge([
+                        'amount' => $invoice->payment_amount,
+                        'currency' => $invoice->currency ?? 'USD',
+                        'payment_method_id' => $data['payment_method_id'],
+                        'payment_token' => $data['payment_token'] ?? null,
+                        'invoice_id' => $invoice->id,
+                        'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
+                    ]);
+                } catch (CardException $e) {
+                    // Stripe answers a declined card with an error, not a result.
+                    $this->recordCheckoutFailure($invoice, $partnerId, $borrowerId, $providerName, $e->getMessage(), [
+                        'code' => $e->getStripeCode(),
+                        'decline_code' => $e->getDeclineCode(),
+                    ]);
+                    throw $e;
+                }
             }
 
             if (empty($gatewayResult['success'])) {
@@ -180,7 +190,12 @@ class UnifiedPaymentService
                     throw new Exception(__('payment.charge_requires_authentication'));
                 }
 
-                throw new Exception(__('payment.charge_failed', ['provider' => $providerName ?? __('payment.gateway')]));
+                $message = __('payment.charge_failed', ['provider' => $providerName ?? __('payment.gateway')]);
+                $this->recordCheckoutFailure($invoice, $partnerId, $borrowerId, $providerName, $message, [
+                    'gateway_status' => $gatewayResult['raw']['status'] ?? null,
+                ], $gatewayResult['transaction_id'] ?? null);
+
+                throw new Exception($message);
             }
 
             // The money has moved. From here the only work is recording it, so the
@@ -510,6 +525,36 @@ class UnifiedPaymentService
             Log::error(__('payment.log_autocharge_exception_error', ['error' => $e->getMessage()]));
             $this->recordFailedPayment($failedData, $e->getMessage(), __('payment.autocharge_exception'));
             return false;
+        }
+    }
+
+    /**
+     * Record a card declined at checkout ("Pay Now") as a FAILED payment, so
+     * every attempt shows in Payments as declined auto-charges do (BUG-035).
+     * The invoice is left Unpaid. A recording error never hides the decline.
+     */
+    protected function recordCheckoutFailure(Invoice $invoice, ?int $partnerId, $borrowerId, ?string $providerName, string $error, array $gateway = [], ?string $transactionId = null): void
+    {
+        try {
+            $this->paymentRecord->createRecord([
+                'partner_id' => $partnerId,
+                'borrower_id' => $borrowerId,
+                'invoice_id' => $invoice->id,
+                'entity_type' => $invoice->entity_type,
+                'entity_id' => $invoice->entity_id,
+                'transaction_id' => $transactionId ?: 'FAILED_' . uniqid(),
+                'amount' => $invoice->payment_amount,
+                'currency' => strtoupper($invoice->currency ?? 'USD'),
+                'payment_from' => $providerName ?? __('payment.default_provider'),
+                'payment_type' => PaymentProvider::TYPE_CARD,
+                'status' => Payment::STATUS_FAILED,
+                'details' => array_filter([
+                    Payment::DETAIL_FAILURE_SOURCE => Payment::FAILURE_SOURCE_CHECKOUT,
+                    'error' => $error,
+                ] + $gateway, fn ($value) => $value !== null),
+            ]);
+        } catch (Exception $e) {
+            Log::error(__('payment.log_record_failed_payment_error', ['error' => $e->getMessage()]));
         }
     }
 

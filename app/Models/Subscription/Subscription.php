@@ -380,25 +380,29 @@ class Subscription extends Model
                 if ($isEnrollmentCompleted) {
                     // Enrollment paid off -> recurring platform fee.
                     $date = $this->subscription_end_date;
-                    $type = 'Platform Fee';
+                    $type = __('subscription.next_billing.platform_fee');
                     $amount = $this->monthly_platform_fee;
                 } else {
                     $date = $this->subscription_end_date ?? $this->first_payment_date;
-                    $type = 'One Time Enrollment';
+                    $type = __('subscription.next_billing.one_time_enrollment');
                     $amount = $this->payable_amount ?? $this->total_subscription_amount;
                 }
             } else {
                 $date = $this->subscription_end_date;
                 if (!$isEnrollmentCompleted) {
-                    if ((int) $this->installments_paid === 0 && (float) $this->down_payment > 0) {
-                        $type = 'Down Payment';
+                    // The down payment is due only while nothing has been paid:
+                    // the first payment sets subscription_start_date. Paying the
+                    // down payment leaves installments_paid at 0 (it is not one of
+                    // the installments), so that count cannot tell (BUG-126).
+                    if (!$this->subscription_start_date && (float) $this->down_payment > 0) {
+                        $type = __('subscription.next_billing.down_payment');
                         $amount = $this->down_payment;
                     } else {
-                        $type = 'Installment';
+                        $type = __('subscription.next_billing.installment');
                         $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
                     }
                 } else {
-                    $type = 'Platform Fee';
+                    $type = __('subscription.next_billing.platform_fee');
                     $amount = $this->monthly_platform_fee;
                 }
             }
@@ -407,14 +411,14 @@ class Subscription extends Model
             // there is no borrower platform fee.
             if (!$isEnrollmentCompleted) {
                 $date = $this->subscription_end_date;
-                $type = 'Installment';
+                $type = __('subscription.next_billing.installment');
                 $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
             }
         } else {
             // Additional Seat Subscription.
             $seatTotal = ($this->user_seats ?? 0) * ($this->per_seat_amount ?? 0);
             $date = $this->subscription_end_date;
-            $type = 'Seat Fee';
+            $type = __('subscription.next_billing.seat_fee');
             $amount = $seatTotal > 0 ? $seatTotal : $this->payable_amount;
         }
 

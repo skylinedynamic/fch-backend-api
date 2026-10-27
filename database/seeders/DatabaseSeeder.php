@@ -108,3 +108,4 @@ class DatabaseSeeder extends Seeder
 
 // php artisan db:seed --class=PartnerConfigurationPermissionSeeder //run in production
 // php artisan db:seed --class=CreditProfileRequestPermissionSeeder
+// php artisan invoices:reconcile-paid --dry-run

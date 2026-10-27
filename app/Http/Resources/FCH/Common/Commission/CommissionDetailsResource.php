@@ -26,7 +26,8 @@ class CommissionDetailsResource extends JsonResource
             'viewer' => $viewer->role,
             'commission_status' => $this->commission_status,
             'commission_payment_status' => $this->payment_status,
-            'payout_date' => $this->payout_date ? $this->payout_date->format('M d, Y') : null,
+            // A date, saved as the payer's day - shown as it is (BUG-120).
+            'payout_date' => toDateOnly($this->payout_date, __('commission.date_format')),
             'total_commission' => $this->when($owner, $this->total_commission),
             'admin_commission' => $this->when($host, $this->admin_commission),
             'partner_commission' => $this->when($owner, $this->partner_commission),
@@ -58,7 +59,8 @@ class CommissionDetailsResource extends JsonResource
             'funding_entity_type' => $this->fundingApplication?->entity_type,
             'funding_purpose_of_funds' => $this->fundingApplication?->purpose_of_funds,
             'funding_preferred_funding_type' => $this->fundingApplication?->preferred_funding_type,
-            'funded_date' => $this->fundingApplication?->funded_date ? $this->fundingApplication?->funded_date->format('M d, Y') : null,
+            // A date, saved as the closer's day - shown as it is (BUG-120).
+            'funded_date' => toDateOnly($this->fundingApplication?->funded_date, __('commission.date_format')),
 
             'partner_id' => $this->partner_id,
             'partner_name' => $this->partner?->full_name,
