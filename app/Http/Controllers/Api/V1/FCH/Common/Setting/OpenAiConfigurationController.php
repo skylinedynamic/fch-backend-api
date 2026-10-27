@@ -100,11 +100,9 @@ class OpenAiConfigurationController extends Controller
         $storedKey = $this->configService->get('openai_api_key', null, AppConfiguration::MODULE_OPENAI, $partnerId);
 
         return ApiResponse::success([
+            // Whether a key is stored - no form of it, not even the ciphertext,
+            // which decrypts to the key once APP_KEY is known (BUG-128).
             'has_api_key' => filled($storedKey),
-            // The stored ciphertext, never the decrypted key. Safe to display: it
-            // is useless without APP_KEY, and it lets the admin confirm at a glance
-            // that the credential is encrypted at rest.
-            'api_key_encrypted' => (string) $storedKey,
             'aue_model' => (string) ($this->configService->get('openai_aue_model', null, AppConfiguration::MODULE_OPENAI, $partnerId) ?: config('openai.default_model', 'gpt-5.6-luna')),
             'reasoning_effort' => (string) ($this->configService->get('openai_reasoning_effort', 'medium', AppConfiguration::MODULE_OPENAI, $partnerId) ?: 'medium'),
         ]);
