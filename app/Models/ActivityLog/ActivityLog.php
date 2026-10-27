@@ -200,6 +200,33 @@ class ActivityLog extends Activity
         self::VISIBILITY_EVERYONE => 'Everyone',
     ];
 
+    /** The activity Reference that can be assigned to a staff member ("Want to Assign"). */
+    const TASK_REFERENCE = 'Task';
+
+    const TASK_PRIORITY_LOW = 'low';
+
+    const TASK_PRIORITY_MEDIUM = 'medium';
+
+    const TASK_PRIORITY_HIGH = 'high';
+
+    const TASK_PRIORITY_LABELS = [
+        self::TASK_PRIORITY_LOW => 'Low',
+        self::TASK_PRIORITY_MEDIUM => 'Medium',
+        self::TASK_PRIORITY_HIGH => 'High',
+    ];
+
+    const TASK_STATUS_OPEN = 'open';
+
+    const TASK_STATUS_IN_PROGRESS = 'in_progress';
+
+    const TASK_STATUS_COMPLETE = 'complete';
+
+    const TASK_STATUS_LABELS = [
+        self::TASK_STATUS_OPEN => 'Open',
+        self::TASK_STATUS_IN_PROGRESS => 'In Progress',
+        self::TASK_STATUS_COMPLETE => 'Complete',
+    ];
+
     protected $fillable = [
         'log_name',
         'description',

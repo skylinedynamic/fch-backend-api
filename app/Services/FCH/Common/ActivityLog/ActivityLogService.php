@@ -244,6 +244,16 @@ class ActivityLogService
                 ],
             ];
 
+            if (filter_var($data['assign_task'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                $logData['properties']['assigned_to'] = (int) $data['assigned_to'];
+                $logData['properties']['task'] = [
+                    'assigned_to' => (int) $data['assigned_to'],
+                    'due_at' => $this->localToUtc($data['task_due_at'] ?? null),
+                    'priority' => $data['task_priority'],
+                    'status' => $data['task_status'],
+                ];
+            }
+
             $log = ActivityLog::create($logData);
 
             // Handle Reminders
