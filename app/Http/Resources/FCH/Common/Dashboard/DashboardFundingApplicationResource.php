@@ -17,6 +17,8 @@ class DashboardFundingApplicationResource extends JsonResource
         return [
             'id' => $this->id,
             'borrower' => $this->full_name,
+            // The company on this application: one person can apply for several.
+            'business_name' => $this->business_name,
             'partner' => $this->partner?->full_name,
             'requested_amount' => $this->requested_amount,
             'entity_type' => $this->entity_type,
