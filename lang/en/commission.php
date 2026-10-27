@@ -16,4 +16,8 @@ return [
     'payout_not_allowed' => 'Only the host, or staff who manage commissions, can pay out a commission.',
     'payout_nothing_to_pay' => 'There is nothing to pay for this commission.',
     'payout_funding_not_closed' => 'The payout can be made once the funding is closed.',
+
+    // How a commission's dates are written (PHP date format)
+    'date_format' => 'M d, Y',
+    'list_date_format' => 'Y/m/d',
 ];

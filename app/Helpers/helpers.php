@@ -496,6 +496,24 @@ if (!function_exists('toDateOnly')) {
     }
 }
 
+if (!function_exists('todayInRequestTimezone')) {
+    /**
+     * Today's date (Y-m-d) in the caller's zone - the X-Timezone header the
+     * portals send, else the app's. For a date-only column such as a funded or
+     * payout date: 03:30 on 21 Oct in Dhaka is 21 Oct, not the UTC day (BUG-120).
+     */
+    function todayInRequestTimezone(): string
+    {
+        $timezone = request()->header('x-timezone') ?: config('app.timezone', 'UTC');
+
+        try {
+            return Carbon::now($timezone)->toDateString();
+        } catch (\Exception $e) {
+            return Carbon::now(config('app.timezone', 'UTC'))->toDateString();
+        }
+    }
+}
+
 if (!function_exists('toTimezone')) {
     /**
      * Convert a date/time value to the specified timezone and format.

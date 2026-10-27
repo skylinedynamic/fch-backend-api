@@ -167,6 +167,7 @@ class ActivityLog extends Activity
     const LOG_TYPE_FUNDING_REQUEST_CREATE = 'funding_request_create';
 
     const LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE = 'funding_request_status_update';
+    const LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE = 'funding_application_status_update';
 
     const LOG_TYPE_BORROWER_FREE_TRIAL = 'borrower_free_trial';
 

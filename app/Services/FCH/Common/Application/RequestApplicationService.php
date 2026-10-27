@@ -451,7 +451,8 @@ class RequestApplicationService
 
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];
-            $application->funded_date = Carbon::now();
+            // The day in the closer's zone, not the UTC one (BUG-120).
+            $application->funded_date = todayInRequestTimezone();
         }
 
         $application->status = $data['status'];
@@ -465,15 +466,15 @@ class RequestApplicationService
             $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
             
             if ($oldStatus === $data['status']) {
-                $title = "Funding Application Note Updated";
-                $description = "Status note was updated.";
+                $title = __('application.activity_note_updated_title');
+                $description = __('application.activity_note_updated_description');
             } else {
-                $title = "Funding Application Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
-                $description = "Status updated to: " . $newStatusFormatted;
+                $title = __('application.activity_status_changed_title', ['from' => $oldStatusFormatted, 'to' => $newStatusFormatted]);
+                $description = __('application.activity_status_changed_description', ['to' => $newStatusFormatted]);
             }
 
             if (isset($data['status_note'])) {
-                $description .= "\nNote: " . $data['status_note'];
+                $description .= "\n" . __('application.activity_status_note', ['note' => $data['status_note']]);
             }
 
             app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
@@ -483,7 +484,7 @@ class RequestApplicationService
                 $application->borrower_id,
                 $title,
                 $description,
-                'funding_application_status_update',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
                 ['visible_to_borrower' => true, 'visible_to_partner' => true],
                 \App\Models\ActivityLog\ActivityLog::VISIBILITY_EVERYONE
             );
