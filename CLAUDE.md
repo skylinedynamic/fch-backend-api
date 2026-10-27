@@ -76,6 +76,7 @@ Laravel 12 (PHP 8.2) API backend. Passport auth, Spatie permissions/activitylog/
 - Namespace/folder mirroring is required: a feature's Controller, Service, Request, and Resource live under the same `<Consumer>/<Feature>` name — don't invent a new top-level folder for one feature.
 - Use `App\Helpers\ApiResponse` for every JSON response; don't hand-roll `response()->json()`.
 - PHP style follows Laravel Pint defaults (PSR-12) and `.editorconfig` (4-space indent, LF, trim trailing whitespace) — no `pint.json` override exists.
+- **Never write a fully-qualified class name in code** (`\App\Models\...`, `app(\App\Services\...::class)`, `\Illuminate\...`). Import the class with a `use` statement at the top of the file and use its short name. When you touch a line that has one, import it there and then. (In a file with no `namespace`, such as `app/Helpers/helpers.php`, a global class like `Exception` needs no `use` - write it without the leading `\`.)
 
 ## TDD (strict)
 `tests/Feature/` exists but has no test files yet, and `tests/Unit/` doesn't exist — populating both (starting with `tests/Unit/`) is the first task before any TDD-covered work starts here.

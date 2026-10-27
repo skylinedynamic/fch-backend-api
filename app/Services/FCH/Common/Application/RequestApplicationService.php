@@ -477,16 +477,16 @@ class RequestApplicationService
                 $description .= "\n" . __('application.activity_status_note', ['note' => $data['status_note']]);
             }
 
-            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+            app(ActivityLogService::class)->logSystemEvent(
                 FundingApplication::class,
                 $application->id,
                 $application->partner_id,
                 $application->borrower_id,
                 $title,
                 $description,
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
+                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
                 ['visible_to_borrower' => true, 'visible_to_partner' => true],
-                \App\Models\ActivityLog\ActivityLog::VISIBILITY_EVERYONE
+                ActivityLog::VISIBILITY_EVERYONE
             );
         }
 
