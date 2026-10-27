@@ -27,3 +27,13 @@ The row still counted in the Total Commission KPI. Deleting a client (`Borrower:
 ## Open items
 - Run `php artisan migrate` on staging to clear the existing row.
 - Commissions are still computed once, when an application is Closed Completed. A later change to the funded amount does not recalculate them (not part of this bug).
+
+## Update 2026-10-27: after merging `stage`
+`stage` brought a rule from arafat-invento (`573dfef2`): a client with a pre-qualification or funding application can't be deleted (`Borrower::notDeletableReasonCode()`, `reason_code: applications`). A client with a commission always has a funding application, so deleting one is now refused. Commissions no longer go with a deleted client, because such a client can't be deleted.
+
+- **Decision:** keep stage's rule. The delete-cleanup above stays as a safety net. The migration still matters, because it clears what clients deleted before the rule left behind (commission 21 on staging).
+- **Tests:** `CommissionOfDeletedClientTest` had 2 tests that deleted such a client and failed with 422 after the merge. They now check that:
+  - the delete is refused and the commission stays whole: listed, and its page shows the deal
+  - a paid-out commission on a client deleted before the rule (simulated with query deletes) still shows its deal
+
+  The migration test is unchanged. 3 passed.

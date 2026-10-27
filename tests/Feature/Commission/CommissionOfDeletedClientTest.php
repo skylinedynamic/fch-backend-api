@@ -21,8 +21,12 @@ use Tests\TestCase;
  * page then could not load the (trashed) application, while the list and the
  * Total Commission KPI still counted the $4,000.
  *
- * Now deleting a client takes its commissions that are not paid out with it,
- * and one already paid out keeps showing the deal it was paid on.
+ * Since then a client with a pre-qualification or funding application cannot
+ * be deleted at all (Borrower::notDeletableReasonCode, from stage), so a client
+ * with a commission is refused and the commission stays whole. Clients deleted
+ * before that rule are why the rest still matters: a commission already paid
+ * out keeps showing the deal it was paid on, and the migration clears the
+ * unpaid ones they left behind.
  */
 class CommissionOfDeletedClientTest extends TestCase
 {
@@ -68,36 +72,36 @@ class CommissionOfDeletedClientTest extends TestCase
         ]);
     }
 
-    private function deleteClient(Borrower $borrower): void
-    {
-        $this->actingAsUser($this->hostOwner);
-        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
-    }
-
     #[Test]
-    public function deleting_a_client_removes_its_commissions_not_yet_paid_out(): void
+    public function a_client_with_a_commission_cannot_be_deleted_and_the_commission_stays_whole(): void
     {
         $borrower = $this->makeBorrower($this->host);
         $unpaid = $this->deal($borrower, Commission::PAYMENT_STATUS_UNPAID);
-        $pending = $this->deal($borrower, Commission::PAYMENT_STATUS_PENDING);
+        $this->actingAsUser($this->hostOwner);
 
-        $this->deleteClient($borrower);
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.blocked.0.reason_code', Borrower::DELETE_BLOCKED_APPLICATIONS);
 
-        $this->assertSoftDeleted($unpaid);
-        $this->assertSoftDeleted($pending);
+        $this->assertNotSoftDeleted($borrower);
+        $this->assertNotSoftDeleted($unpaid);
         $listed = collect($this->postJson('/api/v1/common/commissions', ['per_page' => 50])->assertOk()->json('data'))->pluck('id');
-        $this->assertNotContains($unpaid->id, $listed);
+        $this->assertContains($unpaid->id, $listed);
+        $this->getJson("/api/v1/common/commissions/{$unpaid->id}")
+            ->assertOk()
+            ->assertJsonPath('data.borrower_name', 'Client ' . $borrower->id);
     }
 
+    /** A client deleted before the rule above: its paid-out commission still shows the deal. */
     #[Test]
-    public function a_commission_already_paid_out_stays_and_still_shows_its_deal(): void
+    public function a_commission_paid_out_on_a_client_deleted_before_the_rule_still_shows_its_deal(): void
     {
         $borrower = $this->makeBorrower($this->host);
         $paid = $this->deal($borrower, Commission::PAYMENT_STATUS_PAID);
+        FundingApplication::whereKey($paid->funding_application_id)->delete();
+        Borrower::whereKey($borrower->id)->delete();
+        $this->actingAsUser($this->hostOwner);
 
-        $this->deleteClient($borrower);
-
-        $this->assertNotSoftDeleted($paid);
         $this->getJson("/api/v1/common/commissions/{$paid->id}")
             ->assertOk()
             ->assertJsonPath('data.funded_amount', fn ($v) => (float) $v === 40000.0)
