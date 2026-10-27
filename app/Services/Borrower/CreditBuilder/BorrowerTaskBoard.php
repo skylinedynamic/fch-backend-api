@@ -5,6 +5,7 @@ namespace App\Services\Borrower\CreditBuilder;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\MigratedTask;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
+use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Support\Collection;
 
@@ -74,19 +75,67 @@ class BorrowerTaskBoard
     }
 
     /**
-     * Done and listed counts for a set of tiers.
+     * Where the borrower stands in a tier: out of the tasks it needs, not all it
+     * lists (BUG-024). Tier 0 needs every task; from Tier 1 on a tier needs
+     * task_to_complete of them - doing one opens the next tier and the task
+     * moves into it - so Tier 1 with 8 tasks reads 0/1, never 0/8, and more
+     * than needed reads 1/1, never 2/1.
      *
-     * @param  iterable<int>  $tierIds
+     * A tier with nothing listed yet - its task arrives from the tier below -
+     * still needs its task_to_complete (0/1, as in the Guide); one with no
+     * requirement and nothing listed has nothing to do.
+     *
+     * The estimate is the longest task still open: tasks run side by side, so
+     * the tier takes as long as its slowest one, not their sum.
+     *
+     * The client portal's Guide rows (TierAccordion) apply the same rule.
+     *
+     * @return array{completed: int, required: int, remaining: int, percentage: int, estimated_days: int}
+     */
+    public function tierProgress(Tier $tier): array
+    {
+        $tasks = $this->tierTasks($tier->id);
+        $needs = (int) $tier->task_to_complete;
+
+        $required = $needs > 0
+            ? ($tasks->isNotEmpty() ? min($needs, $tasks->count()) : $needs)
+            : $tasks->count();
+
+        if ($required === 0) {
+            return ['completed' => 0, 'required' => 0, 'remaining' => 0, 'percentage' => 100, 'estimated_days' => 0];
+        }
+
+        $done = $tasks->where('status', BorrowerTaskVerificationRequest::COMPLETED)->count();
+        $completed = min($done, $required);
+        $remaining = $required - $completed;
+
+        return [
+            'completed' => $completed,
+            'required' => $required,
+            'remaining' => $remaining,
+            'percentage' => (int) round($completed / $required * 100),
+            'estimated_days' => $remaining > 0
+                ? (int) $tasks->where('status', '!==', BorrowerTaskVerificationRequest::COMPLETED)->max('estimated_completion_days')
+                : 0,
+        ];
+    }
+
+    /**
+     * Done and needed counts over a set of tiers - the sum of each tier's
+     * tierProgress(), so the total is what the Guide's rows add up to and can
+     * never pass 100% (BUG-024 retest: "7 of 16" over rows adding up to 12).
+     *
+     * @param  iterable<Tier>  $tiers
      * @return array{completed: int, total: int}
      */
-    public function count(iterable $tierIds): array
+    public function count(iterable $tiers): array
     {
         $completed = 0;
         $total = 0;
-        foreach ($tierIds as $tierId) {
-            $tasks = $this->tierTasks((int) $tierId);
-            $total += $tasks->count();
-            $completed += $tasks->where('status', BorrowerTaskVerificationRequest::COMPLETED)->count();
+        foreach ($tiers as $tier) {
+            $progress = $this->tierProgress($tier);
+            $total += $progress['required'];
+            $completed += $progress['completed'];
         }
 
         return ['completed' => $completed, 'total' => $total];

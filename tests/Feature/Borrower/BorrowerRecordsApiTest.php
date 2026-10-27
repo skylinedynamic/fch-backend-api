@@ -57,6 +57,33 @@ class BorrowerRecordsApiTest extends TestCase
         ], $overrides);
     }
 
+    /**
+     * BUG-017 (Add Client): an empty form - as the admin posts it, an
+     * enrollment with no plan - gets every required error in one response,
+     * the enrollment plan included.
+     */
+    #[Test]
+    public function an_empty_client_form_gets_every_required_error_at_once(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        // Exactly what the admin's Add Client form posts when Save is clicked on an empty form.
+        $emptyForm = [
+            'first_name' => '', 'last_name' => '', 'date_of_birth' => '', 'phone_number' => '', 'country_code' => '+1', 'email' => '',
+            'business_website' => '', 'business_name' => '', 'business_ein' => '', 'business_state_file_number' => '',
+            'business_duns_number' => '', 'business_address' => '', 'business_country' => 'United States', 'business_country_code' => '+1',
+            'business_state' => '', 'business_city' => '', 'business_other_city' => '', 'business_postal_code' => '', 'business_phone' => '',
+            'business_entity_type' => '', 'business_industry_type' => '', 'business_start_date' => '', 'business_last_4_ssn' => '',
+            'home_address' => '', 'country' => 'United States', 'state' => '', 'city' => '', 'other_city' => '', 'postal_code' => '',
+            'is_free_trail' => false, 'free_trail_end_date' => '', 'status' => 'OnBoarding', 'notes' => '', 'fico_score' => '',
+            'paydex_score' => '', 'bank_accounts' => [], 'entity_type' => 'Borrower', 'enrollment' => ['amount' => 0],
+        ];
+
+        $this->postJson('/api/v1/common/borrowers', $emptyForm)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['first_name', 'last_name', 'email', 'phone_number', 'enrollment.plan_id']);
+    }
+
     #[Test]
     public function creating_a_borrower_also_creates_their_login_under_the_creators_partner(): void
     {
@@ -321,6 +348,38 @@ class BorrowerRecordsApiTest extends TestCase
         $this->assertNull($borrower->fresh()->archived_at);
     }
 
+    /**
+     * BUG-054: with "Active Only" (archived = '') the owner's client list must
+     * not show an archived client. Sent the way the Clients screen sends it.
+     */
+    #[Test]
+    public function an_archived_client_is_left_out_of_the_owners_active_only_list(): void
+    {
+        $kept = $this->makeBorrower($this->partner);
+        $archived = $this->makeBorrower($this->partner);
+        $owner = $this->grant($this->makePartnerAdmin($this->host), ['update clients']);
+        $this->actingAsUser($owner);
+
+        $this->postJson('/api/v1/common/borrowers/archive', ['ids' => [$archived->id]])->assertOk();
+
+        $ids = collect($this->postJson('/api/v1/common/borrowers/fetch-all-borrowers', [
+            'search' => '', 'partner_id' => '', 'assigned_user_id' => '', 'current_tier' => '',
+            'status' => '', 'is_free_trail' => '', 'archived' => '',
+            // The DataTable default column filters, all empty.
+            'filters' => [
+                'global' => ['value' => null, 'matchMode' => 'contains'],
+                'full_name' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'contains']]],
+                'email' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'contains']]],
+                'partner_name' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'contains']]],
+                'status' => ['operator' => 'and', 'constraints' => [['value' => null, 'matchMode' => 'equals']]],
+            ],
+            'page' => 1, 'per_page' => 10, 'sort_field' => 'id', 'sort_order' => 'desc',
+        ])->assertOk()->json('data'))->pluck('id');
+
+        $this->assertContains($kept->id, $ids);
+        $this->assertNotContains($archived->id, $ids);
+    }
+
     #[Test]
     public function a_borrower_with_no_history_is_reported_deletable_and_is_deleted(): void
     {
@@ -335,6 +394,162 @@ class BorrowerRecordsApiTest extends TestCase
         $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
 
         $this->assertSoftDeleted($borrower);
+    }
+
+    // ── A client with a pre-qualification or funding application is kept ──
+
+    private const APPLICATIONS_REASON = "This client has a pre-qualification or funding application and cannot be deleted. Please change the client's status instead.";
+
+    private function preQualificationFor(Borrower $borrower): void
+    {
+        \Illuminate\Support\Facades\DB::table('pre_qualification_requests')->insert([
+            'borrower_id' => $borrower->id,
+            'partner_id' => $borrower->partner_id,
+            'status' => \App\Models\Borrower\PreQualificationRequest::PENDING,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function fundingApplicationFor(Borrower $borrower): void
+    {
+        \Illuminate\Support\Facades\DB::table('funding_applications')->insert([
+            'application_number' => 'FUND-' . uniqid(),
+            'borrower_id' => $borrower->id,
+            'partner_id' => $borrower->partner_id,
+            'status' => \App\Models\Borrower\FundingApplication::DRAFT,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    public static function applicationsAndInvoices(): array
+    {
+        return [
+            'free client, pre-qualification, no invoice' => ['pre-qualification', null],
+            'free client, funding application, no invoice' => ['funding application', null],
+            'pre-qualification, unpaid invoice' => ['pre-qualification', Invoice::STATUS_UNPAID],
+            'funding application, unpaid invoice' => ['funding application', Invoice::STATUS_UNPAID],
+        ];
+    }
+
+    /**
+     * Defect: only a paid invoice kept a client, so a free client (no paid
+     * invoice) who had applied - a pre-qualification or a funding application -
+     * could be deleted, taking that application with them.
+     */
+    #[Test]
+    #[\PHPUnit\Framework\Attributes\DataProvider('applicationsAndInvoices')]
+    public function a_client_who_has_applied_is_kept_even_with_no_paid_invoice(string $application, ?string $invoiceStatus): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['is_free_trail' => true]);
+        $application === 'pre-qualification' ? $this->preQualificationFor($borrower) : $this->fundingApplicationFor($borrower);
+        if ($invoiceStatus) {
+            $this->invoiceFor($borrower, $invoiceStatus);
+        }
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers/check-deletable', ['ids' => [$borrower->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.reason', self::APPLICATIONS_REASON)
+            ->assertJsonPath('data.0.reason_code', 'applications');
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', self::APPLICATIONS_REASON)
+            ->assertJsonPath('errors.blocked.0.id', $borrower->id)
+            ->assertJsonPath('errors.blocked.0.reason_code', 'applications');
+
+        $this->assertNotSoftDeleted($borrower);
+    }
+
+    /**
+     * Defect: a free client converted from an embed form - where conversion
+     * built their funding application - could be deleted once that application
+     * row was gone, because only the funding_applications table was checked.
+     * The conversion record still says a funding application was created.
+     */
+    #[Test]
+    public function a_free_client_whose_embed_form_conversion_created_a_funding_application_is_kept(): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['is_free_trail' => true]);
+        // Their own application row is gone; the stored id now belongs to someone else's.
+        $someoneElse = $this->makeBorrower($this->partner);
+        $reusedId = \Illuminate\Support\Facades\DB::table('funding_applications')->insertGetId([
+            'application_number' => 'FUND-' . uniqid(),
+            'borrower_id' => $someoneElse->id,
+            'partner_id' => $this->partner->id,
+            'status' => \App\Models\Borrower\FundingApplication::DRAFT,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::table('embedded_form_submissions')->insert([
+            'submission_uid' => (string) \Illuminate\Support\Str::uuid(),
+            'partner_id' => $this->partner->id,
+            'first_name' => 'E2E',
+            'last_name' => 'CertOne',
+            'email' => 'e2e-' . uniqid() . '@example.test',
+            'status' => \App\Models\EmbedForm\EmbedFormSubmission::STATUS_CONVERTED,
+            'converted_borrower_id' => $borrower->id,
+            'converted_funding_application_id' => $reusedId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers/check-deletable', ['ids' => [$borrower->id]])
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.reason_code', 'applications')
+            ->assertJsonPath('data.0.reason', self::APPLICATIONS_REASON);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertStatus(422);
+        $this->assertNotSoftDeleted($borrower);
+    }
+
+    #[Test]
+    public function a_paid_client_is_kept_for_the_paid_invoice_whatever_else_they_have(): void
+    {
+        $borrower = $this->makeBorrower($this->partner);
+        $this->invoiceFor($borrower, Invoice::STATUS_PAID);
+        $this->fundingApplicationFor($borrower);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers/check-deletable', ['ids' => [$borrower->id]])
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.reason_code', 'paid_invoice')
+            ->assertJsonPath('data.0.reason', "This client has related records and cannot be deleted. Please change the client's status instead.");
+    }
+
+    #[Test]
+    public function a_free_client_who_never_applied_is_still_deleted(): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['is_free_trail' => true]);
+        $this->invoiceFor($borrower, Invoice::STATUS_UNPAID);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers/check-deletable', ['ids' => [$borrower->id]])
+            ->assertJsonPath('data.0.is_deletable', true)
+            ->assertJsonPath('data.0.reason_code', null);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])->assertOk();
+        $this->assertSoftDeleted($borrower);
+    }
+
+    #[Test]
+    public function in_a_bulk_delete_a_client_who_applied_is_named_and_nothing_is_deleted(): void
+    {
+        $applied = $this->makeBorrower($this->partner, ['first_name' => 'Kailash', 'last_name' => 'Bajaj', 'is_free_trail' => true]);
+        $this->preQualificationFor($applied);
+        $clean = $this->makeBorrower($this->partner, ['is_free_trail' => true]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$applied->id, $clean->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.blocked.0.name', 'Kailash Bajaj');
+
+        $this->assertNotSoftDeleted($applied);
+        $this->assertNotSoftDeleted($clean);
     }
 
     private function invoiceFor(Borrower $borrower, string $status): Invoice
@@ -369,7 +584,7 @@ class BorrowerRecordsApiTest extends TestCase
         $this->postJson('/api/v1/common/borrowers-multiple-delete', ['ids' => [$borrower->id]])
             ->assertStatus(422)
             ->assertJsonPath('message', "This client has related records and cannot be deleted. Please change the client's status instead.")
-            ->assertJsonPath('errors.blocked', [['id' => $borrower->id, 'name' => 'Reagan Hardin']]);
+            ->assertJsonPath('errors.blocked', [['id' => $borrower->id, 'name' => 'Reagan Hardin', 'reason_code' => 'paid_invoice']]);
 
         $this->assertNotSoftDeleted($borrower);
         $this->assertNotSoftDeleted($paid);

@@ -109,4 +109,45 @@ class PlanFeeValidationTest extends TestCase
 
         $this->update(['total_amount' => 0])->assertForbidden();
     }
+
+    // ── Check before the confirmation (BUG-096 retest) ────────────────
+    //
+    // The screen asked "Confirm rate changes $4997 -> $0?" before anything was
+    // checked, so a bad value read as accepted. It now asks the API to check the
+    // values first, with the same rules as saving, and nothing is saved.
+
+    private function check(array $data)
+    {
+        return $this->putJson("/api/v1/admin/plan-fee/validate-subscription-plan/{$this->plan->id}", $data);
+    }
+
+    #[Test]
+    #[DataProvider('refused')]
+    public function the_check_refuses_what_saving_refuses(array $data, string $field, string $messageKey): void
+    {
+        $this->check($data)
+            ->assertStatus(422)
+            ->assertJsonPath("errors.{$field}", __($messageKey, ['max' => '99,999,999.99']));
+    }
+
+    #[Test]
+    public function the_check_accepts_good_values_and_saves_nothing(): void
+    {
+        $this->check(['total_amount' => 59.5, 'platform_fee' => 15, 'total_seat_count' => 0])
+            ->assertOk()
+            ->assertJsonPath('message', __('plan_fee.values_valid'));
+
+        $plan = $this->plan->fresh();
+        $this->assertEquals(4997, $plan->total_amount);
+        $this->assertEquals(10, $plan->platform_fee);
+        $this->assertNotSame('plan_fee.values_valid', __('plan_fee.values_valid'));
+    }
+
+    #[Test]
+    public function someone_outside_the_host_cannot_use_the_check(): void
+    {
+        $this->actingAsUser($this->makeStaffUser($this->makeWhiteLabelPartner()));
+
+        $this->check(['total_amount' => 59])->assertForbidden();
+    }
 }

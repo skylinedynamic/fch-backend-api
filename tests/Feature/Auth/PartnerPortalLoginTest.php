@@ -126,29 +126,62 @@ class PartnerPortalLoginTest extends TestCase
 
         $this->login($borrower->email)
             ->assertUnauthorized()
-            ->assertJsonPath('field', 'email')
-            ->assertJsonPath('message', __('auth.invalid_email'));
+            ->assertJsonPath('field', 'password')
+            ->assertJsonPath('message', __('auth.invalid_login'));
     }
 
     #[Test]
-    public function an_unknown_email_is_reported_against_the_email_field(): void
+    public function an_unknown_email_gets_the_generic_answer_with_the_attempts_left(): void
     {
         $this->login('nobody@example.test')
             ->assertUnauthorized()
-            ->assertJsonPath('field', 'email')
-            ->assertJsonPath('message', __('auth.invalid_email'));
+            ->assertJsonPath('field', 'password')
+            ->assertJsonPath('message', __('auth.invalid_login'))
+            ->assertJson(['max_attempts' => 5, 'remaining_attempts' => 4]);
     }
 
     #[Test]
-    public function a_wrong_password_is_reported_against_the_password_field_with_the_attempts_left(): void
+    public function a_wrong_password_gets_the_generic_answer_with_the_attempts_left(): void
     {
         $user = $this->makePartnerAdmin($this->host);
 
         $this->login($user->email, 'wrong-password')
             ->assertUnauthorized()
             ->assertJsonPath('field', 'password')
-            ->assertJsonPath('message', __('auth.invalid_password'))
+            ->assertJsonPath('message', __('auth.invalid_login'))
             ->assertJson(['max_attempts' => 5, 'remaining_attempts' => 4]);
+    }
+
+    /**
+     * BUG-104: "The password you entered is incorrect" against "The email you
+     * entered does not exist" told anyone which emails have an account.
+     */
+    #[Test]
+    public function an_unknown_email_and_a_wrong_password_cannot_be_told_apart(): void
+    {
+        $user = $this->makePartnerAdmin($this->host);
+
+        $unknown = $this->login('nobody@example.test')->json();
+        $wrong = $this->login($user->email, 'wrong-password')->json();
+
+        $this->assertSame('Invalid email or password.', $wrong['message']);
+        $this->assertSame([$unknown['field'], $unknown['message']], [$wrong['field'], $wrong['message']]);
+    }
+
+    /** BUG-104: the lockout said "after 1 minutes". */
+    #[Test]
+    public function the_lockout_message_counts_one_minute_in_the_singular(): void
+    {
+        config(['app.login_decay_minutes' => 1]);
+        $user = $this->makePartnerAdmin($this->host);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->login($user->email, 'wrong-password');
+        }
+
+        $this->login($user->email)
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'Too many login attempts. Please try again after 1 minute.');
     }
 
     /**
@@ -203,6 +236,43 @@ class PartnerPortalLoginTest extends TestCase
         $this->login($user->email, domain: 'sus.fch.test')
             ->assertUnauthorized()
             ->assertJsonMissingPath('data.token');
+    }
+
+    /**
+     * BUG-113: the refusal named the partner itself ("Please contact QA-TEST
+     * Run1 Partner Lead Co"), sending the partner owner to contact themselves.
+     */
+    #[Test]
+    public function an_inactive_partner_is_sent_to_the_administrator_not_to_itself(): void
+    {
+        $partner = $this->makeWhiteLabelPartner([
+            'partner_subdomain' => 'off.fch.test',
+            'company_name' => 'Acme Lending Co',
+            'status' => Partner::STATUS_INACTIVE,
+        ]);
+        $user = $this->makePartnerAdmin($partner);
+
+        $message = $this->login($user->email, domain: 'off.fch.test')
+            ->assertUnauthorized()
+            ->json('message');
+
+        $this->assertSame('Your account is currently inactive. Please contact administrator for activation.', $message);
+    }
+
+    /** BUG-113: the suspended wording named the partner itself as well. */
+    #[Test]
+    public function a_suspended_partner_is_sent_to_the_administrator_not_to_itself(): void
+    {
+        $partner = $this->makeWhiteLabelPartner([
+            'partner_subdomain' => 'sus2.fch.test',
+            'company_name' => 'Acme Lending Co',
+            'status' => Partner::STATUS_SUSPENDED,
+        ]);
+        $user = $this->makePartnerAdmin($partner);
+
+        $message = $this->login($user->email, domain: 'sus2.fch.test')->json('message');
+
+        $this->assertSame('Your account has been suspended. Please contact administrator for more information.', $message);
     }
 
     #[Test]

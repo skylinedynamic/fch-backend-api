@@ -96,7 +96,8 @@ class FundingApplicationResource extends JsonResource
             // edit form opens on, and whether the application's lifecycle key
             // still allows an edit.
             'funding_request_id' => $this->funding_request_id,
-            'is_editable' => $this->isEditable(),
+            // For the signed-in user: the host's team may edit at any status.
+            'is_editable' => $this->isEditableBy($request->user()),
             'credit_pull_authorization' => $this->credit_pull_authorization,
             'terms_conditions_acceptance' => $this->terms_conditions_acceptance,
             'filed_for_bankruptcy' => $this->filed_for_bankruptcy,

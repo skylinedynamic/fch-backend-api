@@ -648,6 +648,47 @@ class SubscriptionBillingCycleTest extends TestCase
         $this->assertNotEquals(474.67, round((float) $raised->payment_amount, 2), 'the down payment must not be subtracted twice');
     }
 
+    /**
+     * BUG-126: after the down payment was paid the subscription still said the
+     * down payment was due - installments_paid stays 0 (the down payment is not
+     * one of the installments), and nextBilling() read that as "nothing paid".
+     * What it shows must be what the next cycle actually bills.
+     */
+    #[Test]
+    public function after_the_down_payment_the_next_amount_due_is_the_monthly_installment(): void
+    {
+        $reseller = $this->partner(isHost: false);
+
+        $subscription = $this->enrol($reseller, $this->partnerOneTime, [
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT,
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'down_payment' => 1000.00,
+            'payable_amount' => 7696.70,
+            'total_subscription_amount' => 6696.70,
+            'subscription_amount_per_month' => 558.06,
+        ]);
+        $downPayment = Invoice::where('subscription_id', $subscription->id)->firstOrFail();
+        $downPayment->update(['type' => Invoice::INVOICE_TYPE_DOWN_PAYMENT, 'payment_amount' => 1000.00]);
+
+        $this->assertSame(1000.0, $subscription->fresh()->nextBilling()['amount'], 'before any payment the down payment is due');
+
+        $this->payInvoice($downPayment, $subscription);
+
+        $next = $subscription->fresh()->nextBilling();
+        $this->assertSame(__('subscription.next_billing.installment'), $next['type']);
+        $this->assertSame(558.06, $next['amount']);
+
+        // And the next cycle bills exactly that - no second down payment.
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $raised = $this->openInvoice($subscription);
+        $this->assertNotNull($raised, 'the due cycle should have been billed');
+        $this->assertSame(Invoice::INVOICE_TYPE_INSTALLMENT, $raised->type);
+        $this->assertEquals(558.06, (float) $raised->payment_amount);
+    }
+
     #[Test]
     public function a_borrower_fee_does_not_make_the_first_cycle_look_already_billed(): void
     {

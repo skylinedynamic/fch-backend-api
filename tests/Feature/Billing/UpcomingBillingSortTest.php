@@ -59,14 +59,14 @@ class UpcomingBillingSortTest extends TestCase
         return $this->subscribe(Borrower::class, $this->makeBorrower($partner, ['first_name' => $first, 'last_name' => $last])->id);
     }
 
-    private function rows(User $viewer, string $order): array
+    private function rows(User $viewer, string $order, string $field = 'partner_name'): array
     {
         $this->actingAsUser($viewer);
 
         return $this->postJson('/api/v1/common/billing/fetch-upcoming', [
             'page' => 1,
             'per_page' => 10,
-            'sort_field' => 'partner_name',
+            'sort_field' => $field,
             'sort_order' => $order,
         ])->assertOk()->json('data');
     }
@@ -105,5 +105,27 @@ class UpcomingBillingSortTest extends TestCase
 
         $this->assertSame($subscription->id, $row['subscription_id']);
         $this->assertSame(Subscription::STATUS_ACTIVE, $row['status']);
+    }
+
+    /**
+     * BUG-012: the list goes by upcoming billing date, the soonest charge first.
+     * A subscriber still awaiting a first payment has no date yet and comes
+     * after every dated row, not before them.
+     */
+    #[Test]
+    public function the_soonest_billing_date_comes_first_and_undated_rows_last(): void
+    {
+        $later = $this->clientOf($this->host, 'Later', 'Charge');
+        $later->update(['subscription_end_date' => now()->addDays(5)->toDateString()]);
+        $undated = $this->clientOf($this->host, 'Awaiting', 'First');
+        $undated->update(['subscription_end_date' => null]);
+        $soonest = $this->clientOf($this->host, 'Soonest', 'Charge');
+        $soonest->update(['subscription_end_date' => now()->addDay()->toDateString()]);
+        $admin = $this->makePartnerAdmin($this->host);
+
+        $this->assertSame(
+            ['Soonest Charge', 'Later Charge', 'Awaiting First'],
+            array_column($this->rows($admin, 'asc', 'upcoming_billing_date'), 'subscriber_name')
+        );
     }
 }

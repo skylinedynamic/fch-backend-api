@@ -254,10 +254,11 @@ class PaymentTransactionBoundaryTest extends TestCase
     }
 
     /**
-     * A charge that never happened must leave nothing behind.
+     * A charge that never happened must not be recorded as money taken. Since
+     * BUG-035 the declined attempt itself is kept, as one FAILED row.
      */
     #[Test]
-    public function a_declined_charge_records_nothing(): void
+    public function a_declined_charge_records_only_the_failed_attempt(): void
     {
         $this->http->willReturn('payment_intents', [
             'id' => 'pi_declined',
@@ -276,7 +277,7 @@ class PaymentTransactionBoundaryTest extends TestCase
         }
 
         $this->assertSame(Invoice::STATUS_UNPAID, $invoice->fresh()->status);
-        $this->assertSame(0, Payment::count());
+        $this->assertSame([Payment::STATUS_FAILED], Payment::pluck('status')->all(), 'only the failed attempt is recorded');
         $this->assertSame($baseline, DB::transactionLevel(), 'a transaction was left open after a failed charge');
     }
 

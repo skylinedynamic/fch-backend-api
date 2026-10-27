@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\OwnershipWithinTotal;
 use App\Rules\UsPostalCode;
 use App\Models\Borrower\FundingApplication;
 use App\Rules\VisibleToUser;
@@ -71,7 +72,12 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'city' => 'required|string|max:255',
             'state' => 'required|string|max:255',
             'zip_code' => ['nullable', 'string', new UsPostalCode()],
-            'ownership' => 'required|numeric',
+            // With the co-borrowers, at most 100% of the business (BUG-108).
+            'ownership' => ['required', 'numeric', 'min:0', 'max:100', new OwnershipWithinTotal(
+                $this->boolean('has_co_borrower') || filled($this->input('co_borrowers'))
+                    ? OwnershipWithinTotal::sumOf($this->input('co_borrowers'))
+                    : 0
+            )],
             'has_co_borrower' => 'nullable|boolean',
             'co_borrowers' => 'nullable|array',
         ];
@@ -105,6 +111,8 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'state.max' => __('borrower_validation.state_max'),
             'zip_code.string' => __('borrower_validation.zip_code_string'),
             'ownership.numeric' => __('borrower_validation.ownership_numeric'),
+            'ownership.min' => __('borrower_validation.ownership_between'),
+            'ownership.max' => __('borrower_validation.ownership_between'),
             'has_co_borrower.boolean' => __('borrower_validation.has_co_borrower_boolean'),
         ];
     }

@@ -106,6 +106,9 @@ class ProcessAllSubscriptions extends Command
         $dueInvoices = Invoice::query()
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('payment_amount', '>', 0)
+            // Auto-charge stopped - already paid, or too many failed attempts
+            // (BUG-005). Such an invoice is paid by hand from now on.
+            ->whereNull('auto_charge_stopped_at')
             ->whereHas('subscription', function ($q) {
                 // A subscriber who is not Active is not receiving the service, so
                 // Step 1 raises no new cycles for them. Taking money off-session

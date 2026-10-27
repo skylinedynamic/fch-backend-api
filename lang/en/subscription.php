@@ -15,4 +15,14 @@ return [
     'borrower_fee_notification_failed' => 'Failed to send borrower fee invoice notification mail to host admin',
     'default_enrollment_fee_title'     => 'Enrollment Fee',
     'default_company_name'             => 'Four Corner Funding',
+
+    // What the next bill is for - Subscription::nextBilling(), shown as the
+    // "Next Payment Due" type on Subscription Details and My Subscription.
+    'next_billing' => [
+        'one_time_enrollment' => 'One Time Enrollment',
+        'platform_fee'        => 'Platform Fee',
+        'down_payment'        => 'Down Payment',
+        'installment'         => 'Installment',
+        'seat_fee'            => 'Seat Fee',
+    ],
 ];

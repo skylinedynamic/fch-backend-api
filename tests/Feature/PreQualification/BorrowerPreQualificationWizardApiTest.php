@@ -120,6 +120,17 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
             ->assertJsonValidationErrors('monthly_revenue');
     }
 
+    /** BUG-017: step 1 with no first name, a bad email and no state reports all three at once. */
+    #[Test]
+    public function personal_info_reports_every_error_in_one_response(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/pre-qualification/personal-info', $this->personal(['first_name' => '', 'email' => 'bad@', 'state_of_incorporation' => '']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['first_name', 'email', 'state_of_incorporation']);
+    }
+
     /**
      * Defect (BUG-037, CP-PREQ-04): a borrower with no business start date in
      * their profile was stuck on Business Details - Time in Business was a

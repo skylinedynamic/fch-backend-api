@@ -2,8 +2,9 @@
 
 return [
     'invalid_credentials' => 'Invalid credentials',
-    'invalid_email' => 'The email you entered does not exist',
-    'invalid_password' => 'The password you entered is incorrect',
+    // One answer for an unknown email and a wrong password, so the sign-in
+    // form cannot be used to find out which emails have an account.
+    'invalid_login' => 'Invalid email or password.',
     'logged_in' => 'Logged in Successfully',
     'logged_out' => 'Logged out successfully',
     'logout_failed' => 'Logout failed. Please try again.',
@@ -20,8 +21,8 @@ return [
     'free_trial_expired' => 'Your free trial has expired. Please contact :partner for assistance.',
     'free_plan_expired' => 'Your free plan has expired. Please contact :partner for assistance.',
     'payment_not_completed' => 'Your payment was not completed. Please contact :partner for assistance.',
-    'partner_suspended' => 'Your account has been suspended. Please contact :partner for more information.',
-    'partner_inactive' => 'Your account is currently inactive. Please contact :partner for activation.',
+    'partner_suspended' => 'Your account has been suspended. Please contact administrator for more information.',
+    'partner_inactive' => 'Your account is currently inactive. Please contact administrator for activation.',
     'user_inactive' => 'Your account is currently inactive. Please contact administrator.',
     'no_partner' => 'Your account is not linked to a partner. Please contact administrator.',
     'borrower_inactive' => 'Your account is currently inactive. Please contact administrator.',
@@ -33,7 +34,7 @@ return [
     'email_invalid' => 'Please enter a valid email address.',
     'password_required' => 'Password is required.',
     'password_min' => 'Password must be at least 6 characters.',
-    'too_many_login_attempts' => 'Too many login attempts. Please try again after :time minutes.',
+    'too_many_login_attempts' => 'Too many login attempts. Please try again after :time minute.|Too many login attempts. Please try again after :time minutes.',
     'validation_failed' => 'Validation failed.',
 
     // Registration validation messages

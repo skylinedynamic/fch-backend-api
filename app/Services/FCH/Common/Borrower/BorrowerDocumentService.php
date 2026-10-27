@@ -3,6 +3,8 @@
 namespace App\Services\FCH\Common\Borrower;
 
 use App\Helpers\ApiResponse;
+use App\Mail\Borrower\BorrowerDocumentReviewedMail;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
@@ -127,6 +129,8 @@ class BorrowerDocumentService
 
             $doc->update($updateData);
 
+            $this->notifyBorrowerOfReview($doc);
+
             return ApiResponse::success($doc, __('borrower.document_status_updated'));
         } catch (\Throwable $e) {
             Log::error('Document status update failed', [
@@ -135,6 +139,42 @@ class BorrowerDocumentService
             ]);
             throw new \RuntimeException(__('borrower.document_status_update_failed'));
         }
+    }
+
+    /**
+     * Tell the borrower their document was Accepted or Rejected (BUG-087): the
+     * bell for both, and an email with the reason for a rejection, since the
+     * rejection modal says the reason is shared with them. A failed notification
+     * never fails the review - the Notifier logs it and moves on.
+     */
+    private function notifyBorrowerOfReview(BorrowerDocument $doc): void
+    {
+        if (!in_array($doc->status, [BorrowerDocument::STATUS_ACCEPTED, BorrowerDocument::STATUS_REJECTED], true)) {
+            return;
+        }
+
+        $borrower = Borrower::with('user')->find($doc->borrower_id);
+        if (!$borrower) {
+            return;
+        }
+
+        $rejected = $doc->status === BorrowerDocument::STATUS_REJECTED;
+        $documentName = $doc->documentType?->name ?: $doc->file_name;
+        $reason = $rejected ? trim((string) $doc->rejection_reason) : '';
+        $email = $borrower->user?->email ?: $borrower->email;
+
+        app(Notifier::class)->send('borrower.document.reviewed', $borrower, [
+            'document' => $documentName,
+            'status' => $doc->status,
+            'reason' => $reason !== '' ? ' Reason: ' . $reason : '',
+        ], mail: $rejected && $email
+            ? (new BorrowerDocumentReviewedMail([
+                'borrower_name' => $borrower->full_name,
+                'document_name' => $documentName,
+                'status' => $doc->status,
+                'reason' => $reason !== '' ? $reason : null,
+            ], $borrower->partner_id))->to($email)
+            : null);
     }
 
     /**

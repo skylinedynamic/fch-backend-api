@@ -188,7 +188,12 @@ class EmbedFormController extends Controller
         // The list's sortable columns only (BUG-009: the sort used to be ignored,
         // always newest first). Anything else falls back to newest first.
         $sortField = $request->input('sort_field');
-        if (in_array($sortField, self::SORTABLE_SUBMISSION_FIELDS, true)) {
+        if ($sortField === 'desired_funding_amount') {
+            // The column shows requested_amount, which is where submissions have
+            // stored the amount since the funding-application rewrite; the
+            // legacy column only holds it for older ones.
+            $query->orderByRaw('COALESCE(requested_amount, desired_funding_amount) ' . ($request->input('sort_order') === 'asc' ? 'asc' : 'desc'));
+        } elseif (in_array($sortField, self::SORTABLE_SUBMISSION_FIELDS, true)) {
             $query->orderBy($sortField, $request->input('sort_order') === 'asc' ? 'asc' : 'desc');
             if ($sortField === 'first_name') {
                 $query->orderBy('last_name', $request->input('sort_order') === 'asc' ? 'asc' : 'desc');
@@ -282,7 +287,7 @@ class EmbedFormController extends Controller
      */
     /**
      * The submission the signed-in partner may convert, or the response that
-     * refuses it (not found, another partner's, already converted).
+     * refuses it (not found, another partner's, already converted, rejected).
      */
     private function convertibleSubmission(int $id): EmbedFormSubmission|JsonResponse
     {
@@ -301,6 +306,12 @@ class EmbedFormController extends Controller
 
         if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
             return ApiResponse::error(__('embed_form.already_converted'), 422);
+        }
+
+        // A rejected application is moved back to New or In Review before it
+        // can be converted, so a rejection is never undone by one click (BUG-098).
+        if ($submission->status === EmbedFormSubmission::STATUS_REJECTED) {
+            return ApiResponse::error(__('embed_form.rejected_cannot_convert'), 422);
         }
 
         return $submission;

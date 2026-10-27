@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CMS;
 use App\Http\Controllers\Controller;
 use App\Services\FCH\Admin\CMS\BlogService;
 use App\Helpers\ApiResponse;
+use App\Exceptions\BlogTaxonomyInUseException;
 use App\Http\Requests\Api\V1\FCH\Admin\CMS\BlogRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\CMS\CategoryRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\CMS\TagRequest;
@@ -138,7 +139,12 @@ class BlogController extends Controller
     {
         $ids = $request->ids;
         if (!is_array($ids)) $ids = [$ids];
-        $this->blogService->deleteCategories($ids);
+        try {
+            $this->blogService->deleteCategories($ids);
+        } catch (BlogTaxonomyInUseException $e) {
+            // A category on a blog post is kept - say which, and change nothing.
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
+        }
         return ApiResponse::success(null, __('blog.category_deleted'));
     }
 
@@ -172,7 +178,12 @@ class BlogController extends Controller
     {
         $ids = $request->ids;
         if (!is_array($ids)) $ids = [$ids];
-        $this->blogService->deleteTags($ids);
+        try {
+            $this->blogService->deleteTags($ids);
+        } catch (BlogTaxonomyInUseException $e) {
+            // A tag on a blog post is kept - say which, and change nothing.
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
+        }
         return ApiResponse::success(null, __('blog.tag_deleted'));
     }
 }

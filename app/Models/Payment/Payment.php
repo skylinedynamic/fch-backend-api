@@ -40,6 +40,14 @@ class Payment extends Model
 
     public const TYPE_PAYOUT = 'payout';
 
+    /**
+     * Where a FAILED row came from, kept in its details. A declined "Pay Now"
+     * attempt is marked so the auto-charge cron does not count it among its own
+     * failed attempts (BUG-035).
+     */
+    public const DETAIL_FAILURE_SOURCE = 'source';
+    public const FAILURE_SOURCE_CHECKOUT = 'checkout';
+
     public const TRANSACTION_TYPE_DEBIT = 'Debit';
     public const TRANSACTION_TYPE_CREDIT = 'Credit';
 

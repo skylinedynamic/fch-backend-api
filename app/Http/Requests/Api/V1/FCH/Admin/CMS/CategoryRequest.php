@@ -18,7 +18,15 @@ class CategoryRequest extends FormRequest
         $partner_id = $this->user()->partner_id;
 
         return [
-            'name' => 'required|string|max:255',
+            // One name per partner, so the picker never shows the same entry twice.
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('blog_categories', 'name')->where(function ($query) use ($partner_id) {
+                    return $query->where('partner_id', $partner_id)->whereNull('deleted_at');
+                })->ignore($id),
+            ],
             'slug' => [
                 'nullable',
                 'string',
@@ -27,6 +35,13 @@ class CategoryRequest extends FormRequest
                 })->ignore($id),
             ],
             'description' => 'nullable|string',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.unique' => __('blog.category_name_taken'),
         ];
     }
 }

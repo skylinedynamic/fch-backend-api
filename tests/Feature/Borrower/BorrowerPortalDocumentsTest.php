@@ -52,6 +52,23 @@ class BorrowerPortalDocumentsTest extends TestCase
         ]);
     }
 
+    /**
+     * BUG-087: the Documents page shows each file's review badge and, for a
+     * rejected one, the reason - both come from this list.
+     */
+    #[Test]
+    public function i_see_each_documents_review_status_and_the_rejection_reason(): void
+    {
+        $rejected = $this->documentFor($this->me, $this->statements->id);
+        $rejected->update(['status' => BorrowerDocument::STATUS_REJECTED, 'rejection_reason' => 'Statement is older than 90 days']);
+        $this->actingAsUser($this->me);
+
+        $this->getJson('/api/v1/borrower/documents')
+            ->assertOk()
+            ->assertJsonPath("data.{$this->statements->id}.0.status", BorrowerDocument::STATUS_REJECTED)
+            ->assertJsonPath("data.{$this->statements->id}.0.rejection_reason", 'Statement is older than 90 days');
+    }
+
     #[Test]
     public function the_routes_are_for_signed_in_borrowers_only(): void
     {

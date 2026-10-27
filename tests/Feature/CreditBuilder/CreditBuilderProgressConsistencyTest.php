@@ -219,4 +219,162 @@ class CreditBuilderProgressConsistencyTest extends TestCase
         $this->assertSame(1, $p['current_tier_complete_task']);
         $this->assertSame($g['done'], $p['total_complete_task']);
     }
+
+    // ── "Tasks to complete" (BUG-024, retest 25 Oct) ──────────────────
+    //
+    // Tier 0's tasks must all be done. From Tier 1 on a tier needs only
+    // task_to_complete of them (1): doing one opens the next tier and the task
+    // moves into it. The Overview said "0/8" for Tier 1 while the Guide said
+    // "0/1" - the tier is out of its required tasks, not all it lists.
+
+    private function requireTasks(int $order, ?int $required, array $days = []): void
+    {
+        $this->tiers[$order]->update(['task_to_complete' => $required]);
+        foreach ($days as $i => $d) {
+            $this->tasks[$order][$i]->update(['estimated_completion_days' => $d]);
+        }
+    }
+
+    private function adminProgress(): array
+    {
+        $this->actingAsUser($this->makePartnerAdmin(Partner::where('is_host', true)->firstOrFail()));
+        $data = $this->postJson('/api/v1/admin/credit-builder/tiers/borrowers/progress', ['borrower_id' => $this->borrower->id])->assertOk()->json('data');
+        $this->actingAsUser($this->me);
+
+        return $data;
+    }
+
+    #[Test]
+    public function a_tier_that_needs_one_task_is_out_of_one_not_all_it_lists(): void
+    {
+        $this->requireTasks(1, 1);
+        $this->onTier(1);
+
+        $p = $this->progress();
+        $this->assertSame(0, $p['current_tier_complete_task']);
+        $this->assertSame(1, $p['current_tier_tasks_remaining'], '0/1 as in the Guide, not 0/2');
+        $this->assertEquals(0, $p['current_tier_complete_percentage']);
+    }
+
+    #[Test]
+    public function doing_more_than_the_tier_needs_shows_it_complete_not_more_than_complete(): void
+    {
+        // The last tier: three tasks migrated in, two verified, one needed.
+        $this->requireTasks(2, 1);
+        $this->onTier(2);
+        foreach ([0, 1] as $i) {
+            $this->verify($this->tasks[0][$i], Verification::COMPLETED, $this->migrate($this->tasks[0][$i], 2));
+        }
+        $this->migrate($this->tasks[0][2], 2);
+
+        $p = $this->progress();
+        $this->assertSame(1, $p['current_tier_complete_task'], '1/1, not 2/1 or 2/3');
+        $this->assertSame(0, $p['current_tier_tasks_remaining']);
+        $this->assertEquals(100, $p['current_tier_complete_percentage']);
+        $this->assertSame(0, $p['current_tier_estimated_completion_days'], 'nothing left to do');
+    }
+
+    #[Test]
+    public function tier_zero_still_needs_every_task(): void
+    {
+        $this->requireTasks(0, null);
+        $this->onTier(0);
+        $this->verify($this->tasks[0][0]);
+
+        $p = $this->progress();
+        $this->assertSame(1, $p['current_tier_complete_task']);
+        $this->assertSame(2, $p['current_tier_tasks_remaining']);
+    }
+
+    #[Test]
+    public function the_estimate_is_the_longest_open_task_not_their_sum(): void
+    {
+        // Tier 0 (every task needed): 5, 15 and 10 days; the 15-day one is done.
+        $this->requireTasks(0, null, [5, 15, 10]);
+        $this->onTier(0);
+        $this->verify($this->tasks[0][1]);
+        $this->assertSame(10, $this->progress()['current_tier_estimated_completion_days'], 'not 5 + 10');
+
+        // Tier 1 (one needed): 30 and 45 days, none done.
+        $this->requireTasks(1, 1, [30, 45]);
+        $this->onTier(1);
+        $this->assertSame(45, $this->progress()['current_tier_estimated_completion_days'], 'not 75');
+    }
+
+    #[Test]
+    public function the_admin_sees_the_progress_the_client_sees(): void
+    {
+        $this->requireTasks(1, 1, [30, 45]);
+        $this->onTier(1);
+        $this->verify($this->tasks[0][0]);
+        $this->verify($this->tasks[0][0], Verification::REJECTED); // resubmitted: counts once, by its latest status
+        $this->verify($this->tasks[0][1]);
+
+        $client = $this->progress();
+        $admin = $this->adminProgress();
+
+        foreach (['current_tier_complete_task', 'current_tier_tasks_remaining', 'current_tier_complete_percentage',
+            'current_tier_estimated_completion_days', 'total_complete_task', 'total_tasks_remaining', 'total_complete_percentage'] as $field) {
+            $this->assertEquals($client[$field], $admin[$field], "admin {$field} differs from the client's");
+        }
+    }
+
+    // ── Retest 26 Oct: one rule for the rows and the total ────────────
+    //
+    // The Guide's rows count the tasks each tier needs (all of Tier 0, then
+    // task_to_complete), but the total counted every task listed: "7 of 16"
+    // over rows adding up to 12. And a tier with nothing listed yet read 0/0 on
+    // the Overview, 0/1 in the Guide.
+
+    #[Test]
+    public function a_tier_with_no_tasks_yet_still_needs_its_one(): void
+    {
+        // Tier 2 has no tasks of its own and none migrated into it yet.
+        $this->requireTasks(2, 1);
+        $this->onTier(2);
+
+        $p = $this->progress();
+        $this->assertSame(0, $p['current_tier_complete_task']);
+        $this->assertSame(1, $p['current_tier_tasks_remaining'], '0/1 as in the Guide, not 0/0');
+        $this->assertEquals(0, $p['current_tier_complete_percentage']);
+    }
+
+    #[Test]
+    public function the_total_is_the_sum_of_what_each_tier_needs(): void
+    {
+        // Tier 0: 3 tasks, all needed, 2 done. Tier 1: 2 tasks, 1 needed, none
+        // done. Tier 2: nothing listed, nothing set. Rows 2/3 + 0/1 = 2/4 -
+        // counting every listed task would say 2/5.
+        $this->requireTasks(1, 1);
+        $this->onTier(1);
+        $this->verify($this->tasks[0][0]);
+        $this->verify($this->tasks[0][1]);
+
+        $p = $this->progress();
+        $this->assertSame(2, $p['total_complete_task']);
+        $this->assertSame(2, $p['total_tasks_remaining'], 'out of 4 needed, not 5 listed');
+        $this->assertEquals(50, $p['total_complete_percentage']);
+    }
+
+    #[Test]
+    public function the_total_never_goes_over_100_percent(): void
+    {
+        // More done than a tier needs counts as that tier done, once.
+        $this->requireTasks(0, null);
+        $this->requireTasks(1, 1);
+        $this->requireTasks(2, 1);
+        $this->onTier(2);
+        foreach ($this->tasks[0] as $t) {
+            $this->verify($t);
+        }
+        $this->verify($this->tasks[1][0]);
+        $this->verify($this->tasks[1][1]);
+        $this->verify($this->tasks[0][0], Verification::COMPLETED, $this->migrate($this->tasks[0][0], 2));
+
+        $p = $this->progress();
+        $this->assertSame(5, $p['total_complete_task'], '3 + 1 + 1, not 3 + 2 + 1');
+        $this->assertSame(0, $p['total_tasks_remaining']);
+        $this->assertEquals(100, $p['total_complete_percentage']);
+        $this->assertEquals($p['total_complete_percentage'], $this->adminProgress()['total_complete_percentage']);
+    }
 }

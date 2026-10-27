@@ -216,7 +216,10 @@ class TierService
     }
 
     /**
-     * Get credit builder overview data for a specific borrower.
+     * Get credit builder overview data for a specific borrower - the progress
+     * the client sees on their Overview (BUG-024: this used to count every
+     * task in the tier and every verified request, so admin, the Overview
+     * and the Step-By-Step Guide disagreed).
      */
     public function getBorrowerProgress(int $borrowerId): array
     {
@@ -226,59 +229,6 @@ class TierService
             throw new \Exception(__('borrower.not_found'));
         }
 
-        $currentTier = $borrower->tier;
-        $tiers = Tier::orderBy('order', 'asc')->withCount('tasks')->get();
-
-        // Total Program Stats
-        $migratableTask = \App\Models\Borrower\MigratedTask::where('borrower_id', $borrower->id)->count();
-        $totalProgramTasks = $tiers->sum('tasks_count') + $migratableTask;
-        $totalCompletedTasks = \App\Models\CreditBuilder\BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
-            ->where('status', \App\Models\CreditBuilder\BorrowerTaskVerificationRequest::COMPLETED)
-            ->count();
-
-        $totalTasksRemaining = max(0, $totalProgramTasks - $totalCompletedTasks);
-        $totalCompletePercentage = $totalProgramTasks > 0 ? round(($totalCompletedTasks / $totalProgramTasks) * 100) : 0;
-
-        // Current Tier Stats
-        $tasksRemaining = 0;
-        $taskCompletePercentage = 0;
-        $currentTierEstimatedDays = 0;
-        $currentTierCompletedTasks = 0;
-
-        if ($currentTier) {
-            $currentTierTotalTasks = $currentTier->tasks()->count();
-
-            // Get completed tasks IDs for this borrower in this tier
-            $completedTaskIds = \App\Models\CreditBuilder\BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
-                ->where('tier_id', $currentTier->id)
-                ->where('status', \App\Models\CreditBuilder\BorrowerTaskVerificationRequest::COMPLETED)
-                ->pluck('task_id');
-
-            $currentTierCompletedTasks = $completedTaskIds->count();
-
-            $tasksRemaining = max(0, $currentTierTotalTasks - $currentTierCompletedTasks);
-
-            $currentTierEstimatedDays = $currentTier->tasks()
-                ->whereNotIn('id', $completedTaskIds)
-                ->sum('estimated_completion_days');
-
-            if ($currentTierTotalTasks > 0) {
-                $taskCompletePercentage = round(($currentTierCompletedTasks / $currentTierTotalTasks) * 100);
-            } else {
-                $taskCompletePercentage = 100; // If current tier has no tasks, it is effectively complete
-            }
-        }
-
-        return [
-            'current_tier' => $currentTier,
-            'tiers' => $tiers,
-            'tasks_remaining_count' => $tasksRemaining,
-            'task_complete_percentage' => $taskCompletePercentage,
-            'total_tasks_remaining' => $totalTasksRemaining,
-            'total_complete_percentage' => $totalCompletePercentage,
-            'current_tier_estimated_completion_days' => (int) $currentTierEstimatedDays,
-            'current_tier_completed_tasks' => $currentTierCompletedTasks,
-            'total_completed_tasks' => $totalCompletedTasks,
-        ];
+        return app(\App\Services\Borrower\CreditBuilder\OverviewService::class)->progressFor($borrower);
     }
 }

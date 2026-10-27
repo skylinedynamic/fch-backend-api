@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\Application;
 
 use App\Exceptions\FundingApplicationLockedException;
 use App\Models\Borrower\FundingApplication;
+use App\Models\User\User;
 
 /**
  * The one place that decides what a borrower or partner is allowed to do to an
@@ -36,14 +37,15 @@ class FundingApplicationEditGuard
      *
      * @throws FundingApplicationLockedException
      */
-    public function assertEditable(?FundingApplication $application): void
+    public function assertEditable(?FundingApplication $application, ?User $editor = null): void
     {
         // A new application has no status yet; there is nothing to lock.
         if (! $application || ! $application->exists) {
             return;
         }
 
-        if ($application->isLockedForEdit()) {
+        // The host's team is never locked out; borrowers and partners are.
+        if (! $application->isEditableBy($editor)) {
             throw FundingApplicationLockedException::for($application);
         }
     }
@@ -131,17 +133,18 @@ class FundingApplicationEditGuard
      *
      * @throws FundingApplicationLockedException
      */
-    public function applyEditRules(FundingApplication $existing, array $data, ?string $explicitStatus = null): array
+    public function applyEditRules(FundingApplication $existing, array $data, ?string $explicitStatus = null, ?User $editor = null): array
     {
-        $this->assertEditable($existing);
+        $this->assertEditable($existing, $editor);
 
         $changedFields = $this->changedFields($existing, $data);
 
         $leaveStatusToCaller =
             // Submitting or re-signing - this save *is* the signature.
             ! empty($explicitStatus)
-            // Nothing signed yet (On Hold / Draft), so there is nothing to invalidate.
-            || ! $existing->invalidatesSignatureOnEdit()
+            // Nothing signed yet (On Hold / Draft), so there is nothing to
+            // invalidate. The host editing past the lock does cost it.
+            || ! $existing->invalidatesSignatureOnEditBy($editor)
             // Signed, but this save moves nothing. The wizard re-posts every step's
             // prefilled values; paging through must not cost a signature.
             || $changedFields === [];
