@@ -14,8 +14,14 @@ class CommonService
     /**
      * A partner's team (User::teamOf) as id, name, email and phone - the
      * caller's own, or for the host, the partner it names.
+     *
+     * The assign pickers ask for $activeOnly: inactive members are left out,
+     * except $keepIds (whoever is already assigned, so the field still shows
+     * them). List filters ask for everyone.
+     *
+     * @param  int[]  $keepIds
      */
-    public function getAllUsers(?int $partnerId = null)
+    public function getAllUsers(?int $partnerId = null, bool $activeOnly = false, array $keepIds = [])
     {
         $user = Auth::user();
 
@@ -31,6 +37,10 @@ class CommonService
 
         $users = User::query()
             ->teamOf($partner)
+            ->when($activeOnly, fn ($query) => $query->where(function ($query) use ($keepIds) {
+                $query->where('status', User::STATUS['active'])
+                    ->when($keepIds, fn ($query) => $query->orWhereIn('id', $keepIds));
+            }))
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();

@@ -155,6 +155,23 @@ class ActivityLogTaskEditTest extends TestCase
     }
 
     #[Test]
+    public function an_assignee_who_has_since_become_inactive_may_stay_but_none_may_be_newly_picked(): void
+    {
+        $id = $this->storedTask();
+        $this->partnerColleague->forceFill(['status' => \App\Models\User\User::STATUS['inactive']])->save();
+
+        $this->updateActivity($id, $this->taskEdit(['task_status' => 'complete']))
+            ->assertOk()
+            ->assertJsonPath('data.task.assigned_to', $this->partnerColleague->id)
+            ->assertJsonPath('data.task.status', 'complete');
+
+        $this->updateActivity($id, $this->taskEdit(['assigned_to' => $this->partnerUser->id]))->assertOk();
+        $this->updateActivity($id, $this->taskEdit(['assigned_to' => $this->partnerColleague->id]))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.assigned_to', 'The selected staff member is inactive and cannot be assigned this task.');
+    }
+
+    #[Test]
     public function the_task_fields_are_required_and_validated_on_edit_too(): void
     {
         $id = $this->storedTask();

@@ -23,6 +23,7 @@ use Tests\TestCase;
  *   - the assignee comes from the team the Assigned To list offered: for the
  *     host, the staff of the partner that owns the record (its own staff on a
  *     Partner's page); for anyone else, their own team
+ *   - only an active staff member can be picked; the list says who is active
  */
 class ActivityLogTaskAssignmentTest extends TestCase
 {
@@ -209,5 +210,56 @@ class ActivityLogTaskAssignmentTest extends TestCase
 
         $response->assertJsonPath('data.task', null);
         $this->assertArrayNotHasKey('task', ActivityLog::findOrFail($response->json('data.id'))->properties);
+    }
+
+    #[Test]
+    public function an_inactive_staff_member_cannot_be_assigned(): void
+    {
+        Passport::actingAs($this->hostAdmin, [], 'api');
+        $this->partnerColleague->forceFill(['status' => \App\Models\User\User::STATUS['inactive']])->save();
+
+        $this->storeActivity($this->taskPayload())
+            ->assertStatus(422)
+            ->assertJsonPath('errors.assigned_to', 'The selected staff member is inactive and cannot be assigned this task.');
+
+        $this->assertSame(0, ActivityLog::count());
+    }
+
+    #[Test]
+    public function the_assign_list_asked_for_active_staff_leaves_out_inactive_ones_unless_kept(): void
+    {
+        Passport::actingAs($this->hostAdmin, [], 'api');
+        $this->partnerColleague->forceFill(['status' => \App\Models\User\User::STATUS['inactive']])->save();
+
+        $names = fn (array $payload) => collect($this->postJson('/api/v1/common/get-all-users', $payload)
+            ->assertOk()
+            ->json('data'))->pluck('name')->sort()->values()->all();
+
+        $this->assertSame(['Jason Rodriguez'], $names(['partner_id' => $this->partner->id, 'active_only' => true]));
+        $this->assertSame(
+            ['Jason Rodriguez', 'Partner Colleague'],
+            $names(['partner_id' => $this->partner->id, 'active_only' => true, 'keep_ids' => [$this->partnerColleague->id]]),
+            'The one already assigned stays, so the field still shows them.'
+        );
+        $this->assertSame(
+            ['Jason Rodriguez', 'Partner Colleague'],
+            $names(['partner_id' => $this->partner->id]),
+            'Without active_only (list filters) everyone is listed.'
+        );
+    }
+
+    #[Test]
+    public function kept_ids_never_bring_in_someone_outside_the_team(): void
+    {
+        Passport::actingAs($this->hostAdmin, [], 'api');
+
+        $ids = collect($this->postJson('/api/v1/common/get-all-users', [
+            'partner_id' => $this->partner->id,
+            'active_only' => true,
+            'keep_ids' => [$this->hostColleague->id, $this->borrowerUser->id],
+        ])->assertOk()->json('data'))->pluck('id');
+
+        $this->assertFalse($ids->contains($this->hostColleague->id));
+        $this->assertFalse($ids->contains($this->borrowerUser->id));
     }
 }

@@ -14,8 +14,9 @@ use Illuminate\Validation\Validator;
  * who does it, by when, how urgent and where it stands.
  *
  * The request says which team the assignee must come from, what the
- * Reference is, and (on edit) the due date already saved - a task may keep a
- * due date that has since passed, only a newly picked one must not be past.
+ * Reference is, and (on edit) the due date and assignee already saved - a task
+ * may keep a due date that has since passed, or an assignee who has since
+ * become inactive; only a newly picked one must be neither.
  */
 trait ValidatesTaskAssignment
 {
@@ -26,6 +27,11 @@ trait ValidatesTaskAssignment
     abstract protected function taskReference(): ?string;
 
     protected function savedTaskDueDate(): ?string
+    {
+        return null;
+    }
+
+    protected function savedTaskAssigneeId(): ?int
     {
         return null;
     }
@@ -44,8 +50,13 @@ trait ValidatesTaskAssignment
                 'nullable',
                 'integer',
                 function ($attribute, $value, $fail) {
-                    if ($this->assignsTask() && ! $this->isEligibleAssignee((int) $value)) {
+                    if (! $this->assignsTask()) {
+                        return;
+                    }
+                    if (! $this->isEligibleAssignee((int) $value)) {
                         $fail('The selected staff member cannot be assigned this task.');
+                    } elseif ((int) $value !== $this->savedTaskAssigneeId() && ! $this->isActiveUser((int) $value)) {
+                        $fail('The selected staff member is inactive and cannot be assigned this task.');
                     }
                 },
             ],
@@ -102,6 +113,11 @@ trait ValidatesTaskAssignment
         }
 
         return ($ownerPartnerId ? Partner::find($ownerPartnerId) : null) ?? $own;
+    }
+
+    private function isActiveUser(int $userId): bool
+    {
+        return User::query()->whereKey($userId)->where('status', User::STATUS['active'])->exists();
     }
 
     private function isEligibleAssignee(int $userId): bool
