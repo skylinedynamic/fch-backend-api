@@ -460,13 +460,27 @@ class PartnerService
                         continue;
                     }
 
-                    $name = $field === 'assign_to'
-                        ? __('partner.assigned_user')
-                        : ($field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field)));
-
+                    // The partner's Agent, by name rather than user id
                     if ($field === 'assign_to') {
-                        $changedFields[] = __('partner.field_changed', ['field' => $name]);
-                    } elseif ($field === 'full_name') {
+                        $owner = $this->activityLogService->describeOwnerChange(
+                            __('activity_log.owner_label_partner'),
+                            $partner->getPrevious()['assign_to'] ?? null,
+                            $newValue
+                        );
+                        $changedFields[] = $owner['sentence'];
+                        $extraProps['changes']['assign_to'] = $owner['change'];
+                        continue;
+                    }
+
+                    // An EIN or account number is recorded as changed, never repeated
+                    if (ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
+                    $name = $field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field));
+
+                    if ($field === 'full_name') {
                         $val = (string) $newValue;
                         $val = $val === '' ? __('partner.empty_value') : $val;
                         $changedFields[] = __('partner.name_updated', ['value' => $val]);
@@ -486,11 +500,14 @@ class PartnerService
                     $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
                 }
 
+                // Only the Agent changed: an entry saying just that
+                $customSubject = array_keys($changes) === ['assign_to'] ? __('activity_log.owner_subject_partner') : null;
+
                 $this->activityLogService->logModelEvent(
                     $partner,
                     $logType,
                     $extraProps,
-                    null,
+                    $customSubject,
                     $customDescription
                 );
             }

@@ -244,15 +244,7 @@ class ActivityLogService
                 ],
             ];
 
-            if (filter_var($data['assign_task'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                $logData['properties']['assigned_to'] = (int) $data['assigned_to'];
-                $logData['properties']['task'] = [
-                    'assigned_to' => (int) $data['assigned_to'],
-                    'due_at' => $this->localToUtc($data['task_due_at'] ?? null),
-                    'priority' => $data['task_priority'],
-                    'status' => $data['task_status'],
-                ];
-            }
+            $logData['properties'] = $this->applyTaskAssignment($logData['properties'], $data);
 
             $log = ActivityLog::create($logData);
 
@@ -266,14 +258,20 @@ class ActivityLogService
                 $attachmentFiles
             );
 
+            $props = $log->properties;
+            if ($props instanceof \Illuminate\Support\Collection) {
+                $props = $props->toArray();
+            }
+
             if ($reminder) {
                 $reminder->update(['activity_log_id' => $log->id]);
-
-                $props = $log->properties;
-                if ($props instanceof \Illuminate\Support\Collection) {
-                    $props = $props->toArray();
-                }
                 $props['reminder_id'] = $reminder->id;
+            }
+
+            // A Task assigned to someone else reminds them too, reminder set or not
+            $this->syncTaskReminder($log, $props, null);
+
+            if ($reminder || !empty($props['task_reminder_id'])) {
                 $log->properties = $props;
                 $log->save();
             }
@@ -284,6 +282,10 @@ class ActivityLogService
             }
 
             DB::commit();
+
+            // Mail + bell to the assignee, reminder or not - after the commit, so
+            // nobody is told about a task that was never saved.
+            app(TaskAssignmentNotifier::class)->notify($log);
 
             $load = $logType === ActivityLog::TYPE_EMAIL ? ['causer'] : ['causer', 'subject'];
             return $log->fresh($load);
@@ -356,6 +358,35 @@ class ActivityLogService
             'description' => $description, // Detailed description for UI gray box
             'properties' => $mergedProperties,
         ]);
+    }
+
+    /**
+     * A change of who is responsible for a record (a client's Assigned To, a
+     * lead's Lead Owner, a partner's Agent), by name: the sentence for the
+     * entry's description, e.g. "Lead Owner changed from Avery Staff to
+     * Blake Ops", and its {label, from, to} row for "View changes".
+     *
+     * @return array{sentence: string, change: array{label: string, from: string, to: string}}
+     */
+    public function describeOwnerChange(string $label, mixed $fromId, mixed $toId): array
+    {
+        // Someone since removed is still named; only a row that is gone entirely falls back to the id.
+        $name = fn (mixed $id): ?string => $id
+            ? (User::withTrashed()->whereKey($id)->value('name') ?: __('activity_log.owner_unknown_user', ['id' => $id]))
+            : null;
+        $from = $name($fromId);
+        $to = $name($toId);
+
+        $sentence = match (true) {
+            $from !== null && $to !== null => __('activity_log.owner_changed', ['label' => $label, 'from' => $from, 'to' => $to]),
+            $to !== null => __('activity_log.owner_set', ['label' => $label, 'to' => $to]),
+            default => __('activity_log.owner_removed', ['label' => $label, 'from' => (string) $from]),
+        };
+
+        return [
+            'sentence' => $sentence,
+            'change' => ['label' => $label, 'from' => (string) $from, 'to' => (string) $to],
+        ];
     }
 
     /**
@@ -627,10 +658,20 @@ class ActivityLogService
      */
     public function update(int $id, array $data): ActivityLog
     {
-        return DB::transaction(fn () => $this->performUpdate($id, $data));
+        $assigneeChanged = false;
+        $log = DB::transaction(function () use ($id, $data, &$assigneeChanged) {
+            return $this->performUpdate($id, $data, $assigneeChanged);
+        });
+
+        // A newly assigned staff member hears about it once the edit is saved
+        if ($assigneeChanged) {
+            app(TaskAssignmentNotifier::class)->notify($log);
+        }
+
+        return $log;
     }
 
-    private function performUpdate(int $id, array $data): ActivityLog
+    private function performUpdate(int $id, array $data, bool &$assigneeChanged = false): ActivityLog
     {
         $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
@@ -655,6 +696,8 @@ class ActivityLogService
 
         // Resolve before the subject is overwritten — the legacy fallback matches on it
         $existingReminder = $this->findLinkedReminder($log, $props);
+        $taskReminder = $this->findTaskReminder($props);
+        $previousAssigneeId = $this->taskAssigneeId($log, $props);
 
         if (isset($data['subject'])) {
             $props['subject'] = $data['subject'];
@@ -669,6 +712,8 @@ class ActivityLogService
         if (isset($data['reference'])) {
             $props['reference'] = $data['reference'];
         }
+
+        $props = $this->applyTaskAssignment($props, $data);
 
         // The owner may change their own manual activity's visibility inline,
         // same as any other content field on this update path.
@@ -758,6 +803,7 @@ class ActivityLogService
                         ->delay($remindAtUtc)
                         ->afterCommit();
                     $props['reminder_id'] = $existingReminder->id;
+                    $creatorReminder = $existingReminder;
                 } else {
                     $newReminder = app(ReminderService::class)->createFromActivity(
                         [
@@ -801,6 +847,11 @@ class ActivityLogService
             ]);
         }
 
+        // The assignee's own reminder follows the task, its assignee and its time
+        $this->syncTaskReminder($log, $props, $taskReminder);
+        $assigneeId = $this->taskAssigneeId($log, $props);
+        $assigneeChanged = $assigneeId !== null && $assigneeId !== $previousAssigneeId;
+
         $props['is_edited'] = true;
         $props['edited_at'] = now()->utc()->format('Y-m-d H:i:s');
 
@@ -831,7 +882,9 @@ class ActivityLogService
                 $props = $props->toArray();
             }
 
-            $this->findLinkedReminder($log, is_array($props) ? $props : [])?->delete();
+            $props = is_array($props) ? $props : [];
+            $this->findLinkedReminder($log, $props)?->delete();
+            $this->findTaskReminder($props)?->delete();
 
             $log->delete();
         });
@@ -903,9 +956,118 @@ class ActivityLogService
         return Reminder::where('entity_id', $log->subject_id)
             ->where('entity_type', $log->subject_type)
             ->where('summary', $props['subject'])
+            ->when(!empty($props['task_reminder_id']), fn ($q) => $q->whereKeyNot($props['task_reminder_id']))
             ->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
             ->latest()
             ->first();
+    }
+
+    /**
+     * The assignee's own copy of a Task activity's reminder, if it has one.
+     */
+    private function findTaskReminder(array $props): ?Reminder
+    {
+        return !empty($props['task_reminder_id']) ? Reminder::find($props['task_reminder_id']) : null;
+    }
+
+    /**
+     * Who a Task activity is assigned to - unless that is its author, who
+     * already has the reminder and needs no word about their own task.
+     */
+    private function taskAssigneeId(ActivityLog $log, array $props): ?int
+    {
+        $assigneeId = (int) ($props['task']['assigned_to'] ?? 0);
+
+        return $assigneeId && $assigneeId !== (int) $log->causer_id ? $assigneeId : null;
+    }
+
+    /**
+     * "Want to Assign" onto the activity's properties: set when the request
+     * assigns the task, cleared when it un-assigns it or the activity is no
+     * longer a Task, untouched when the request says nothing about it.
+     */
+    private function applyTaskAssignment(array $props, array $data): array
+    {
+        if (array_key_exists('assign_task', $data) && filter_var($data['assign_task'], FILTER_VALIDATE_BOOLEAN)) {
+            $props['assigned_to'] = (int) $data['assigned_to'];
+            $props['task'] = [
+                'assigned_to' => (int) $data['assigned_to'],
+                // A calendar day, stored as picked (no timezone shift).
+                'due_date' => $data['task_due_date'] ?? null,
+                'priority' => $data['task_priority'],
+                'status' => $data['task_status'],
+            ];
+        } elseif (array_key_exists('assign_task', $data) || ($props['reference'] ?? null) !== ActivityLog::TASK_REFERENCE) {
+            if (isset($props['task'])) {
+                $props['assigned_to'] = null;
+            }
+            unset($props['task']);
+        }
+
+        return $props;
+    }
+
+    /**
+     * The assignee's own reminder of their task - whether or not the activity
+     * sets one: at the activity's reminder time when it does, else on the
+     * morning of the due date. A separate row from the author's, so each
+     * snoozes or dismisses their own.
+     *
+     * A new assignee gets a fresh reminder; the same one keeps theirs, only
+     * rescheduled when the time it was set for changes (not when they
+     * snoozed it).
+     */
+    private function syncTaskReminder(ActivityLog $log, array &$props, ?Reminder $taskReminder): void
+    {
+        $assigneeId = $this->taskAssigneeId($log, $props);
+        $remindAt = $assigneeId ? $this->taskRemindAt($props) : null;
+
+        if ($taskReminder && (!$remindAt || (int) $taskReminder->created_by !== $assigneeId)) {
+            $taskReminder->delete();
+            $taskReminder = null;
+        }
+
+        if (!$remindAt) {
+            $props['task_reminder_id'] = null;
+            $props['task_reminder_at'] = null;
+            return;
+        }
+
+        $remindAtUtc = $remindAt->format('Y-m-d H:i:s');
+
+        $props['task_reminder_id'] = app(ReminderService::class)->upsertForUser(
+            $assigneeId,
+            $remindAt,
+            [
+                'activity_log_id' => $log->id,
+                // Filed like the author's: against the client when there is one
+                'entity_id' => $log->borrower_id ?: $log->subject_id,
+                'entity_type' => $log->borrower_id ? Borrower::class : $log->subject_type,
+                'reference' => $props['reference'] ?? null,
+                'set_date_time' => !empty($props['activity_date']) ? Carbon::parse($props['activity_date'], 'UTC') : null,
+                'summary' => $props['subject'] ?? null,
+                'message' => $props['description'] ?? null,
+                'is_reminder' => true,
+                'attachments' => $props['attachments']['files'] ?? [],
+            ],
+            $taskReminder,
+            !$taskReminder || ($props['task_reminder_at'] ?? null) !== $remindAtUtc
+        )->id;
+        $props['task_reminder_at'] = $remindAtUtc;
+    }
+
+    /** When the assignee is reminded of their task, in UTC (null: no due date and no reminder). */
+    private function taskRemindAt(array $props): ?Carbon
+    {
+        if (!empty($props['remind_me']) && !empty($props['remind_at'])) {
+            return Carbon::parse($props['remind_at'], 'UTC');
+        }
+
+        $dueDate = $props['task']['due_date'] ?? null;
+
+        return $dueDate
+            ? Carbon::parse($dueDate . ' ' . ActivityLog::TASK_DUE_REMINDER_TIME, $this->requestTimezone())->utc()
+            : null;
     }
 
     /**

@@ -3,19 +3,20 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\ActivityLog;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\Concerns\ValidatesTaskAssignment;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
-use App\Models\User\User;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
 
 class StoreActivityLogRequest extends BaseApiRequest
 {
+    use ValidatesTaskAssignment;
+
     public function authorize(): bool
     {
         return true;
@@ -93,21 +94,8 @@ class StoreActivityLogRequest extends BaseApiRequest
             ],
             'category'      => ['nullable', 'string', 'max:255'],
 
-            // "Want to Assign" on a Task: who does it, by when, how urgent, where it stands.
-            'assign_task'   => ['nullable', 'in:1,0,true,false'],
-            'assigned_to'   => [
-                Rule::requiredIf($this->assignsTask()),
-                'nullable',
-                'integer',
-                function ($attribute, $value, $fail) {
-                    if (! $this->isEligibleAssignee((int) $value)) {
-                        $fail('The selected staff member cannot be assigned this task.');
-                    }
-                },
-            ],
-            'task_due_at'   => [Rule::requiredIf($this->assignsTask()), 'nullable', 'date'],
-            'task_priority' => [Rule::requiredIf($this->assignsTask()), 'nullable', Rule::in(array_keys(ActivityLog::TASK_PRIORITY_LABELS))],
-            'task_status'   => [Rule::requiredIf($this->assignsTask()), 'nullable', Rule::in(array_keys(ActivityLog::TASK_STATUS_LABELS))],
+            // "Want to Assign" on a Task
+            ...$this->taskAssignmentRules(),
 
             // Attachments array
             'attachments'   => ['nullable', 'array'],
@@ -138,58 +126,30 @@ class StoreActivityLogRequest extends BaseApiRequest
         ];
     }
 
-    public function assignsTask(): bool
+    protected function taskReference(): ?string
     {
-        return filter_var($this->input('assign_task', false), FILTER_VALIDATE_BOOLEAN);
+        return $this->input('reference');
     }
 
     /**
-     * A task goes to someone on the team the "Assigned To" list showed —
-     * the same rule as common/get-all-users: the host may name the team of
-     * the partner that owns the record; anyone else has only their own team.
+     * The owner of the lead / client / funding request / funding application
+     * the activity is logged on; a Partner's own page names none.
      */
-    private function isEligibleAssignee(int $userId): bool
+    protected function taskTeamPartner(): ?Partner
     {
-        $partner = $this->taskTeamPartner();
-
-        return $partner !== null
-            && User::query()->teamOf($partner)->whereKey($userId)->exists();
-    }
-
-    /**
-     * The partner whose staff may take the task: for the host, the owner of
-     * the lead / client / funding request / funding application; on a
-     * Partner's own page (and for everyone else) the caller's own team.
-     */
-    private function taskTeamPartner(): ?Partner
-    {
-        $own = $this->user()?->partner;
-        if (! $own || ! $own->is_host) {
-            return $own;
-        }
-
-        $ownerPartnerId = match (true) {
+        return $this->teamForRecordOwner(match (true) {
             $this->filled('lead_id') => Lead::whereKey($this->input('lead_id'))->value('partner_id'),
             $this->filled('borrower_id') => Borrower::whereKey($this->input('borrower_id'))->value('partner_id'),
             $this->filled('funding_request_id') => FundingRequest::whereKey($this->input('funding_request_id'))->value('partner_id'),
             $this->filled('funding_application_id') => FundingApplication::whereKey($this->input('funding_application_id'))->value('partner_id'),
             default => null,
-        };
-
-        return ($ownerPartnerId ? Partner::find($ownerPartnerId) : null) ?? $own;
+        });
     }
 
     public function messages(): array
     {
         return [
-            'assigned_to.required'   => 'Please select who the task is assigned to.',
-            'assigned_to.integer'    => 'The selected staff member cannot be assigned this task.',
-            'task_due_at.required'   => 'Please select when the task is due.',
-            'task_due_at.date'       => 'The due date is not a valid date.',
-            'task_priority.required' => 'Please select a priority.',
-            'task_priority.in'       => 'Priority must be Low, Medium or High.',
-            'task_status.required'   => 'Please select a status.',
-            'task_status.in'         => 'Status must be Open, In Progress or Complete.',
+            ...$this->taskAssignmentMessages(),
             'visibility.required'    => 'Please select who can see this activity.',
             'visibility.in'          => 'That visibility level is not available to you.',
             'to_emails.required'     => __('activity_log.to_emails_required'),
@@ -209,20 +169,7 @@ class StoreActivityLogRequest extends BaseApiRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            if ($this->assignsTask()) {
-                if ($this->input('reference') !== ActivityLog::TASK_REFERENCE) {
-                    $validator->errors()->add('assign_task', 'Only a Task activity can be assigned.');
-                }
-
-                // The due date arrives as wall-clock time in the viewer's timezone.
-                $dueAt = $this->input('task_due_at');
-                if (! $validator->errors()->has('task_due_at') && ! empty($dueAt)) {
-                    $timezone = $this->header('X-Timezone') ?: config('app.timezone');
-                    if (Carbon::parse($dueAt, $timezone)->isPast()) {
-                        $validator->errors()->add('task_due_at', 'The due date must be in the future.');
-                    }
-                }
-            }
+            $this->validateTaskAssignment($validator);
 
             $allowedExtensions = [
                 'jpg','jpeg','png','pdf','gif','webp','svg',

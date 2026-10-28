@@ -152,7 +152,7 @@ class ActivityLogResource extends JsonResource
                 'name' => $this->assignedUser->name,
             ] : null),
             // A Task assigned to a staff member ("Want to Assign"); null otherwise.
-            'task'          => $this->taskDetails($props, $toDisplay),
+            'task'          => $this->taskDetails($props),
             'description'   => $this->properties['description'] ?? ($this->getAutoDescription() ?? $this->description),
             // Email fields
             'to_emails'     => $this->properties['to_emails'] ?? null,
@@ -275,7 +275,7 @@ class ActivityLogResource extends JsonResource
         return ['custom_time_before', (string) $leadMinutes, 'Minutes'];
     }
 
-    private function taskDetails(iterable $props, callable $toDisplay): ?array
+    private function taskDetails(iterable $props): ?array
     {
         $task = $props['task'] ?? null;
         if (! is_array($task)) {
@@ -291,7 +291,7 @@ class ActivityLogResource extends JsonResource
         return [
             'assigned_to'    => $task['assigned_to'] ?? null,
             'assigned_user'  => $assignee ? ['id' => $assignee->id, 'name' => $assignee->name] : null,
-            'due_at'         => $toDisplay($task['due_at'] ?? null),
+            'due_date'       => $task['due_date'] ?? null,
             'priority'       => $priority,
             'priority_label' => ActivityLog::TASK_PRIORITY_LABELS[$priority] ?? null,
             'status'         => $status,

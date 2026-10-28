@@ -211,8 +211,6 @@ return [
     'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
     'default_enrollment_type' => 'Paid Enrollment',
     'trial_end_date' => 'Trial End Date',
-    'assigned_user' => 'Assigned User',
-    'field_changed' => ':field was changed',
     'field_updated' => ':field was updated to :value',
     'empty_value' => 'empty',
 

@@ -55,6 +55,19 @@ use App\Services\FCH\Common\Notification\Sms\SmsChannel;
 // tests/Unit/Notification/NotificationCatalogueTest::TEXTED_TYPES.
 $bellAndMail = ['database', 'broadcast', 'mail'];
 
+// A Task activity assigned to a staff member: the same bell and email for
+// every record it can be logged on, only the link differs. One key per record
+// because a placeholder value is URL-encoded and so can't carry the path.
+$taskAssigned = fn (string $record, string $url) => [
+    'name' => "Task assigned to a staff member ({$record})",
+    'category' => 'reminder',
+    'icon' => 'ri-task-line',
+    'channels' => $bellAndMail,
+    'title' => 'New task assigned: {{subject}}',
+    'body' => '{{assigned_by}} assigned you a task on {{record}}. Due {{due_date}}, {{priority}} priority, {{status}}.',
+    'url' => $url,
+];
+
 return [
 
     // Channel name => Laravel notification channel (name or class) for the
@@ -659,6 +672,12 @@ return [
         ],
 
         // ── Email only: no login behind the address ─────────────────────
+
+        'activity_log.task_assigned.partner' => $taskAssigned('partner', '/partners/{{id}}'),
+        'activity_log.task_assigned.client' => $taskAssigned('client', '/clients/{{id}}'),
+        'activity_log.task_assigned.lead' => $taskAssigned('lead', '/leads/{{id}}'),
+        'activity_log.task_assigned.funding_application' => $taskAssigned('funding application', '/intake-review/funding-application/{{id}}'),
+        'activity_log.task_assigned.funding_request' => $taskAssigned('funding request', '/intake-review/funding-request/{{id}}'),
 
         'activity_log.email' => [
             'name' => 'Email composed from the activity log',
