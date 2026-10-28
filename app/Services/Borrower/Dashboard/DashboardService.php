@@ -29,7 +29,9 @@ class DashboardService
         $data = [];
 
         // Counts
-        $totalRequested = $borrower->fundingApplications->sum('requested_amount');
+        // A started application counts with its funding request's amount (BUG-136).
+        $borrower->fundingApplications->loadMissing('fundingRequest');
+        $totalRequested = $borrower->fundingApplications->sum(fn ($application) => (float) $application->requestedAmountOrRequest());
         $totalFunded = $borrower->fundingApplications->sum('total_funded_amount');
         $data['states'] = [
             // An application the borrower has started (On Hold) counts too: the
@@ -46,6 +48,7 @@ class DashboardService
         // Latest Funding Applications
         $data['latest_funding_applications'] = DashboardFundingApplicationResource::collection(
             $borrower->fundingApplications()
+                ->with('fundingRequest')
                 ->latest()
                 ->orderByDesc('id')
                 ->limit(5)
