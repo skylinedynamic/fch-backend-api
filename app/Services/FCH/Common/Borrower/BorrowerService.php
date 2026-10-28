@@ -32,6 +32,8 @@ use Illuminate\Validation\ValidationException;
 
 class BorrowerService
 {
+    /** The numbers a client's details carry masked, which revealField() gives in full. */
+    public const REVEALABLE_FIELDS = ['ssn', 'business_ein'];
     use PaginatesApi, UploadsFiles;
 
     public function __construct(
@@ -788,6 +790,28 @@ class BorrowerService
         }
 
         return $borrower->fresh(['bankAccounts']);
+    }
+
+    /**
+     * A client's number that the details only carry masked, in full (BUG-014).
+     * Every reveal is logged on the client - who looked, never the number.
+     *
+     * @param  string  $field  one of REVEALABLE_FIELDS
+     */
+    public function revealField(Borrower $borrower, string $field): ?string
+    {
+        $label = ActivityLog::fieldLabel($field);
+
+        $this->activityLogService->logSystemEvent(
+            Borrower::class,
+            $borrower->id,
+            $borrower->partner_id,
+            $borrower->id,
+            "{$label} Viewed",
+            "The full {$label} was viewed.",
+        );
+
+        return $borrower->{$field} ?: null;
     }
 
     /**

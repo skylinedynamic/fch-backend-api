@@ -243,6 +243,9 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers', [BorrowerController::class, 'store']);
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
+            // The SSN or EIN in full - the details carry both masked (BUG-014).
+            // Anyone who can open the client may reveal; each reveal is logged.
+            Route::post('borrowers/{id}/reveal', [BorrowerController::class, 'reveal']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::get('borrowers/{id}/capital-access-overview', [BorrowerCapitalAccessController::class, 'getOverview']);
             Route::get('borrowers/{id}/capital-access-strategies', [BorrowerCapitalAccessController::class, 'strategiesForClient']);

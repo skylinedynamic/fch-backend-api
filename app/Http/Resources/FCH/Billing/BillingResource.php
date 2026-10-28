@@ -38,6 +38,7 @@ class BillingResource extends JsonResource
         // predict what the cron will actually charge, so the two have to agree.
         // ?: rather than ?? throughout, because a 0.00 column should fall through to
         // the next source rather than being reported as a real $0 charge.
+        // BillingService::billingAmountSql() sorts on this same amount - change both.
         $billingAmount = match ($this->current_phase) {
             Subscription::PHASE_INSTALLMENT => $this->subscription_amount_per_month ?: 0,
             Subscription::PHASE_PLATFORM_FEE => $this->monthly_platform_fee ?: 0,

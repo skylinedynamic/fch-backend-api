@@ -102,6 +102,36 @@ class ChangeRequestService
     /**
      * Update status and optional note of a change request.
      */
+    /**
+     * An SSN or EIN change's two numbers in full, for the reviewer deciding it -
+     * the queue lists them masked (BUG-014). Logged on the client, without them.
+     */
+    public function reveal(int $id): JsonResponse
+    {
+        $changeRequest = BorrowerChangeRequest::findOrFail($id);
+
+        if (!$changeRequest->isMaskedField()) {
+            return ApiResponse::error(__('profile.change_request_nothing_to_reveal'), 422);
+        }
+
+        $label = \App\Models\ActivityLog\ActivityLog::fieldLabel($changeRequest->field_name);
+
+        app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+            Borrower::class,
+            $changeRequest->borrower_id,
+            $changeRequest->partner_id,
+            $changeRequest->borrower_id,
+            "{$label} Viewed",
+            "The full {$label} in a change request was viewed.",
+        );
+
+        return ApiResponse::success([
+            'id' => $changeRequest->id,
+            'old_value' => $changeRequest->old_value,
+            'new_value' => $changeRequest->new_value,
+        ], __('profile.change_request_list_success'));
+    }
+
     public function updateStatus(int $id, array $data): JsonResponse
     {
         $changeRequest = BorrowerChangeRequest::findOrFail($id);

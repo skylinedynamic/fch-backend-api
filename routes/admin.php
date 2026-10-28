@@ -180,6 +180,7 @@ Route::prefix('v1/admin')
         Route::prefix('change-requests')->group(function () {
             Route::post('/', [ChangeRequestController::class, 'index']);
             Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus']);
+            Route::post('/{id}/reveal', [ChangeRequestController::class, 'reveal']);
         });
 
         // 📚 Resources

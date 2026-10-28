@@ -28,6 +28,7 @@ use App\Http\Resources\FCH\Borrower\BorrowerPersonalDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\ArchiveBorrowerRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\RevealBorrowerFieldRequest;
 
 class BorrowerController extends Controller
 {
@@ -127,6 +128,29 @@ class BorrowerController extends Controller
             throw $e;
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
+        }
+    }
+
+    /**
+     * One of the client's masked numbers in full (BUG-014): `field` names it.
+     */
+    public function reveal(RevealBorrowerFieldRequest $request, string $id)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails((int) $id);
+
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            $field = $request->validated('field');
+
+            return ApiResponse::success(
+                ['field' => $field, 'value' => $this->borrowerService->revealField($borrower, $field)],
+                __('borrower.retrieved_details')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
     }
 
