@@ -782,6 +782,38 @@ class FundingApplication extends Model
         return $this->belongsTo(FundingRequest::class, 'funding_request_id');
     }
 
+    /*
+    | Until the client reaches the Funding step, a started (On Hold) application
+    | has no amount, type or purpose of its own. The funding request it was
+    | started from already has them, so those are shown instead (BUG-136).
+    | For display only: the stored columns are not changed.
+    */
+
+    public function requestedAmountOrRequest(): mixed
+    {
+        return $this->ownOrRequest($this->requested_amount, 'requested_amount');
+    }
+
+    public function fundingTypeOrRequest(): ?string
+    {
+        return $this->ownOrRequest($this->preferred_funding_type, 'funding_type');
+    }
+
+    public function purposeOfFundsOrRequest(): ?string
+    {
+        return $this->ownOrRequest($this->purpose_of_funds, 'use_of_funds');
+    }
+
+    private function ownOrRequest(mixed $own, string $requestField): mixed
+    {
+        if ($own !== null && $own !== '') {
+            return $own;
+        }
+
+        $fromRequest = $this->funding_request_id ? $this->fundingRequest?->{$requestField} : null;
+
+        return $fromRequest === '' ? null : $fromRequest;
+    }
 
 
     public function downloadHistories()
