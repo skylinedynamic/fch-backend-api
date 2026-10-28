@@ -83,6 +83,13 @@ class UpdateActivityLogRequest extends BaseApiRequest
         return $this->activityLog()?->properties['task']['due_date'] ?? null;
     }
 
+    protected function savedTaskAssigneeId(): ?int
+    {
+        $id = $this->activityLog()?->properties['task']['assigned_to'] ?? null;
+
+        return $id !== null ? (int) $id : null;
+    }
+
     /**
      * The owner of the record the activity is logged on; on a Partner's own
      * page that is the partner itself, whose tasks go to the host's staff.
