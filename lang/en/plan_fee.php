@@ -17,4 +17,7 @@ return [
 
     'seats_integer' => 'The number of free users must be a whole number.',
     'seats_min' => 'The number of free users cannot be negative.',
+
+    // The values passed the check before the confirmation (nothing saved yet).
+    'values_valid' => 'The values are valid.',
 ];

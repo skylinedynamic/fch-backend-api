@@ -19,6 +19,8 @@ return [
     'no_api_assigned' => 'No Verification Api Assigned',
     'verified' => 'Verified',
     'verification_failed' => 'Verification failed.',
+    'rejected' => 'Rejected.',
+    'rejected_with_reason' => 'Rejected: :reason',
     'no_matching_business_record' => 'No matching business record found.',
     'verification_service_unavailable' => 'The verification service could not be reached. The task was left unchanged; please try again later.',
     'verification_status_update' => 'Verification Status Update',

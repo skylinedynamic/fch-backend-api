@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Partner\Partner;
+use App\Support\Branding\PartnerDomain;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -214,24 +215,9 @@ if (!function_exists('getPartnerIdFromOrigin')) {
         // Resolve domain from Origin or Host fallback
         $domain = ($origin && parse_url($origin, PHP_URL_HOST)) ? parse_url($origin, PHP_URL_HOST) : $request->getHost();
 
-        $domain = strtolower(trim($domain));
-        $domain = preg_replace('/^www\./', '', $domain);
-
-        // Cache the lookup for performance
-        return Cache::remember("domain_partner_id:{$domain}", 0, function () use ($domain) {
-            $partner = Partner::where('partner_domain', $domain)
-                ->orWhere('partner_subdomain', $domain)
-                ->orWhere('borrower_domain', $domain)
-                ->first();
-
-            if ($partner) {
-                return $partner->id;
-            }
-
-            // Fallback to Host ID if no domain match (represents general/default context)
-            $host = Partner::where('is_host', true)->first();
-            return $host ? $host->id : null;
-        });
+        // Not cached. This used Cache::remember() with a TTL of 0 on the branding
+        // lookup's own key, which only deleted that key on every call (BUG-118).
+        return PartnerDomain::lookup($domain);
     }
 }
 
@@ -492,6 +478,24 @@ if (!function_exists('toDateOnly')) {
                 'error' => $e->getMessage(),
             ]);
             return null;
+        }
+    }
+}
+
+if (!function_exists('todayInRequestTimezone')) {
+    /**
+     * Today's date (Y-m-d) in the caller's zone - the X-Timezone header the
+     * portals send, else the app's. For a date-only column such as a funded or
+     * payout date: 03:30 on 21 Oct in Dhaka is 21 Oct, not the UTC day (BUG-120).
+     */
+    function todayInRequestTimezone(): string
+    {
+        $timezone = request()->header('x-timezone') ?: config('app.timezone', 'UTC');
+
+        try {
+            return Carbon::now($timezone)->toDateString();
+        } catch (Exception $e) {
+            return Carbon::now(config('app.timezone', 'UTC'))->toDateString();
         }
     }
 }

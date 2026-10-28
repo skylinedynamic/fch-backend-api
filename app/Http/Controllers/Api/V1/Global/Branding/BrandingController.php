@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Support\Branding\BrandVars;
+use App\Support\Branding\PartnerDomain;
 use App\Support\Branding\PortalMeta;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -58,23 +59,24 @@ class BrandingController extends Controller
      */
     private function resolvePartner(Request $request): ?Partner
     {
-        $domain = preg_replace('/^www\./', '', strtolower(trim($this->requestedDomain($request))));
+        $domain = $this->requestedDomain($request);
+        $key = PartnerDomain::partnerIdKey($domain);
 
         // Cached: this runs on every cold page load, including logged-out ones.
-        $partnerId = Cache::remember("domain_partner_id:{$domain}", now()->addHour(), function () use ($domain) {
-            $partner = Partner::where('partner_domain', $domain)
-                ->orWhere('partner_subdomain', $domain)
-                ->orWhere('borrower_domain', $domain)
-                ->first();
+        $partnerId = Cache::remember($key, now()->addHour(), fn () => PartnerDomain::lookup($domain));
+        $partner = $partnerId ? Partner::find($partnerId) : null;
 
-            return $partner?->id ?? Partner::where('is_host', true)->value('id');
-        });
-
-        if (!$partnerId) {
-            return null;
+        // The cached partner is gone (deleted since): look the domain up again
+        // rather than serve an empty brand until the cache expires (BUG-118).
+        if (!$partner && $partnerId) {
+            Cache::forget($key);
+            $partnerId = Cache::remember($key, now()->addHour(), fn () => PartnerDomain::lookup($domain));
+            $partner = $partnerId ? Partner::find($partnerId) : null;
         }
 
-        $partner = Partner::find($partnerId);
+        if (!$partner) {
+            return null;
+        }
 
         // Same rule the rest of the app uses: only a host or a white-label tenant
         // is branded as itself. Everyone else is branded as the host.
@@ -174,9 +176,9 @@ class BrandingController extends Controller
             return $portal;
         }
 
-        $domain = preg_replace('/^www\./', '', strtolower(trim($this->requestedDomain($request))));
+        $domain = PartnerDomain::normalise($this->requestedDomain($request));
 
-        return Cache::remember("domain_portal:{$domain}", now()->addHour(), function () use ($domain) {
+        return Cache::remember(PartnerDomain::portalKey($domain), now()->addHour(), function () use ($domain) {
             if (Partner::where('borrower_domain', $domain)->exists()) {
                 return PortalMeta::PORTAL_BORROWER;
             }

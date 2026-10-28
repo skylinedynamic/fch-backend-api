@@ -21,6 +21,13 @@ return [
     'funding_application_not_found' => 'Funding application not found.',
     'download_password_in_body' => 'Send the download password in the request body, not in the URL.',
     'status_updated' => 'Status updated successfully.',
+
+    // Activity log of a funding application's status change
+    'activity_note_updated_title' => 'Funding Application Note Updated',
+    'activity_note_updated_description' => 'Status note was updated.',
+    'activity_status_changed_title' => 'Funding Application Status Changed: :from → :to',
+    'activity_status_changed_description' => 'Status updated to: :to',
+    'activity_status_note' => 'Note: :note',
     'audit_history_retrieved' => 'Audit history retrieved successfully.',
     
     // Controller Messages

@@ -29,10 +29,15 @@ class DashboardService
         $data = [];
 
         // Counts
-        // A started application counts with its funding request's amount (BUG-136).
+        // Requested: every funding application - a started one with its funding
+        // request's amount (BUG-136). Funded: only applications that are Closed
+        // (Completed) - one still in progress may show a funded figure that has
+        // not been paid out yet (BUG-069).
         $borrower->fundingApplications->loadMissing('fundingRequest');
         $totalRequested = $borrower->fundingApplications->sum(fn ($application) => (float) $application->requestedAmountOrRequest());
-        $totalFunded = $borrower->fundingApplications->sum('total_funded_amount');
+        $totalFunded = $borrower->fundingApplications
+            ->where('status', \App\Models\Borrower\FundingApplication::CLOSED_COMPLETED)
+            ->sum('total_funded_amount');
         $data['states'] = [
             // An application the borrower has started (On Hold) counts too: the
             // funding request already says it was started (BUG-027).

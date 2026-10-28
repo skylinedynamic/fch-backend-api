@@ -4,6 +4,7 @@ namespace App\Services\GlobalPayment;
 
 use App\Mail\Payment\CardReauthorizationRequiredMail;
 use App\Mail\Payment\PaymentApprovedMail;
+use App\Mail\Payment\AutoChargeStoppedMail;
 use App\Mail\Payment\PaymentFailedMail;
 use App\Mail\Payment\PaymentRejectedMail;
 use App\Mail\Payment\PaymentSubmittedMail;
@@ -147,6 +148,78 @@ class PaymentMailService
                 'error' => $e->getMessage(),
             ]));
         }
+    }
+
+    /**
+     * Tell the payer the scheduler has stopped auto-charging an invoice after
+     * too many failed attempts (BUG-005), so they must pay it themselves - and,
+     * when the payer is a client, tell the client's partner too. Bell and
+     * email. The caller sends it once per invoice.
+     */
+    public function sendAutoChargeStopped(Invoice $invoice, int $attempts): void
+    {
+        $payer = $invoice->entity;
+
+        if (!$payer) {
+            return;
+        }
+
+        $data = [
+            'amount' => $invoice->payment_amount,
+            'currency' => $invoice->currency ?? 'USD',
+            'invoice_id' => $invoice->invoice_id ?: $invoice->id,
+            'description' => $this->resolveDescription($invoice, __('payment.program_payment')),
+            'attempts' => $attempts,
+        ];
+
+        try {
+            $sendingPartnerId = $this->resolveSendingPartnerId($payer);
+            $payerEmail = $payer->email ?? null;
+
+            $this->notifier()->send(
+                $payer instanceof Borrower ? 'borrower.payment.auto_charge_stopped' : 'partner.payment.auto_charge_stopped',
+                $payer,
+                ['invoice' => $data['invoice_id']],
+                mail: $payerEmail ? (new AutoChargeStoppedMail($data + [
+                    'portal_url' => $this->resolveBillingUrl($payer, $sendingPartnerId),
+                    'user_name' => $payer->full_name ?? $payer->company_name ?? __('payment.valued_customer'),
+                ], $sendingPartnerId))->to($payerEmail) : null
+            );
+
+            if ($payer instanceof Borrower) {
+                $this->tellClientsPartnerAutoChargeStopped($invoice, $payer, $data);
+            }
+        } catch (\Exception $e) {
+            Log::error(__('payment.log_mail_send_error', [
+                'mail' => 'AutoChargeStoppedMail',
+                'error' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    /** The client's partner is written to by the host, with a link to the invoice in their portal. */
+    protected function tellClientsPartnerAutoChargeStopped(Invoice $invoice, Borrower $client, array $data): void
+    {
+        $partner = $client->partner_id ? Partner::find($client->partner_id) : null;
+
+        if (!$partner) {
+            return;
+        }
+
+        $clientName = personName($client->first_name ?? null, $client->middle_name ?? null, $client->last_name ?? null);
+        $hostId = $this->resolveSendingPartnerId($partner);
+
+        $this->notifier()->send(
+            'partner.client_auto_charge_stopped',
+            $partner,
+            ['invoice' => $data['invoice_id'], 'client' => $clientName],
+            mail: $partner->email ? (new AutoChargeStoppedMail($data + [
+                'for_partner' => true,
+                'client_name' => $clientName,
+                'portal_url' => concatUrl(getPartnerDomain($partner->id), 'invoices/' . $invoice->id, config('app.frontend_partner_url')),
+                'user_name' => $partner->full_name ?? $partner->company_name ?? __('payment.valued_customer'),
+            ], $hostId))->to($partner->email) : null
+        );
     }
 
     /**

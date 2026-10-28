@@ -152,6 +152,24 @@ class HelpersTest extends TestCase
         $this->assertNull(toTimezone(null, 'UTC'));
     }
 
+    /**
+     * BUG-120: a date-only column (funded date, payout date) is the day it was
+     * in the caller's zone - 03:30 on 21 Oct in Dhaka is 20 Oct 21:30 UTC.
+     */
+    #[Test]
+    public function today_is_the_day_in_the_callers_timezone_header(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-20 21:30:00', 'UTC'));
+
+        $this->assertSame('2026-10-20', todayInRequestTimezone());
+
+        $this->app['request']->headers->set('x-timezone', 'Asia/Dhaka');
+        $this->assertSame('2026-10-21', todayInRequestTimezone());
+
+        $this->app['request']->headers->set('x-timezone', 'Not/AZone');
+        $this->assertSame('2026-10-20', todayInRequestTimezone());
+    }
+
     #[Test]
     public function an_instant_defaults_to_the_callers_timezone_header(): void
     {
