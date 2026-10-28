@@ -3,13 +3,12 @@
 namespace App\Http\Resources\FCH\Common\Setting;
 
 use App\Models\Setting\MailConfiguration;
-use App\Services\FCH\Common\Setting\MailConfigurationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One mail provider's settings as the settings screen sees them. Secrets are
- * only ever reported as set (masked) or not set.
+ * One mail provider's settings as the settings screen sees them. A secret is
+ * never returned - only whether one is stored, as has_<field>.
  *
  * @mixin MailConfiguration
  */
@@ -26,10 +25,11 @@ class MailConfigurationResource extends JsonResource
         ];
 
         foreach ($this->fields() as $key => $field) {
-            $value = $this->credential($key);
-            $data[$key] = !empty($field['secret'])
-                ? ($value !== null ? MailConfigurationService::MASK : null)
-                : $value;
+            if (! empty($field['secret'])) {
+                $data['has_'.$key] = $this->credential($key) !== null;
+            } else {
+                $data[$key] = $this->credential($key);
+            }
         }
 
         $verified = $this->isVerified();

@@ -19,8 +19,8 @@ use Tests\TestCase;
  */
 class FallbackMailConfigurationTest extends TestCase
 {
-    use RefreshDatabase;
     use MailConfigurationFixtures;
+    use RefreshDatabase;
 
     private const URL = '/api/v1/common/mail-configurations/fallback';
 
@@ -66,7 +66,7 @@ class FallbackMailConfigurationTest extends TestCase
         $code = null;
 
         Mail::fake();
-        $this->postJson(self::URL . "/{$config->id}/send-code")->assertOk();
+        $this->postJson(self::URL."/{$config->id}/send-code")->assertOk();
         Mail::assertSent(MailConfigurationVerificationMail::class, function ($mail) use (&$code) {
             $code = $mail->code;
 
@@ -84,7 +84,8 @@ class FallbackMailConfigurationTest extends TestCase
         $this->postJson(self::URL, $this->smtpPayload())
             ->assertOk()
             ->assertJsonPath('data.provider', 'smtp')
-            ->assertJsonPath('data.smtp_password', '••••••••')
+            ->assertJsonPath('data.has_smtp_password', true)
+            ->assertJsonMissingPath('data.smtp_password')
             ->assertJsonPath('data.is_verified', false);
 
         $fallback = MailConfiguration::whereNull('partner_id')->sole();
@@ -168,7 +169,7 @@ class FallbackMailConfigurationTest extends TestCase
         $smtp = $this->smtpConfig(null);
 
         Mail::fake();
-        $this->postJson(self::URL . "/{$smtp->id}/send-code")->assertOk();
+        $this->postJson(self::URL."/{$smtp->id}/send-code")->assertOk();
         $code = null;
         Mail::assertSent(MailConfigurationVerificationMail::class, function ($mail) use (&$code, $owner) {
             $code = $mail->code;
@@ -177,7 +178,7 @@ class FallbackMailConfigurationTest extends TestCase
         });
 
         // The first verified fallback provider becomes the default.
-        $this->postJson(self::URL . "/{$smtp->id}/verify", ['code' => $code])
+        $this->postJson(self::URL."/{$smtp->id}/verify", ['code' => $code])
             ->assertOk()
             ->assertJsonPath('data.is_verified', true)
             ->assertJsonPath('data.is_default', true);
@@ -190,12 +191,12 @@ class FallbackMailConfigurationTest extends TestCase
         $smtp = $this->markVerified($this->smtpConfig(null, ['is_default' => true]));
         $ses = $this->sesConfig(null);
 
-        $this->postJson(self::URL . "/{$ses->id}/verify", ['code' => $this->codeFor($ses)])
+        $this->postJson(self::URL."/{$ses->id}/verify", ['code' => $this->codeFor($ses)])
             ->assertOk()
             ->assertJsonPath('data.is_verified', true)
             ->assertJsonPath('data.is_default', false);
 
-        $this->postJson(self::URL . "/{$ses->id}/default")
+        $this->postJson(self::URL."/{$ses->id}/default")
             ->assertOk()
             ->assertJsonPath('data.is_default', true);
 
@@ -209,7 +210,7 @@ class FallbackMailConfigurationTest extends TestCase
         $smtp = $this->markVerified($this->smtpConfig(null, ['is_default' => true]));
         $ses = $this->sesConfig(null);
 
-        $this->postJson(self::URL . "/{$ses->id}/default")->assertStatus(422)->assertJsonValidationErrors('id');
+        $this->postJson(self::URL."/{$ses->id}/default")->assertStatus(422)->assertJsonValidationErrors('id');
 
         $this->assertTrue($smtp->refresh()->is_default);
     }
@@ -220,9 +221,9 @@ class FallbackMailConfigurationTest extends TestCase
         $this->actingAsUser($this->owner($this->host));
         $own = $this->smtpConfig($this->host);
 
-        $this->postJson(self::URL . "/{$own->id}/send-code")->assertNotFound();
-        $this->postJson(self::URL . "/{$own->id}/verify", ['code' => '123456'])->assertNotFound();
-        $this->postJson(self::URL . "/{$own->id}/default")->assertNotFound();
+        $this->postJson(self::URL."/{$own->id}/send-code")->assertNotFound();
+        $this->postJson(self::URL."/{$own->id}/verify", ['code' => '123456'])->assertNotFound();
+        $this->postJson(self::URL."/{$own->id}/default")->assertNotFound();
     }
 
     #[Test]
@@ -244,7 +245,7 @@ class FallbackMailConfigurationTest extends TestCase
             'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
             'company_name' => 'Certified Co',
             'full_name' => 'Certified Owner',
-            'email' => 'certified-' . uniqid() . '@example.test',
+            'email' => 'certified-'.uniqid().'@example.test',
         ]);
         $fallback = $this->smtpConfig(null);
 
@@ -257,9 +258,9 @@ class FallbackMailConfigurationTest extends TestCase
 
             $this->getJson(self::URL)->assertForbidden();
             $this->postJson(self::URL, $this->smtpPayload())->assertForbidden();
-            $this->postJson(self::URL . "/{$fallback->id}/send-code")->assertForbidden();
-            $this->postJson(self::URL . "/{$fallback->id}/verify", ['code' => '123456'])->assertForbidden();
-            $this->postJson(self::URL . "/{$fallback->id}/default")->assertForbidden();
+            $this->postJson(self::URL."/{$fallback->id}/send-code")->assertForbidden();
+            $this->postJson(self::URL."/{$fallback->id}/verify", ['code' => '123456'])->assertForbidden();
+            $this->postJson(self::URL."/{$fallback->id}/default")->assertForbidden();
         }
 
         $this->assertSame('smtp.fallback.test', MailConfiguration::whereNull('partner_id')->sole()->credentials['smtp_host']);

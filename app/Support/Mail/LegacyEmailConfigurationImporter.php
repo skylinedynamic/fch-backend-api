@@ -29,7 +29,7 @@ class LegacyEmailConfigurationImporter
 
     public function run(): void
     {
-        if (!Schema::hasTable('email_configurations')) {
+        if (! Schema::hasTable('email_configurations')) {
             return;
         }
 
@@ -46,7 +46,7 @@ class LegacyEmailConfigurationImporter
             }
 
             $partnerId = (int) $partnerKey;
-            if (!Partner::whereKey($partnerId)->exists()) {
+            if (! Partner::whereKey($partnerId)->exists()) {
                 continue;
             }
 
@@ -84,7 +84,7 @@ class LegacyEmailConfigurationImporter
                 'from_address' => $this->text($values['from_address'] ?? null),
                 'bcc_emails' => $this->text($values['bcc_emails'] ?? null),
                 'credentials' => $credentials,
-                'is_default' => !$hasDefault && $enabled && $provider === $active,
+                'is_default' => ! $hasDefault && $enabled && $provider === $active,
             ]);
         }
     }
@@ -121,7 +121,7 @@ class LegacyEmailConfigurationImporter
                 'is_default' => true,
             ]);
 
-            if (!$fallback->isUsable()) {
+            if (! $fallback->isUsable()) {
                 continue;
             }
 
@@ -155,7 +155,8 @@ class LegacyEmailConfigurationImporter
 
             $credentials[$key] = $value;
 
-            if (!empty($field['required']) && empty($field['secret']) && $value === null) {
+            // A missing password can be typed in later; any other required field blank means not set up.
+            if (! empty($field['required']) && ($field['type'] ?? null) !== 'password' && $value === null) {
                 $filledRequired = false;
             }
         }
