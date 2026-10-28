@@ -190,6 +190,30 @@ class PartnerAdminApiTest extends TestCase
         ]))->assertOk()->assertJsonPath('data.full_name', 'New Name');
     }
 
+    /**
+     * R2 BUG-060: an optional field sent empty is cleared. (The admin form used
+     * to leave an emptied field out of the request, so the old value stayed;
+     * this pins the API side the form now relies on.)
+     */
+    #[Test]
+    public function an_optional_partner_field_sent_empty_is_cleared(): void
+    {
+        $partner = $this->makeCertifiedPartner(['address_line_1' => '1 Old St', 'contact_person' => 'Old Contact']);
+        $this->makePartnerAdmin($partner);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->newPartnerPayload([
+            'company_name' => $partner->company_name,
+            'email' => $partner->email,
+            'address_line_1' => '',
+            'contact_person' => '',
+        ]))->assertOk();
+
+        $partner->refresh();
+        $this->assertNull($partner->address_line_1);
+        $this->assertNull($partner->contact_person);
+    }
+
     /** A borrower's login that has been deleted, still holding its email. */
     private function deletedBorrowerLogin(string $email): User
     {

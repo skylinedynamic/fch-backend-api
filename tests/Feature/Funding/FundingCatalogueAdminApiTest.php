@@ -580,6 +580,75 @@ class FundingCatalogueAdminApiTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.min_fico']);
     }
 
+    /**
+     * Defect: R2 BUG-011 - a Min FICO of 851 was saved from Underwriting Logic.
+     * The per-category save (what the grid's Update button calls) must refuse
+     * a score outside 300-850 like the other two saves.
+     */
+    #[Test]
+    public function the_per_category_save_also_refuses_a_min_fico_outside_the_scale(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'Scored']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $category = $data['funding_type_id'];
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category)];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        foreach ([851, 299] as $bad) {
+            $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/category/{$category}/visibility", [
+                'lender_visibilities' => [$this->visibility($lender->id, $category, ['min_fico' => $bad])],
+            ])->assertStatus(422)->assertJsonValidationErrors([
+                'lender_visibilities.0.min_fico' => __('common.fico_score_invalid', ['min' => 300, 'max' => 850]),
+            ]);
+        }
+
+        $this->assertSame(650, (int) FundingSequencing::find($id)->lenderVisibilities()->first()->min_fico);
+    }
+
+    /**
+     * Defect: R2 BUG-012 - Texas could be saved as both an allowed and a
+     * restricted state, leaving the rule for a Texas borrower undefined. The
+     * same applies to industries.
+     */
+    #[Test]
+    public function a_state_or_industry_cannot_be_both_allowed_and_restricted(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'States']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $category = $data['funding_type_id'];
+
+        $overlap = $this->visibility($lender->id, $category, [
+            'allowed_states' => ['TX', 'CA'],
+            'restricted_states' => ['TX'],
+            'allowed_industries' => ['Retail'],
+            'restricted_industries' => ['Retail', 'Gaming'],
+        ]);
+
+        $data['lender_visibilities'] = [$overlap];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'lender_visibilities.0.restricted_states' => __('funding_sequencing.state_allowed_and_restricted', ['values' => 'TX']),
+                'lender_visibilities.0.restricted_industries' => __('funding_sequencing.industry_allowed_and_restricted', ['values' => 'Retail']),
+            ]);
+
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category, ['allowed_states' => ['CA'], 'restricted_states' => ['TX']])];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        $this->putJson("/api/v1/admin/funding-sequencings/{$id}", array_merge($data, ['lender_visibilities' => [$overlap]]))
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_states']);
+        $this->putJson("/api/v1/admin/funding-sequencings/{$id}/visibility", ['lender_visibilities' => [$overlap]])
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_states']);
+        $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/visibility", ['lender_visibilities' => [$overlap]])
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_industries']);
+        $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/category/{$category}/visibility", ['lender_visibilities' => [$overlap]])
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_states']);
+
+        $this->assertSame(['TX'], FundingSequencing::find($id)->lenderVisibilities()->first()->restricted_states);
+    }
+
     #[Test]
     public function a_lenders_visibility_rules_are_replaced_one_lender_at_a_time(): void
     {

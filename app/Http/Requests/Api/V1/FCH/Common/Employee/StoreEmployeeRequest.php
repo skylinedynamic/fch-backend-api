@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Employee;
 
 use App\Helpers\ApiResponse;
+use App\Models\Employee\Employee;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
@@ -29,7 +30,9 @@ class StoreEmployeeRequest extends BaseApiRequest
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
-            'job_status'     => ['nullable', 'string', 'max:255'],
+            // One of the three statuses - a free string let "[object Object]" be
+            // stored, which the list showed and no filter matched (R2 BUG-037).
+            'job_status'     => ['nullable', 'string', Rule::in(Employee::STATUSES)],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'emergency_phone' => ['nullable', 'string', new UsPhoneNumber()],
@@ -69,6 +72,7 @@ class StoreEmployeeRequest extends BaseApiRequest
     {
         return [
             'first_name.required' => __('employee.first_name_required'),
+            'job_status.in' => __('employee.job_status_in'),
             'phone_number_1.unique' => __('employee.phone_unique'),
             'email.required' => __('employee.email_required'),
             'email.email' => __('employee.email_valid'),

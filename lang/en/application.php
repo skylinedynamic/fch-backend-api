@@ -62,6 +62,8 @@ return [
     'error_processing_payout' => 'Failed to process commission payout.',
 
     // Funding Application edit lock & re-signature
+    'status_changed_elsewhere' => 'This application is already ":status" - it was changed by someone else since you opened it. Reload to see the latest.',
+    'funding_application_changed' => 'This application was changed in another tab or by someone else since you opened it. Reload to see the latest before saving.',
     'funding_application_locked' => 'This application can no longer be edited because it is ":status". Contact your funding advisor if something needs to change.',
     'funding_application_requires_resign' => 'Your changes were saved, but they replaced information you had already signed for. Please review and sign the application again to put it back into review.',
     'funding_application_partner_edit_requires_resign' => 'Your changes were saved. Because the borrower had already signed this application, their signature has been cleared and they must sign again before it returns to review.',

@@ -34,6 +34,8 @@ return [
     'id_exists' => 'The selected ID does not exist.',
     'status_required' => 'The status field is required.',
     'status_in' => 'The status must be Pending, Approved, or Rejected.',
+    'status_changed_elsewhere' => 'This request is already ":status" - it was changed by someone else since you opened it. Reload to see the latest.',
+    'lender_inactive' => 'This lender is inactive and cannot be assigned.',
 
     'logs' => [
         'dispatched_to_borrower' => 'FundingRequest #:id: Dispatched :mailable to borrower (:email)',

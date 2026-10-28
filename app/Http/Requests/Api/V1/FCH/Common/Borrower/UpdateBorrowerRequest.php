@@ -104,6 +104,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'current_tier'     => ['nullable'],
             'assign_id'        => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner($borrower), $borrower?->assign_id, __('borrower_validation.assign_id_not_in_team'))],
             'notes'            => ['nullable', 'string'],
+            // The client_info_version the form loaded - a save from an older copy is refused (R2 BUG-079).
+            'expected_version' => ['nullable', 'string', 'max:64'],
             'additional_data'  => ['nullable', 'json'],
             'fico_score'       => ['nullable', new FicoScore()],
             'paydex_score'     => ['nullable', new BusinessCreditScore()],

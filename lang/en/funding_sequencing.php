@@ -78,6 +78,8 @@ return [
     'delete_failed'              => 'Could not delete the selected funding sequence(s). Please try again.',
     'deletable_check_failed'     => 'Could not check whether these funding sequences can be deleted.',
     'visibility_deleted'         => 'Visibility logic removed successfully.',
+    'state_allowed_and_restricted' => 'A state cannot be both allowed and restricted: :values.',
+    'industry_allowed_and_restricted' => 'An industry cannot be both allowed and restricted: :values.',
     'not_found'                  => 'Funding sequencing not found.',
     'group_created'              => 'Funding group created successfully.',
     'group_updated'              => 'Funding group updated successfully.',

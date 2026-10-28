@@ -21,7 +21,9 @@ return [
     'fetch_financial_info' => 'Fetch Financial Information',
     'fetch_financial_info_failed' => 'Failed to fetch financial information. Please try again.',
 
+    'changed_elsewhere' => 'This client was changed by someone else since you opened it. Reload to see the latest before saving.',
     'funding_request_not_found' => 'Funding request information not found',
+    'funding_request_not_approved' => 'No funding application can be started for this request: it has not been approved.',
     'fetch_funding_request' => 'Fetch Funding Request',
     'fetch_funding_request_failed' => 'Failed to fetch funding request information. Please try again.',
 
@@ -133,6 +135,7 @@ return [
     'tiers_fetch_failed' => 'Failed to retrieve tiers.',
     'upload_failed' => 'Failed to upload document.',
     'document_delete_failed' => 'Failed to delete document.',
+    'document_in_use' => 'This document is accepted and needed by funding request :requests. Upload a replacement first, then remove this one.',
     'document_not_found' => 'Document not found.',
     'document_status_updated' => 'Document status updated successfully.',
     'document_reviewed_mail' => [

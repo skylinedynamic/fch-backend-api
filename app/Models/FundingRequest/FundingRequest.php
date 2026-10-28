@@ -5,7 +5,9 @@ namespace App\Models\FundingRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
+use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
+use App\Models\Lender\LenderProductCategory;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -146,13 +148,16 @@ class FundingRequest extends Model
             return [];
         }
 
-        $category = \App\Models\Lender\LenderProductCategory::where('name', $this->funding_type)->first();
+        $category = LenderProductCategory::where('name', $this->funding_type)->first();
         if (!$category) {
             return [];
         }
 
-        $visibilities = \App\Models\Funding\LenderVisibility::with('lender')
+        // An inactive lender is not offered: not matched, so not in the
+        // Assign list or the lender filter built from it (R2 BUG-027).
+        $visibilities = LenderVisibility::with('lender')
             ->where('lender_product_category_id', $category->id)
+            ->whereHas('lender', fn ($q) => $q->where('status', Lender::STATUS_ACTIVE))
             ->get()
             ->unique('lender_id');
 

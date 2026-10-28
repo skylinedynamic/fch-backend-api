@@ -2,6 +2,9 @@
 
 namespace App\Services\Borrower\Document;
 
+use App\Exceptions\DocumentInUseException;
+use App\Models\Borrower\FundingApplication;
+use App\Models\FundingRequest\FundingRequest;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
@@ -166,11 +169,15 @@ class DocumentService
                 return false;
             }
 
+            $this->assertNotNeededByOpenRequest($doc);
+
             $doc->deleted_by = Auth::id();
             $doc->save();
             $doc->delete();
 
             return true;
+        } catch (DocumentInUseException $e) {
+            throw $e;
         } catch (\Throwable $e) {
 
             Log::error('Document removal failed', [
@@ -180,6 +187,59 @@ class DocumentService
             ]);
 
             throw new \RuntimeException(__('borrower.document_delete_failed'));
+        }
+    }
+
+    /**
+     * Refuse to remove an Accepted document that is the borrower's only usable
+     * copy of a type an open funding request or unfinished application needs
+     * (R2 BUG-055): the option would then report it missing. A replacement can
+     * be uploaded first, after which the old copy is free to go.
+     *
+     * Open: a request that is Pending, In Progress or Approved, or any request
+     * whose application is not yet Funded, Closed (Completed) or Denied.
+     */
+    private function assertNotNeededByOpenRequest(BorrowerDocument $doc): void
+    {
+        if ($doc->status !== BorrowerDocument::STATUS_ACCEPTED || !$doc->document_type_id) {
+            return;
+        }
+
+        $hasAnotherCopy = BorrowerDocument::query()
+            ->ownedBy($doc->borrower_id)
+            ->where('document_type_id', $doc->document_type_id)
+            ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
+            ->whereKeyNot($doc->id)
+            ->exists();
+
+        if ($hasAnotherCopy) {
+            return;
+        }
+
+        $finished = [FundingApplication::FUNDED, FundingApplication::CLOSED_COMPLETED, FundingApplication::DENIED];
+        $unfinishedApplicationRequestIds = FundingApplication::where('borrower_id', $doc->borrower_id)
+            ->whereNotNull('funding_request_id')
+            ->get(['funding_request_id', 'status'])
+            ->reject(fn ($application) => in_array(FundingApplication::canonicalStatus($application->status), $finished, true))
+            ->pluck('funding_request_id');
+
+        $needingIds = FundingRequest::where('borrower_id', $doc->borrower_id)
+            ->where(fn ($q) => $q
+                ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_IN_PROGRESS, FundingRequest::STATUS_APPROVED])
+                ->orWhereIn('id', $unfinishedApplicationRequestIds))
+            ->with('fundingSequence:id,require_documents_uploaded,allowed_documents')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn ($request) => $request->fundingSequence?->require_documents_uploaded
+                && in_array((int) $doc->document_type_id, array_map('intval', (array) $request->fundingSequence->allowed_documents), true))
+            ->pluck('id')
+            ->all();
+
+        if ($needingIds !== []) {
+            throw new DocumentInUseException(
+                __('borrower.document_in_use', ['requests' => implode(', ', array_map(fn ($id) => "#{$id}", $needingIds))]),
+                $needingIds
+            );
         }
     }
 

@@ -65,6 +65,7 @@ class BorrowerCommonRouteAccessTest extends TestCase
             'book appointment' => ['POST', '/api/v1/common/appointments'],
             'move appointment' => ['PUT', '/api/v1/common/appointments/999999'],
             'cancel appointment' => ['DELETE', '/api/v1/common/appointments/999999'],
+            'cancel an appointment booked with me' => ['POST', '/api/v1/common/appointments/999999/cancel'],
             'availability' => ['POST', '/api/v1/common/appointments/check-availability'],
             'bookable people' => ['POST', '/api/v1/common/appointments/fetch-selectable-users'],
             'refresh user' => ['GET', '/api/v1/common/refresh-user'],

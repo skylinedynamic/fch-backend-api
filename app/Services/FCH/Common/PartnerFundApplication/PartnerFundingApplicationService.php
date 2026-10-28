@@ -237,6 +237,9 @@ class PartnerFundingApplicationService
                     throw $e;
                 }
 
+                // Not from a tab showing an older copy (R2 BUG-041).
+                $this->editGuard->assertCurrent($existing, request()->input('expected_version'));
+
                 $data = $decision['data'];
                 $changedFields = $decision['changed_fields'];
                 $changes = $decision['changes'];

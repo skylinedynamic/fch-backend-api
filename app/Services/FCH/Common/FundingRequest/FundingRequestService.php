@@ -17,6 +17,7 @@ use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
@@ -206,11 +207,47 @@ class FundingRequestService
     {
         $authUser = Auth::user();
 
-        $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
-            ->where('id', $data['id'])
-            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
-                $q->where('partner_id', $authUser->partner_id);
-            })->first();
+        // The read, the stale check and the write happen under a row lock, so
+        // two decisions on the same request are taken one after the other and
+        // the second sees what the first did (R2 BUG-058).
+        [$review, $oldStatus] = DB::transaction(function () use ($data, $authUser) {
+            $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
+                ->where('id', $data['id'])
+                ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
+                    $q->where('partner_id', $authUser->partner_id);
+                })
+                ->lockForUpdate()
+                ->first();
+
+            if (!$review) {
+                return [null, null];
+            }
+
+            $oldStatus = $review->status;
+
+            // Decided on a page that still showed an older status - e.g. a tab
+            // left on Pending after the request was approved elsewhere. Nothing
+            // is written and nobody is notified.
+            if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
+                return [$review, $oldStatus];
+            }
+
+            $review->status = $data['status'];
+
+            if ($data['status'] === FundingRequest::STATUS_APPROVED) {
+                $review->approved_at = Carbon::now();
+                $review->approved_by = $authUser?->id;
+                $review->reject_reason = null;
+            } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
+                $review->reject_reason = $data['reject_reason'] ?? null;
+                $review->approved_at = Carbon::now();
+                $review->approved_by = $authUser?->id;
+            }
+
+            $review->save();
+
+            return [$review, $oldStatus];
+        });
 
         if (!$review) {
             Log::warning("fundingRequestStatusUpdate: Funding request not found or unauthorized.", [
@@ -221,20 +258,14 @@ class FundingRequestService
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
-        $oldStatus = $review->status;
-        $review->status = $data['status'];
-        
-        if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-            $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser?->id;
-            $review->reject_reason = null; 
-        } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
-            $review->reject_reason = $data['reject_reason'] ?? null;
-            $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser?->id;
+        if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
+            return ApiResponse::error(
+                __('funding_request.status_changed_elsewhere', ['status' => $oldStatus]),
+                409,
+                ['status' => $oldStatus]
+            );
         }
 
-        $review->save();
         $review->loadMissing(['borrower.user', 'partner', 'fundingSequence']);
 
         $borrower = $review->borrower;

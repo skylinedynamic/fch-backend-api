@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Borrower\FundApplication;
 
 use App\Exceptions\FundingApplicationLockedException;
+use App\Exceptions\StaleRecordException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
@@ -85,6 +86,9 @@ class FundingApplicationController extends Controller
                 __('borrower.business_info_updated_successfully')
             );
 
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -137,6 +141,9 @@ class FundingApplicationController extends Controller
                 new OwnershipResource($ownershipInfo),
                 __('borrower.ownership_info_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -189,6 +196,9 @@ class FundingApplicationController extends Controller
                 new FinancialResource($financialInfo),
                 __('borrower.financial_info_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -239,6 +249,9 @@ class FundingApplicationController extends Controller
                 new FundingRequestResource($fundingRequest),
                 __('borrower.funding_request_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -284,6 +297,9 @@ class FundingApplicationController extends Controller
                 new DisclosuresAndConsentResource($disclosuresAndConsent),
                 __('borrower.disclosures_and_consent_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -329,6 +345,9 @@ class FundingApplicationController extends Controller
                 new FederalComplianceResource($federalCompliance),
                 __('borrower.federal_compliance_disclosures_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -499,6 +518,9 @@ class FundingApplicationController extends Controller
                 new AttestationAndAuthorizationResource($attestationAndAuthorization),
                 __('borrower.attestation_and_authorization_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-041).
+            return ApiResponse::error($e->getMessage(), 409, ['version' => $e->currentVersion]);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just

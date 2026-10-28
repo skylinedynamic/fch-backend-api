@@ -191,6 +191,24 @@ class AppointmentService
     }
 
     /**
+     * Cancel an appointment: kept, marked cancelled, and the other party - the
+     * organiser when the attendee cancels, else the attendee - is emailed once
+     * (R2 BUG-056).
+     */
+    public function cancel(Appointment $appointment, User $by): Appointment
+    {
+        $appointment->update(['status' => Appointment::STATUS_CANCELLED]);
+        $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_UPDATE);
+
+        $otherParty = (int) $appointment->assigned_for === (int) $by->id
+            ? $appointment->scheduledBy
+            : $appointment->assignedFor;
+        $this->sendNotification($appointment, 'deleted', $otherParty);
+
+        return $appointment->fresh();
+    }
+
+    /**
      * Delete an appointment and remove from Microsoft 365.
      */
     public function delete(Appointment $appointment): bool
@@ -327,11 +345,14 @@ class AppointmentService
     }
 
     /**
-     * Send email notification to the assigned user with business info.
+     * Send email notification to the assigned user with business info - or to
+     * $recipient, when someone else is to be told (a cancellation by the
+     * attendee goes to the organiser).
      */
-    protected function sendNotification(Appointment $appointment, string $action): void
+    protected function sendNotification(Appointment $appointment, string $action, ?User $recipient = null): void
     {
-        if (!$appointment->assignedFor) {
+        $recipient ??= $appointment->assignedFor;
+        if (!$recipient) {
             return;
         }
 
@@ -350,7 +371,7 @@ class AppointmentService
             ];
 
             try {
-                $assignee = $appointment->assignedFor;
+                $assignee = $recipient;
 
                 // Each portal has its own appointments page, hence a type per audience.
                 app(Notifier::class)->send(
@@ -363,9 +384,9 @@ class AppointmentService
                             ? Carbon::parse($appointment->appointment_date)->format('M j, Y')
                             : '',
                     ],
-                    mail: (new AppointmentNotification($appointment, $action, $businessInfo, $partnerId))->to($assignee->email)
+                    mail: (new AppointmentNotification($appointment, $action, $businessInfo, $partnerId, $assignee))->to($assignee->email)
                 );
-                Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
+                Log::info('[EMAIL] Appointment ' . $action . ' notification sent to user ' . $assignee->id);
             } catch (\Exception $e) {
                 Log::error('[EMAIL] Failed to send appointment ' . $action . ' notification', ['error' => $e->getMessage()]);
             }

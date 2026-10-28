@@ -19,6 +19,8 @@ class BorrowerDetailsResource extends JsonResource
 
         return [
             'id' => $this->id,
+            // Sent back with the next client-info save (R2 BUG-079).
+            'client_info_version' => $this->resource->clientInfoVersion(),
             'user_id' => $this->user?->id,
             // A new sign-in email awaiting confirmation from that address.
             'pending_email' => $this->user?->pending_email,

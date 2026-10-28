@@ -52,6 +52,8 @@ class Employee extends Model
     const STATUS_INACTIVE = 'Inactive';
     const STATUS_SUSPENDED = 'Suspended';
 
+    const STATUSES = [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_SUSPENDED];
+
     /**
      * 🔹 Relationship: each employee belongs to a user.
      */

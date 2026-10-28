@@ -265,6 +265,40 @@ class EmployeeApiTest extends TestCase
         $this->postJson('/api/v1/common/employees', $this->newEmployeePayload(['email' => 'elsewhere@example.test']))->assertCreated();
     }
 
+    /**
+     * Defect: R2 BUG-037 - an employee was stored with job status
+     * "[object Object]" (the portal sent an object), shown as such in the list
+     * and never matched by the Status filter. Only a known status is taken.
+     */
+    #[Test]
+    public function the_job_status_must_be_active_inactive_or_suspended(): void
+    {
+        $employee = $this->employeeOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload(['job_status' => '[object Object]']))
+            ->assertStatus(422)->assertJsonValidationErrors(['job_status' => __('employee.job_status_in')]);
+        $this->putJson("/api/v1/common/employees/{$employee->id}", $this->newEmployeePayload(['email' => $employee->email, 'job_status' => 'active-ish']))
+            ->assertStatus(422)->assertJsonValidationErrors(['job_status']);
+
+        $this->putJson("/api/v1/common/employees/{$employee->id}", $this->newEmployeePayload(['email' => $employee->email, 'job_status' => Employee::STATUS_SUSPENDED]))
+            ->assertOk();
+        $this->assertSame(Employee::STATUS_SUSPENDED, $employee->fresh()->job_status);
+    }
+
+    /** R2 BUG-037: rows already stored as "[object Object]" are repaired on deploy. */
+    #[Test]
+    public function the_migration_repairs_an_unreadable_job_status(): void
+    {
+        $broken = $this->employeeOf($this->partner, ['job_status' => '[object Object]']);
+        $suspended = $this->employeeOf($this->partner, ['job_status' => Employee::STATUS_SUSPENDED]);
+
+        (require database_path('migrations/2026_10_28_100100_repair_unreadable_employee_job_status.php'))->up();
+
+        $this->assertSame(Employee::STATUS_ACTIVE, $broken->fresh()->job_status);
+        $this->assertSame(Employee::STATUS_SUSPENDED, $suspended->fresh()->job_status);
+    }
+
     #[Test]
     public function i_open_and_edit_my_employee(): void
     {

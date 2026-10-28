@@ -280,6 +280,44 @@ class BorrowerRecordsApiTest extends TestCase
         $this->assertSame('New', $borrower->fresh()->first_name);
     }
 
+    /**
+     * Defect: R2 BUG-079 - the partner owner changed client 162's phone, then a
+     * staff user whose page was opened earlier saved a new home address: the
+     * whole form went back, and the phone silently reverted. A save from a page
+     * showing older client details is refused (409); a change in another
+     * section (business financials) does not make the form stale.
+     */
+    #[Test]
+    public function a_client_info_save_from_an_older_page_is_refused(): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['phone_number' => '5555550802', 'home_address' => '1 Old St']);
+        $staff = $this->makeStaffUser($this->partner);
+
+        // Both open the client.
+        $this->actingAsUser($this->partnerAdmin);
+        $loaded = $this->getJson("/api/v1/common/borrowers/{$borrower->id}")->assertOk()->json('data.client_info_version');
+        $this->assertNotEmpty($loaded);
+
+        // The owner saves the phone; the response carries the new version.
+        $ownerVersion = $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => $borrower->first_name, 'phone_number' => '5555550812', 'expected_version' => $loaded])
+            ->assertOk()->json('data.client_info_version');
+        $this->assertNotSame($loaded, $ownerVersion);
+
+        // The staff page still holds the old copy.
+        $this->actingAsUser($staff);
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => $borrower->first_name, 'phone_number' => '5555550802', 'home_address' => '2 New St', 'expected_version' => $loaded])
+            ->assertStatus(409)
+            ->assertJsonPath('message', __('borrower.changed_elsewhere'));
+        $this->assertSame('5555550812', $borrower->fresh()->phone_number);
+        $this->assertSame('1 Old St', $borrower->fresh()->home_address);
+
+        // Another section's save leaves the owner's copy current.
+        $this->actingAsUser($this->partnerAdmin);
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}/business-financials", ['monthly_revenue' => 42000])->assertOk();
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => $borrower->first_name, 'home_address' => '3 Owner St', 'expected_version' => $ownerVersion])->assertOk();
+        $this->assertSame('3 Owner St', $borrower->fresh()->home_address);
+    }
+
     #[Test]
     public function editing_business_financials_saves_them(): void
     {

@@ -5,12 +5,16 @@ namespace Tests\Feature\FundingRequest;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
 use App\Models\Borrower\Borrower;
+use App\Models\Funding\LenderVisibility;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lender\Lender;
+use App\Models\Lender\LenderProductCategory;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
@@ -159,6 +163,39 @@ class FundingRequestReviewApiTest extends TestCase
         $this->assertSame(FundingRequest::STATUS_APPROVED, $this->statusOf($this->myRequestId));
     }
 
+    /**
+     * Defect: R2 BUG-058 - request 48 open in two tabs: tab A approved it (the
+     * borrower was told to proceed), then tab B, still showing Pending, rejected
+     * it and the status silently flipped. A decision made on a page showing an
+     * older status is refused; nothing changes and nobody is notified.
+     */
+    #[Test]
+    public function a_decision_from_a_page_showing_an_older_status_is_refused(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $this->postJson('/api/v1/common/funding-request/status-update', [
+            'id' => $this->myRequestId,
+            'status' => FundingRequest::STATUS_APPROVED,
+            'expected_status' => FundingRequest::STATUS_PENDING,
+        ])->assertOk();
+        Notification::fake();
+        Mail::fake();
+
+        $this->postJson('/api/v1/common/funding-request/status-update', [
+            'id' => $this->myRequestId,
+            'status' => FundingRequest::STATUS_REJECTED,
+            'reject_reason' => 'Stale tab',
+            'expected_status' => FundingRequest::STATUS_PENDING,
+        ])->assertStatus(409)
+            ->assertJsonPath('message', __('funding_request.status_changed_elsewhere', ['status' => FundingRequest::STATUS_APPROVED]))
+            ->assertJsonPath('errors.status', FundingRequest::STATUS_APPROVED);
+
+        $this->assertSame(FundingRequest::STATUS_APPROVED, $this->statusOf($this->myRequestId));
+        $this->assertNull(DB::table('funding_requests')->where('id', $this->myRequestId)->value('reject_reason'));
+        Notification::assertNothingSent();
+        Mail::assertNothingOutgoing();
+    }
+
     #[Test]
     public function a_rejection_needs_a_reason_and_the_status_must_be_known(): void
     {
@@ -254,6 +291,41 @@ class FundingRequestReviewApiTest extends TestCase
             ->where('subject_id', $this->myRequestId)
             ->latest('id')
             ->value('event'));
+    }
+
+    /**
+     * Defect: R2 BUG-027 - a lender set to Inactive was still listed as a 4/4
+     * Excellent Match with an Assign button (and in the "All Lenders" filter,
+     * which is built from the same list), and assign-lender took it.
+     */
+    #[Test]
+    public function an_inactive_lender_is_neither_matched_nor_assignable_but_an_existing_assignment_stays(): void
+    {
+        $category = LenderProductCategory::create(['name' => 'Business Line of Credit', 'status' => 'Active']);
+        $active = Lender::create(['name' => 'Open Bank', 'status' => Lender::STATUS_ACTIVE]);
+        $inactive = Lender::create(['name' => 'Closed Bank', 'status' => Lender::STATUS_ACTIVE]);
+        foreach ([$active, $inactive] as $lender) {
+            LenderVisibility::create([
+                'funding_sequencing_id' => $this->sequenceId,
+                'lender_id' => $lender->id,
+                'lender_product_category_id' => $category->id,
+                'min_fico' => 600,
+            ]);
+        }
+        $this->actingAsUser($this->partnerAdmin);
+
+        // Assigned while still active; then the host deactivates it.
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->myRequestId, 'lender_ids' => [$inactive->id]])->assertOk();
+        $inactive->update(['status' => Lender::STATUS_INACTIVE]);
+
+        $detail = $this->getJson("/api/v1/common/funding-request/{$this->myRequestId}")->assertOk();
+        $this->assertSame(['Open Bank'], array_column($detail->json('data.matched_lenders'), 'name'));
+        $this->assertSame('Closed Bank', $detail->json('data.lender_names'));
+
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->theirRequestId, 'lender_ids' => [$inactive->id]])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['lender_ids.0' => __('funding_request.lender_inactive')]);
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->myRequestId, 'lender_ids' => [$active->id]])->assertOk();
     }
 
     #[Test]

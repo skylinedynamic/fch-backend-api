@@ -12,10 +12,14 @@ use Illuminate\Support\Facades\Auth;
 class CommonService
 {
     /**
-     * A partner's team (User::teamOf) as id, name, email and phone - the
-     * caller's own, or for the host, the partner it names.
+     * A partner's team (User::teamOf) as id, name, email, phone and
+     * is_inactive - the caller's own, or for the host, the partner it names.
+     *
+     * Logins of Inactive or Suspended employees are left out, so they are not
+     * offered for a new assignment (R2 BUG-061). $includeUserId keeps one of
+     * them - the record's current assignee - so its name still shows.
      */
-    public function getAllUsers(?int $partnerId = null)
+    public function getAllUsers(?int $partnerId = null, ?int $includeUserId = null)
     {
         $user = Auth::user();
 
@@ -29,13 +33,26 @@ class CommonService
             return collect();
         }
 
-        $users = User::query()
-            ->teamOf($partner)
-            ->select('id', 'name', 'email', 'phone_number')
-            ->orderBy('name', 'asc')
-            ->get();
+        $inactiveEmployeeIds = Employee::where('partner_id', $partner->id)
+            ->whereIn('job_status', [Employee::STATUS_INACTIVE, Employee::STATUS_SUSPENDED])
+            ->pluck('id')
+            ->all();
 
-        return $users;
+        return User::query()
+            ->teamOf($partner)
+            ->select('id', 'name', 'email', 'phone_number', 'entity_type', 'entity_id')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn (User $member) => [
+                'id' => $member->id,
+                'name' => $member->name,
+                'email' => $member->email,
+                'phone_number' => $member->phone_number,
+                'is_inactive' => $member->entity_type === Employee::class
+                    && in_array((int) $member->entity_id, $inactiveEmployeeIds, true),
+            ])
+            ->filter(fn (array $member) => !$member['is_inactive'] || $member['id'] === $includeUserId)
+            ->values();
     }
 
     /**

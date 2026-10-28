@@ -77,6 +77,24 @@ class AppointmentController extends Controller
      * The appointments the signed-in user is on - scheduled by them or with
      * them - the same rule the appointment list applies.
      */
+    /**
+     * Cancel an upcoming appointment: its organiser or the person it is with.
+     * A client can cancel one the host booked with them, which they cannot
+     * edit or delete (R2 BUG-056). The other party is emailed.
+     */
+    public function cancel($id)
+    {
+        $appointment = $this->ownAppointment()->with(['scheduledBy', 'assignedFor'])->findOrFail($id);
+
+        if (!$appointment->isCancellable()) {
+            return ApiResponse::error(__('appointment.cannot_cancel'), 422);
+        }
+
+        $cancelled = $this->appointmentService->cancel($appointment, auth()->user());
+
+        return ApiResponse::success(new AppointmentResource($cancelled), __('appointment.cancelled'));
+    }
+
     private function ownAppointment()
     {
         $userId = auth()->id();

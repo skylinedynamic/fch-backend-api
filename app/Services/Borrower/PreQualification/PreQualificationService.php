@@ -254,6 +254,18 @@ class PreQualificationService
             // (their row becoming PENDING) the next load spawned an empty duplicate draft.
             // The row is now created when the borrower actually saves the first step.
             $mergedData = array_merge(['id' => null], $this->borrowerPrefill($borrower));
+
+            // A new application starts with blank Funding Needs - never an
+            // earlier submission's answers.
+            $mergedData['funding_requested_amount'] = null;
+            $mergedData['funding_urgency'] = null;
+            $mergedData['purpose_of_funding'] = null;
+            $mergedData['purpose_note'] = null;
+            $mergedData['personal_credit_score'] = null;
+            $mergedData['estimated_business_credit_score'] = null;
+            $mergedData['existing_business_debt'] = false;
+            $mergedData['debt_balance'] = null;
+            $mergedData['notes'] = null;
         } else {
             $mergedData['id'] = $prequalificationRequest->id;
             foreach ($prequalificationRequest->toArray() as $key => $value) {
@@ -265,17 +277,9 @@ class PreQualificationService
             }
         }
 
-        // Funding Needs must never be populated with previous/saved data on GET.
-        // It must always start fresh and blank for the borrower.
-        $mergedData['funding_requested_amount'] = null;
-        $mergedData['funding_urgency'] = null;
-        $mergedData['purpose_of_funding'] = null;
-        $mergedData['purpose_note'] = null;
-        $mergedData['personal_credit_score'] = null;
-        $mergedData['estimated_business_credit_score'] = null;
-        $mergedData['existing_business_debt'] = false;
-        $mergedData['debt_balance'] = null;
-        $mergedData['notes'] = null;
+        // The in-progress draft keeps its own Funding Needs answers: they used
+        // to be blanked here on every load, so a borrower who left after step 3
+        // came back to an empty step (R2 BUG-034).
 
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;

@@ -4,6 +4,7 @@ namespace Tests\Feature\Lead;
 
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
+use App\Models\Employee\Employee;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -87,6 +88,52 @@ class LeadOwnerTeamTest extends TestCase
         $this->actingAsUser($this->hostAdmin);
 
         $this->assertSame(collect([$this->wlpAdmin->id, $wlpStaff->id])->sort()->values()->all(), $this->teamIds(['partner_id' => $this->wlp->id]));
+    }
+
+    /**
+     * Defect: R2 BUG-061 - an employee set to Inactive (or Suspended) was still
+     * offered in the client "Assign to" list. A client already assigned to them
+     * keeps the name on screen: include_user_id brings that one user back,
+     * flagged inactive.
+     */
+    #[Test]
+    public function inactive_and_suspended_employees_are_not_offered_unless_already_assigned(): void
+    {
+        $active = $this->employeeLogin($this->host, Employee::STATUS_ACTIVE);
+        $inactive = $this->employeeLogin($this->host, Employee::STATUS_INACTIVE);
+        $suspended = $this->employeeLogin($this->host, Employee::STATUS_SUSPENDED);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assertSame(collect([$this->hostAdmin->id, $active->id])->sort()->values()->all(), $this->teamIds());
+
+        $users = collect($this->postJson('/api/v1/common/get-all-users', ['include_user_id' => $inactive->id])->assertOk()->json('data'))->keyBy('id');
+        $this->assertSame([$this->hostAdmin->id, $active->id, $inactive->id], $users->keys()->sort()->values()->all());
+        $this->assertTrue($users[$inactive->id]['is_inactive']);
+        $this->assertFalse($users[$active->id]['is_inactive']);
+        $this->assertFalse($users->has($suspended->id));
+
+        // Naming someone outside the team brings nobody in.
+        $this->assertSame(collect([$this->hostAdmin->id, $active->id])->sort()->values()->all(), $this->teamIds(['include_user_id' => $this->wlpAdmin->id]));
+    }
+
+    private function employeeLogin(Partner $partner, string $jobStatus): User
+    {
+        $employee = Employee::create([
+            'partner_id' => $partner->id,
+            'first_name' => 'Staff',
+            'last_name' => $jobStatus,
+            'email' => 'staff-' . uniqid() . '@example.test',
+            'job_status' => $jobStatus,
+        ]);
+
+        return $this->makeUser([
+            'name' => "Staff {$jobStatus}",
+            'email' => $employee->email,
+            'user_type' => $partner->is_host ? User::ADMIN : User::PARTNER,
+            'partner_id' => $partner->id,
+            'entity_type' => Employee::class,
+            'entity_id' => $employee->id,
+        ]);
     }
 
     #[Test]

@@ -154,7 +154,10 @@ trait MailableBranding
             $hostBrandingConfig['secondary_color'] ?? null,
             BrandPalette::DEFAULT_SECONDARY
         );
-        $slogan = $brandingConfig['site_slogan'] ?? $hostBrandingConfig['site_slogan'] ?? null;
+        // The tagline is the sender's own: the email wears the partner's name
+        // and logo, so the host's slogan under them read as the partner's
+        // (R2 BUG-073). No partner slogan means no tagline.
+        $slogan = $brandingConfig['site_slogan'] ?? null;
 
         $branding = [
             'siteName' => $siteName,
