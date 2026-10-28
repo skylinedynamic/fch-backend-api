@@ -248,10 +248,11 @@ class FundingApplicationEditLockTest extends TestCase
         $this->assertSame('Alpha Tech Solutions LLC', $application->business_name, 'the edit itself is still saved');
     }
 
+    /** SCRUM-331: Ready for Submission is the last editable status; an edit there costs the signature. */
     #[Test]
-    public function editing_a_conditionally_approved_application_forces_a_resign(): void
+    public function editing_an_application_ready_for_submission_forces_a_resign(): void
     {
-        $this->setStatus(FundingApplication::APPROVED_CONDITIONAL);
+        $this->setStatus(FundingApplication::READY_FOR_SUBMISSION);
 
         $this->postBusinessInfo(['business_city' => 'Portland'])->assertOk();
 
@@ -259,6 +260,17 @@ class FundingApplicationEditLockTest extends TestCase
 
         $this->assertSame(FundingApplication::DRAFT, $application->status);
         $this->assertTrue((bool) $application->requires_resign);
+    }
+
+    /** SCRUM-331: Approved (Conditional) now sits after Matched to Lender, so it is locked. */
+    #[Test]
+    public function a_conditionally_approved_application_can_no_longer_be_edited(): void
+    {
+        $this->setStatus(FundingApplication::APPROVED_CONDITIONAL);
+
+        $this->postBusinessInfo(['business_city' => 'Portland'])->assertStatus(423);
+
+        $this->assertSame(FundingApplication::APPROVED_CONDITIONAL, FundingApplication::find($this->applicationId)->status);
     }
 
     #[Test]

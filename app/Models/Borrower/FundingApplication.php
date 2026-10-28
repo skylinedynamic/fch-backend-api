@@ -181,6 +181,14 @@ class FundingApplication extends Model
     public const FUNDED = 'Funded';
     public const CLOSED_COMPLETED = 'Closed (Completed)';
     public const DENIED = 'Denied';
+    // SCRUM-331. Withdrawn: who withdrew it and why go in Status Notes.
+    public const PENDING_CLARIFICATION = 'Pending Clarification';
+    public const READY_FOR_SUBMISSION = 'Ready for Submission';
+    public const WITHDRAWN = 'Withdrawn';
+    public const OFFER_DECLINED_BY_BORROWER = 'Offer Declined by Borrower';
+    public const CLOSED_NO_RESPONSE = 'Closed - No Response';
+    public const CLOSED_INCOMPLETE_APPLICATION = 'Closed - Incomplete Application';
+    public const CLOSED_ERROR = 'Closed - Error';
 
     // The status order itself is config: `funding_application.statuses.order`.
     // This is only the last order number borrower and partner may still edit
@@ -208,20 +216,29 @@ class FundingApplication extends Model
     public const ON_HOLD_CLASS = 'warning';
     public const DRAFT_CLASS = 'secondary';
     public const DENIED_CLASS = 'danger';
+    public const PENDING_CLARIFICATION_CLASS = 'warning';
+    public const READY_FOR_SUBMISSION_CLASS = 'info';
+    public const WITHDRAWN_CLASS = 'secondary';
+    public const OFFER_DECLINED_BY_BORROWER_CLASS = 'secondary';
+    public const CLOSED_NO_RESPONSE_CLASS = 'secondary';
+    public const CLOSED_INCOMPLETE_APPLICATION_CLASS = 'secondary';
+    public const CLOSED_ERROR_CLASS = 'danger';
 
     public const STATUS_CLASS = [
-        self::ON_HOLD => self::ON_HOLD_CLASS,
         self::DRAFT => self::DRAFT_CLASS,
         self::PENDING => self::PENDING_CLASS,
         self::SUBMITTED => self::SUBMITTED_CLASS,
-        self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW_CLASS,
         self::MISSING_DOCUMENTS => self::MISSING_DOCUMENTS_CLASS,
+        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION_CLASS,
+        self::ON_HOLD => self::ON_HOLD_CLASS,
         self::IN_VERIFICATION => self::IN_VERIFICATION_CLASS,
-        self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL_CLASS,
-        self::APPROVED_FINAL => self::APPROVED_FINAL_CLASS,
+        self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW_CLASS,
+        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION_CLASS,
         self::MATCHED_TO_LENDER => self::MATCHED_TO_LENDER_CLASS,
         self::SUBMITTED_TO_LENDER => self::SUBMITTED_TO_LENDER_CLASS,
         self::LENDER_REVIEWING => self::LENDER_REVIEWING_CLASS,
+        self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL_CLASS,
+        self::APPROVED_FINAL => self::APPROVED_FINAL_CLASS,
         self::OFFER_ISSUED => self::OFFER_ISSUED_CLASS,
         self::OFFER_ACCEPTED => self::OFFER_ACCEPTED_CLASS,
         self::CONTRACTING_DOCS_OUT => self::CONTRACTING_DOCS_OUT_CLASS,
@@ -229,21 +246,29 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED_CLASS,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED_CLASS,
         self::DENIED => self::DENIED_CLASS,
+        self::WITHDRAWN => self::WITHDRAWN_CLASS,
+        self::OFFER_DECLINED_BY_BORROWER => self::OFFER_DECLINED_BY_BORROWER_CLASS,
+        self::CLOSED_NO_RESPONSE => self::CLOSED_NO_RESPONSE_CLASS,
+        self::CLOSED_INCOMPLETE_APPLICATION => self::CLOSED_INCOMPLETE_APPLICATION_CLASS,
+        self::CLOSED_ERROR => self::CLOSED_ERROR_CLASS,
     ];
 
+    // The Funding Application status dropdown, in its display order (SCRUM-331).
     public const STATUS = [
-        self::ON_HOLD => self::ON_HOLD,
         self::DRAFT => self::DRAFT,
         self::PENDING => self::PENDING,
         self::SUBMITTED => self::SUBMITTED,
-        self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW,
         self::MISSING_DOCUMENTS => self::MISSING_DOCUMENTS,
+        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION,
+        self::ON_HOLD => self::ON_HOLD,
         self::IN_VERIFICATION => self::IN_VERIFICATION,
-        self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL,
-        self::APPROVED_FINAL => self::APPROVED_FINAL,
+        self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW,
+        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION,
         self::MATCHED_TO_LENDER => self::MATCHED_TO_LENDER,
         self::SUBMITTED_TO_LENDER => self::SUBMITTED_TO_LENDER,
         self::LENDER_REVIEWING => self::LENDER_REVIEWING,
+        self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL,
+        self::APPROVED_FINAL => self::APPROVED_FINAL,
         self::OFFER_ISSUED => self::OFFER_ISSUED,
         self::OFFER_ACCEPTED => self::OFFER_ACCEPTED,
         self::CONTRACTING_DOCS_OUT => self::CONTRACTING_DOCS_OUT,
@@ -251,6 +276,11 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED,
         self::DENIED => self::DENIED,
+        self::WITHDRAWN => self::WITHDRAWN,
+        self::OFFER_DECLINED_BY_BORROWER => self::OFFER_DECLINED_BY_BORROWER,
+        self::CLOSED_NO_RESPONSE => self::CLOSED_NO_RESPONSE,
+        self::CLOSED_INCOMPLETE_APPLICATION => self::CLOSED_INCOMPLETE_APPLICATION,
+        self::CLOSED_ERROR => self::CLOSED_ERROR,
     ];
 
     public const PURPOSE_OF_FUNDING_OPTIONS = [

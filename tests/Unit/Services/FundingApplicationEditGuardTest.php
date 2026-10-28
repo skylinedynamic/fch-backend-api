@@ -59,9 +59,13 @@ class FundingApplicationEditGuardTest extends TestCase
         return array_map(
             static fn (string $status) => [$status],
             [
+                // SCRUM-331: the dropdown order; everything after the first nine is locked,
+                // Approved (Conditional) / (Final) included.
                 FundingApplication::MATCHED_TO_LENDER,
                 FundingApplication::SUBMITTED_TO_LENDER,
                 FundingApplication::LENDER_REVIEWING,
+                FundingApplication::APPROVED_CONDITIONAL,
+                FundingApplication::APPROVED_FINAL,
                 FundingApplication::OFFER_ISSUED,
                 FundingApplication::OFFER_ACCEPTED,
                 FundingApplication::CONTRACTING_DOCS_OUT,
@@ -69,6 +73,11 @@ class FundingApplicationEditGuardTest extends TestCase
                 FundingApplication::FUNDED,
                 FundingApplication::CLOSED_COMPLETED,
                 FundingApplication::DENIED,
+                FundingApplication::WITHDRAWN,
+                FundingApplication::OFFER_DECLINED_BY_BORROWER,
+                FundingApplication::CLOSED_NO_RESPONSE,
+                FundingApplication::CLOSED_INCOMPLETE_APPLICATION,
+                FundingApplication::CLOSED_ERROR,
             ]
         );
     }
@@ -311,9 +320,41 @@ class FundingApplicationEditGuardTest extends TestCase
     #[Test]
     public function a_status_is_editable_exactly_while_its_key_is_nine_or_below(): void
     {
-        $this->assertSame(range(1, 19), array_values(FundingApplication::statusKeys()));
-        $this->assertSame(9, FundingApplication::statusKey(FundingApplication::APPROVED_FINAL));
+        // SCRUM-331: the 26 statuses in the dropdown order; the first nine are editable.
+        $this->assertSame([
+            FundingApplication::DRAFT,
+            FundingApplication::PENDING,
+            FundingApplication::SUBMITTED,
+            FundingApplication::MISSING_DOCUMENTS,
+            FundingApplication::PENDING_CLARIFICATION,
+            FundingApplication::ON_HOLD,
+            FundingApplication::IN_VERIFICATION,
+            FundingApplication::UNDERWRITING_REVIEW,
+            FundingApplication::READY_FOR_SUBMISSION,
+            FundingApplication::MATCHED_TO_LENDER,
+            FundingApplication::SUBMITTED_TO_LENDER,
+            FundingApplication::LENDER_REVIEWING,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
+            FundingApplication::OFFER_ISSUED,
+            FundingApplication::OFFER_ACCEPTED,
+            FundingApplication::CONTRACTING_DOCS_OUT,
+            FundingApplication::CLEARED_TO_FUND,
+            FundingApplication::FUNDED,
+            FundingApplication::CLOSED_COMPLETED,
+            FundingApplication::DENIED,
+            FundingApplication::WITHDRAWN,
+            FundingApplication::OFFER_DECLINED_BY_BORROWER,
+            FundingApplication::CLOSED_NO_RESPONSE,
+            FundingApplication::CLOSED_INCOMPLETE_APPLICATION,
+            FundingApplication::CLOSED_ERROR,
+        ], array_keys(FundingApplication::statusKeys()));
+        $this->assertSame(range(1, 26), array_values(FundingApplication::statusKeys()));
+        $this->assertSame(9, FundingApplication::statusKey(FundingApplication::READY_FOR_SUBMISSION));
         $this->assertSame(10, FundingApplication::statusKey(FundingApplication::MATCHED_TO_LENDER));
+        // The display order is also the model's status list, which the dropdown and validation read.
+        $this->assertSame(array_keys(FundingApplication::statusKeys()), array_values(FundingApplication::STATUS));
+        $this->assertSame('Closed - No Response', FundingApplication::CLOSED_NO_RESPONSE);
 
         foreach (FundingApplication::statusKeys() as $status => $key) {
             $this->assertSame(
