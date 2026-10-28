@@ -201,6 +201,65 @@ class ActivityLog extends Activity
         self::VISIBILITY_EVERYONE => 'Everyone',
     ];
 
+    /** The activity Reference that can be assigned to a staff member ("Want to Assign"). */
+    const TASK_REFERENCE = 'Task';
+
+    const TASK_PRIORITY_LOW = 'low';
+
+    const TASK_PRIORITY_MEDIUM = 'medium';
+
+    const TASK_PRIORITY_HIGH = 'high';
+
+    const TASK_PRIORITY_LABELS = [
+        self::TASK_PRIORITY_LOW => 'Low',
+        self::TASK_PRIORITY_MEDIUM => 'Medium',
+        self::TASK_PRIORITY_HIGH => 'High',
+    ];
+
+    const TASK_STATUS_OPEN = 'open';
+
+    const TASK_STATUS_IN_PROGRESS = 'in_progress';
+
+    const TASK_STATUS_COMPLETE = 'complete';
+
+    const TASK_STATUS_LABELS = [
+        self::TASK_STATUS_OPEN => 'Open',
+        self::TASK_STATUS_IN_PROGRESS => 'In Progress',
+        self::TASK_STATUS_COMPLETE => 'Complete',
+    ];
+
+    /**
+     * Fields whose value is never written to an activity entry - plain or
+     * encrypted. Entries are shown to staff (and some to the client), so a
+     * changed SSN is recorded as changed, not repeated.
+     */
+    const SENSITIVE_FIELD_MARKERS = ['ssn', 'ein', 'tax_id', 'date_of_birth', 'account_number', 'routing'];
+
+    public static function isSensitiveField(string $field): bool
+    {
+        foreach (self::SENSITIVE_FIELD_MARKERS as $marker) {
+            if ($field === $marker || str_contains($field, $marker . '_') || str_ends_with($field, '_' . $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** "ssn_encrypted" -> "SSN", "business_ein" -> "Business EIN", "first_name" -> "First Name". */
+    public static function fieldLabel(string $field): string
+    {
+        $label = ucwords(str_replace('_', ' ', preg_replace('/_encrypted$/', '', $field)));
+
+        return preg_replace_callback('/\b(Ssn|Ein|Duns)\b/', fn (array $m) => strtoupper($m[1]), $label);
+    }
+
+    /**
+     * When an assigned Task without a reminder of its own reminds its
+     * assignee: this time of day on the due date, in the assigner's timezone.
+     */
+    const TASK_DUE_REMINDER_TIME = '09:00:00';
+
     protected $fillable = [
         'log_name',
         'description',

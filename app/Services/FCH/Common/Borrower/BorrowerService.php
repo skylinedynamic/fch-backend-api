@@ -593,6 +593,24 @@ class BorrowerService
                         continue;
                     }
 
+                    // Who the client is assigned to, by name rather than user id
+                    if ($field === 'assign_id') {
+                        $owner = $this->activityLogService->describeOwnerChange(
+                            __('activity_log.owner_label_client'),
+                            $borrower->getPrevious()['assign_id'] ?? null,
+                            $newValue
+                        );
+                        $changedFields[] = $owner['sentence'];
+                        $extraProps['changes']['assign_id'] = $owner['change'];
+                        continue;
+                    }
+
+                    // An SSN or date of birth is recorded as changed, never repeated
+                    if (ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
                     $name = ucwords(str_replace('_', ' ', $field));
                     $val = (string) $newValue;
                     $val = $val === '' ? __('borrower.empty_value') : $val;
@@ -608,11 +626,14 @@ class BorrowerService
                     $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
                 }
 
+                // Only the Assigned To changed: an entry saying just that
+                $customSubject = array_keys($changes) === ['assign_id'] ? __('activity_log.owner_subject_client') : null;
+
                 $this->activityLogService->logModelEvent(
                     $borrower,
                     $logType,
                     $extraProps,
-                    null,
+                    $customSubject,
                     $customDescription
                 );
             }
