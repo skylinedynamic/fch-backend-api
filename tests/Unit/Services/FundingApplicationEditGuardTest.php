@@ -330,10 +330,10 @@ class FundingApplicationEditGuardTest extends TestCase
             FundingApplication::UNDERWRITING_REVIEW,
             FundingApplication::MISSING_DOCUMENTS,
             FundingApplication::IN_VERIFICATION,
-            FundingApplication::APPROVED_CONDITIONAL,
-            FundingApplication::APPROVED_FINAL,
             FundingApplication::PENDING_CLARIFICATION,
             FundingApplication::READY_FOR_SUBMISSION,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
         ];
 
         $this->assertSame($editable, FundingApplication::editableStatuses());
@@ -348,11 +348,12 @@ class FundingApplicationEditGuardTest extends TestCase
     }
 
     /**
-     * SCRUM-331: stage's order (1-19) is kept as it was and the seven new
-     * statuses are added after it, so existing sorting does not move.
+     * SCRUM-331: stage's order, with Pending Clarification and Ready for
+     * Submission right after In Verification and the five new closing
+     * statuses after Denied.
      */
     #[Test]
-    public function the_new_statuses_are_added_after_the_existing_order(): void
+    public function the_new_statuses_sit_in_the_agreed_order(): void
     {
         $this->assertSame([
             FundingApplication::ON_HOLD,
@@ -362,6 +363,9 @@ class FundingApplicationEditGuardTest extends TestCase
             FundingApplication::UNDERWRITING_REVIEW,
             FundingApplication::MISSING_DOCUMENTS,
             FundingApplication::IN_VERIFICATION,
+            // SCRUM-331: the two new editable statuses come right after In Verification.
+            FundingApplication::PENDING_CLARIFICATION,
+            FundingApplication::READY_FOR_SUBMISSION,
             FundingApplication::APPROVED_CONDITIONAL,
             FundingApplication::APPROVED_FINAL,
             FundingApplication::MATCHED_TO_LENDER,
@@ -374,8 +378,6 @@ class FundingApplicationEditGuardTest extends TestCase
             FundingApplication::FUNDED,
             FundingApplication::CLOSED_COMPLETED,
             FundingApplication::DENIED,
-            FundingApplication::PENDING_CLARIFICATION,
-            FundingApplication::READY_FOR_SUBMISSION,
             FundingApplication::WITHDRAWN,
             FundingApplication::OFFER_DECLINED_BY_BORROWER,
             FundingApplication::CLOSED_NO_RESPONSE,

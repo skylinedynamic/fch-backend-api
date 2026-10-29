@@ -219,7 +219,7 @@ class FundingApplication extends Model
     public const CLOSED_INCOMPLETE_APPLICATION_CLASS = 'secondary';
     public const CLOSED_ERROR_CLASS = 'danger';
 
-    // Stage's 19 statuses in their order, then the seven added for SCRUM-331.
+    // Stage's statuses; SCRUM-331's two editable ones after In Verification, its closing ones after Denied.
     public const STATUS_CLASS = [
         self::ON_HOLD => self::ON_HOLD_CLASS,
         self::DRAFT => self::DRAFT_CLASS,
@@ -228,6 +228,8 @@ class FundingApplication extends Model
         self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW_CLASS,
         self::MISSING_DOCUMENTS => self::MISSING_DOCUMENTS_CLASS,
         self::IN_VERIFICATION => self::IN_VERIFICATION_CLASS,
+        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION_CLASS,
+        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION_CLASS,
         self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL_CLASS,
         self::APPROVED_FINAL => self::APPROVED_FINAL_CLASS,
         self::MATCHED_TO_LENDER => self::MATCHED_TO_LENDER_CLASS,
@@ -240,8 +242,6 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED_CLASS,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED_CLASS,
         self::DENIED => self::DENIED_CLASS,
-        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION_CLASS,
-        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION_CLASS,
         self::WITHDRAWN => self::WITHDRAWN_CLASS,
         self::OFFER_DECLINED_BY_BORROWER => self::OFFER_DECLINED_BY_BORROWER_CLASS,
         self::CLOSED_NO_RESPONSE => self::CLOSED_NO_RESPONSE_CLASS,
@@ -258,6 +258,8 @@ class FundingApplication extends Model
         self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW,
         self::MISSING_DOCUMENTS => self::MISSING_DOCUMENTS,
         self::IN_VERIFICATION => self::IN_VERIFICATION,
+        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION,
+        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION,
         self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL,
         self::APPROVED_FINAL => self::APPROVED_FINAL,
         self::MATCHED_TO_LENDER => self::MATCHED_TO_LENDER,
@@ -270,8 +272,6 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED,
         self::DENIED => self::DENIED,
-        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION,
-        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION,
         self::WITHDRAWN => self::WITHDRAWN,
         self::OFFER_DECLINED_BY_BORROWER => self::OFFER_DECLINED_BY_BORROWER,
         self::CLOSED_NO_RESPONSE => self::CLOSED_NO_RESPONSE,

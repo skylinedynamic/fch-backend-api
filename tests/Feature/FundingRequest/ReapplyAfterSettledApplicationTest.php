@@ -327,8 +327,8 @@ class ReapplyAfterSettledApplicationTest extends TestCase
         $this->assertTrue($withLender['can_start_new_funding_request']);
         $this->assertTrue($withLender['funding_application_is_locked']);
         $this->assertSame(FundingApplication::LENDER_REVIEWING, $withLender['funding_application_status']);
-        // Key 12, not in the editable list: no editing, a new request instead.
-        $this->assertSame(12, $withLender['funding_application_status_key']);
+        // Key 14, not in the editable list: no editing, a new request instead.
+        $this->assertSame(14, $withLender['funding_application_status_key']);
         $this->assertFalse($withLender['funding_application_is_editable']);
     }
 

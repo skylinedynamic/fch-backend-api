@@ -70,8 +70,8 @@ return [
         | how a list sorts by status; it does NOT decide editability - that is
         | the `editable` list below.
         |
-        | 1-19 are the statuses as they were on stage; the seven added for
-        | SCRUM-331 follow them, so existing sorting does not move.
+        | Stage's statuses, with the two new editable ones (SCRUM-331) right
+        | after In Verification and the five new closing ones after Denied.
         |
         | To add a status: add its constant to FundingApplication, give it a
         | number here, and add it to `editable` only if borrower and partner may
@@ -85,20 +85,20 @@ return [
             FundingApplication::UNDERWRITING_REVIEW => 5,
             FundingApplication::MISSING_DOCUMENTS => 6,
             FundingApplication::IN_VERIFICATION => 7,
-            FundingApplication::APPROVED_CONDITIONAL => 8,
-            FundingApplication::APPROVED_FINAL => 9,
-            FundingApplication::MATCHED_TO_LENDER => 10,
-            FundingApplication::SUBMITTED_TO_LENDER => 11,
-            FundingApplication::LENDER_REVIEWING => 12,
-            FundingApplication::OFFER_ISSUED => 13,
-            FundingApplication::OFFER_ACCEPTED => 14,
-            FundingApplication::CONTRACTING_DOCS_OUT => 15,
-            FundingApplication::CLEARED_TO_FUND => 16,
-            FundingApplication::FUNDED => 17,
-            FundingApplication::CLOSED_COMPLETED => 18,
-            FundingApplication::DENIED => 19,
-            FundingApplication::PENDING_CLARIFICATION => 20,
-            FundingApplication::READY_FOR_SUBMISSION => 21,
+            FundingApplication::PENDING_CLARIFICATION => 8,
+            FundingApplication::READY_FOR_SUBMISSION => 9,
+            FundingApplication::APPROVED_CONDITIONAL => 10,
+            FundingApplication::APPROVED_FINAL => 11,
+            FundingApplication::MATCHED_TO_LENDER => 12,
+            FundingApplication::SUBMITTED_TO_LENDER => 13,
+            FundingApplication::LENDER_REVIEWING => 14,
+            FundingApplication::OFFER_ISSUED => 15,
+            FundingApplication::OFFER_ACCEPTED => 16,
+            FundingApplication::CONTRACTING_DOCS_OUT => 17,
+            FundingApplication::CLEARED_TO_FUND => 18,
+            FundingApplication::FUNDED => 19,
+            FundingApplication::CLOSED_COMPLETED => 20,
+            FundingApplication::DENIED => 21,
             FundingApplication::WITHDRAWN => 22,
             FundingApplication::OFFER_DECLINED_BY_BORROWER => 23,
             FundingApplication::CLOSED_NO_RESPONSE => 24,
@@ -123,10 +123,10 @@ return [
             FundingApplication::UNDERWRITING_REVIEW,
             FundingApplication::MISSING_DOCUMENTS,
             FundingApplication::IN_VERIFICATION,
-            FundingApplication::APPROVED_CONDITIONAL,
-            FundingApplication::APPROVED_FINAL,
             FundingApplication::PENDING_CLARIFICATION,
             FundingApplication::READY_FOR_SUBMISSION,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
         ],
 
         // Editable statuses where nothing has been signed yet, so an edit costs
