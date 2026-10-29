@@ -32,7 +32,12 @@ The lists eager-load `fundingRequest`, so there is no extra query per row. `requ
 
 ## Tests
 - Added: `tests/Feature/FundApplication/OnHoldApplicationShowsItsFundingRequestTest.php` (Defect). It covers the admin list, admin details, My Applications and the client dashboard (row and total), checks that the application's own values win once filled in, and checks that an application with no funding request still shows nothing.
-- Suites run: Feature `FundApplication`, `Borrower`, `Application`, `Dashboard`, `Funding`: 470 passed, 1 skipped. Full suite: see the PR.
+- Suites run: Feature `FundApplication`, `Borrower`, `Application`, `Dashboard`, `Funding`: 470 passed, 1 skipped. Full suite before the stage merge: 3789 passed, 2 skipped, 0 failed.
+
+## Merge with stage
+- Merging `origin/stage` hit a conflict in `DashboardService::getStats()`: stage had the BUG-069 fix (Total Funded counts only Closed (Completed) applications). Both are kept. Total Requested uses the funding request fallback (BUG-136), and Total Funded counts only closed applications (BUG-069).
+- After the merge, the fully-qualified class names on those lines (`\App\Models\...`) were replaced with `use` imports, as CLAUDE.md requires.
+- Merged to `stage` in PR #47.
 
 ## Open / follow-up
 - Sorting the admin list by Requested or Purpose still sorts by the application's own column, so an On Hold row sorts as empty.
