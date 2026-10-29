@@ -49,10 +49,11 @@ class UpdatePasswordRequest extends BaseApiRequest
             'current_password.required' => __('borrower_validation.current_password_required'),
             'new_password.required' => __('borrower_validation.new_password_required'),
             'new_password.min' => __('borrower_validation.new_password_min'),
-            'new_password.mixed' => __('borrower_validation.new_password_mixed'),
-            'new_password.letters' => __('borrower_validation.new_password_letters'),
-            'new_password.numbers' => __('borrower_validation.new_password_numbers'),
-            'new_password.symbols' => __('borrower_validation.new_password_symbols'),
+            // The Password rule reports these as "password.<check>", not "<check>".
+            'new_password.password.mixed' => __('borrower_validation.new_password_mixed'),
+            'new_password.password.letters' => __('borrower_validation.new_password_letters'),
+            'new_password.password.numbers' => __('borrower_validation.new_password_numbers'),
+            'new_password.password.symbols' => __('borrower_validation.new_password_symbols'),
             'new_password.confirmed' => __('borrower_validation.new_password_confirmed'),
             'new_password.different' => __('borrower_validation.new_password_different'),
         ];

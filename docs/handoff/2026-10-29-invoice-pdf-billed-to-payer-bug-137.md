@@ -46,7 +46,7 @@ The fix is in the view, so all three users of it change together:
 
   The first four were red before the fix. The fourth failed on "Down Payment": the PDF printed "Platform Service Enrollment". The payout test was written after the fix.
 - `tests/Feature/Invoice` and `tests/Integration/Invoice`: 42 passed, including BUG-093's `InvoicePdfPaymentDetailsTest`.
-- Full suite: see below.
+- Full suite: 4081 passed, 2 skipped.
 
 ## Open items
 - The fixed NOTES text on every non-payout invoice ("...the credits details supplied as confirmation of work undertaken will be charged the agreed quoted fee...") reads like leftover template text. Its wording is a product decision, so it is unchanged.
