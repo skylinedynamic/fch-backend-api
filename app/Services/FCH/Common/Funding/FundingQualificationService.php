@@ -10,6 +10,16 @@ use Carbon\Carbon;
 
 class FundingQualificationService
 {
+    /** Rules in config/funding_qualification.php judged from the bank statements. */
+    public const GROUP_BANKING = 'banking';
+
+    /** The borrower portal page where bank statements are uploaded. */
+    public const BANK_STATEMENTS_UPLOAD_PATH = '/documents';
+
+    /** Why a required document does not count (`reason_code` on the factor). */
+    public const REASON_NOT_UPLOADED = 'not_uploaded';
+    public const REASON_REJECTED = 'rejected';
+
     // ─── Status helpers ───────────────────────────────────────────────────────
 
     private function status(string $key): string
@@ -94,6 +104,32 @@ class FundingQualificationService
             'not_in_array'          => $this->evaluateNotInArray($rule, $borrower, $funding),
             default                 => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
         };
+
+        return $this->withBankingGuidance($result);
+    }
+
+    /**
+     * A failed banking check (statements missing, or deposits, balance, NSF or
+     * negative days outside the lender's limits) tells the borrower in plain
+     * words that the bank statements are the problem and where to fix it.
+     */
+    private function withBankingGuidance(array $result): array
+    {
+        if (($result['group'] ?? null) !== self::GROUP_BANKING || ($result['status'] ?? null) !== $this->status('failed')) {
+            return $result;
+        }
+
+        // A missing / rejected / under-review statement gets a message for that
+        // case; a figure outside the lender's limits gets the general one.
+        $result['message'] = match ($result['reason_code'] ?? null) {
+            self::REASON_NOT_UPLOADED => __('funding_sequencing.bank_statements_missing'),
+            self::REASON_REJECTED => __('funding_sequencing.bank_statements_rejected'),
+            default => __('funding_sequencing.bank_statements_failed'),
+        };
+        $result['action'] = [
+            'label' => __('funding_sequencing.upload_bank_statements'),
+            'path' => self::BANK_STATEMENTS_UPLOAD_PATH,
+        ];
 
         return $result;
     }
@@ -450,12 +486,14 @@ class FundingQualificationService
             $rule['status'] = $this->status('failed');
             $rule['required_value'] = 'Uploaded';
             $rule['borrower_value'] = 'Missing';
-            return $rule;
+            return $this->withMissingDocumentReason($rule, $borrower, null, $docName);
         }
 
+        // In the borrower's Documents library: Uploaded, Under Review or Accepted
+        // (Under Review counts - product decision 2026-10-15).
         $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
             ->where('document_type_id', $docType->id)
-            ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])
+            ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_UNDER_REVIEW, BorrowerDocument::STATUS_ACCEPTED])
             ->exists();
 
         $rule['required_value'] = 'Uploaded';
@@ -467,7 +505,31 @@ class FundingQualificationService
             $rule['status'] = $this->status('failed');
             $rule['borrower_value'] = 'Missing';
             $rule['missing_docs'] = [$docName];
+            $rule = $this->withMissingDocumentReason($rule, $borrower, $docType, $docName);
         }
+
+        return $rule;
+    }
+
+    /**
+     * Why a required document does not count, in the borrower's words: none on
+     * file, or the latest one was rejected. Plus what is required to pass.
+     */
+    private function withMissingDocumentReason(array $rule, Borrower $borrower, ?BorrowerDocType $docType, string $docName): array
+    {
+        $latestStatus = $docType
+            ? BorrowerDocument::where('borrower_id', $borrower->id)
+                ->where('document_type_id', $docType->id)
+                ->latest('id')
+                ->value('status')
+            : null;
+
+        $rule['reason_code'] = match ($latestStatus) {
+            BorrowerDocument::STATUS_REJECTED => self::REASON_REJECTED,
+            default => self::REASON_NOT_UPLOADED,
+        };
+        $rule['reason'] = __("funding_sequencing.bank_statements_reason_{$rule['reason_code']}", ['document' => $docName]);
+        $rule['requirement'] = __('funding_sequencing.bank_statements_requirement', ['document' => $docName]);
 
         return $rule;
     }
