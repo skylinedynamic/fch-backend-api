@@ -18,7 +18,7 @@ class UpdateFundingApplicationStatusRequest extends BaseApiRequest
         return [
             'funding_application_id' => ['required', 'integer', 'exists:funding_applications,id'],
             'status'                 => ['required', Rule::in(FundingApplication::STATUS)],
-            'status_note'            => ['nullable', 'string', 'max:1000'],
+            'status_note'            => ['nullable', 'string', 'max:10000'],
             'funded_amount'          => ['nullable', 'numeric', 'min:0'],
         ];
     }

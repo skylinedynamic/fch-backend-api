@@ -315,7 +315,7 @@ class ReapplyAfterSettledApplicationTest extends TestCase
         $this->assertFalse($inReview['can_start_new_funding_request'], 'still in review here, so no second request');
         $this->assertFalse($inReview['funding_application_is_locked']);
         $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, $inReview['funding_application_status']);
-        // Key 5 of 9 editable: the card offers "Edit Application".
+        // Key 5, in the editable list: the card offers "Edit Application".
         $this->assertSame(5, $inReview['funding_application_status_key']);
         $this->assertTrue($inReview['funding_application_is_editable']);
         $this->assertNotNull($inReview['funding_application_funding_request_id']);
@@ -327,8 +327,8 @@ class ReapplyAfterSettledApplicationTest extends TestCase
         $this->assertTrue($withLender['can_start_new_funding_request']);
         $this->assertTrue($withLender['funding_application_is_locked']);
         $this->assertSame(FundingApplication::LENDER_REVIEWING, $withLender['funding_application_status']);
-        // Key 12, past the limit: no editing, a new request instead.
-        $this->assertSame(12, $withLender['funding_application_status_key']);
+        // Key 14, not in the editable list: no editing, a new request instead.
+        $this->assertSame(14, $withLender['funding_application_status_key']);
         $this->assertFalse($withLender['funding_application_is_editable']);
     }
 

@@ -181,12 +181,15 @@ class FundingApplication extends Model
     public const FUNDED = 'Funded';
     public const CLOSED_COMPLETED = 'Closed (Completed)';
     public const DENIED = 'Denied';
+    // SCRUM-331. Withdrawn: who withdrew it and why go in Status Notes.
+    public const PENDING_CLARIFICATION = 'Pending Clarification';
+    public const READY_FOR_SUBMISSION = 'Ready for Submission';
+    public const WITHDRAWN = 'Withdrawn';
+    public const OFFER_DECLINED_BY_BORROWER = 'Offer Declined by Borrower';
+    public const CLOSED_NO_RESPONSE = 'Closed - No Response';
+    public const CLOSED_INCOMPLETE_APPLICATION = 'Closed - Incomplete Application';
+    public const CLOSED_ERROR = 'Closed - Error';
 
-    // The status order itself is config: `funding_application.statuses.order`.
-    // This is only the last order number borrower and partner may still edit
-    // at, if config omits `max_editable_key`.
-    public const MAX_EDITABLE_STATUS_KEY = 9;
-    
 
     // Status Class Constants
     public const PENDING_CLASS = 'warning';
@@ -208,7 +211,15 @@ class FundingApplication extends Model
     public const ON_HOLD_CLASS = 'warning';
     public const DRAFT_CLASS = 'secondary';
     public const DENIED_CLASS = 'danger';
+    public const PENDING_CLARIFICATION_CLASS = 'warning';
+    public const READY_FOR_SUBMISSION_CLASS = 'info';
+    public const WITHDRAWN_CLASS = 'secondary';
+    public const OFFER_DECLINED_BY_BORROWER_CLASS = 'secondary';
+    public const CLOSED_NO_RESPONSE_CLASS = 'secondary';
+    public const CLOSED_INCOMPLETE_APPLICATION_CLASS = 'secondary';
+    public const CLOSED_ERROR_CLASS = 'danger';
 
+    // Stage's statuses; SCRUM-331's two editable ones after In Verification, its closing ones after Denied.
     public const STATUS_CLASS = [
         self::ON_HOLD => self::ON_HOLD_CLASS,
         self::DRAFT => self::DRAFT_CLASS,
@@ -217,6 +228,8 @@ class FundingApplication extends Model
         self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW_CLASS,
         self::MISSING_DOCUMENTS => self::MISSING_DOCUMENTS_CLASS,
         self::IN_VERIFICATION => self::IN_VERIFICATION_CLASS,
+        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION_CLASS,
+        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION_CLASS,
         self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL_CLASS,
         self::APPROVED_FINAL => self::APPROVED_FINAL_CLASS,
         self::MATCHED_TO_LENDER => self::MATCHED_TO_LENDER_CLASS,
@@ -229,8 +242,14 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED_CLASS,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED_CLASS,
         self::DENIED => self::DENIED_CLASS,
+        self::WITHDRAWN => self::WITHDRAWN_CLASS,
+        self::OFFER_DECLINED_BY_BORROWER => self::OFFER_DECLINED_BY_BORROWER_CLASS,
+        self::CLOSED_NO_RESPONSE => self::CLOSED_NO_RESPONSE_CLASS,
+        self::CLOSED_INCOMPLETE_APPLICATION => self::CLOSED_INCOMPLETE_APPLICATION_CLASS,
+        self::CLOSED_ERROR => self::CLOSED_ERROR_CLASS,
     ];
 
+    // The Funding Application status dropdown, in the same order.
     public const STATUS = [
         self::ON_HOLD => self::ON_HOLD,
         self::DRAFT => self::DRAFT,
@@ -239,6 +258,8 @@ class FundingApplication extends Model
         self::UNDERWRITING_REVIEW => self::UNDERWRITING_REVIEW,
         self::MISSING_DOCUMENTS => self::MISSING_DOCUMENTS,
         self::IN_VERIFICATION => self::IN_VERIFICATION,
+        self::PENDING_CLARIFICATION => self::PENDING_CLARIFICATION,
+        self::READY_FOR_SUBMISSION => self::READY_FOR_SUBMISSION,
         self::APPROVED_CONDITIONAL => self::APPROVED_CONDITIONAL,
         self::APPROVED_FINAL => self::APPROVED_FINAL,
         self::MATCHED_TO_LENDER => self::MATCHED_TO_LENDER,
@@ -251,6 +272,11 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED,
         self::DENIED => self::DENIED,
+        self::WITHDRAWN => self::WITHDRAWN,
+        self::OFFER_DECLINED_BY_BORROWER => self::OFFER_DECLINED_BY_BORROWER,
+        self::CLOSED_NO_RESPONSE => self::CLOSED_NO_RESPONSE,
+        self::CLOSED_INCOMPLETE_APPLICATION => self::CLOSED_INCOMPLETE_APPLICATION,
+        self::CLOSED_ERROR => self::CLOSED_ERROR,
     ];
 
     public const PURPOSE_OF_FUNDING_OPTIONS = [
@@ -272,14 +298,13 @@ class FundingApplication extends Model
     | Status Lifecycle
     |--------------------------------------------------------------------------
     |
-    | The order lives in config/funding_application.php under `statuses.order`,
-    | and every bucket below is worked out from it. The constants above stay the
-    | source of the strings; config decides where each one sits and therefore
-    | what it lets a borrower or partner do.
+    | config/funding_application.php holds the sort order (`statuses.order`) and
+    | the statuses borrower and partner may still edit (`statuses.editable`);
+    | every bucket below is worked out from those two. The constants above stay
+    | the source of the strings.
     |
-    | A status with no order number is read-only, so a missing or truncated
-    | config section fails closed instead of silently unlocking a funded
-    | application.
+    | A status not in `editable` is read-only, so a missing or truncated config
+    | section fails closed instead of silently unlocking a funded application.
     |
     */
 
@@ -305,7 +330,7 @@ class FundingApplication extends Model
     }
 
     /**
-     * Sort by where each application sits in the lifecycle (key 1-19) rather
+     * Sort by where each application sits in the lifecycle (key 1-26) rather
      * than alphabetically by the status name. A status with no key sorts last.
      */
     public function scopeOrderByStatusKey($query, string $direction = 'asc')
@@ -341,18 +366,10 @@ class FundingApplication extends Model
     }
 
     /**
-     * The highest key borrower and partner may still edit at.
-     */
-    public static function maxEditableStatusKey(): int
-    {
-        return (int) config('funding_application.statuses.max_editable_key', self::MAX_EDITABLE_STATUS_KEY);
-    }
-
-    /**
      * Every status where borrower and partner may still change the application:
-     * those whose key is at or below the editable limit.
+     * the `statuses.editable` list in config.
      *
-     * Anything else is read-only, including a status with no key at all. Failing
+     * Anything else is read-only, including a status nobody has listed. Failing
      * closed is deliberate: an unknown status is more likely to be one added
      * past the point of editing than one that should quietly stay open.
      * Genuinely old values are mapped instead, through `statuses.legacy_aliases`.
@@ -361,9 +378,7 @@ class FundingApplication extends Model
      */
     public static function editableStatuses(): array
     {
-        $limit = self::maxEditableStatusKey();
-
-        return array_keys(array_filter(self::statusKeys(), static fn (int $key) => $key <= $limit));
+        return array_values(config('funding_application.statuses.editable', []));
     }
 
     /**
@@ -386,9 +401,7 @@ class FundingApplication extends Model
      */
     public static function lockedStatuses(): array
     {
-        $limit = self::maxEditableStatusKey();
-
-        return array_keys(array_filter(self::statusKeys(), static fn (int $key) => $key > $limit));
+        return array_values(array_diff(array_keys(self::statusKeys()), self::editableStatuses()));
     }
 
     /**
@@ -486,9 +499,7 @@ class FundingApplication extends Model
      */
     public function isEditable(): bool
     {
-        $key = self::statusKey($this->status);
-
-        return $key !== null && $key <= self::maxEditableStatusKey();
+        return in_array(self::canonicalStatus($this->status), self::editableStatuses(), true);
     }
 
     /**
@@ -570,7 +581,6 @@ class FundingApplication extends Model
 
         return [
             'status_key' => self::statusKey($this->status),
-            'max_editable_status_key' => self::maxEditableStatusKey(),
             'is_locked' => $isLocked,
             'is_editable' => ! $isLocked,
             'requires_resign' => (bool) $this->requires_resign,
