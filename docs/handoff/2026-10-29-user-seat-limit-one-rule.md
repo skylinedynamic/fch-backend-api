@@ -28,7 +28,7 @@ The seat count is still a copy taken when the subscription is made. A later Plan
 
 ## Tests
 - Added `tests/Feature/User/UserSeatLimitRuleTest.php` (5 tests). 3 were red first: an empty `user_seats` falling back to the plan on both screen and Save, and to 3 with no plan; an employee login following the same fallback. 2 pin behaviour that already held: the subscription's own `user_seats` wins, and the user is refused at the limit.
-- Suites run: `tests/Feature/{User,Employee,Partner,Billing}`, `tests/Unit/Subscription`: 259 passed.
+- Suites run: `tests/Feature/{User,Employee,Partner,Billing}`, `tests/Unit/Subscription`: 259 passed. Full `php artisan test`: 4075 passed, 2 skipped, 0 failed.
 
 ## Open / follow-up
 - **Editing an employee with "Create account" ticked (`EmployeeService::updateWithUserSync`) has no seat check at all**, so it can add a login past the limit. It also has no paid-seat path, so adding the check needs the purchase flow too. Left as is.
