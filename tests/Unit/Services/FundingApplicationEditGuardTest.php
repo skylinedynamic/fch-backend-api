@@ -59,13 +59,10 @@ class FundingApplicationEditGuardTest extends TestCase
         return array_map(
             static fn (string $status) => [$status],
             [
-                // SCRUM-331: the dropdown order; everything after the first nine is locked,
-                // Approved (Conditional) / (Final) included.
+                // Everything outside the `editable` list (SCRUM-331), the new closing statuses included.
                 FundingApplication::MATCHED_TO_LENDER,
                 FundingApplication::SUBMITTED_TO_LENDER,
                 FundingApplication::LENDER_REVIEWING,
-                FundingApplication::APPROVED_CONDITIONAL,
-                FundingApplication::APPROVED_FINAL,
                 FundingApplication::OFFER_ISSUED,
                 FundingApplication::OFFER_ACCEPTED,
                 FundingApplication::CONTRACTING_DOCS_OUT,
@@ -317,25 +314,59 @@ class FundingApplicationEditGuardTest extends TestCase
         }
     }
 
+    /**
+     * SCRUM-331: editability is an explicit list, not "order key 9 or below".
+     * Stage's nine editable statuses stay editable, and of the seven new ones
+     * only Pending Clarification and Ready for Submission join them.
+     */
     #[Test]
-    public function a_status_is_editable_exactly_while_its_key_is_nine_or_below(): void
+    public function exactly_the_eleven_listed_statuses_are_editable(): void
     {
-        // SCRUM-331: the 26 statuses in the dropdown order; the first nine are editable.
-        $this->assertSame([
+        $editable = [
+            FundingApplication::ON_HOLD,
             FundingApplication::DRAFT,
             FundingApplication::PENDING,
             FundingApplication::SUBMITTED,
-            FundingApplication::MISSING_DOCUMENTS,
-            FundingApplication::PENDING_CLARIFICATION,
-            FundingApplication::ON_HOLD,
-            FundingApplication::IN_VERIFICATION,
             FundingApplication::UNDERWRITING_REVIEW,
+            FundingApplication::MISSING_DOCUMENTS,
+            FundingApplication::IN_VERIFICATION,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
+            FundingApplication::PENDING_CLARIFICATION,
             FundingApplication::READY_FOR_SUBMISSION,
+        ];
+
+        $this->assertSame($editable, FundingApplication::editableStatuses());
+
+        foreach (FundingApplication::STATUS as $status) {
+            $this->assertSame(
+                in_array($status, $editable, true),
+                $this->application($status)->isEditable(),
+                $status
+            );
+        }
+    }
+
+    /**
+     * SCRUM-331: stage's order (1-19) is kept as it was and the seven new
+     * statuses are added after it, so existing sorting does not move.
+     */
+    #[Test]
+    public function the_new_statuses_are_added_after_the_existing_order(): void
+    {
+        $this->assertSame([
+            FundingApplication::ON_HOLD,
+            FundingApplication::DRAFT,
+            FundingApplication::PENDING,
+            FundingApplication::SUBMITTED,
+            FundingApplication::UNDERWRITING_REVIEW,
+            FundingApplication::MISSING_DOCUMENTS,
+            FundingApplication::IN_VERIFICATION,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
             FundingApplication::MATCHED_TO_LENDER,
             FundingApplication::SUBMITTED_TO_LENDER,
             FundingApplication::LENDER_REVIEWING,
-            FundingApplication::APPROVED_CONDITIONAL,
-            FundingApplication::APPROVED_FINAL,
             FundingApplication::OFFER_ISSUED,
             FundingApplication::OFFER_ACCEPTED,
             FundingApplication::CONTRACTING_DOCS_OUT,
@@ -343,6 +374,8 @@ class FundingApplicationEditGuardTest extends TestCase
             FundingApplication::FUNDED,
             FundingApplication::CLOSED_COMPLETED,
             FundingApplication::DENIED,
+            FundingApplication::PENDING_CLARIFICATION,
+            FundingApplication::READY_FOR_SUBMISSION,
             FundingApplication::WITHDRAWN,
             FundingApplication::OFFER_DECLINED_BY_BORROWER,
             FundingApplication::CLOSED_NO_RESPONSE,
@@ -350,19 +383,10 @@ class FundingApplicationEditGuardTest extends TestCase
             FundingApplication::CLOSED_ERROR,
         ], array_keys(FundingApplication::statusKeys()));
         $this->assertSame(range(1, 26), array_values(FundingApplication::statusKeys()));
-        $this->assertSame(9, FundingApplication::statusKey(FundingApplication::READY_FOR_SUBMISSION));
-        $this->assertSame(10, FundingApplication::statusKey(FundingApplication::MATCHED_TO_LENDER));
-        // The display order is also the model's status list, which the dropdown and validation read.
+        // The dropdown and validation read the model's list, in the same order.
         $this->assertSame(array_keys(FundingApplication::statusKeys()), array_values(FundingApplication::STATUS));
+        $this->assertSame(array_keys(FundingApplication::STATUS), array_keys(FundingApplication::STATUS_CLASS));
         $this->assertSame('Closed - No Response', FundingApplication::CLOSED_NO_RESPONSE);
-
-        foreach (FundingApplication::statusKeys() as $status => $key) {
-            $this->assertSame(
-                $key <= 9,
-                $this->application($status)->isEditable(),
-                "{$status} (key {$key})"
-            );
-        }
     }
 
     // ── Statuses written by older versions ───────────────────────────

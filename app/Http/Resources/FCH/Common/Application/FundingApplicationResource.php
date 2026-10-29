@@ -93,10 +93,11 @@ class FundingApplicationResource extends JsonResource
             'funding_request_status' => $this->fundingRequest ? $this->fundingRequest->status : null,
             // What the details page needs to offer "Edit Funding Application"
             // under the same rule as the funding request page: the request the
-            // edit form opens on, and whether the application's lifecycle key
-            // still allows an edit.
+            // edit form opens on, and whether the status is in the editable
+            // list. When it isn't, locked_reason is what every viewer is shown.
             'funding_request_id' => $this->funding_request_id,
             'is_editable' => $this->isEditable(),
+            'locked_reason' => $this->editingState()['locked_reason'],
             'credit_pull_authorization' => $this->credit_pull_authorization,
             'terms_conditions_acceptance' => $this->terms_conditions_acceptance,
             'filed_for_bankruptcy' => $this->filed_for_bankruptcy,

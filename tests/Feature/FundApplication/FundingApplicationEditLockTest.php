@@ -9,6 +9,7 @@ use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -248,11 +249,10 @@ class FundingApplicationEditLockTest extends TestCase
         $this->assertSame('Alpha Tech Solutions LLC', $application->business_name, 'the edit itself is still saved');
     }
 
-    /** SCRUM-331: Ready for Submission is the last editable status; an edit there costs the signature. */
     #[Test]
-    public function editing_an_application_ready_for_submission_forces_a_resign(): void
+    public function editing_a_conditionally_approved_application_forces_a_resign(): void
     {
-        $this->setStatus(FundingApplication::READY_FOR_SUBMISSION);
+        $this->setStatus(FundingApplication::APPROVED_CONDITIONAL);
 
         $this->postBusinessInfo(['business_city' => 'Portland'])->assertOk();
 
@@ -262,15 +262,50 @@ class FundingApplicationEditLockTest extends TestCase
         $this->assertTrue((bool) $application->requires_resign);
     }
 
-    /** SCRUM-331: Approved (Conditional) now sits after Matched to Lender, so it is locked. */
-    #[Test]
-    public function a_conditionally_approved_application_can_no_longer_be_edited(): void
+    /** SCRUM-331: the two new statuses that stay editable; an edit there costs the signature. */
+    public static function newEditableStatusProvider(): array
     {
-        $this->setStatus(FundingApplication::APPROVED_CONDITIONAL);
+        return [
+            'Pending Clarification' => [FundingApplication::PENDING_CLARIFICATION],
+            'Ready for Submission' => [FundingApplication::READY_FOR_SUBMISSION],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('newEditableStatusProvider')]
+    public function editing_an_application_in_a_new_editable_status_forces_a_resign(string $status): void
+    {
+        $this->setStatus($status);
+
+        $this->postBusinessInfo(['business_city' => 'Portland'])->assertOk();
+
+        $application = FundingApplication::find($this->applicationId);
+
+        $this->assertSame(FundingApplication::DRAFT, $application->status);
+        $this->assertTrue((bool) $application->requires_resign);
+    }
+
+    /** SCRUM-331: the five new closing statuses are not in the editable list, so they are locked. */
+    public static function newLockedStatusProvider(): array
+    {
+        return [
+            'Withdrawn' => [FundingApplication::WITHDRAWN],
+            'Offer Declined by Borrower' => [FundingApplication::OFFER_DECLINED_BY_BORROWER],
+            'Closed - No Response' => [FundingApplication::CLOSED_NO_RESPONSE],
+            'Closed - Incomplete Application' => [FundingApplication::CLOSED_INCOMPLETE_APPLICATION],
+            'Closed - Error' => [FundingApplication::CLOSED_ERROR],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('newLockedStatusProvider')]
+    public function an_application_in_a_new_closing_status_cannot_be_edited(string $status): void
+    {
+        $this->setStatus($status);
 
         $this->postBusinessInfo(['business_city' => 'Portland'])->assertStatus(423);
 
-        $this->assertSame(FundingApplication::APPROVED_CONDITIONAL, FundingApplication::find($this->applicationId)->status);
+        $this->assertSame($status, FundingApplication::find($this->applicationId)->status);
     }
 
     #[Test]

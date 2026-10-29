@@ -71,8 +71,8 @@ class FundingRequestResource extends JsonResource
             'status' => $this->status,
             'application_status' => $this->fundingApplication?->status ?? null,
             'funding_application_id' => $this->fundingApplication?->id ?? null,
-            // Lifecycle key (1-19). The borrower may edit the application while
-            // it is at or below the editable limit (9), and not after.
+            // Lifecycle key (1-26), for sorting. Whether the borrower may edit is
+            // `application_is_editable` (config `statuses.editable`), not the key.
             'application_status_key' => $this->fundingApplication?->status_key,
             'application_is_editable' => (bool) $this->fundingApplication?->isEditable(),
             'documents_uploaded' => $this->documents_uploaded,
