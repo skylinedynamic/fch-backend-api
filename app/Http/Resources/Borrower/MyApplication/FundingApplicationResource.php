@@ -23,9 +23,10 @@ class FundingApplicationResource extends JsonResource
             'status'                                     => $this->status,
             // What the details page needs to offer "Edit Application" under the
             // same rule as the funding request page: the request the edit form
-            // opens on, and whether the lifecycle key still allows an edit.
+            // opens on, and whether the status is in the editable list.
             'funding_request_id'                         => $this->funding_request_id,
             'is_editable'                                => $this->isEditable(),
+            'locked_reason'                              => $this->editingState()['locked_reason'],
             'full_name'                                  => $this->full_name,
             'business_name'                              => $this->business_name,
             'business_email'                             => $this->business_email,

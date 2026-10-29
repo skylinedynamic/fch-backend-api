@@ -43,9 +43,17 @@ class OnboardingStepTest extends TestCase
     private Tier $tier1;
     /** @var TierTask[] */
     private array $tier0Tasks;
-    /** The document categories on the Documents page; Others is optional. */
+    /**
+     * The document categories on the Documents page. Only Driver's License,
+     * Voided Business Check, EIN / Corporation Docs and Business Bank
+     * Statements are required; the rest (Business Plan, Others, ...) are optional.
+     */
+    private BorrowerDocType $driversLicense;
+    private BorrowerDocType $voidedCheck;
+    private BorrowerDocType $einDocs;
     private BorrowerDocType $bankStatements;
-    private BorrowerDocType $einLetter;
+    private BorrowerDocType $businessPlan;
+    private BorrowerDocType $taxReturns;
     private BorrowerDocType $others;
 
     protected function setUp(): void
@@ -68,9 +76,14 @@ class OnboardingStepTest extends TestCase
             TierTask::create(['tier_id' => $this->tier0->id, 'title' => 'Bank account', 'order' => 2]),
         ];
 
-        $this->bankStatements = BorrowerDocType::create(['name' => 'Business Bank Statements', 'sort_order' => 1]);
-        $this->einLetter = BorrowerDocType::create(['name' => 'EIN Letter', 'sort_order' => 2]);
-        $this->others = BorrowerDocType::create(['name' => 'Others', 'sort_order' => 3]);
+        // Named as BorrowerDocTypesSeeder names them, curly apostrophe included.
+        $this->driversLicense = BorrowerDocType::create(['name' => 'Driver’s License', 'sort_order' => 1]);
+        $this->voidedCheck = BorrowerDocType::create(['name' => 'Voided Business Check', 'sort_order' => 2]);
+        $this->einDocs = BorrowerDocType::create(['name' => 'EIN / Corporation Docs', 'sort_order' => 3]);
+        $this->bankStatements = BorrowerDocType::create(['name' => 'Business Bank Statements', 'sort_order' => 4]);
+        $this->businessPlan = BorrowerDocType::create(['name' => 'Business Plan', 'sort_order' => 5]);
+        $this->taxReturns = BorrowerDocType::create(['name' => 'Business Tax Returns', 'sort_order' => 6]);
+        $this->others = BorrowerDocType::create(['name' => 'Others', 'sort_order' => 7]);
 
         $this->borrower = Borrower::create([
             'partner_id' => $this->partner->id,
@@ -167,11 +180,13 @@ class OnboardingStepTest extends TestCase
         ]);
     }
 
-    /** A document in every required category: all but Others. */
+    /** A document in every required category, and none in the optional ones. */
     private function uploadAllDocuments(): void
     {
+        $this->uploadDocument($this->driversLicense);
+        $this->uploadDocument($this->voidedCheck);
+        $this->uploadDocument($this->einDocs);
         $this->uploadDocument($this->bankStatements);
-        $this->uploadDocument($this->einLetter);
     }
 
     /** Tier 0 task requests, by status, one per task in order. */
@@ -421,13 +436,46 @@ class OnboardingStepTest extends TestCase
         $this->submitCreditProfile();
         $this->tier0Requests(BorrowerTaskVerificationRequest::PROCESSING, BorrowerTaskVerificationRequest::PROCESSING);
         $this->uploadDocument($this->others);
+        $this->uploadDocument($this->driversLicense);
+        $this->uploadDocument($this->voidedCheck);
         $this->uploadDocument($this->bankStatements);
 
         $this->assertSame('upload_documents', $this->onboarding()['current_step']);
 
-        $this->uploadDocument($this->einLetter);
+        $this->uploadDocument($this->einDocs);
 
         $this->assertSame('results_ready', $this->onboarding()['current_step']);
+    }
+
+    #[Test]
+    public function only_the_four_required_categories_are_needed(): void
+    {
+        // Business Plan, Business Tax Returns and Others stay empty.
+        $this->startJourney();
+        $this->submitCreditProfile();
+        $this->tier0Requests(BorrowerTaskVerificationRequest::PROCESSING, BorrowerTaskVerificationRequest::PROCESSING);
+        $this->uploadAllDocuments();
+
+        $onboarding = $this->onboarding();
+        $this->assertSame('results_ready', $onboarding['current_step']);
+        $this->assertTrue($onboarding['results_ready']);
+    }
+
+    #[Test]
+    public function documents_in_optional_categories_do_not_stand_in_for_required_ones(): void
+    {
+        $this->startJourney();
+        $this->submitCreditProfile();
+        $this->tier0Requests(BorrowerTaskVerificationRequest::PROCESSING, BorrowerTaskVerificationRequest::PROCESSING);
+        $this->uploadDocument($this->driversLicense);
+        $this->uploadDocument($this->voidedCheck);
+        $this->uploadDocument($this->einDocs);
+        $this->uploadDocument($this->businessPlan);
+        $this->uploadDocument($this->taxReturns);
+        $this->uploadDocument($this->others);
+
+        // Business Bank Statements is still missing.
+        $this->assertSame('upload_documents', $this->onboarding()['current_step']);
     }
 
     #[Test]
@@ -436,8 +484,10 @@ class OnboardingStepTest extends TestCase
         $this->startJourney();
         $this->submitCreditProfile();
         $this->tier0Requests(BorrowerTaskVerificationRequest::PROCESSING, BorrowerTaskVerificationRequest::PROCESSING);
+        $this->uploadDocument($this->driversLicense);
+        $this->uploadDocument($this->voidedCheck);
         $this->uploadDocument($this->bankStatements);
-        $this->uploadDocument($this->einLetter, BorrowerDocument::STATUS_REJECTED);
+        $this->uploadDocument($this->einDocs, BorrowerDocument::STATUS_REJECTED);
 
         $this->assertSame('upload_documents', $this->onboarding()['current_step']);
     }
@@ -463,8 +513,10 @@ class OnboardingStepTest extends TestCase
         $this->startJourney();
         $this->submitCreditProfile();
         $this->tier0Requests(BorrowerTaskVerificationRequest::PROCESSING, BorrowerTaskVerificationRequest::PROCESSING);
+        $this->uploadDocument($this->driversLicense, BorrowerDocument::STATUS_REJECTED);
+        $this->uploadDocument($this->voidedCheck, BorrowerDocument::STATUS_REJECTED);
+        $this->uploadDocument($this->einDocs, BorrowerDocument::STATUS_REJECTED);
         $this->uploadDocument($this->bankStatements, BorrowerDocument::STATUS_REJECTED);
-        $this->uploadDocument($this->einLetter, BorrowerDocument::STATUS_REJECTED);
 
         $this->assertSame('upload_documents', $this->onboarding()['current_step']);
     }

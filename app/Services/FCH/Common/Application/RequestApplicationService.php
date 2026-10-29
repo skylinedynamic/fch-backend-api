@@ -201,7 +201,7 @@ class RequestApplicationService
                 $sortField = 'created_at';
             }
 
-            // Sorting on status follows the lifecycle (key 1-19), not the
+            // Sorting on status follows the lifecycle (key 1-26), not the
             // alphabet - "Approved" is not the first thing that happens.
             $sortByStatusKey = $sortField === 'status';
 
