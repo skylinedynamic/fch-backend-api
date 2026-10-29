@@ -117,7 +117,7 @@ class FundingReadinessService
                 } elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
                     $docName = config('funding_qualification.rules.banking_activity.document_name', BorrowerDocType::BANK_STATEMENTS);
                     $docType = BorrowerDocType::where('name', $docName)->first();
-                    if ($docType && BorrowerDocument::where('borrower_id', $borrower->id)->where('document_type_id', $docType->id)->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])->exists()) {
+                    if ($docType && BorrowerDocument::where('borrower_id', $borrower->id)->where('document_type_id', $docType->id)->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_UNDER_REVIEW, BorrowerDocument::STATUS_ACCEPTED])->exists()) {
                         $status = $statusGood;
                     } else {
                         $status = $statusMissing;
