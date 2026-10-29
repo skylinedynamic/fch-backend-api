@@ -316,6 +316,20 @@ class BorrowerDocumentsApiTest extends TestCase
         $this->getJson('/api/v1/common/doc-types')->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/api/v1/common/borrower-document-types')->assertOk()->assertJsonCount(2, 'data');
     }
+
+    /** The admin's Documents tab groups by category and marks the required ones from this. */
+    #[Test]
+    public function the_document_types_say_which_categories_are_required(): void
+    {
+        BorrowerDocType::create(['name' => BorrowerDocType::VOIDED_BUSINESS_CHECK]);
+        BorrowerDocType::create(['name' => 'Business Plan']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $types = collect($this->getJson('/api/v1/common/borrower-document-types')->assertOk()->json('data'))->keyBy('name');
+
+        $this->assertTrue($types[BorrowerDocType::VOIDED_BUSINESS_CHECK]['is_required']);
+        $this->assertFalse($types['Business Plan']['is_required']);
+    }
     // ── The client is told about the review (BUG-087) ─────────────────
 
     /**
