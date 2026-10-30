@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\FundingRequest;
 
+use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -132,5 +133,48 @@ class FundingRequestListSortSearchTest extends TestCase
         $expected = array_map(fn (string $label) => $this->rows[$label], str_split($labels));
 
         $this->assertEqualsCanonicalizing($expected, $this->list(['search' => $term]));
+    }
+
+    /**
+     * BUG-150: BORROWER NAME sorted on the first name, then the last - so with
+     * "QA-TEST" + "R2 Wanda" and "QA-TEST ONB" + "Wanda x11" the R2 row came
+     * first, though the column reads "QA-TEST ONB..." before "QA-TEST R2...".
+     * It sorts on the name as the column shows it.
+     */
+    #[Test]
+    public function borrower_name_sorts_on_the_name_as_the_column_shows_it(): void
+    {
+        DB::table('funding_requests')->delete();
+        $r2 = $this->request('QA-TEST', 'R2 Wanda Embed Two', 'Partner R2', 'Seq R2', 'Bridge Financing', 1000, 'Lender R2', FundingRequest::STATUS_PENDING);
+        $onb = $this->request('QA-TEST ONB', 'Wanda x11', 'Partner ONB', 'Seq ONB', 'Bridge Financing', 1000, 'Lender ONB', FundingRequest::STATUS_PENDING);
+
+        $this->assertSame([$onb, $r2], $this->list(['sort_field' => 'borrower_name', 'sort_order' => 'asc']));
+        $this->assertSame([$r2, $onb], $this->list(['sort_field' => 'borrower_name', 'sort_order' => 'desc']));
+    }
+
+    /**
+     * BUG-150: APPLICATION STATUS toggled its arrow but the rows never moved -
+     * it was not a sortable field, so it fell back to newest first. It follows
+     * the application lifecycle (no application yet, Draft, ... Funded), as the
+     * borrower's own list does (BUG-009).
+     */
+    #[Test]
+    public function application_status_sorts_both_ways_by_the_application_lifecycle(): void
+    {
+        foreach (['A' => FundingApplication::FUNDED, 'B' => FundingApplication::DRAFT] as $label => $status) {
+            $request = DB::table('funding_requests')->find($this->rows[$label]);
+            DB::table('funding_applications')->insert([
+                'funding_request_id' => $request->id,
+                'borrower_id' => $request->borrower_id,
+                'partner_id' => $request->partner_id,
+                'status' => $status,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // C has no application yet, B is a Draft, A is Funded.
+        $this->assertSame([$this->rows['C'], $this->rows['B'], $this->rows['A']], $this->list(['sort_field' => 'application_status', 'sort_order' => 'asc']));
+        $this->assertSame([$this->rows['A'], $this->rows['B'], $this->rows['C']], $this->list(['sort_field' => 'application_status', 'sort_order' => 'desc']));
     }
 }

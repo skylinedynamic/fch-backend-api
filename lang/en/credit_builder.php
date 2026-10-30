@@ -33,6 +33,8 @@ return [
     'validation_vendor_tier_id_exists' => 'Selected tier is invalid.',
     'validation_vendor_status_required' => 'Status is required.',
     'validation_vendor_general_url_required' => 'General URL is required.',
+    'validation_vendor_logo' => 'Choose the logo from the File Manager: a jpg, png, gif, svg or webp image.',
+    'vendor_in_use' => 'Tier tasks use these vendors, so they cannot be deleted. Move those tasks to another vendor first. Nothing was deleted.',
     'filter_options_fetched' => 'Filter options retrieved successfully.',
     'status_updated' => 'Status updated successfully.',
     'status_updated_requested' => 'Application requested successfully.',

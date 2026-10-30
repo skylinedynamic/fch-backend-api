@@ -28,6 +28,7 @@ use App\Http\Resources\FCH\Borrower\BorrowerPersonalDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\ArchiveBorrowerRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\RevealBorrowerFieldRequest;
 
 class BorrowerController extends Controller
 {
@@ -127,6 +128,29 @@ class BorrowerController extends Controller
             throw $e;
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
+        }
+    }
+
+    /**
+     * One of the client's masked numbers in full (BUG-014): `field` names it.
+     */
+    public function reveal(RevealBorrowerFieldRequest $request, string $id)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails((int) $id);
+
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            $field = $request->validated('field');
+
+            return ApiResponse::success(
+                ['field' => $field, 'value' => $this->borrowerService->revealField($borrower, $field)],
+                __('borrower.retrieved_details')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
     }
 
@@ -534,10 +558,16 @@ class BorrowerController extends Controller
 
             $pdfFile = $request->file('pdf');
 
-            // Extract text from PDF using Smalot PDF Parser
-            $parser = new \Smalot\PdfParser\Parser();
-            $pdf = $parser->parseFile($pdfFile->getPathname());
-            $text = $pdf->getText();
+            // Extract text from PDF using Smalot PDF Parser. A file it cannot
+            // open gets a plain message, never the parser's own (BUG-144).
+            try {
+                $parser = new \Smalot\PdfParser\Parser();
+                $pdf = $parser->parseFile($pdfFile->getPathname());
+                $text = $pdf->getText();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('parseCreditProfile unreadable PDF', ['message' => $e->getMessage()]);
+                return ApiResponse::error(__('borrower.credit_profile_unreadable_pdf'), 422);
+            }
 
             // Validate that we got some text
             if (empty(trim($text))) {
@@ -560,6 +590,12 @@ class BorrowerController extends Controller
 
             $parserService = $this->getParserService($parserMode, $partnerId);
             $extractedData = $parserService->parse($text);
+
+            // A readable PDF the parser finds nothing in is not a credit
+            // report: refused before anything of it is stored (BUG-144).
+            if (!$this->looksLikeCreditReport($extractedData)) {
+                return ApiResponse::error(__('borrower.credit_profile_not_a_report'), 422);
+            }
 
             // Store PDF in public storage under borrowers/{borrower_id}
             $fileName = 'credit_report_' . time() . '.pdf';
@@ -637,6 +673,11 @@ class BorrowerController extends Controller
 
             $metrics = $request->input('metrics') ?? [];
             $personalInfo = $request->input('personal_info') ?? [];
+            // The profile goes out with the SSN masked (BUG-145): a mask sent
+            // back unchanged keeps the number on file.
+            if (is_string($personalInfo['ssn'] ?? null) && str_contains($personalInfo['ssn'], '*')) {
+                $personalInfo['ssn'] = $borrower->creditProfile?->personal_info['ssn'] ?? null;
+            }
             $addresses = $request->input('addresses') ?? [];
             $tradeAccounts = $request->input('trade_accounts') ?? [];
             $inquiries = $request->input('inquiries') ?? [];
@@ -865,6 +906,36 @@ class BorrowerController extends Controller
                 'error' => $e->getMessage(),
             ]));
         }
+    }
+
+    /**
+     * Whether a parse found anything a credit report has: a score, an
+     * account, an inquiry, an address or the person it is about. The
+     * parsers always fill delinquent_accounts and summary, so those don't count.
+     */
+    private function looksLikeCreditReport(array $extracted): bool
+    {
+        $metrics = $extracted['metrics'] ?? [];
+        foreach (['fico_score', 'paydex_score', 'experian_intelliscore', 'equifax_score'] as $score) {
+            if (!empty($metrics[$score])) {
+                return true;
+            }
+        }
+
+        foreach (['trade_accounts', 'inquiries', 'addresses'] as $list) {
+            if (!empty($extracted[$list])) {
+                return true;
+            }
+        }
+
+        $personal = $extracted['personal_info'] ?? [];
+        foreach (['name', 'ssn', 'dob'] as $field) {
+            if (!empty($personal[$field])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function getParserService(string $mode, ?int $partnerId = null): \App\Services\FCH\Common\Borrower\CreditProfileParserInterface

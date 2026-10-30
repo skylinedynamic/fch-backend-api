@@ -3,6 +3,7 @@
 namespace Tests\Feature\Billing;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Subscription\Subscription;
 use App\Models\User\User;
@@ -127,5 +128,67 @@ class UpcomingBillingSortTest extends TestCase
             ['Soonest Charge', 'Later Charge', 'Awaiting First'],
             array_column($this->rows($admin, 'asc', 'upcoming_billing_date'), 'subscriber_name')
         );
+    }
+
+    /**
+     * BUG-012 (reopened): AMOUNT sorts on the amount each row shows. The sort
+     * picked its own column per phase, so an enrolling client's down payment
+     * sorted as their payable amount and the order matched nothing on screen.
+     */
+    #[Test]
+    public function amount_sorts_on_the_amount_each_row_shows(): void
+    {
+        $this->clientOf($this->host, 'Monthly', 'Three Hundred');
+        $downPayment = $this->clientOf($this->host, 'Down', 'Payment');
+        $downPayment->update([
+            'current_phase' => Subscription::PHASE_ENROLLMENT,
+            'installments_paid' => 0,
+            'down_payment' => 1000,
+            'payable_amount' => 4,
+        ]);
+        $platformFee = $this->subscribe(Partner::class, $this->wanda->id);
+        $platformFee->update(['current_phase' => Subscription::PHASE_PLATFORM_FEE, 'monthly_platform_fee' => 50, 'payable_amount' => 7999]);
+        $noMonthly = $this->clientOf($this->host, 'Falls', 'Through');
+        $noMonthly->update(['current_phase' => Subscription::PHASE_ENROLLMENT, 'subscription_amount_per_month' => null, 'payable_amount' => 6997]);
+        $admin = $this->makePartnerAdmin($this->host);
+
+        $this->assertSame([50, 300, 1000, 6997], array_column($this->rows($admin, 'asc', 'upcoming_billing_amount'), 'upcoming_billing_amount'));
+        $this->assertSame([6997, 1000, 300, 50], array_column($this->rows($admin, 'desc', 'upcoming_billing_amount'), 'upcoming_billing_amount'));
+    }
+
+    /**
+     * BUG-012 (reopened): OUTSTANDING sorts on the unpaid invoices' total it
+     * shows; a paid or deleted invoice is not owed and does not count.
+     */
+    #[Test]
+    public function outstanding_sorts_on_the_unpaid_total_each_row_shows(): void
+    {
+        $owesNothing = $this->clientOf($this->host, 'Owes', 'Nothing');
+        $this->invoice($owesNothing, 5000, Invoice::STATUS_PAID);
+        $owesMost = $this->clientOf($this->host, 'Owes', 'Most');
+        $this->invoice($owesMost, 700);
+        $this->invoice($owesMost, 2000);
+        $owesSome = $this->clientOf($this->host, 'Owes', 'Some');
+        $this->invoice($owesSome, 999);
+        $this->invoice($owesSome, 9000)->delete();
+        $admin = $this->makePartnerAdmin($this->host);
+
+        $this->assertSame([0, 999, 2700], array_column($this->rows($admin, 'asc', 'outstanding_amount'), 'outstanding_amount'));
+        $this->assertSame([2700, 999, 0], array_column($this->rows($admin, 'desc', 'outstanding_amount'), 'outstanding_amount'));
+    }
+
+    private function invoice(Subscription $subscription, float $amount, string $status = Invoice::STATUS_UNPAID): Invoice
+    {
+        return Invoice::create([
+            'invoice_id' => 'INV-' . str_pad((string) (Invoice::count() + 1), 6, '0', STR_PAD_LEFT),
+            'subscription_id' => $subscription->id,
+            'entity_type' => $subscription->entity_type,
+            'entity_id' => $subscription->entity_id,
+            'payment_amount' => $amount,
+            'month_count' => 1,
+            'status' => $status,
+            'type' => 'Subscription',
+            'currency' => 'USD',
+        ]);
     }
 }

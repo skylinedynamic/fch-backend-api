@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1\Borrower\Agreement;
 
+use App\Exceptions\AgreementFieldsInvalidException;
+use App\Exceptions\AgreementVersionOutdatedException;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Services\FCH\Common\ManageAgreement\AgreementService;
@@ -38,12 +40,18 @@ class AgreementSignController extends Controller
     {
         $request->validate([
             'agreement_template_id' => 'required|integer|exists:agreement_templates,id',
+            'agreement_template_version_id' => 'nullable|integer',
+            'fields' => 'nullable|array',
         ]);
 
         try {
             $user = $request->user();
-            $this->agreementService->submitSign($user, $request->all(), $request->ip());
+            $this->agreementService->submitSign($user, $request->all(), $request->ip(), $request->userAgent());
             return ApiResponse::success(null, __('agreement.signed_successfully'));
+        } catch (AgreementVersionOutdatedException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        } catch (AgreementFieldsInvalidException $e) {
+            return ApiResponse::validationError(['fields' => $e->fields], $e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.sign_failed') . ': ' . $e->getMessage());
         }

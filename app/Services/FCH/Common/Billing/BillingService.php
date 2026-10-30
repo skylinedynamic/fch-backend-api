@@ -7,6 +7,7 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use App\Models\Employee\Employee;
+use App\Models\Invoice\Invoice;
 use App\Http\Resources\FCH\Billing\BillingResource;
 use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
 use App\Services\Global\Datatable\QueryFilter;
@@ -265,15 +266,27 @@ class BillingService
                 $skipSorting = true;
                 break;
 
+            // Sorts on the amount the row shows (BUG-012) - see billingAmountSql().
             case 'upcoming_billing_amount':
-                $query->orderByRaw("
-                    CASE 
-                        WHEN subscriptions.current_phase = '" . Subscription::PHASE_INSTALLMENT . "' THEN subscriptions.subscription_amount_per_month 
-                        WHEN subscriptions.current_phase = '" . Subscription::PHASE_PLATFORM_FEE . "' THEN subscriptions.monthly_platform_fee 
-                        WHEN subscriptions.current_phase = '" . Subscription::PHASE_USER_SEAT . "' THEN subscriptions.per_seat_amount 
-                        ELSE subscriptions.payable_amount 
-                    END {$sortOrder}
-                ");
+                $query->orderByRaw($this->billingAmountSql() . " {$sortOrder}", [
+                    Subscription::PHASE_INSTALLMENT,
+                    Subscription::PHASE_PLATFORM_FEE,
+                    Subscription::PHASE_USER_SEAT,
+                    Subscription::PHASE_COMPLETED,
+                ]);
+                $skipSorting = true;
+                break;
+
+            // The unpaid invoices' total the row shows as outstanding_amount -
+            // the same unpaidInvoices relation, so paid and deleted ones are out.
+            case 'outstanding_amount':
+                $query->orderBy(
+                    Invoice::query()
+                        ->selectRaw('COALESCE(SUM(payment_amount), 0)')
+                        ->whereColumn('invoices.subscription_id', 'subscriptions.id')
+                        ->where('status', Invoice::STATUS_UNPAID),
+                    $sortOrder
+                );
                 $skipSorting = true;
                 break;
 
@@ -342,6 +355,25 @@ class BillingService
                 'summary' => $summary,
             ]
         );
+    }
+
+    /**
+     * The upcoming_billing_amount BillingResource shows, as SQL, so sorting by
+     * Amount follows the figures on screen. Keep the two in step. The columns
+     * are decimal:2 strings, so the resource's `?:` only falls through on NULL -
+     * a stored 0.00 is shown as $0 - which COALESCE matches.
+     * Bindings: installment, platform fee, user seat and completed phases.
+     */
+    private function billingAmountSql(): string
+    {
+        return "CASE
+            WHEN subscriptions.current_phase = ? THEN COALESCE(subscriptions.subscription_amount_per_month, 0)
+            WHEN subscriptions.current_phase = ? THEN COALESCE(subscriptions.monthly_platform_fee, 0)
+            WHEN subscriptions.current_phase = ? THEN COALESCE(subscriptions.per_seat_amount, 0)
+            WHEN subscriptions.current_phase = ? THEN 0
+            WHEN subscriptions.down_payment > 0 AND subscriptions.installments_paid = 0 THEN subscriptions.down_payment
+            ELSE COALESCE(subscriptions.subscription_amount_per_month, subscriptions.payable_amount, 0)
+        END";
     }
 
     /**

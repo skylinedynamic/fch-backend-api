@@ -32,6 +32,8 @@ use Illuminate\Validation\ValidationException;
 
 class BorrowerService
 {
+    /** The numbers a client's details carry masked, which revealField() gives in full. */
+    public const REVEALABLE_FIELDS = ['ssn', 'business_ein', 'credit_profile_ssn'];
     use PaginatesApi, UploadsFiles;
 
     public function __construct(
@@ -441,13 +443,15 @@ class BorrowerService
                         __('borrower.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                     );
 
+                    // With no end date there is nothing to be "active until"
+                    // (BUG-143): the free plan welcome, not the trial bell.
                     $this->sendBorrowerMail(
-                        'borrower.account.trial_started',
+                        $trialEndDate ? 'borrower.account.trial_started' : 'borrower.account.free_plan_started',
                         $user,
                         $user->email,
                         new \App\Mail\Trial\BorrowerTrialMail(array_merge($mailData, ['trial_end_date' => $trialEndDate]), $borrower->partner_id),
                         $borrower->partner_id,
-                        ['date' => $trialEndDate ?? 'N/A']
+                        $trialEndDate ? ['date' => $trialEndDate] : []
                     );
 
                     $isHostPartner = $partner && $partner->is_host == 1;
@@ -593,6 +597,24 @@ class BorrowerService
                         continue;
                     }
 
+                    // Who the client is assigned to, by name rather than user id
+                    if ($field === 'assign_id') {
+                        $owner = $this->activityLogService->describeOwnerChange(
+                            __('activity_log.owner_label_client'),
+                            $borrower->getPrevious()['assign_id'] ?? null,
+                            $newValue
+                        );
+                        $changedFields[] = $owner['sentence'];
+                        $extraProps['changes']['assign_id'] = $owner['change'];
+                        continue;
+                    }
+
+                    // An SSN or date of birth is recorded as changed, never repeated
+                    if (ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
                     $name = ucwords(str_replace('_', ' ', $field));
                     $val = (string) $newValue;
                     $val = $val === '' ? __('borrower.empty_value') : $val;
@@ -608,11 +630,14 @@ class BorrowerService
                     $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
                 }
 
+                // Only the Assigned To changed: an entry saying just that
+                $customSubject = array_keys($changes) === ['assign_id'] ? __('activity_log.owner_subject_client') : null;
+
                 $this->activityLogService->logModelEvent(
                     $borrower,
                     $logType,
                     $extraProps,
-                    null,
+                    $customSubject,
                     $customDescription
                 );
             }
@@ -767,6 +792,34 @@ class BorrowerService
         }
 
         return $borrower->fresh(['bankAccounts']);
+    }
+
+    /**
+     * A client's number that the details only carry masked, in full (BUG-014).
+     * Every reveal is logged on the client - who looked, never the number.
+     *
+     * @param  string  $field  one of REVEALABLE_FIELDS
+     */
+    public function revealField(Borrower $borrower, string $field): ?string
+    {
+        $label = ActivityLog::fieldLabel($field);
+
+        $this->activityLogService->logSystemEvent(
+            Borrower::class,
+            $borrower->id,
+            $borrower->partner_id,
+            $borrower->id,
+            "{$label} Viewed",
+            "The full {$label} was viewed.",
+        );
+
+        // The SSN printed on the credit report, kept with the credit profile
+        // (BUG-145) - not always the borrower's own.
+        if ($field === 'credit_profile_ssn') {
+            return $borrower->creditProfile?->personal_info['ssn'] ?? null;
+        }
+
+        return $borrower->{$field} ?: null;
     }
 
     /**

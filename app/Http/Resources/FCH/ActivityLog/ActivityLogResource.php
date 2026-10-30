@@ -4,6 +4,8 @@ namespace App\Http\Resources\FCH\ActivityLog;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\ActivityLog\ActivityLog;
+use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Lead\Lead;
@@ -149,6 +151,8 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->assignedUser->id,
                 'name' => $this->assignedUser->name,
             ] : null),
+            // A Task assigned to a staff member ("Want to Assign"); null otherwise.
+            'task'          => $this->taskDetails($props),
             'description'   => $this->properties['description'] ?? ($this->getAutoDescription() ?? $this->description),
             // Email fields
             'to_emails'     => $this->properties['to_emails'] ?? null,
@@ -269,6 +273,30 @@ class ActivityLogResource extends JsonResource
         }
 
         return ['custom_time_before', (string) $leadMinutes, 'Minutes'];
+    }
+
+    private function taskDetails(iterable $props): ?array
+    {
+        $task = $props['task'] ?? null;
+        if (! is_array($task)) {
+            return null;
+        }
+
+        $assignee = ! empty($task['assigned_to'])
+            ? User::query()->select('id', 'name')->find($task['assigned_to'])
+            : null;
+        $priority = $task['priority'] ?? null;
+        $status = $task['status'] ?? null;
+
+        return [
+            'assigned_to'    => $task['assigned_to'] ?? null,
+            'assigned_user'  => $assignee ? ['id' => $assignee->id, 'name' => $assignee->name] : null,
+            'due_date'       => $task['due_date'] ?? null,
+            'priority'       => $priority,
+            'priority_label' => ActivityLog::TASK_PRIORITY_LABELS[$priority] ?? null,
+            'status'         => $status,
+            'status_label'   => ActivityLog::TASK_STATUS_LABELS[$status] ?? null,
+        ];
     }
 
     private function getEventLabel(): string

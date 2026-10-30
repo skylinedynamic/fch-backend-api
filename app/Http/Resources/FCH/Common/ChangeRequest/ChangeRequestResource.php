@@ -19,8 +19,10 @@ class ChangeRequestResource extends JsonResource
             'partner_id' => $this->partner_id,
             'borrower_id' => $this->borrower_id,
             'field_name' => $this->field_name,
-            'old_value' => $this->old_value,
-            'new_value' => $this->new_value,
+            // An SSN or EIN masked (BUG-014); ChangeRequestService::reveal() gives both in full.
+            'old_value' => $this->maskedValue($this->old_value),
+            'new_value' => $this->maskedValue($this->new_value),
+            'is_masked' => $this->isMaskedField(),
             'status' => $this->status,
             'entity_type' => $this->entity_type,
             'entity_id' => $this->entity_id,
