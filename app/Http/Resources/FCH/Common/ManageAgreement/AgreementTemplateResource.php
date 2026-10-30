@@ -16,6 +16,8 @@ class AgreementTemplateResource extends JsonResource
             'template_html' => $this->template_html,
             'template_json' => $this->template_json,
             'is_active' => $this->is_active,
+            // The current wording's version number; null until the template is next saved.
+            'version' => ($version = $this->versions()->max('version')) === null ? null : (int) $version,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

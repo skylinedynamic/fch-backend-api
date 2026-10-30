@@ -15,6 +15,8 @@ return [
     'host_exempt' => 'Host partners (Platform Owners) are exempt from signing.',
     'not_partner' => 'Only partner users can sign an agreement',
     'not_found_or_inactive' => 'Agreement template not found or inactive',
+    'fields_invalid' => 'Please complete every required field of the agreement.',
+    'version_outdated' => 'This agreement has been updated since you opened it. Please reload and review it before signing.',
     'no_signed_agreement' => 'No signed agreement found for this user',
     'not_allowed' => 'User type not allowed to sign agreements',
     'download_failed' => 'Failed to download agreement PDF',

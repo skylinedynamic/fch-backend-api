@@ -2,6 +2,8 @@
 
 namespace App\Services\FCH\Common\ManageAgreement;
 
+use App\Exceptions\AgreementFieldsInvalidException;
+use App\Exceptions\AgreementVersionOutdatedException;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\AgreementSign;
 use App\Models\Common\AgreementTemplate;
@@ -19,6 +21,13 @@ use Exception;
  */
 class AgreementService
 {
+    public function __construct(
+        private SignedAgreementBuilder $signedAgreements = new SignedAgreementBuilder(),
+        private AgreementImageStore $images = new AgreementImageStore(),
+        private AgreementMergeFields $mergeFields = new AgreementMergeFields(),
+    ) {
+    }
+
     public function checkSignNeed(User $user): array
     {
         try {
@@ -73,12 +82,18 @@ class AgreementService
                 return $this->noSignNeeded(__('agreement.no_active_template', ['slug' => $slug]));
             }
 
+            $version = $template->currentVersion();
+
             return [
                 'needs_sign' => true,
                 'template'   => [
                     'id'            => $template->id,
                     'slug'          => $template->slug,
-                    'template_html' => $template->template_html,
+                    // Merge fields ({{signer.name}} ...) filled with this signer's details.
+                    'template_html' => $this->mergeFields->fill($version->template_html, $this->mergeFields->values($user, $template->partner)),
+                    // Sent back on submit, so a wording changed meanwhile is not signed unseen.
+                    'version_id'    => $version->id,
+                    'version'       => $version->version,
                 ],
             ];
         } catch (Exception $e) {
@@ -114,7 +129,14 @@ class AgreementService
         });
     }
 
-    public function submitSign(User $user, array $data, string $ip): bool
+    /**
+     * With `fields` (the values entered, by field key) the signed record is built
+     * here from the version signed; any `content_html` sent is ignored. Without
+     * them - a portal not yet updated - the `content_html` sent is kept as before.
+     *
+     * @throws AgreementFieldsInvalidException
+     */
+    public function submitSign(User $user, array $data, string $ip, ?string $userAgent = null): bool
     {
         $this->validateUserForSigning($user);
 
@@ -138,22 +160,46 @@ class AgreementService
             throw new Exception(__('agreement.not_found_or_inactive'));
         }
 
-        return DB::transaction(function () use ($user, $entity, $template, $ip, $data) {
-            $contentHtml = $data['content_html'] ?? $template->template_html;
+        // The version the signer was shown (checkSignNeed()); a portal that does not
+        // send it yet signs the current one.
+        $version = $template->currentVersion();
+        if (isset($data['agreement_template_version_id']) && (int) $data['agreement_template_version_id'] !== $version->id) {
+            throw new AgreementVersionOutdatedException(__('agreement.version_outdated'));
+        }
 
+        $evidence = [];
+        if (is_array($data['fields'] ?? null)) {
+            $templateHtml = $this->mergeFields->fill($version->template_html ?? '', $this->mergeFields->values($user, $template->partner));
+            $fields = array_intersect_key($data['fields'], $this->signedAgreements->fields($templateHtml));
+            $contentHtml = $this->signedAgreements->build($templateHtml, $fields, [
+                'Signed by' => trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')) ?: (string) ($user->name ?? ''),
+                'Email' => (string) ($user->email ?? ''),
+                'Signed at' => now()->utc()->format('F j, Y g:i A') . ' UTC',
+                'IP address' => $ip,
+                'Agreement' => ucfirst($slug) . ' agreement, Version ' . $version->version,
+            ]);
+            // The signature image is kept once, on disk, not again inside the values.
+            $fieldValues = array_map(fn ($value) => is_string($value) ? $this->images->extract($value) : $value, $fields);
+            $evidence = ['content_hash' => hash('sha256', $contentHtml), 'user_agent' => $userAgent ? mb_substr($userAgent, 0, 512) : null];
+        } else {
+            $contentHtml = $data['content_html'] ?? $template->template_html;
             $fieldValues = $data['field_values'] ?? null;
             if (is_string($fieldValues)) {
                 $fieldValues = json_decode($fieldValues, true);
             }
+            $fieldValues = $fieldValues ? json_encode($fieldValues) : null;
+        }
 
-            AgreementSign::create([
+        return DB::transaction(function () use ($user, $entity, $template, $version, $ip, $contentHtml, $fieldValues, $evidence) {
+            AgreementSign::create($evidence + [
                 'user_id'               => $user->id,
                 'entity_type'           => $user->entity_type,
                 'entity_id'             => $user->entity_id,
                 'agreement_template_id' => $template->id,
+                'agreement_template_version_id' => $version->id,
                 'ip_address'            => $ip,
                 'content_html'          => $contentHtml,
-                'field_values'          => $fieldValues ? json_encode($fieldValues) : null,
+                'field_values'          => $fieldValues,
             ]);
 
             $user->update(['is_refresh' => true]);
@@ -241,13 +287,17 @@ class AgreementService
                 }
 
                 $agreement->update($payload);
-                return $agreement;
+            } else {
+                $agreement = AgreementTemplate::updateOrCreate(
+                    ['partner_id' => $partnerId, 'slug' => $data['slug']],
+                    $payload
+                );
             }
 
-            return AgreementTemplate::updateOrCreate(
-                ['partner_id' => $partnerId, 'slug' => $data['slug']],
-                $payload
-            );
+            // Keep the wording as a version when it changed.
+            $agreement->currentVersion();
+
+            return $agreement;
         });
     }
 
