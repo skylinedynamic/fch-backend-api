@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Borrower;
 
+use App\Rules\Ssn;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,13 +40,15 @@ class BorrowerCreditProfileResource extends JsonResource
                     'utilization_ratio' => $this->open_accounts_utilization_ratio,
                 ], $this->open_accounts_analysis ?? [])
             ],
-            'personal_info' => $this->personal_info ?? [
+            // The SSN goes out masked like every other (BUG-145); the full
+            // number is the logged reveal's (field credit_profile_ssn).
+            'personal_info' => $this->maskedSsn($this->personal_info ?? [
                 'name' => $this->borrower?->first_name . ' ' . $this->borrower?->last_name,
                 'dob' => toDateOnly($this->borrower?->date_of_birth),
                 'ssn' => $this->borrower?->last_4_ssn,
                 'email' => $this->borrower?->email,
                 'phone' => $this->borrower?->phone_number,
-            ],
+            ]),
             'addresses' => $this->addresses->map(function ($addr) {
                 return [
                     'type' => $addr->type,
@@ -93,5 +96,14 @@ class BorrowerCreditProfileResource extends JsonResource
             'pdf_url' => $this->pdf_url,
             'document_id' => $this->document_id,
         ];
+    }
+
+    private function maskedSsn(array $personalInfo): array
+    {
+        if (array_key_exists('ssn', $personalInfo)) {
+            $personalInfo['ssn'] = Ssn::mask($personalInfo['ssn']);
+        }
+
+        return $personalInfo;
     }
 }

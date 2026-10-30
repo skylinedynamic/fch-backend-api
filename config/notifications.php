@@ -606,6 +606,18 @@ return [
             'url' => '/dashboard',
         ],
 
+        // A Limited Free Plan with no end date (every embed form conversion):
+        // there is no trial and no date to name (BUG-143).
+        'borrower.account.free_plan_started' => [
+            'name' => 'Borrower free plan started',
+            'category' => 'system',
+            'icon' => 'ri-gift-line',
+            'channels' => $bellAndMail,
+            'title' => 'Your Limited Free Plan is active',
+            'body' => 'Welcome! Your Limited Free Plan is active - no payment is needed. Upgrade any time for full access.',
+            'url' => '/dashboard',
+        ],
+
         'borrower.account.login_updated' => [
             'name' => 'Borrower sign-in email changed',
             'category' => 'system',
