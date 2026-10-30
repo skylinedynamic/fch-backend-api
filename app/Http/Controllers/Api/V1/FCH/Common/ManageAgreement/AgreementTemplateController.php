@@ -9,6 +9,8 @@ use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateShowReq
 use App\Http\Resources\FCH\Common\ManageAgreement\AgreementTemplateResource;
 use App\Services\FCH\Common\ManageAgreement\AgreementService;
 use App\Services\FCH\Partner\PartnerConfigurationChangeRecorder;
+use App\Models\Partner\Partner;
+use App\Services\FCH\Common\ManageAgreement\AgreementMergeFields;
 use App\Traits\ResolvesConfigPartner;
 use Illuminate\Http\Request;
 
@@ -91,6 +93,17 @@ class AgreementTemplateController extends Controller
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.retrieval_failed') . ': ' . $e->getMessage());
         }
+    }
+
+    /**
+     * The template owner's company details, for the builder's preview of the
+     * {{owner.*}} merge fields - the values signing fills them with.
+     */
+    public function previewValues(Request $request)
+    {
+        $partner = Partner::find($this->templateOwnerId($request));
+
+        return ApiResponse::success((new AgreementMergeFields())->ownerValues($partner), __('agreement.retrieved_successfully'));
     }
 
     /**
