@@ -97,6 +97,26 @@ class BusinessEin implements ValidationRule
     }
 
     /**
+     * The number as it may be shown without being revealed: last four only,
+     * written like an EIN - the counterpart of Ssn::mask().
+     */
+    public static function mask(mixed $value): ?string
+    {
+        $digits = self::normalize($value);
+
+        return $digits === null ? null : '**-***' . substr($digits, -4);
+    }
+
+    /**
+     * A value that is a mask (Ssn::mask(), mask()) rather than a number typed
+     * in - what a form showing the masked number sends back unchanged.
+     */
+    public static function isMask(mixed $value): bool
+    {
+        return is_string($value) && str_contains($value, '*');
+    }
+
+    /**
      * How long a written EIN is, so the rule, the forms and any client-side
      * check can never drift apart. Ten: nine digits plus the hyphen.
      */

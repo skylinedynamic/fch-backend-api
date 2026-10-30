@@ -75,6 +75,12 @@ class BorrowerChangeRequest extends Model
         return Attribute::get(fn (?string $value) => $this->readValue($value));
     }
 
+    /** An SSN or EIN change: listed masked, its numbers in full only on reveal (BUG-014). */
+    public function isMaskedField(): bool
+    {
+        return in_array($this->field_name, [...self::MASKED_SSN_FIELDS, ...self::MASKED_EIN_FIELDS], true);
+    }
+
     private function holdsSsn(): bool
     {
         return in_array($this->attributes['field_name'] ?? null, self::MASKED_SSN_FIELDS, true);

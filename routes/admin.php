@@ -97,6 +97,7 @@ Route::prefix('v1/admin')
             Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);
             Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update']);
             Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy']);
+            Route::post('vendors-multiple-delete', [CreditBuilderVendorController::class, 'multipleDelete']);
 
             // Credit Accounts
             Route::post('credit-accounts/fetch-accounts', [CreditAccountController::class, 'index']);
@@ -180,6 +181,7 @@ Route::prefix('v1/admin')
         Route::prefix('change-requests')->group(function () {
             Route::post('/', [ChangeRequestController::class, 'index']);
             Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus']);
+            Route::post('/{id}/reveal', [ChangeRequestController::class, 'reveal']);
         });
 
         // 📚 Resources

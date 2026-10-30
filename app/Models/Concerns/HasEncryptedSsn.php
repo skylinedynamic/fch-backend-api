@@ -36,6 +36,12 @@ trait HasEncryptedSsn
     {
         $digits = preg_replace('/\D/', '', (string) $value);
 
+        // The client form sends the SSN back on every save. Re-encrypting the
+        // same number gives a different ciphertext, so it would read as a change.
+        if ($digits !== '' && $digits === $this->ssn) {
+            return;
+        }
+
         $this->attributes['ssn_encrypted'] = $digits === ''
             ? null
             : Crypt::encryptString($digits);

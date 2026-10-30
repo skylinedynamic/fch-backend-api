@@ -3,10 +3,10 @@
 namespace App\Services\FCH\Admin\CreditBuilder;
 
 use App\Models\CreditBuilder\CreditBuilderVendor;
+use App\Models\CreditBuilder\TierTask;
 use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
-use Illuminate\Support\Facades\Storage;
 
 class CreditBuilderVendorService
 {
@@ -75,9 +75,7 @@ class CreditBuilderVendorService
      */
     public function create(array $data)
     {
-        if (isset($data['logo']) && $data['logo'] instanceof \Illuminate\Http\UploadedFile) {
-            $data['logo'] = Storage::disk('public')->putFile('vendors', $data['logo']);
-        }
+        // The logo is a path the File Manager already stored.
         return CreditBuilderVendor::create($data);
     }
 
@@ -103,17 +101,9 @@ class CreditBuilderVendorService
     {
         $vendor = CreditBuilderVendor::findOrFail($id);
 
-        if (isset($data['logo']) && $data['logo'] instanceof \Illuminate\Http\UploadedFile) {
-            // Delete old logo if exists
-            $oldLogo = $vendor->getRawOriginal('logo');
-            if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
-                Storage::disk('public')->delete($oldLogo);
-            }
-            $data['logo'] = Storage::disk('public')->putFile('vendors', $data['logo']);
-        }else{
-            $data['logo'] = $vendor->logo;
-        }
-
+        // The logo is a File Manager path: sent (or null to remove it) it
+        // replaces the one on file, left out it stays. The file itself belongs
+        // to the File Manager and is not deleted here.
         $vendor->update($data);
         return $vendor;
     }
@@ -128,5 +118,32 @@ class CreditBuilderVendorService
     {
         $vendor = CreditBuilderVendor::findOrFail($id);
         return $vendor->delete();
+    }
+
+    /**
+     * These vendors that a tier task still uses, as id and name. They may not
+     * be deleted: the task, and the client's Credit Guide, would lose its vendor.
+     *
+     * @param  int[]  $ids
+     * @return array<int, array{id: int, name: string}>
+     */
+    public function inUse(array $ids): array
+    {
+        return CreditBuilderVendor::whereIn('id', $ids)
+            ->whereIn('id', TierTask::query()->select('vendor_id')->whereNotNull('vendor_id'))
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (CreditBuilderVendor $vendor) => ['id' => $vendor->id, 'name' => $vendor->name])
+            ->all();
+    }
+
+    /**
+     * Delete several vendors.
+     *
+     * @param  int[]  $ids
+     */
+    public function deleteMany(array $ids): int
+    {
+        return CreditBuilderVendor::destroy($ids);
     }
 }

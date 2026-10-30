@@ -28,6 +28,7 @@ class PartnerConfigurationChangeRecorder
     public const AREA_SMS = 'sms';
     public const AREA_BRANDING = 'branding';
     public const AREA_PAYMENT = 'payment';
+    public const AREA_AGREEMENT = 'agreement';
 
     /** Each area's wording and its page under the partner's own Settings. */
     private const AREAS = [
@@ -35,6 +36,7 @@ class PartnerConfigurationChangeRecorder
         self::AREA_SMS => ['label' => 'SMS configuration', 'section' => 'sms-configuration'],
         self::AREA_BRANDING => ['label' => 'branding', 'section' => 'branding'],
         self::AREA_PAYMENT => ['label' => 'payment settings', 'section' => 'payment-integration'],
+        self::AREA_AGREEMENT => ['label' => 'agreement', 'section' => 'agreement-builder'],
     ];
 
     /** Field names that hold credentials - reported as "changed", never shown. */

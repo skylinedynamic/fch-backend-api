@@ -16,6 +16,7 @@ return [
     'error_delete_failed' => 'Failed to delete the tier task.',
     'error_not_found' => 'Tier task not found.',
     'error_no_ids' => 'No tier tasks were selected.',
+    'error_in_use' => 'Clients are already using these tasks, so they cannot be deleted. Nothing was deleted.',
 
     // Validation
     'validation_tier_id_required' => 'A tier is required.',
