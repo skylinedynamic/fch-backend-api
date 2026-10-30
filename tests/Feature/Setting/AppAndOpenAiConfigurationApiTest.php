@@ -173,6 +173,31 @@ class AppAndOpenAiConfigurationApiTest extends TestCase
             ->assertDontSee('sk-host-key-123');
     }
 
+    /**
+     * Defect (BUG-128): the config read also returned api_key_encrypted - the
+     * stored ciphertext of the OpenAI key - to every admin browser; with a leaked
+     * APP_KEY it decrypts to the key. The read says only whether a key exists.
+     */
+    #[Test]
+    public function the_config_read_sends_no_form_of_the_stored_key(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+        $this->postJson('/api/v1/common/openai/config', [
+            'api_key' => 'sk-host-key-123',
+            'aue_model' => 'gpt-test',
+            'reasoning_effort' => 'medium',
+        ])->assertOk();
+        $ciphertext = AppConfiguration::get('openai_api_key', null, AppConfiguration::MODULE_OPENAI, $this->host->id);
+
+        $response = $this->getJson('/api/v1/common/openai/config')->assertOk();
+
+        $this->assertSame(['has_api_key', 'aue_model', 'reasoning_effort'], array_keys($response->json('data')));
+        $response->assertJsonPath('data.has_api_key', true)
+            ->assertJsonMissingPath('data.api_key_encrypted')
+            ->assertDontSee($ciphertext, false)
+            ->assertDontSee('sk-host-key-123', false);
+    }
+
     #[Test]
     public function an_invalid_key_is_refused(): void
     {

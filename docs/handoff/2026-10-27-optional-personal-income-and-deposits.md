@@ -28,7 +28,7 @@
   - null revenue gets 422 with "Monthly/Annual revenue is required"
   - revenue of 0 is saved and completes the section
   - `/profile/completion` does not ask for income or deposits
-- Run: the three files 19/19 (the income/deposit tests were watched failing first; the revenue tests describe existing behaviour). With `BorrowerProfileApiTest` and `OnboardingStepTest`, all passed. Full suite (before the revenue tests were added): 3095 passed, 2 skipped, 1 failed. The failure is the unrelated NavigationMapTest `/capital-access` route (O70 in `docs/test-findings.md`).
+- Run: the three files 19/19 (the income/deposit tests were watched failing first; the revenue tests describe existing behaviour). With `BorrowerProfileApiTest` and `OnboardingStepTest`, all passed. Full suite (before the revenue tests were added): 3095 passed, 2 skipped, 1 failed. The failure is the unrelated NavigationMapTest `/capital-access` route (O72 in `docs/test-findings.md`, fixed by F165).
 
 ## Open / follow-up
 - `StoreChangeRequest` still requires `annual_personal_income`, on purpose: a change request needs a new value.

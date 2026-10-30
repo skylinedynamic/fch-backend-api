@@ -26,7 +26,17 @@ class CreditAccount extends Model
      */
     public function getFullImageUrlAttribute()
     {
-        return $this->image_url ? encodeUrl(asset("storage/{$this->image_url}")) : null;
+        if (! $this->image_url) {
+            return null;
+        }
+
+        // A logo given as a full URL is used as it is; storage/ in front of it
+        // made a link that never loads (BUG-148).
+        if (preg_match('#^https?://#i', $this->image_url)) {
+            return encodeUrl($this->image_url);
+        }
+
+        return encodeUrl(asset("storage/{$this->image_url}"));
     }
 
     /**
