@@ -40,7 +40,7 @@ class MyApplicationService
         // (On Hold): the funding request says it was started, so leaving it out
         // read as "No funding applications found" (BUG-027). The row continues
         // it from its funding_request_id.
-        $query = FundingApplication::with(['borrower', 'fundingSequence'])
+        $query = FundingApplication::with(['borrower', 'fundingSequence', 'fundingRequest'])
                 ->where('borrower_id', $user->entity_id)
                 ->latest()
                 ->orderByDesc('id');

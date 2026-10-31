@@ -9,6 +9,7 @@ use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Notifications\DynamicNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\Test;
@@ -46,6 +47,7 @@ class PartnerConfigurationChangeRecordTest extends TestCase
         $this->actingAsUser($this->makePartnerAdmin($this->host, [
             'update email configuration settings',
             'update sms configuration settings',
+            'manage partner configuration',
         ], ['name' => 'Hana Host']));
     }
 
@@ -141,6 +143,34 @@ class PartnerConfigurationChangeRecordTest extends TestCase
         ])->assertOk();
 
         $this->assertRecorded('payment', 'payment settings', 'turned Stripe on');
+    }
+
+    #[Test]
+    public function an_agreement_change_is_logged_and_pushed(): void
+    {
+        $this->postJson('/api/v1/common/agreement-templates/save', [
+            'partner_id' => $this->partner->id,
+            'slug' => 'borrower',
+            'template_html' => '<p>Acme terms</p>',
+        ])->assertOk();
+
+        $this->assertRecorded('agreement', 'agreement', 'updated the borrower agreement');
+    }
+
+    #[Test]
+    public function turning_an_agreement_off_is_logged_and_pushed(): void
+    {
+        $id = DB::table('agreement_templates')->insertGetId([
+            'partner_id' => $this->partner->id, 'slug' => 'borrower', 'template_html' => '<p>Terms</p>',
+            'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->postJson("/api/v1/common/agreement-templates/update-status/{$id}", [
+            'partner_id' => $this->partner->id,
+            'is_active' => false,
+        ])->assertOk();
+
+        $this->assertRecorded('agreement', 'agreement', 'turned the borrower agreement off');
     }
 
     // -- What the entry says -------------------------------------------------

@@ -2,6 +2,7 @@
 
 namespace App\Models\PaymentMethod;
 
+use App\Support\Payment\PaymentSetup;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -57,9 +58,10 @@ class PaymentProvider extends Model
     }
 
     /**
-     * Whether a gateway is on the platform and switched on by this partner - the
-     * same list GET /payment/providers offers, so a default payment method can
-     * only be one the payer was actually offered.
+     * Whether a gateway is on the platform, switched on by this partner and set
+     * up to take payments - the same list GET /payment/get-payment-methods
+     * offers, so a default payment method can only be one the payer was
+     * actually offered. Stripe switched on without keys is not (BUG-151).
      */
     public static function isOfferedBy(?string $name, ?int $partnerId): bool
     {
@@ -67,10 +69,16 @@ class PaymentProvider extends Model
             return false;
         }
 
-        return static::query()
+        $provider = static::query()
             ->where('status', true)
             ->whereRaw('LOWER(name) = ?', [strtolower(trim($name))])
-            ->whereHas('partnerPaymentProviders', fn ($q) => $q->where('partner_id', $partnerId)->where('status', true))
-            ->exists();
+            ->first();
+
+        $linkage = $provider?->partnerPaymentProviders()
+            ->where('partner_id', $partnerId)
+            ->where('status', true)
+            ->first();
+
+        return PaymentSetup::isReady($linkage, $provider?->name);
     }
 }

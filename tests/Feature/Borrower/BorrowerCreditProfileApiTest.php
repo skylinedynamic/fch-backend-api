@@ -46,7 +46,8 @@ class BorrowerCreditProfileApiTest extends TestCase
         $this->partnerAdmin = $this->makePartnerAdmin($this->partner);
     }
 
-    private function reportPdf(string $text = 'FICO SCORE 712 JOHN DOE 123 MAIN ST SSN XXX-XX-1234'): UploadedFile
+    /** Labelled like an iSoftPull report: a PDF the parser finds nothing in is refused (BUG-144). */
+    private function reportPdf(string $text = 'Name: John Doe SSN: XXX-XX-1234 FICO Score: 712 123 MAIN ST'): UploadedFile
     {
         $pdf = Pdf::loadHTML("<p>{$text}</p>")->output();
 
@@ -237,7 +238,7 @@ class BorrowerCreditProfileApiTest extends TestCase
 
         $this->post('/api/v1/common/borrowers/parse-credit-profile', [
             'borrower_id' => $this->borrower->id,
-            'pdf' => $this->reportPdf('UNIQUEREPORTMARKER 123 MAIN ST'),
+            'pdf' => $this->reportPdf('Name: UNIQUEREPORTMARKER 123 MAIN ST'),
         ], ['Accept' => 'application/json'])->assertOk();
 
         $all = implode("\n", $logged);

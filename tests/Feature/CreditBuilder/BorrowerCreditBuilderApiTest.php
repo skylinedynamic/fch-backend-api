@@ -243,4 +243,50 @@ class BorrowerCreditBuilderApiTest extends TestCase
 
         $this->assertSame([$open], DB::table('credit_account_applications')->pluck('credit_account_id')->map(fn ($id) => (int) $id)->all());
     }
+
+    /**
+     * Defect (BUG-138, CP-CBA-05): the list was ordered by difficulty_rank only.
+     * Many cards share a rank, and MySQL returns ties in any order, so each
+     * page request could order them differently: ~12 cards came back on both
+     * page 1 and page 2 and ~12 eligible cards never appeared. The id now
+     * breaks ties, so every card is on exactly one page.
+     *
+     * SQLite happens to return ties in insert order, so the repeat itself
+     * cannot be reproduced here; the query's ORDER BY is checked directly.
+     */
+    #[Test]
+    public function every_offered_card_is_on_exactly_one_page_in_a_fixed_order(): void
+    {
+        $ids = [];
+        // 20 cards (more than one page of 16), two ranks, several per rank.
+        foreach (range(1, 20) as $i) {
+            $ids[] = DB::table('credit_accounts')->insertGetId([
+                'card_name' => "Card {$i}", 'issuer' => 'Issuer', 'status' => 'Active',
+                'difficulty_rank' => $i % 2 ? 1 : 2,
+                'typical_personal_fico_min' => 0, 'time_in_business_min_months' => 0,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        $this->actingAsUser($this->me);
+
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) {
+            if (str_contains($query->sql, 'from "credit_accounts"') && str_contains($query->sql, 'order by')) {
+                $queries[] = $query->sql;
+            }
+        });
+
+        $page1 = $this->postJson('/api/v1/borrower/credit-builder/credit-accounts', ['page' => 1])->assertOk()->json('data');
+        $page2 = $this->postJson('/api/v1/borrower/credit-builder/credit-accounts', ['page' => 2])->assertOk()->json('data');
+
+        $seen = array_merge(array_column($page1, 'id'), array_column($page2, 'id'));
+        $this->assertCount(16, $page1);
+        $this->assertCount(20, $seen);
+        $this->assertEqualsCanonicalizing($ids, $seen, 'every card exactly once');
+
+        $this->assertNotEmpty($queries);
+        foreach ($queries as $sql) {
+            $this->assertStringContainsString('order by "difficulty_rank" asc, "credit_accounts"."id" asc', $sql);
+        }
+    }
 }

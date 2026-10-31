@@ -23,9 +23,10 @@ class FundingApplicationResource extends JsonResource
             'status'                                     => $this->status,
             // What the details page needs to offer "Edit Application" under the
             // same rule as the funding request page: the request the edit form
-            // opens on, and whether the lifecycle key still allows an edit.
+            // opens on, and whether the status is in the editable list.
             'funding_request_id'                         => $this->funding_request_id,
             'is_editable'                                => $this->isEditable(),
+            'locked_reason'                              => $this->editingState()['locked_reason'],
             'full_name'                                  => $this->full_name,
             'business_name'                              => $this->business_name,
             'business_email'                             => $this->business_email,
@@ -60,10 +61,10 @@ class FundingApplicationResource extends JsonResource
             'self_reported_business_credit_score'        => $this->self_reported_business_credit_score,
             'has_business_debt'                          => (bool) $this->has_business_debt,
             'debt_balance'                               => $this->debt_balance ? currencyFormat($this->debt_balance) : null,
-            'requested_amount'                           => $this->requested_amount ? currencyFormat($this->requested_amount) : null,
-            'purpose_of_funds'                           => $this->purpose_of_funds,
+            'requested_amount'                           => currencyFormat($this->requestedAmountOrRequest()),
+            'purpose_of_funds'                           => $this->purposeOfFundsOrRequest(),
             'purpose_note'                               => $this->purpose_note,
-            'preferred_funding_type'                     => $this->preferred_funding_type,
+            'preferred_funding_type'                     => $this->fundingTypeOrRequest(),
             'additional_funding_types'                   => $this->additional_funding_types ?? [],
             'timeframe_needed'                           => $this->timeframe_needed,
             'collateral_available'                       => $this->collateral_available,

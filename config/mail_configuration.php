@@ -43,7 +43,7 @@ return [
         'aws_ses' => [
             'label' => 'Amazon SES',
             'fields' => [
-                'aws_access_key' => ['label' => 'AWS Access Key', 'type' => 'text', 'required' => true, 'rules' => ['string', 'max:255']],
+                'aws_access_key' => ['label' => 'AWS Access Key', 'type' => 'text', 'required' => true, 'secret' => true, 'rules' => ['string', 'max:255']],
                 'aws_secret_key' => ['label' => 'AWS Secret Key', 'type' => 'password', 'required' => true, 'secret' => true, 'rules' => ['string', 'max:1024']],
                 'aws_region' => ['label' => 'AWS Region', 'type' => 'text', 'required' => true, 'rules' => ['string', 'max:64']],
             ],

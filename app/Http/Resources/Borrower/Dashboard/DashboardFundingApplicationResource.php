@@ -16,12 +16,12 @@ class DashboardFundingApplicationResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'requested_amount' => $this->requested_amount,
+            'requested_amount' => $this->requestedAmountOrRequest(),
             'entity_type' => $this->entity_type,
             'industry_type' => $this->industry_type,
             'status' => $this->status,
             'status_class' => $this->status_class,
-            'purpose_of_funds' => $this->purpose_of_funds,
+            'purpose_of_funds' => $this->purposeOfFundsOrRequest(),
             'total_funded_amount' => $this->total_funded_amount,
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,

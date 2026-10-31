@@ -183,6 +183,30 @@ class BorrowerBillingApiTest extends TestCase
         $this->assertNotSame(PaymentProvider::CASH, $this->myBorrower()->default_payment_method);
     }
 
+    /**
+     * BUG-151: Stripe switched on but with no keys ("Active - Not configured")
+     * could be made the default from Billing Details, so auto-charges would go
+     * to a gateway that cannot take them - while Pay Now already hid it. Only
+     * a gateway that can take payments can be the default.
+     */
+    #[Test]
+    public function a_gateway_switched_on_but_not_set_up_cannot_be_the_default(): void
+    {
+        $stripe = PaymentProvider::create(['name' => PaymentProvider::STRIPE, 'display_name' => 'Stripe', 'status' => true]);
+        app(\App\Services\FCH\Common\Setting\PaymentMethodConfigurationService::class)->updateOrCreateConfig($this->partner->id, [
+            'payment_provider_id' => $stripe->id,
+            'payment_mode' => PaymentProvider::MODE_SANDBOX,
+            'status' => true,
+            'configuration' => [],
+        ]);
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/update-default-payment-method', ['provider_name' => PaymentProvider::STRIPE])
+            ->assertUnprocessable()->assertJsonValidationErrors('provider_name');
+
+        $this->assertNotSame(PaymentProvider::STRIPE, $this->myBorrower()->default_payment_method);
+    }
+
     #[Test]
     public function a_provider_is_required(): void
     {

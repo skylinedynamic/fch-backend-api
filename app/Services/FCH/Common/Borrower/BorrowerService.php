@@ -33,7 +33,7 @@ use Illuminate\Validation\ValidationException;
 class BorrowerService
 {
     /** The numbers a client's details carry masked, which revealField() gives in full. */
-    public const REVEALABLE_FIELDS = ['ssn', 'business_ein'];
+    public const REVEALABLE_FIELDS = ['ssn', 'business_ein', 'credit_profile_ssn'];
     use PaginatesApi, UploadsFiles;
 
     public function __construct(
@@ -467,13 +467,15 @@ class BorrowerService
                         __('borrower.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                     );
 
+                    // With no end date there is nothing to be "active until"
+                    // (BUG-143): the free plan welcome, not the trial bell.
                     $this->sendBorrowerMail(
-                        'borrower.account.trial_started',
+                        $trialEndDate ? 'borrower.account.trial_started' : 'borrower.account.free_plan_started',
                         $user,
                         $user->email,
                         new \App\Mail\Trial\BorrowerTrialMail(array_merge($mailData, ['trial_end_date' => $trialEndDate]), $borrower->partner_id),
                         $borrower->partner_id,
-                        ['date' => $trialEndDate ?? 'N/A']
+                        $trialEndDate ? ['date' => $trialEndDate] : []
                     );
 
                     $isHostPartner = $partner && $partner->is_host == 1;
@@ -839,6 +841,12 @@ class BorrowerService
             "{$label} Viewed",
             "The full {$label} was viewed.",
         );
+
+        // The SSN printed on the credit report, kept with the credit profile
+        // (BUG-145) - not always the borrower's own.
+        if ($field === 'credit_profile_ssn') {
+            return $borrower->creditProfile?->personal_info['ssn'] ?? null;
+        }
 
         return $borrower->{$field} ?: null;
     }
