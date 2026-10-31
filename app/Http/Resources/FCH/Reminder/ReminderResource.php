@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Reminder;
 
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Common\Reminder;
 use App\Models\User\User;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -68,6 +69,12 @@ class ReminderResource extends JsonResource
             // Editing a reminder means editing the activity behind it, which
             // only its creator may do — the same rule the activity list uses.
             'activity_can_edit' => (bool) ($viewer && $this->activityLog?->isEditableBy($viewer)),
+            // An assigned Task behind the reminder, and whether this viewer (its
+            // creator or assignee) may change its status from the reminder.
+            'task' => $this->taskSummary($tz),
+            'task_can_update_status' => (bool) ($viewer && $this->activityLog?->canUpdateTaskStatusBy($viewer)),
+            // An assigned Task's date is its creator's to move; the assignee only snoozes or dismisses
+            'can_reschedule' => !$this->activityLog || ($viewer && $this->activityLog->canRescheduleBy($viewer)),
             'client' => $client,
             'related' => $related,
             'snooze_history' => $snoozeHistory,
@@ -77,6 +84,8 @@ class ReminderResource extends JsonResource
             'body' => $this->message ?? '',
             'url' => $this->url ?? '',
             'status' => $this->status,
+            // false: listed only, never pops up (the creator's copy of a task only its assignee is reminded of)
+            'is_reminder' => (bool) ($this->is_reminder ?? true),
             'send_at' => $toTz($this->send_at),
             'remind_at' => $toTz($displayDate),
             'created_at' => $toTz($this->created_at),
@@ -102,6 +111,31 @@ class ReminderResource extends JsonResource
                 'reminder_date_short' => toTimezone($remindAt, $tz, 'M j, Y'),          // Sep 17, 2026
                 'reminder_time' => toTimezone($remindAt, $tz, 'g:i A'),                 // 1:33 PM
             ],
+        ];
+    }
+
+    /** The assigned Task behind this reminder, as the reminder screens show it (null when there is none). */
+    private function taskSummary(?string $tz): ?array
+    {
+        $log = $this->activityLog;
+        if (!$log || !$log->isAssignedTask()) {
+            return null;
+        }
+
+        $task = collect($log->properties)->get('task');
+        $status = $task['status'] ?? null;
+        $priority = $task['priority'] ?? null;
+        $dueLocal = ActivityLog::taskDueDateLocal($task['due_date'] ?? null, $tz);
+
+        return [
+            'status' => $status,
+            'status_label' => ActivityLog::TASK_STATUS_LABELS[$status] ?? null,
+            'priority' => $priority,
+            'priority_label' => ActivityLog::TASK_PRIORITY_LABELS[$priority] ?? null,
+            'due_date' => $dueLocal,
+            'due_date_display' => $dueLocal ? Carbon::parse($dueLocal)->format('M j, Y g:i A') : null,
+            'assigned_to_name' => User::query()->whereKey($task['assigned_to'])->value('name'),
+            'assigned_by_name' => $log->causer?->name,
         ];
     }
 }

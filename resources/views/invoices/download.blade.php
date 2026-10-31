@@ -298,21 +298,28 @@
                 </td>
                 <td style="width: 50%; vertical-align: top; text-align: right">
                     <div class="address-box">
+                        @php
+                            // Whoever pays the invoice (entity_type/entity_id), as the
+                            // invoice window shows it. invoices.borrower is only who the
+                            // invoice is about: a Borrower Fee or a commission payout
+                            // carries the client but is billed to the partner (BUG-137).
+                            $billedTo = app(\App\Services\FCH\Common\Invoice\InvoicePartyResolver::class)->billedTo($invoice);
+                            $billedToAddress = implode(', ', array_filter([
+                                $billedTo['address'],
+                                $billedTo['city'],
+                                trim(($billedTo['state'] ?? '') . ' ' . ($billedTo['postal_code'] ?? '')),
+                            ], 'filled'));
+                        @endphp
                         <div class="section-header">{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'PARTNER DETAILS' : 'BILLING ADDRESS' }}</div>
                         <div class="name">
-                            {{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}
+                            {{ $billedTo['name'] ?? $billedTo['company_name'] ?? $invoice->customer_name }}
                         </div>
-                        <p>
-                            {{ $invoice->borrower
-                                ? ($invoice->borrower->business_address_line_1 ?: $invoice->borrower->business_postal_code)
-                                : ($invoice->partner ? ($invoice->partner->address_line_1 ?: $invoice->partner->postal_code) : 'Address not specified') }}
-                        </p>
-                        <p>Phone:
-                            {{ $invoice->borrower ? $invoice->borrower->phone_number : ($invoice->partner?->phone_number ?? 'N/A') }}
-                        </p>
-                        <p>Email:
-                            {{ $invoice->borrower ? $invoice->borrower->email : ($invoice->partner?->email ?? $invoice->email) }}
-                        </p>
+                        @if ($billedTo['name'] && $billedTo['company_name'])
+                            <p>{{ $billedTo['company_name'] }}</p>
+                        @endif
+                        <p>{{ $billedToAddress ?: 'Address not specified' }}</p>
+                        <p>Phone: {{ $billedTo['phone'] ?? 'N/A' }}</p>
+                        <p>Email: {{ $billedTo['email'] ?? $invoice->email }}</p>
                     </div>
                 </td>
             </tr>
@@ -351,21 +358,28 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="text-align: left;">{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'Payout Description' : 'Enrollment Details' }}</th>
+                <th style="text-align: left;">{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'Payout Description' : 'Description' }}</th>
                 <th style="text-align: right; width: 120px;">Amount</th>
             </tr>
         </thead>
         <tbody>
-            @php 
-                $defaultItemDescription = $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT 
-                    ? 'Commission Payout' 
-                    : ($invoice->subscription->enrollment_type ?? 'Platform Service Enrollment');
-                $items = $invoice->details['items'] ?? [['description' => $defaultItemDescription, 'amount' => $invoice->payment_amount]]; 
+            @php
+                // Named by what the invoice charges for, as the invoice window does
+                // ("Borrower Fee", "Down Payment"...), with the plan under it only on
+                // an invoice that bills for the plan.
+                $defaultItemDescription = $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+                    ? 'Commission Payout'
+                    : (filled($invoice->type) ? ucwords(str_replace('_', ' ', $invoice->type)) : 'Invoice');
+                $planName = $invoice->billsSubscriptionPlan() ? $invoice->subscription?->enrollment_type : null;
+                $items = $invoice->details['items'] ?? [['description' => $defaultItemDescription, 'detail' => $planName, 'amount' => $invoice->payment_amount]];
             @endphp
             @foreach ($items as $item)
                 <tr>
                     <td>
                         <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
+                        @if (!empty($item['detail']))
+                            <div style="color: #6b7280; font-size: 12px;">{{ $item['detail'] }}</div>
+                        @endif
                     </td>
                     <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
                 </tr>
@@ -411,7 +425,7 @@
         @endif
         <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
         <p><strong>{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'Payee Name:' : 'Card Holder:' }}</strong> <span
-                class="val">{{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}</span>
+                class="val">{{ $billedTo['name'] ?? $billedTo['company_name'] ?? $invoice->customer_name }}</span>
         </p>
         @if (!empty($invoice->details['card_last4']))
             <p><strong>Card Number:</strong> <span class="val">xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</span>

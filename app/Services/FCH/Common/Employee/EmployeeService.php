@@ -149,17 +149,8 @@ class EmployeeService
 
         // Check user limit if not host and creating a user account and not purchasing a paid seat
         if ($partner && !$partner->is_host && $userData && !$isPaid) {
-            $currentCount = User::where('partner_id', $partnerId)
-                ->where(function ($query) {
-                    $query->whereIn('entity_type', [Partner::class, Employee::class])
-                        ->orWhereNull('entity_type');
-                })
-                ->count();
-
-            $partnerSub = $partner->subscription;
-            $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
-
-            if ($currentCount >= $allowedSeats) {
+            // The same rule the Users screen's count uses (Partner::userSeatLimit).
+            if (!$partner->hasFreeUserSeat()) {
                 throw new \Exception('User limit reached. Please purchase additional seats.');
             }
         }

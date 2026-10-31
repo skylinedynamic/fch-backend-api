@@ -80,7 +80,7 @@ class UpdateActivityLogRequest extends BaseApiRequest
 
     protected function savedTaskDueDate(): ?string
     {
-        return $this->activityLog()?->properties['task']['due_date'] ?? null;
+        return ActivityLog::taskDueDateLocal($this->activityLog()?->properties['task']['due_date'] ?? null);
     }
 
     protected function savedTaskAssigneeId(): ?int

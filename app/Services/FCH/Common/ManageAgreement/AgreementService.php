@@ -102,31 +102,50 @@ class AgreementService
         }
     }
 
+    /**
+     * Cancel a signed agreement, or Re-sign one whose signed copy is missing
+     * (BUG-106): either way the partner or client is no longer marked as
+     * signed and is asked to sign again.
+     */
     public function cancelSign(int $userId): bool
     {
         $sign = AgreementSign::where('user_id', $userId)
             ->orderBy('id', 'desc')
             ->first();
 
-        if (!$sign) {
-            throw new Exception(__('agreement.no_signed_agreement'));
-        }
-
         $user = User::find($userId);
         if (!$user) {
             throw new Exception(__('user.not_found'));
         }
 
-        $entity = ($user->entity_type === Partner::class) ? $user->partner : $user->borrower;
+        $entity = $this->signingEntity($user);
         if (!$entity) {
             throw new Exception(__('agreement.not_found'));
         }
 
+        if (!$sign && !$entity->has_sign) {
+            throw new Exception(__('agreement.no_signed_agreement'));
+        }
+
         return DB::transaction(function () use ($user, $entity, $sign) {
-            $sign->delete();
+            $sign?->delete();
             $entity->update(['has_sign' => false]);
             return $user->update(['is_refresh' => '1']);
         });
+    }
+
+    /** Whether the user's partner or client record is marked as signed (has_sign). */
+    public function isMarkedSigned(int $userId): bool
+    {
+        $user = User::find($userId);
+
+        return (bool) ($user ? $this->signingEntity($user)?->has_sign : false);
+    }
+
+    /** The record that carries has_sign: the partner for a partner login, else the client. */
+    private function signingEntity(User $user): Partner|Borrower|null
+    {
+        return $user->entity_type === Partner::class ? $user->partner : $user->borrower;
     }
 
     /**

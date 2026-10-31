@@ -114,4 +114,23 @@ class TaskAssignedMailTest extends TestCase
         $this->assertStringNotContainsString('Due Date', $html);
         $this->assertStringNotContainsString('>Details<', $html);
     }
+
+    #[Test]
+    public function with_changes_it_tells_the_other_person_what_was_updated(): void
+    {
+        $mail = $this->mail([
+            'updated_by' => 'Host Admin',
+            'changes' => ['Date: Nov 9, 2026 2:00 PM', 'Priority: Low'],
+        ]);
+        $html = $mail->render();
+
+        $this->assertSame('Task updated: Collect bank statements', $mail->envelope()->subject);
+        $this->assertStringContainsString('A task was updated', $html);
+        $this->assertStringContainsString('Host Admin updated a task on client Johnathan Smithfield.', $html);
+        $this->assertStringContainsString('What changed', $html);
+        $this->assertStringContainsString('Date: Nov 9, 2026 2:00 PM', $html);
+        $this->assertStringContainsString('Priority: Low', $html);
+        $this->assertStringNotContainsString('A task has been assigned to you', $html);
+        $this->assertStringContainsString('View Task', $html);
+    }
 }
