@@ -295,6 +295,45 @@ class ActivityLog extends Activity
     const TASK_DUE_REMINDER_TIME = '09:00:00';
 
     /**
+     * "Reminder Time" as the activity forms store it: reminder_preset, and for
+     * "custom_time_before" reminder_time_value + reminder_time_unit. Mirrors
+     * REMINDER_PRESETS / REMINDER_TIME_UNITS in the admin frontend's appConfig.
+     */
+    const REMINDER_PRESET_DEFAULT = '30_minutes';
+
+    const REMINDER_PRESET_CUSTOM_TIME_BEFORE = 'custom_time_before';
+
+    const REMINDER_PRESET_CUSTOM_DATE_TIME = 'custom_date_time';
+
+    /** How far ahead each fixed preset reminds, in minutes. */
+    const REMINDER_PRESET_MINUTES = [
+        '5_minutes' => 5, '10_minutes' => 10, '15_minutes' => 15, '30_minutes' => 30,
+        '1_hour' => 60, '1_day' => 1440, '2_days' => 2880, '3_days' => 4320,
+        '1_week' => 10080, '2_weeks' => 20160, '3_weeks' => 30240, '1_month' => 43200,
+    ];
+
+    const REMINDER_TIME_VALUE_DEFAULT = '30';
+
+    const REMINDER_TIME_UNIT_MINUTES = 'Minutes';
+
+    const REMINDER_TIME_UNIT_HOURS = 'Hours';
+
+    const REMINDER_TIME_UNIT_DAYS = 'Days';
+
+    const REMINDER_TIME_UNIT_WEEKS = 'Weeks';
+
+    const REMINDER_TIME_UNIT_MONTHS = 'Months';
+
+    /** Minutes in one of each custom "time before" unit. */
+    const REMINDER_TIME_UNIT_MINUTES_EACH = [
+        self::REMINDER_TIME_UNIT_MINUTES => 1,
+        self::REMINDER_TIME_UNIT_HOURS => 60,
+        self::REMINDER_TIME_UNIT_DAYS => 1440,
+        self::REMINDER_TIME_UNIT_WEEKS => 10080,
+        self::REMINDER_TIME_UNIT_MONTHS => 43200,
+    ];
+
+    /**
      * A task's stored due date ("Y-m-d H:i:s", UTC) as a wall-clock value in
      * $timezone (the viewer's when null). Tasks saved before the due date had
      * a time hold a bare local day, read as that day's midnight.
@@ -439,6 +478,39 @@ class ActivityLog extends Activity
     public function isEditableBy($user): bool
     {
         return $this->isManualActivity() && $this->isOwnedBy($user);
+    }
+
+    /** Whether this is a Task assigned to a staff member ("Want to Assign"). */
+    public function isAssignedTask(): bool
+    {
+        $task = collect($this->properties)->get('task');
+
+        return is_array($task) && !empty($task['assigned_to']);
+    }
+
+    /**
+     * Who may reschedule a reminder of this activity: anyone with the reminder,
+     * except on an assigned Task - its date is the creator's to move (the
+     * assignee may only snooze or dismiss their own reminder).
+     */
+    public function canRescheduleBy($user): bool
+    {
+        return !$this->isAssignedTask() || $this->isOwnedBy($user);
+    }
+
+    /**
+     * Who may move an assigned Task between Open / In Progress / Complete from
+     * its reminder: the person who created it and the one it is assigned to.
+     * Editing the rest of the activity stays with its creator (isEditableBy).
+     */
+    public function canUpdateTaskStatusBy($user): bool
+    {
+        if (!$user || !$this->isAssignedTask()) {
+            return false;
+        }
+
+        return $this->isOwnedBy($user)
+            || (int) collect($this->properties)->get('task')['assigned_to'] === (int) $user->getKey();
     }
 
     /**

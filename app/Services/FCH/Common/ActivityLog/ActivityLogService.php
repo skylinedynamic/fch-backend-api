@@ -21,6 +21,7 @@ use App\Models\Partner\Partner;
 use App\Models\Partner\PartnerDocument;
 use App\Models\Payment\Payment;
 use App\Models\User\User;
+use App\Services\FCH\Common\Reminder\ReminderBroadcaster;
 use App\Services\FCH\Common\Reminder\ReminderService;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Carbon;
@@ -236,9 +237,9 @@ class ActivityLogService
                     'remind_at' => filter_var($data['remind_me'] ?? false, FILTER_VALIDATE_BOOLEAN)
                         ? $this->localToUtc($data['remind_at'] ?? null)
                         : null,
-                    'reminder_preset' => $data['reminder_preset'] ?? '30_minutes',
-                    'reminder_time_value' => $data['reminder_time_value'] ?? '30',
-                    'reminder_time_unit' => $data['reminder_time_unit'] ?? 'Minutes',
+                    'reminder_preset' => $data['reminder_preset'] ?? ActivityLog::REMINDER_PRESET_DEFAULT,
+                    'reminder_time_value' => $data['reminder_time_value'] ?? ActivityLog::REMINDER_TIME_VALUE_DEFAULT,
+                    'reminder_time_unit' => $data['reminder_time_unit'] ?? ActivityLog::REMINDER_TIME_UNIT_MINUTES,
                     'reminder_recipient' => $data['reminder_recipient'] ?? null,
                     // activity_date / remind_at above are UTC; rows without this flag hold local wall-clock values
                     'dates_utc' => true,
@@ -273,8 +274,9 @@ class ActivityLogService
 
             // A Task assigned to someone else reminds them too, reminder set or not
             $this->syncTaskReminder($log, $props, null);
+            $this->syncCreatorTaskCopy($log, $props);
 
-            if ($reminder || !empty($props['task_reminder_id'])) {
+            if ($reminder || !empty($props['task_reminder_id']) || !empty($props['creator_task_reminder_id'])) {
                 $log->properties = $props;
                 $log->save();
             }
@@ -661,17 +663,97 @@ class ActivityLogService
      */
     public function update(int $id, array $data): ActivityLog
     {
+        $before = $this->taskSnapshot(ActivityLog::find($id));
         $assigneeChanged = false;
         $log = DB::transaction(function () use ($id, $data, &$assigneeChanged) {
             return $this->performUpdate($id, $data, $assigneeChanged);
         });
 
-        // A newly assigned staff member hears about it once the edit is saved
         if ($assigneeChanged) {
+            // A newly assigned staff member hears about it once the edit is saved
             app(TaskAssignmentNotifier::class)->notify($log);
+        } else {
+            // The other person hears of a new date, due date, priority or status
+            app(TaskAssignmentNotifier::class)->notifyUpdate($log, Auth::user(), $this->taskChanges($before, $this->taskSnapshot($log)));
         }
 
         return $log;
+    }
+
+    /**
+     * An assigned Task rescheduled by its creator from one of its reminders:
+     * the activity's date and both people's reminders move to the new time
+     * (keeping the lead time picked), as an edit of the activity would. Its
+     * due date stays. Who is reminded keeps following "Who gets the reminder".
+     */
+    public function rescheduleTask(ActivityLog $log, Carbon $activityAtUtc, int $leadSeconds): ActivityLog
+    {
+        $timezone = $this->requestTimezone();
+
+        return $this->update($log->id, [
+            'activity_date' => $activityAtUtc->copy()->setTimezone($timezone)->format('Y-m-d H:i:s'),
+            'remind_me' => '1',
+            'remind_at' => $activityAtUtc->copy()->subSeconds($leadSeconds)->setTimezone($timezone)->format('Y-m-d H:i:s'),
+            'reminder_preset' => ActivityLog::REMINDER_PRESET_CUSTOM_TIME_BEFORE,
+            'reminder_time_value' => (string) intdiv($leadSeconds, 60),
+            'reminder_time_unit' => ActivityLog::REMINDER_TIME_UNIT_MINUTES,
+        ]);
+    }
+
+    /** What the other person of an assigned Task is told about: its people, date, due date, priority and status (UTC). */
+    private function taskSnapshot(?ActivityLog $log): ?array
+    {
+        if (!$log || !$log->isAssignedTask()) {
+            return null;
+        }
+
+        $props = collect($log->properties)->toArray();
+
+        return [
+            'assignee' => (int) $props['task']['assigned_to'],
+            // Older rows hold the wall-clock value entered; compare in UTC
+            'activity_date' => empty($props['dates_utc'])
+                ? $this->localToUtc($props['activity_date'] ?? null)
+                : ($props['activity_date'] ?? null),
+            'due_date' => $props['task']['due_date'] ?? null,
+            'priority' => $props['task']['priority'] ?? null,
+            'status' => $props['task']['status'] ?? null,
+        ];
+    }
+
+    /**
+     * The changes between two snapshots, worded for the other person ("Due
+     * date: Nov 9, 2030 10:00 AM"). None when the task was just assigned,
+     * unassigned or handed to someone else - those are told otherwise.
+     *
+     * @return string[]
+     */
+    private function taskChanges(?array $before, ?array $after): array
+    {
+        if (!$before || !$after || $before['assignee'] !== $after['assignee']) {
+            return [];
+        }
+
+        $timezone = $this->requestTimezone();
+        $changes = [];
+        if ($before['activity_date'] !== $after['activity_date'] && $after['activity_date']) {
+            $changes[] = __('activity_log.task_change_date', [
+                'value' => Carbon::parse($after['activity_date'], 'UTC')->setTimezone($timezone)->format('M j, Y g:i A'),
+            ]);
+        }
+        if ($before['due_date'] !== $after['due_date'] && $after['due_date']) {
+            $changes[] = __('activity_log.task_change_due_date', [
+                'value' => Carbon::parse(ActivityLog::taskDueDateLocal($after['due_date'], $timezone))->format('M j, Y g:i A'),
+            ]);
+        }
+        if ($before['priority'] !== $after['priority']) {
+            $changes[] = __('activity_log.task_change_priority', ['value' => ActivityLog::TASK_PRIORITY_LABELS[$after['priority']] ?? '-']);
+        }
+        if ($before['status'] !== $after['status']) {
+            $changes[] = __('activity_log.task_change_status', ['value' => ActivityLog::TASK_STATUS_LABELS[$after['status']] ?? '-']);
+        }
+
+        return $changes;
     }
 
     private function performUpdate(int $id, array $data, bool &$assigneeChanged = false): ActivityLog
@@ -782,9 +864,9 @@ class ActivityLogService
         if (array_key_exists('remind_me', $data)) {
             $remindMe = filter_var($data['remind_me'], FILTER_VALIDATE_BOOLEAN);
             $props['remind_me'] = $remindMe;
-            $props['reminder_preset'] = $data['reminder_preset'] ?? ($props['reminder_preset'] ?? '30_minutes');
-            $props['reminder_time_value'] = $data['reminder_time_value'] ?? ($props['reminder_time_value'] ?? '30');
-            $props['reminder_time_unit'] = $data['reminder_time_unit'] ?? ($props['reminder_time_unit'] ?? 'Minutes');
+            $props['reminder_preset'] = $data['reminder_preset'] ?? ($props['reminder_preset'] ?? ActivityLog::REMINDER_PRESET_DEFAULT);
+            $props['reminder_time_value'] = $data['reminder_time_value'] ?? ($props['reminder_time_value'] ?? ActivityLog::REMINDER_TIME_VALUE_DEFAULT);
+            $props['reminder_time_unit'] = $data['reminder_time_unit'] ?? ($props['reminder_time_unit'] ?? ActivityLog::REMINDER_TIME_UNIT_MINUTES);
 
             if ($remindMe && !empty($data['remind_at'])) {
                 $remindAtUtc = Carbon::parse($data['remind_at'], $this->requestTimezone())->utc();
@@ -860,6 +942,7 @@ class ActivityLogService
 
         // The assignee's own reminder follows the task, its assignee and its time
         $this->syncTaskReminder($log, $props, $taskReminder);
+        $this->syncCreatorTaskCopy($log, $props);
         $assigneeId = $this->taskAssigneeId($log, $props);
         $assigneeChanged = $assigneeId !== null && $assigneeId !== $previousAssigneeId;
 
@@ -896,6 +979,7 @@ class ActivityLogService
             $props = is_array($props) ? $props : [];
             $this->findLinkedReminder($log, $props)?->delete();
             $this->findTaskReminder($props)?->delete();
+            $this->findCreatorTaskCopy($props)?->delete();
 
             $log->delete();
         });
@@ -925,6 +1009,46 @@ class ActivityLogService
 
             return $log->fresh(['causer', 'subject']);
         });
+    }
+
+    /**
+     * A task's status changed from its reminder, by its creator or assignee.
+     * Only the status changes; both people's open reminders are told so their
+     * pop-ups show it.
+     */
+    public function updateTaskStatus(int $id, string $status): ActivityLog
+    {
+        $log = DB::transaction(function () use ($id, $status) {
+            $log = ActivityLog::lockForUpdate()->findOrFail($id);
+
+            if (!$log->isAssignedTask()) {
+                throw new \Exception('This activity is not an assigned task.', 422);
+            }
+            if (!$log->canUpdateTaskStatusBy(Auth::user())) {
+                throw new \Exception("Only the task's creator or assignee can change its status.", 403);
+            }
+
+            $props = collect($log->properties)->toArray();
+            $props['task']['status'] = $status;
+            $log->properties = $props;
+            $log->save();
+
+            return $log;
+        });
+
+        app(TaskAssignmentNotifier::class)->notifyUpdate($log, Auth::user(), [
+            __('activity_log.task_change_status', ['value' => ActivityLog::TASK_STATUS_LABELS[$status]]),
+        ]);
+
+        $props = collect($log->properties)->toArray();
+        $broadcaster = app(ReminderBroadcaster::class);
+        foreach (array_filter([$props['reminder_id'] ?? null, $props['task_reminder_id'] ?? null]) as $reminderId) {
+            if ($reminder = Reminder::find($reminderId)) {
+                $broadcaster->updated($reminder);
+            }
+        }
+
+        return $log->fresh(['causer', 'subject']);
     }
 
     private function requestTimezone(): string
@@ -968,9 +1092,16 @@ class ActivityLogService
             ->where('entity_type', $log->subject_type)
             ->where('summary', $props['subject'])
             ->when(!empty($props['task_reminder_id']), fn ($q) => $q->whereKeyNot($props['task_reminder_id']))
+            ->when(!empty($props['creator_task_reminder_id']), fn ($q) => $q->whereKeyNot($props['creator_task_reminder_id']))
             ->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
             ->latest()
             ->first();
+    }
+
+    /** The creator's silent listing row of a Task assigned to someone else, if it has one. */
+    private function findCreatorTaskCopy(array $props): ?Reminder
+    {
+        return !empty($props['creator_task_reminder_id']) ? Reminder::find($props['creator_task_reminder_id']) : null;
     }
 
     /**
@@ -1083,6 +1214,12 @@ class ActivityLogService
                 : Carbon::parse($props['remind_at'], 'UTC');
         }
 
+        return $this->dueDayRemindAt($props);
+    }
+
+    /** 09:00 on the task's due day in the viewer's timezone - or the due time itself when earlier - in UTC. */
+    private function dueDayRemindAt(array $props): ?Carbon
+    {
         $timezone = $this->requestTimezone();
         $dueLocal = ActivityLog::taskDueDateLocal($props['task']['due_date'] ?? null, $timezone);
         if (!$dueLocal) {
@@ -1093,6 +1230,53 @@ class ActivityLogService
         $morning = Carbon::parse($due->format('Y-m-d') . ' ' . ActivityLog::TASK_DUE_REMINDER_TIME, $timezone);
 
         return $due->min($morning)->utc();
+    }
+
+    /**
+     * The creator of a Task assigned to someone else always has it in their
+     * Task & Reminders list - so they can follow it and change its status -
+     * even when only the assignee is reminded or no reminder is set. That row
+     * is silent (is_reminder false): listed, never popped up. Not needed when
+     * the creator has a reminder of their own.
+     */
+    private function syncCreatorTaskCopy(ActivityLog $log, array &$props): void
+    {
+        $copy = $this->findCreatorTaskCopy($props);
+        $needed = $this->taskAssigneeId($log, $props) && empty($props['reminder_id']);
+        $at = $needed
+            ? (!empty($props['remind_me']) && !empty($props['remind_at'])
+                ? Carbon::parse($props['remind_at'], 'UTC')
+                : $this->dueDayRemindAt($props))
+            : null;
+
+        if (!$at) {
+            $copy?->delete();
+            $props['creator_task_reminder_id'] = null;
+            $props['creator_task_reminder_at'] = null;
+            return;
+        }
+
+        $atUtc = $at->format('Y-m-d H:i:s');
+        // A new time makes it silent again (a snooze had turned it into a real reminder)
+        $reschedule = !$copy || ($props['creator_task_reminder_at'] ?? null) !== $atUtc;
+
+        $props['creator_task_reminder_id'] = app(ReminderService::class)->upsertForUser(
+            (int) $log->causer_id,
+            $at,
+            array_merge([
+                'activity_log_id' => $log->id,
+                'entity_id' => $log->borrower_id ?: $log->subject_id,
+                'entity_type' => $log->borrower_id ? Borrower::class : $log->subject_type,
+                'reference' => $props['reference'] ?? null,
+                'set_date_time' => !empty($props['activity_date']) ? Carbon::parse($props['activity_date'], 'UTC') : null,
+                'summary' => $props['subject'] ?? null,
+                'message' => $props['description'] ?? null,
+                'attachments' => $props['attachments']['files'] ?? [],
+            ], $reschedule ? ['is_reminder' => false] : []),
+            $copy,
+            $reschedule
+        )->id;
+        $props['creator_task_reminder_at'] = $atUtc;
     }
 
     /**

@@ -18,7 +18,9 @@ use Throwable;
 
 /**
  * Tells the staff member a Task activity was assigned to - in the bell and by
- * email - whether or not the activity also set a reminder.
+ * email - whether or not the activity also set a reminder. Later, tells the
+ * other person of the task (creator or assignee) when one of them changes its
+ * date, due date, priority or status (notifyUpdate).
  *
  * Nobody is told about a task they assigned to themselves. A failure is logged
  * and swallowed: the activity is already saved, and a notification problem
@@ -91,6 +93,73 @@ class TaskAssignmentNotifier
             ], mail: $mail);
         } catch (Throwable $e) {
             Log::error(__('activity_log.task_assigned_notify_failed', [
+                'id' => $log->id,
+                'error' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    /**
+     * $actor changed the task: tell the other person of it - the assignee when
+     * the creator changed it, the creator when the assignee did - in the bell
+     * and by email, listing $changes. Nobody is told about their own change.
+     *
+     * @param  string[]  $changes
+     */
+    public function notifyUpdate(ActivityLog $log, ?User $actor, array $changes): void
+    {
+        try {
+            $task = $log->properties['task'] ?? null;
+            $record = self::RECORDS[$log->subject_type] ?? null;
+            if (!$changes || !$actor || !is_array($task) || !$record || empty($task['assigned_to'])) {
+                return;
+            }
+
+            $assigneeId = (int) $task['assigned_to'];
+            $recipientId = match ((int) $actor->id) {
+                (int) $log->causer_id => $assigneeId,
+                $assigneeId => (int) $log->causer_id,
+                default => null,
+            };
+            $recipient = $recipientId && $recipientId !== (int) $actor->id ? User::find($recipientId) : null;
+            if (!$recipient) {
+                return;
+            }
+
+            [$recordKey, $path] = $record;
+            $path .= $log->subject_id;
+            $subject = (string) ($log->properties['subject'] ?? $log->event);
+            $recordLabel = $this->recordLabel($recordKey, $log);
+            $assignee = $assigneeId === (int) $recipient->id ? $recipient : User::find($assigneeId);
+            $dueLocal = ActivityLog::taskDueDateLocal($task['due_date'] ?? null);
+
+            $mail = $recipient->email
+                ? (new TaskAssignedMail([
+                    'assignee_name' => $assignee?->name ?? '-',
+                    'assigner_name' => $log->causer?->name ?: __('activity_log.task_assigned_someone'),
+                    'updated_by' => $actor->name,
+                    'changes' => array_values($changes),
+                    'subject' => $subject,
+                    'description' => $this->plainText($log->properties['description'] ?? null),
+                    'record' => $recordLabel,
+                    'due_date' => $dueLocal ? Carbon::parse($dueLocal)->format('M j, Y g:i A') : null,
+                    'priority' => $task['priority'] ?? null,
+                    'priority_label' => ActivityLog::TASK_PRIORITY_LABELS[$task['priority'] ?? ''] ?? null,
+                    'status' => $task['status'] ?? null,
+                    'status_label' => ActivityLog::TASK_STATUS_LABELS[$task['status'] ?? ''] ?? null,
+                    'path' => $path,
+                ], $recipient->partner_id))->to($recipient->email)
+                : null;
+
+            $this->notifier->send('activity_log.task_updated.' . $recordKey, $recipient, [
+                'id' => $log->subject_id,
+                'subject' => $subject,
+                'updated_by' => $actor->name,
+                'record' => $recordLabel,
+                'changes' => implode('; ', $changes),
+            ], mail: $mail);
+        } catch (Throwable $e) {
+            Log::error(__('activity_log.task_updated_notify_failed', [
                 'id' => $log->id,
                 'error' => $e->getMessage(),
             ]));

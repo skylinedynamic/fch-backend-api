@@ -68,6 +68,17 @@ $taskAssigned = fn (string $record, string $url) => [
     'url' => $url,
 ];
 
+// The task's other person (creator or assignee) told what changed on it.
+$taskUpdated = fn (string $record, string $url) => [
+    'name' => "Task updated - date, due date, priority or status ({$record})",
+    'category' => 'reminder',
+    'icon' => 'ri-task-line',
+    'channels' => $bellAndMail,
+    'title' => 'Task updated: {{subject}}',
+    'body' => '{{updated_by}} updated a task on {{record}}: {{changes}}.',
+    'url' => $url,
+];
+
 return [
 
     // Channel name => Laravel notification channel (name or class) for the
@@ -678,6 +689,12 @@ return [
         'activity_log.task_assigned.lead' => $taskAssigned('lead', '/leads/{{id}}'),
         'activity_log.task_assigned.funding_application' => $taskAssigned('funding application', '/intake-review/funding-application/{{id}}'),
         'activity_log.task_assigned.funding_request' => $taskAssigned('funding request', '/intake-review/funding-request/{{id}}'),
+
+        'activity_log.task_updated.partner' => $taskUpdated('partner', '/partners/{{id}}'),
+        'activity_log.task_updated.client' => $taskUpdated('client', '/clients/{{id}}'),
+        'activity_log.task_updated.lead' => $taskUpdated('lead', '/leads/{{id}}'),
+        'activity_log.task_updated.funding_application' => $taskUpdated('funding application', '/intake-review/funding-application/{{id}}'),
+        'activity_log.task_updated.funding_request' => $taskUpdated('funding request', '/intake-review/funding-request/{{id}}'),
 
         'activity_log.email' => [
             'name' => 'Email composed from the activity log',

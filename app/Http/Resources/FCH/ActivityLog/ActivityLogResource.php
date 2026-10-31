@@ -63,23 +63,24 @@ class ActivityLogResource extends JsonResource
                 : toTimezone($value, config('app.timezone'), 'Y-m-d H:i:s'));
 
         $remindMe = (bool) ($props['remind_me'] ?? false);
-        $reminderPreset = $props['reminder_preset'] ?? '30_minutes';
-        $reminderTimeValue = $props['reminder_time_value'] ?? '30';
-        $reminderTimeUnit = $props['reminder_time_unit'] ?? 'Minutes';
+        $reminderPreset = $props['reminder_preset'] ?? ActivityLog::REMINDER_PRESET_DEFAULT;
+        $reminderTimeValue = $props['reminder_time_value'] ?? ActivityLog::REMINDER_TIME_VALUE_DEFAULT;
+        $reminderTimeUnit = $props['reminder_time_unit'] ?? ActivityLog::REMINDER_TIME_UNIT_MINUTES;
 
         $linkedReminder = !empty($props['reminder_id']) ? Reminder::find($props['reminder_id']) : null;
-        // Never the assignee's own copy of a Task's reminder - it is not the author's
-        $taskReminderId = $props['task_reminder_id'] ?? null;
+        // Never the assignee's copy of a Task's reminder, nor the author's silent
+        // listing row - neither is a reminder the author set
+        $notAuthorsOwn = array_values(array_filter([$props['task_reminder_id'] ?? null, $props['creator_task_reminder_id'] ?? null]));
         if (!$linkedReminder && $this->id) {
             $linkedReminder = Reminder::where('activity_log_id', $this->id)
-                ->when($taskReminderId, fn ($q) => $q->whereKeyNot($taskReminderId))
+                ->when($notAuthorsOwn, fn ($q) => $q->whereKeyNot($notAuthorsOwn))
                 ->first();
         }
         if (!$linkedReminder && $this->subject_id && $this->subject_type && !empty($props['subject'])) {
             $linkedReminder = Reminder::where('entity_id', $this->subject_id)
                 ->where('entity_type', $this->subject_type)
                 ->where('summary', $props['subject'])
-                ->when($taskReminderId, fn ($q) => $q->whereKeyNot($taskReminderId))
+                ->when($notAuthorsOwn, fn ($q) => $q->whereKeyNot($notAuthorsOwn))
                 ->latest()
                 ->first();
         }
@@ -121,7 +122,7 @@ class ActivityLogResource extends JsonResource
                 $reminderStatus = ucfirst($linkedReminder->status);
             }
 
-            if ($reminderPreset !== 'custom_date_time' && $linkedReminder->set_date_time && $linkedReminder->reminder_date_time) {
+            if ($reminderPreset !== ActivityLog::REMINDER_PRESET_CUSTOM_DATE_TIME && $linkedReminder->set_date_time && $linkedReminder->reminder_date_time) {
                 $leadMinutes = (int) round(
                     ($linkedReminder->set_date_time->getTimestamp() - $linkedReminder->reminder_date_time->getTimestamp()) / 60
                 );
@@ -253,12 +254,9 @@ class ActivityLogResource extends JsonResource
      */
     private function resolveReminderPreset(int $leadMinutes, string $preset, $value, $unit): array
     {
-        $presetMinutes = [
-            '5_minutes' => 5, '10_minutes' => 10, '15_minutes' => 15, '30_minutes' => 30,
-            '1_hour' => 60, '1_day' => 1440, '2_days' => 2880, '3_days' => 4320,
-            '1_week' => 10080, '2_weeks' => 20160, '3_weeks' => 30240, '1_month' => 43200,
-        ];
-        $unitMinutes = ['Minutes' => 1, 'Hours' => 60, 'Days' => 1440, 'Weeks' => 10080, 'Months' => 43200];
+        $presetMinutes = ActivityLog::REMINDER_PRESET_MINUTES;
+        $unitMinutes = ActivityLog::REMINDER_TIME_UNIT_MINUTES_EACH;
+        $customTimeBefore = ActivityLog::REMINDER_PRESET_CUSTOM_TIME_BEFORE;
 
         if ($leadMinutes < 0) {
             return [$preset, $value, $unit];
@@ -266,19 +264,21 @@ class ActivityLogResource extends JsonResource
         if (($presetMinutes[$preset] ?? null) === $leadMinutes) {
             return [$preset, $value, $unit];
         }
-        if ($preset === 'custom_time_before' && (int) $value * ($unitMinutes[$unit] ?? 0) === $leadMinutes) {
+        if ($preset === $customTimeBefore && (int) $value * ($unitMinutes[$unit] ?? 0) === $leadMinutes) {
             return [$preset, $value, $unit];
         }
         if ($match = array_search($leadMinutes, $presetMinutes, true)) {
             return [$match, $value, $unit];
         }
-        foreach (['Weeks' => 10080, 'Days' => 1440, 'Hours' => 60] as $u => $m) {
+        // The largest whole unit, weeks down to hours
+        foreach ([ActivityLog::REMINDER_TIME_UNIT_WEEKS, ActivityLog::REMINDER_TIME_UNIT_DAYS, ActivityLog::REMINDER_TIME_UNIT_HOURS] as $u) {
+            $m = $unitMinutes[$u];
             if ($leadMinutes > 0 && $leadMinutes % $m === 0) {
-                return ['custom_time_before', (string) intdiv($leadMinutes, $m), $u];
+                return [$customTimeBefore, (string) intdiv($leadMinutes, $m), $u];
             }
         }
 
-        return ['custom_time_before', (string) $leadMinutes, 'Minutes'];
+        return [$customTimeBefore, (string) $leadMinutes, ActivityLog::REMINDER_TIME_UNIT_MINUTES];
     }
 
     private function taskDetails(iterable $props): ?array

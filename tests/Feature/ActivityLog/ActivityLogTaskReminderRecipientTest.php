@@ -78,7 +78,7 @@ class ActivityLogTaskReminderRecipientTest extends TestCase
             ->assertJsonPath('data.remind_me', true)
             ->assertJsonPath('data.remind_at', $remindAt);
 
-        $this->assertNull($this->reminderOf($this->hostAdmin));
+        $this->assertFalse($this->reminderOf($this->hostAdmin)->is_reminder, 'The creator only lists it - no pop-up.');
         $this->assertSame(
             Carbon::parse($remindAt, self::TIMEZONE)->utc()->toDateTimeString(),
             $this->reminderOf($this->partnerColleague)->reminder_date_time->toDateTimeString()
@@ -101,7 +101,7 @@ class ActivityLogTaskReminderRecipientTest extends TestCase
     {
         $this->storeActivity($this->taskPayload(['reminder_recipient' => 'creator']))->assertCreated();
 
-        $this->assertNull($this->reminderOf($this->hostAdmin));
+        $this->assertFalse($this->reminderOf($this->hostAdmin)->is_reminder);
         $this->assertNotNull($this->reminderOf($this->partnerColleague));
     }
 
@@ -128,12 +128,12 @@ class ActivityLogTaskReminderRecipientTest extends TestCase
         ]);
 
         $this->updateActivity($id, $edit('assignee'))->assertOk()->assertJsonPath('data.reminder_recipient', 'assignee');
-        $this->assertNull($this->reminderOf($this->hostAdmin));
+        $this->assertFalse($this->reminderOf($this->hostAdmin)->is_reminder);
         $this->assertNotNull($this->reminderOf($this->partnerColleague));
         $this->assertNull(ActivityLog::findOrFail($id)->properties['reminder_id']);
 
         $this->updateActivity($id, $edit('creator'))->assertOk()->assertJsonPath('data.reminder_recipient', 'creator');
-        $this->assertNotNull($this->reminderOf($this->hostAdmin));
+        $this->assertTrue($this->reminderOf($this->hostAdmin)->is_reminder);
         $this->assertNull($this->reminderOf($this->partnerColleague));
 
         $this->updateActivity($id, $edit('both'))->assertOk();
