@@ -12,6 +12,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\SafeUpload;
 
 class UpdateEmployeeRequest extends BaseApiRequest
 {
@@ -65,7 +66,7 @@ class UpdateEmployeeRequest extends BaseApiRequest
             'postal_code'    => ['nullable', 'string', new UsPostalCode()],
             'country'        => ['sometimes', 'required', 'string', 'max:255'],
             'country_code'   => ['nullable'],
-            'image'          => ['nullable'],
+            'image'          => ['nullable', SafeUpload::image()],
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
             'address'        => ['nullable', 'string', 'max:500'],

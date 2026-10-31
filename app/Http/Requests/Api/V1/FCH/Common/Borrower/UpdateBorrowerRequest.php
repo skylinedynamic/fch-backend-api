@@ -16,6 +16,7 @@ use App\Rules\Ssn;
 use App\Rules\FicoScore;
 use App\Rules\PartnerTeamMember;
 use App\Rules\BusinessCreditScore;
+use App\Rules\SafeUpload;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -102,7 +103,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_industry_type'=> ['nullable', 'string', 'max:255'],
             'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_description'  => ['nullable', 'string'],
-            'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120'],
+            'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120', SafeUpload::image()],
             'duns_number'           => ['nullable', 'string', new DunsNumber()],
             'state_file_number'     => ['nullable', 'string', 'max:255'],
             'business_start_date'   => ['nullable'],

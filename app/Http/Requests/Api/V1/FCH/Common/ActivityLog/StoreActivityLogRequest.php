@@ -12,6 +12,7 @@ use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
+use App\Rules\SafeUpload;
 
 class StoreActivityLogRequest extends BaseApiRequest
 {
@@ -100,7 +101,7 @@ class StoreActivityLogRequest extends BaseApiRequest
 
             // Attachments array
             'attachments'   => ['nullable', 'array'],
-            'attachments.*' => ['file'], // basic file check
+            'attachments.*' => ['file', SafeUpload::document()],
             
             // Reminders
             'remind_me'     => ['nullable', 'in:1,0,true,false'],
@@ -176,7 +177,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             $this->validateTaskAssignment($validator);
 
             $allowedExtensions = [
-                'jpg','jpeg','png','pdf','gif','webp','svg',
+                'jpg','jpeg','png','pdf','gif','webp',
                 'xls','xlsx','doc','docx','ppt','pptx','txt',
                 'zip','rar','csv'
             ];
