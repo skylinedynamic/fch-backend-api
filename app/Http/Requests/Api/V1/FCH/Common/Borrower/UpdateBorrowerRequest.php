@@ -8,6 +8,7 @@ use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
+use App\Rules\AdultDateOfBirth;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
@@ -81,7 +82,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'other_city'   => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'home_address' => ['nullable', 'string', 'max:255'],
-            'date_of_birth'=> ['nullable'],
+            'date_of_birth'=> ['nullable', new AdultDateOfBirth()],
             // Full SSN, digits only or dashed (123456789 / 123-45-6789). Replaces
             // the stored value entirely — omit the field to leave it unchanged.
             'ssn'          => ['nullable', 'string', new Ssn()],

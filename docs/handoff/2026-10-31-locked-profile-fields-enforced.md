@@ -31,7 +31,7 @@ Separately (requested with this fix): the business EIN is no longer required. On
 ## Testing
 - `LockedProfileFieldsTest` failed first (12 of 14: every locked change returned 200, the EIN was required and counted for completeness), then passed.
 - `tests/Feature/Borrower`, `tests/Feature/Profile`, `tests/Integration/Profile`, `tests/Unit` — OK, 1554 tests.
-- Full PHPUnit suite — see the session report for the count.
+- Full PHPUnit suite — OK, 4312 tests, 14373 assertions (2 skipped).
 - Borrower portal E2E `business-details-locked-bypass.spec.ts` against this API — passed (see the client-fch handoff).
 
 ## Open items
