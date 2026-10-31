@@ -29,7 +29,7 @@ Files already stored (QA's test SVG among them) are not touched; they are still 
 - Both new test files failed first (rule class missing; the file manager took the scripted SVG and HTML-as-.jpg with 200; an SVG activity attachment was accepted), then passed.
 - Note: `UploadedFile::fake()->getMimeType()` answers from the file name, which is why the rule reads the content with `finfo` itself.
 - Affected suites (FileManager, ActivityLog, Partner, Employee, Website, Borrower, Setting, Upload, rule) — OK, 641 tests.
-- Full PHPUnit suite — see the session report for the count.
+- Full PHPUnit suite — OK, 4298 tests, 14320 assertions (2 skipped).
 
 ## Open items
 - **QA's test file** `storage/app/public/borrowers/144/1792561027_qa-r2-logo.svg` on staging still runs if opened; delete it on the server (QA kept it for the retest, so retest first).

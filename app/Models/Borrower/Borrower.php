@@ -154,6 +154,33 @@ class Borrower extends Model
         self::STATUS_ACTIVE,
     ];
 
+    /**
+     * Profile fields a borrower fills in once: when saved, a change goes
+     * through a Change Request the host approves (BUG-054). The borrower
+     * portal locks the same fields (src/config/profileLockFields.ts).
+     */
+    public const LOCKED_BUSINESS_FIELDS = [
+        'business_ein',
+        'business_address',
+        'business_phone',
+        'business_website',
+        'business_email',
+        'duns_number',
+        'business_start_date',
+    ];
+
+    public const LOCKED_FINANCIAL_FIELDS = [
+        'monthly_revenue',
+        'annual_revenue',
+        'annual_personal_income',
+    ];
+
+    /** Locked on a bank account the borrower has already saved. */
+    public const LOCKED_BANK_ACCOUNT_FIELDS = [
+        'bank_name',
+        'account_open_date',
+    ];
+
 
     /**
      * Get the user that owns the borrower.

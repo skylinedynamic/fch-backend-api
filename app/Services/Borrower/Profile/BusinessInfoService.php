@@ -4,6 +4,7 @@ namespace App\Services\Borrower\Profile;
 
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
+use App\Support\Profile\LockedFields;
 
 class BusinessInfoService
 {
@@ -26,6 +27,14 @@ class BusinessInfoService
 
         if (!$borrower) {
             throw new \Exception("Borrower record not found.");
+        }
+
+        // A saved, locked field keeps its stored value; the request has already
+        // refused any change to it (UpdateBusinessInfoRequest, BUG-054).
+        foreach (Borrower::LOCKED_BUSINESS_FIELDS as $field) {
+            if (LockedFields::isSaved($borrower->getAttributes()[$field] ?? null)) {
+                $data[$field] = $borrower->getAttributes()[$field];
+            }
         }
 
         $borrower->update([

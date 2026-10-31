@@ -140,16 +140,18 @@ class BorrowerProfileApiTest extends TestCase
             'average_monthly_deposits' => 9000,
             'annual_personal_income' => 80000,
             'bank_accounts' => [
-                ['id' => $kept->id, 'bank_name' => 'Renamed Bank'],
+                // A saved bank name is locked (BUG-054): sent back unchanged.
+                // Renaming it is covered by LockedProfileFieldsTest.
+                ['id' => $kept->id, 'bank_name' => 'Old Bank'],
                 ['id' => $theirs->id, 'bank_name' => 'Hijacked'],
                 ['bank_name' => 'New Bank'],
             ],
         ])->assertOk();
 
-        $this->assertSame('Renamed Bank', $kept->fresh()->bank_name);
+        $this->assertSame('Old Bank', $kept->fresh()->bank_name);
         $this->assertNull($dropped->fresh());
         $this->assertSame('Their Bank', $theirs->fresh()->bank_name);
-        $this->assertEqualsCanonicalizing(['Renamed Bank', 'New Bank'], BorrowerBankAccount::where('borrower_id', $this->me->entity_id)->pluck('bank_name')->all());
+        $this->assertEqualsCanonicalizing(['Old Bank', 'New Bank'], BorrowerBankAccount::where('borrower_id', $this->me->entity_id)->pluck('bank_name')->all());
 
         $this->getJson('/api/v1/borrower/profile/financial-info')->assertOk();
     }

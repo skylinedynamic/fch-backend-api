@@ -429,4 +429,6 @@ return [
     // Funding request
     'approved_funding_string' => 'Approved funding must be text.',
     'approved_funding_max' => 'Approved funding cannot exceed 255 characters.',
+    // A saved, locked profile field (BUG-054)
+    'locked_field_change_request' => 'This field is locked once saved. Submit a change request to update it.',
 ];
