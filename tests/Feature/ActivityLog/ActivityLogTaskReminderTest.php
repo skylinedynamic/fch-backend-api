@@ -19,7 +19,8 @@ use Tests\TestCase;
 /**
  * The assignee's own reminder of their task:
  *
- *   - without a reminder on the activity: 09:00 on the due date, their time
+ *   - without a reminder on the activity: 09:00 on the due day, their time -
+ *     or at the due time itself when that is earlier
  *   - with one: at that reminder time, as a row of their own next to the
  *     author's, so each snoozes or dismisses their own
  *   - it follows edits (time, wording, assignee) and goes with the task
@@ -62,7 +63,8 @@ class ActivityLogTaskReminderTest extends TestCase
         $due = $this->dueDate(4);
         $id = $this->storeActivity($this->taskPayload(['task_due_date' => $due]))->assertCreated()->json('data.id');
 
-        $this->assertSame(1, Reminder::count(), 'Only the assignee has one; the author set none.');
+        $this->assertSame(1, Reminder::where('is_reminder', true)->count(), 'Only the assignee is reminded; the author set none.');
+        $this->assertFalse($this->reminderOf($this->hostAdmin)->is_reminder, "The author's row only lists it.");
         $reminder = $this->reminderOf($this->partnerColleague);
         $this->assertSame($this->dueMorningUtc($due), $reminder->reminder_date_time->toDateTimeString());
         $this->assertSame($id, (int) $reminder->activity_log_id);
@@ -74,6 +76,15 @@ class ActivityLogTaskReminderTest extends TestCase
         $this->assertSame($reminder->id, ActivityLog::findOrFail($id)->properties['task_reminder_id']);
 
         Queue::assertPushed(DispatchReminderDueJob::class, fn ($job) => $job->reminderId === $reminder->id);
+    }
+
+    #[Test]
+    public function a_task_due_before_nine_reminds_the_assignee_at_its_due_time(): void
+    {
+        $due = now(self::TIMEZONE)->addDays(4)->setTime(8, 15)->format('Y-m-d H:i:s');
+        $this->storeActivity($this->taskPayload(['task_due_date' => $due]))->assertCreated();
+
+        $this->assertSame($this->dueDateUtc($due), $this->reminderOf($this->partnerColleague)->reminder_date_time->toDateTimeString());
     }
 
     #[Test]
@@ -129,7 +140,7 @@ class ActivityLogTaskReminderTest extends TestCase
 
         $this->updateActivity($id, $this->taskEdit(['task_due_date' => $newDue]))->assertOk();
 
-        $this->assertSame(1, Reminder::count());
+        $this->assertSame(1, Reminder::where('is_reminder', true)->count());
         $this->assertSame($this->dueMorningUtc($newDue), $this->reminderOf($this->partnerColleague)->reminder_date_time->toDateTimeString());
     }
 
@@ -160,7 +171,7 @@ class ActivityLogTaskReminderTest extends TestCase
         $this->assertSame($this->remindAtUtc($remindAt), $this->reminderOf($this->partnerColleague)->reminder_date_time->toDateTimeString());
 
         $this->updateActivity($id, ['remind_me' => '0'])->assertOk();
-        $this->assertNull($this->reminderOf($this->hostAdmin));
+        $this->assertFalse($this->reminderOf($this->hostAdmin)->is_reminder, 'The author keeps only a silent row.');
         $this->assertSame($this->dueMorningUtc($due), $this->reminderOf($this->partnerColleague)->reminder_date_time->toDateTimeString());
     }
 
@@ -185,7 +196,7 @@ class ActivityLogTaskReminderTest extends TestCase
     {
         $first = $this->storeActivity($this->taskPayload())->assertCreated()->json('data.id');
         $second = $this->storeActivity($this->taskPayload())->assertCreated()->json('data.id');
-        $this->assertSame(2, Reminder::count());
+        $this->assertSame(4, Reminder::count(), "Each task: the assignee's reminder and the author's silent row.");
 
         $this->updateActivity($first, ['reference' => 'Task', 'assign_task' => '0'])->assertOk();
         $this->updateActivity($second, ['reference' => 'Call'])->assertOk();

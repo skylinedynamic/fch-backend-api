@@ -1,13 +1,28 @@
 @extends('emails.layouts.mail')
 
-@section('title', __('activity_log.task_assigned_mail_subject', ['subject' => $task['subject']]))
+@php($isUpdate = !empty($task['changes']))
+
+@section('title', __($isUpdate ? 'activity_log.task_updated_mail_subject' : 'activity_log.task_assigned_mail_subject', ['subject' => $task['subject']]))
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">{{ __('activity_log.task_assigned_mail_heading') }}</h4>
+    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">{{ __($isUpdate ? 'activity_log.task_updated_mail_heading' : 'activity_log.task_assigned_mail_heading') }}</h4>
 
     <p style="line-height: 1.5; margin-bottom: 20px;">
-        {{ __('activity_log.task_assigned_mail_intro', ['assigner' => $task['assigner_name'], 'record' => $task['record']]) }}
+        @if ($isUpdate)
+            {{ __('activity_log.task_updated_mail_intro', ['actor' => $task['updated_by'], 'record' => $task['record']]) }}
+        @else
+            {{ __('activity_log.task_assigned_mail_intro', ['assigner' => $task['assigner_name'], 'record' => $task['record']]) }}
+        @endif
     </p>
+
+    @if ($isUpdate)
+        <div style="border-left: 3px solid #405189; background-color: #eceef6; border-radius: 4px; padding: 12px 16px; margin-bottom: 20px; text-align: left;">
+            <p style="font-size: 12px; font-weight: 600; color: #405189; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px 0;">{{ __('activity_log.task_updated_changes') }}</p>
+            @foreach ($task['changes'] as $change)
+                <p style="font-size: 14px; color: #0f172a; margin: 0 0 4px 0;">{{ $change }}</p>
+            @endforeach
+        </div>
+    @endif
 
     <div style="background-color: #f8fafc; border-radius: 4px; padding: 20px; margin-bottom: 24px; text-align: left;">
         <p style="font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 16px 0;">{{ $task['subject'] }}</p>

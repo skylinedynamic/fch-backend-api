@@ -30,7 +30,8 @@ class DispatchReminderDueJob implements ShouldQueue
     {
         $reminder = Reminder::with(['entity', 'creator'])->find($this->reminderId);
 
-        if (!$reminder || !$reminder->creator || $reminder->status !== Reminder::STATUS_PENDING) {
+        // A silent row (is_reminder false) is listed only, never popped up
+        if (!$reminder || !$reminder->creator || $reminder->status !== Reminder::STATUS_PENDING || !$reminder->is_reminder) {
             return;
         }
 

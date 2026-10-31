@@ -14,7 +14,8 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Tells a staff member a Task activity was assigned to them: who assigned it,
  * on which record, when it is due, its priority and status, and a link to the
- * record in their own portal.
+ * record in their own portal. With `changes` (and `updated_by`) it instead
+ * tells the task's other person what was changed - the same task card below.
  *
  * Sent from the assignee's own partner's mailbox and branding - the partner
  * whose team they are on - and queued, so a slow mail server never holds up
@@ -43,7 +44,8 @@ class TaskAssignedMail extends Mailable implements ShouldQueue
      * @param  array{assignee_name: string, assigner_name: string, subject: string,
      *               description: ?string, record: string, due_date: ?string,
      *               priority: ?string, priority_label: ?string,
-     *               status: ?string, status_label: ?string, path: string}  $mailData
+     *               status: ?string, status_label: ?string, path: string,
+     *               updated_by?: string, changes?: string[]}  $mailData
      */
     public function __construct(public array $mailData, ?int $assigneePartnerId = null)
     {
@@ -57,7 +59,7 @@ class TaskAssignedMail extends Mailable implements ShouldQueue
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            subject: __('activity_log.task_assigned_mail_subject', ['subject' => $this->mailData['subject']]),
+            subject: __(empty($this->mailData['changes']) ? 'activity_log.task_assigned_mail_subject' : 'activity_log.task_updated_mail_subject', ['subject' => $this->mailData['subject']]),
         );
     }
 
