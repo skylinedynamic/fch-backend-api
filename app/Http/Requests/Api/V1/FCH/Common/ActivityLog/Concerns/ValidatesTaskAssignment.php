@@ -14,7 +14,8 @@ use Illuminate\Validation\Validator;
  * who does it, by when, how urgent and where it stands.
  *
  * The request says which team the assignee must come from, what the
- * Reference is, and (on edit) the due date and assignee already saved - a task
+ * Reference is, and (on edit) the due date (in the viewer's timezone) and
+ * assignee already saved - a task
  * may keep a due date that has since passed, or an assignee who has since
  * become inactive; only a newly picked one must be neither.
  */
@@ -60,9 +61,11 @@ trait ValidatesTaskAssignment
                     }
                 },
             ],
-            'task_due_date' => [Rule::requiredIf($this->assignsTask()), 'nullable', 'date_format:Y-m-d'],
+            'task_due_date' => [Rule::requiredIf($this->assignsTask()), 'nullable', 'date_format:Y-m-d H:i:s'],
             'task_priority' => [Rule::requiredIf($this->assignsTask()), 'nullable', Rule::in(array_keys(ActivityLog::TASK_PRIORITY_LABELS))],
             'task_status'   => [Rule::requiredIf($this->assignsTask()), 'nullable', Rule::in(array_keys(ActivityLog::TASK_STATUS_LABELS))],
+            // Who gets the reminder the task sets: its author, its assignee or both
+            'reminder_recipient' => ['nullable', Rule::in(ActivityLog::REMINDER_RECIPIENTS)],
         ];
     }
 
@@ -72,11 +75,12 @@ trait ValidatesTaskAssignment
             'assigned_to.required'      => 'Please select who the task is assigned to.',
             'assigned_to.integer'       => 'The selected staff member cannot be assigned this task.',
             'task_due_date.required'    => 'Please select when the task is due.',
-            'task_due_date.date_format' => 'The due date is not a valid date.',
+            'task_due_date.date_format' => 'The due date is not a valid date and time.',
             'task_priority.required'    => 'Please select a priority.',
             'task_priority.in'          => 'Priority must be Low, Medium or High.',
             'task_status.required'      => 'Please select a status.',
             'task_status.in'            => 'Status must be Open, In Progress or Complete.',
+            'reminder_recipient.in'     => 'Please choose who gets the reminder.',
         ];
     }
 
@@ -90,11 +94,11 @@ trait ValidatesTaskAssignment
             $validator->errors()->add('assign_task', 'Only a Task activity can be assigned.');
         }
 
-        // A calendar day: today counts, judged by the viewer's own date.
+        // A wall-clock date and time in the viewer's timezone, not yet passed.
         $dueDate = $this->input('task_due_date');
         if (! $validator->errors()->has('task_due_date') && ! empty($dueDate) && $dueDate !== $this->savedTaskDueDate()) {
             $timezone = $this->header('X-Timezone') ?: config('app.timezone');
-            if (Carbon::parse($dueDate, $timezone)->lt(Carbon::today($timezone))) {
+            if (Carbon::parse($dueDate, $timezone)->isPast()) {
                 $validator->errors()->add('task_due_date', 'The due date cannot be in the past.');
             }
         }

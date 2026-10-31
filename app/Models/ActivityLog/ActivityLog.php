@@ -228,6 +228,40 @@ class ActivityLog extends Activity
     ];
 
     /**
+     * Who gets the reminder an assigned Task sets ("Who gets the reminder"):
+     * its author, its assignee, or both. Mirrored in the admin panel's
+     * config/activityTask.ts - change both together.
+     */
+    const REMINDER_RECIPIENT_CREATOR = 'creator';
+
+    const REMINDER_RECIPIENT_ASSIGNEE = 'assignee';
+
+    const REMINDER_RECIPIENT_BOTH = 'both';
+
+    const REMINDER_RECIPIENTS = [
+        self::REMINDER_RECIPIENT_CREATOR,
+        self::REMINDER_RECIPIENT_ASSIGNEE,
+        self::REMINDER_RECIPIENT_BOTH,
+    ];
+
+    /**
+     * Who the reminder an activity sets goes to: the choice made on a Task
+     * assigned to someone else (both, when none was made); otherwise there is
+     * only its author.
+     */
+    public static function reminderRecipientFor(array $props, ?int $causerId): string
+    {
+        $assigneeId = (int) ($props['task']['assigned_to'] ?? 0);
+        if (!$assigneeId || $assigneeId === (int) $causerId) {
+            return self::REMINDER_RECIPIENT_CREATOR;
+        }
+
+        return in_array($props['reminder_recipient'] ?? null, self::REMINDER_RECIPIENTS, true)
+            ? $props['reminder_recipient']
+            : self::REMINDER_RECIPIENT_BOTH;
+    }
+
+    /**
      * Fields whose value is never written to an activity entry - plain or
      * encrypted. Entries are shown to staff (and some to the client), so a
      * changed SSN is recorded as changed, not repeated.
@@ -255,9 +289,26 @@ class ActivityLog extends Activity
 
     /**
      * When an assigned Task without a reminder of its own reminds its
-     * assignee: this time of day on the due date, in the assigner's timezone.
+     * assignee: this time of day on the due date, in the assigner's timezone
+     * (or at the due time itself, when that is earlier).
      */
     const TASK_DUE_REMINDER_TIME = '09:00:00';
+
+    /**
+     * A task's stored due date ("Y-m-d H:i:s", UTC) as a wall-clock value in
+     * $timezone (the viewer's when null). Tasks saved before the due date had
+     * a time hold a bare local day, read as that day's midnight.
+     */
+    public static function taskDueDateLocal(?string $stored, ?string $timezone = null): ?string
+    {
+        if (empty($stored)) {
+            return null;
+        }
+
+        return strlen($stored) === 10
+            ? "{$stored} 00:00:00"
+            : toTimezone($stored, $timezone, 'Y-m-d H:i:s');
+    }
 
     protected $fillable = [
         'log_name',

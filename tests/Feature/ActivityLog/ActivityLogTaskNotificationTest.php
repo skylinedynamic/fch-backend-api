@@ -69,7 +69,7 @@ class ActivityLogTaskNotificationTest extends TestCase
         $this->assertSame('New task assigned: Collect bank statements', $message['title']);
         $this->assertSame(
             'Host Admin assigned you a task on client Johnathan Smithfield. Due '
-                . \Illuminate\Support\Carbon::parse($this->dueDate())->format('M j, Y') . ', High priority, Open.',
+                . \Illuminate\Support\Carbon::parse($this->dueDate())->format('M j, Y g:i A') . ', High priority, Open.',
             $message['body']
         );
         $this->assertSame('/clients/' . $this->borrower->id, $message['url']);

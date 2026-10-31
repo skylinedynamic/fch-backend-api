@@ -68,13 +68,18 @@ class ActivityLogResource extends JsonResource
         $reminderTimeUnit = $props['reminder_time_unit'] ?? 'Minutes';
 
         $linkedReminder = !empty($props['reminder_id']) ? Reminder::find($props['reminder_id']) : null;
+        // Never the assignee's own copy of a Task's reminder - it is not the author's
+        $taskReminderId = $props['task_reminder_id'] ?? null;
         if (!$linkedReminder && $this->id) {
-            $linkedReminder = Reminder::where('activity_log_id', $this->id)->first();
+            $linkedReminder = Reminder::where('activity_log_id', $this->id)
+                ->when($taskReminderId, fn ($q) => $q->whereKeyNot($taskReminderId))
+                ->first();
         }
         if (!$linkedReminder && $this->subject_id && $this->subject_type && !empty($props['subject'])) {
             $linkedReminder = Reminder::where('entity_id', $this->subject_id)
                 ->where('entity_type', $this->subject_type)
                 ->where('summary', $props['subject'])
+                ->when($taskReminderId, fn ($q) => $q->whereKeyNot($taskReminderId))
                 ->latest()
                 ->first();
         }
@@ -153,6 +158,7 @@ class ActivityLogResource extends JsonResource
             ] : null),
             // A Task assigned to a staff member ("Want to Assign"); null otherwise.
             'task'          => $this->taskDetails($props),
+            'reminder_recipient' => ActivityLog::reminderRecipientFor(collect($props)->toArray(), $this->causer_id),
             'description'   => $this->properties['description'] ?? ($this->getAutoDescription() ?? $this->description),
             // Email fields
             'to_emails'     => $this->properties['to_emails'] ?? null,
@@ -291,7 +297,7 @@ class ActivityLogResource extends JsonResource
         return [
             'assigned_to'    => $task['assigned_to'] ?? null,
             'assigned_user'  => $assignee ? ['id' => $assignee->id, 'name' => $assignee->name] : null,
-            'due_date'       => $task['due_date'] ?? null,
+            'due_date'       => ActivityLog::taskDueDateLocal($task['due_date'] ?? null),
             'priority'       => $priority,
             'priority_label' => ActivityLog::TASK_PRIORITY_LABELS[$priority] ?? null,
             'status'         => $status,

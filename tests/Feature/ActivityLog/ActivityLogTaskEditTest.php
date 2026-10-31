@@ -142,7 +142,7 @@ class ActivityLogTaskEditTest extends TestCase
     {
         $id = $this->storedTask();
         $props = ActivityLog::findOrFail($id)->properties;
-        $props['task']['due_date'] = $this->dueDate(-2);
+        $props['task']['due_date'] = $this->dueDateUtc($this->dueDate(-2));
         ActivityLog::whereKey($id)->update(['properties' => json_encode($props)]);
 
         $this->updateActivity($id, $this->taskEdit(['task_due_date' => $this->dueDate(-2), 'task_status' => 'complete']))
@@ -152,6 +152,24 @@ class ActivityLogTaskEditTest extends TestCase
         $this->updateActivity($id, $this->taskEdit(['task_due_date' => $this->dueDate(-1)]))
             ->assertStatus(422)
             ->assertJsonPath('errors.task_due_date', 'The due date cannot be in the past.');
+    }
+
+    #[Test]
+    public function a_day_only_due_date_saved_before_times_were_added_shows_as_that_days_midnight_and_may_stay(): void
+    {
+        $id = $this->storedTask();
+        $day = substr($this->dueDate(-2), 0, 10);
+        $props = ActivityLog::findOrFail($id)->properties;
+        $props['task']['due_date'] = $day;
+        ActivityLog::whereKey($id)->update(['properties' => json_encode($props)]);
+
+        $this->withHeader('X-Timezone', self::TIMEZONE)->getJson("/api/v1/common/activity-logs/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.task.due_date', "{$day} 00:00:00");
+
+        $this->updateActivity($id, $this->taskEdit(['task_due_date' => "{$day} 00:00:00", 'task_status' => 'complete']))
+            ->assertOk()
+            ->assertJsonPath('data.task.status', 'complete');
     }
 
     #[Test]

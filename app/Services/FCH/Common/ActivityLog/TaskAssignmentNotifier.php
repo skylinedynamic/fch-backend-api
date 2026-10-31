@@ -59,7 +59,8 @@ class TaskAssignmentNotifier
             $assignerName = $log->causer?->name ?: __('activity_log.task_assigned_someone');
             $subject = (string) ($log->properties['subject'] ?? $log->event);
             $recordLabel = $this->recordLabel($recordKey, $log);
-            $dueDate = !empty($task['due_date']) ? Carbon::parse($task['due_date'])->format('M j, Y') : null;
+            $dueLocal = ActivityLog::taskDueDateLocal($task['due_date'] ?? null);
+            $dueDate = $dueLocal ? Carbon::parse($dueLocal)->format('M j, Y g:i A') : null;
             $priorityLabel = ActivityLog::TASK_PRIORITY_LABELS[$task['priority'] ?? ''] ?? null;
             $statusLabel = ActivityLog::TASK_STATUS_LABELS[$task['status'] ?? ''] ?? null;
 

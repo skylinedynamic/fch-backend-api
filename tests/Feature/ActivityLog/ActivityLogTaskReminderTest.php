@@ -19,7 +19,8 @@ use Tests\TestCase;
 /**
  * The assignee's own reminder of their task:
  *
- *   - without a reminder on the activity: 09:00 on the due date, their time
+ *   - without a reminder on the activity: 09:00 on the due day, their time -
+ *     or at the due time itself when that is earlier
  *   - with one: at that reminder time, as a row of their own next to the
  *     author's, so each snoozes or dismisses their own
  *   - it follows edits (time, wording, assignee) and goes with the task
@@ -74,6 +75,15 @@ class ActivityLogTaskReminderTest extends TestCase
         $this->assertSame($reminder->id, ActivityLog::findOrFail($id)->properties['task_reminder_id']);
 
         Queue::assertPushed(DispatchReminderDueJob::class, fn ($job) => $job->reminderId === $reminder->id);
+    }
+
+    #[Test]
+    public function a_task_due_before_nine_reminds_the_assignee_at_its_due_time(): void
+    {
+        $due = now(self::TIMEZONE)->addDays(4)->setTime(8, 15)->format('Y-m-d H:i:s');
+        $this->storeActivity($this->taskPayload(['task_due_date' => $due]))->assertCreated();
+
+        $this->assertSame($this->dueDateUtc($due), $this->reminderOf($this->partnerColleague)->reminder_date_time->toDateTimeString());
     }
 
     #[Test]
