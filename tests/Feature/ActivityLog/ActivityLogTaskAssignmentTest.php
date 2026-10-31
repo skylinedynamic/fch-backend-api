@@ -58,7 +58,7 @@ class ActivityLogTaskAssignmentTest extends TestCase
             ->assertJsonPath('data.task.status_label', 'Open');
 
         $log = ActivityLog::findOrFail($response->json('data.id'));
-        $this->assertSame($due, $log->properties['task']['due_date'], 'A calendar day, stored as picked.');
+        $this->assertSame($this->dueDateUtc($due), $log->properties['task']['due_date'], 'A date and time, stored in UTC.');
         $this->assertSame($this->partnerColleague->id, $log->properties['assigned_to']);
     }
 
@@ -161,23 +161,25 @@ class ActivityLogTaskAssignmentTest extends TestCase
     }
 
     #[Test]
-    public function the_due_date_is_a_date_only(): void
+    public function the_due_date_needs_a_time(): void
     {
         Passport::actingAs($this->hostAdmin, [], 'api');
 
-        $this->storeActivity($this->taskPayload(['task_due_date' => $this->dueDate() . ' 15:30:00']))
+        $this->storeActivity($this->taskPayload(['task_due_date' => substr($this->dueDate(), 0, 10)]))
             ->assertStatus(422)
-            ->assertJsonPath('errors.task_due_date', 'The due date is not a valid date.');
+            ->assertJsonPath('errors.task_due_date', 'The due date is not a valid date and time.');
     }
 
     #[Test]
-    public function the_due_date_may_be_today_but_not_earlier(): void
+    public function the_due_date_may_be_later_today_but_not_earlier(): void
     {
         Passport::actingAs($this->hostAdmin, [], 'api');
+        $now = now(self::TIMEZONE);
 
-        $this->storeActivity($this->taskPayload(['task_due_date' => $this->dueDate(0)]))->assertCreated();
+        $this->storeActivity($this->taskPayload(['task_due_date' => $now->copy()->addMinutes(5)->format('Y-m-d H:i:s')]))
+            ->assertCreated();
 
-        $this->storeActivity($this->taskPayload(['task_due_date' => $this->dueDate(-1)]))
+        $this->storeActivity($this->taskPayload(['task_due_date' => $now->copy()->subMinutes(5)->format('Y-m-d H:i:s')]))
             ->assertStatus(422)
             ->assertJsonPath('errors.task_due_date', 'The due date cannot be in the past.');
     }

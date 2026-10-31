@@ -11,6 +11,8 @@ return [
     'email_send_failed'   => 'Failed to send email.',
     'visibility_updated'       => 'Activity visibility updated successfully.',
     'visibility_update_failed' => 'Failed to update activity visibility.',
+    'task_status_updated'       => 'Task status updated successfully.',
+    'task_status_update_failed' => 'Failed to update the task status.',
 
     // Validation
     'reference_required'      => 'Reference is required.',
@@ -58,4 +60,15 @@ return [
     'task_assigned_record_funding_application' => 'funding application #:id',
     'task_assigned_record_funding_request'     => 'funding request #:id',
     'task_assigned_notify_failed' => 'Task assignment notification failed for activity :id: :error',
+
+    // Task changed - told to its other person, creator or assignee (mail + bell)
+    'task_updated_mail_subject' => 'Task updated: :subject',
+    'task_updated_mail_heading' => 'A task was updated',
+    'task_updated_mail_intro'   => ':actor updated a task on :record.',
+    'task_updated_changes'      => 'What changed',
+    'task_change_date'          => 'Date: :value',
+    'task_change_due_date'      => 'Due date: :value',
+    'task_change_priority'      => 'Priority: :value',
+    'task_change_status'        => 'Status: :value',
+    'task_updated_notify_failed' => 'Task update notification failed for activity :id: :error',
 ];

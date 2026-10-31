@@ -69,7 +69,7 @@ class ActivityLogTaskNotificationTest extends TestCase
         $this->assertSame('New task assigned: Collect bank statements', $message['title']);
         $this->assertSame(
             'Host Admin assigned you a task on client Johnathan Smithfield. Due '
-                . \Illuminate\Support\Carbon::parse($this->dueDate())->format('M j, Y') . ', High priority, Open.',
+                . \Illuminate\Support\Carbon::parse($this->dueDate())->format('M j, Y g:i A') . ', High priority, Open.',
             $message['body']
         );
         $this->assertSame('/clients/' . $this->borrower->id, $message['url']);
@@ -169,14 +169,15 @@ class ActivityLogTaskNotificationTest extends TestCase
     }
 
     #[Test]
-    public function an_edit_that_keeps_the_assignee_sends_nothing(): void
+    public function a_wording_edit_or_unassigning_sends_nothing(): void
     {
+        // A change to the date, due date, priority or status does tell the
+        // other person - see ActivityLogTaskSyncTest.
         $id = $this->storeActivity($this->taskPayload())->assertCreated()->json('data.id');
         Mail::fake();
         Notification::fake();
 
         $this->updateActivity($id, ['subject' => 'New wording'])->assertOk();
-        $this->updateActivity($id, $this->taskEdit(['task_priority' => 'low', 'task_status' => 'complete']))->assertOk();
         $this->updateActivity($id, ['reference' => 'Task', 'assign_task' => '0'])->assertOk();
 
         Mail::assertNothingQueued();

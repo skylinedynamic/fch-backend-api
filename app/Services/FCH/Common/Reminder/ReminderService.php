@@ -134,6 +134,13 @@ class ReminderService
             return null;
         }
 
+        // An assigned Task's date is its creator's to move: rescheduling moves
+        // the task for both people (below), so the assignee may not.
+        $task = $rescheduleAt && $reminder->activityLog?->isAssignedTask() ? $reminder->activityLog : null;
+        if ($task && !$task->canRescheduleBy($user)) {
+            throw new \Exception("Only the task's creator can reschedule it.", 403);
+        }
+
         if ($rescheduleAt) {
             $timezone = request()->header('X-Timezone', config('app.timezone'));
             $newActivityTime = Carbon::parse($rescheduleAt, $timezone)->setTimezone('UTC');
@@ -186,6 +193,14 @@ class ReminderService
         $reminder->save();
 
         DispatchReminderDueJob::dispatch($reminder->id, $newReminderTime)->delay($newReminderTime);
+
+        // The task acts as one: its activity date and both people's reminders
+        // move with it (its due date stays), and the assignee is told.
+        if ($task) {
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)
+                ->rescheduleTask($task, $newActivityTime, $leadSeconds);
+            $reminder->refresh();
+        }
 
         return $reminder->loadClient();
     }

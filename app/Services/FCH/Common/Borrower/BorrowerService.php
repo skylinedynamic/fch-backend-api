@@ -350,6 +350,25 @@ class BorrowerService
     /**
      * Store a new borrower.
      */
+    /**
+     * A partner on a free trial may only add Limited Free Plan clients (BUG-142).
+     * The Convert Lead screen held this back but Add Client did not, and the API
+     * never checked, so a paid client and both its invoices could be created.
+     * The host is not on a trial and is never held back.
+     *
+     * @throws ValidationException
+     */
+    private function ensureMayAddPaidClient(?User $authUser): void
+    {
+        $partner = $authUser?->partner;
+
+        if ($partner && !$partner->is_host && $partner->is_free_trail) {
+            throw ValidationException::withMessages([
+                'is_free_trail' => __('borrower.paid_version_only'),
+            ]);
+        }
+    }
+
     public function store(array $data)
     {
         DB::beginTransaction();
@@ -366,6 +385,11 @@ class BorrowerService
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
 
             $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
+
+            // Add Client, Convert Lead and the embedded form all add clients here.
+            if (!$isFreeTrial) {
+                $this->ensureMayAddPaidClient($authUser);
+            }
 
             $data['status'] = $isFreeTrial ? Borrower::STATUS_ACTIVE : Borrower::STATUS_ONBOARDING;
 
@@ -504,6 +528,11 @@ class BorrowerService
 
             $wasFreeTrial = (bool) $borrower->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
+
+            // Taking a Limited Free Plan client onto a paid plan is a paid client too.
+            if ($wasFreeTrial && !$isFreeTrialInput) {
+                $this->ensureMayAddPaidClient(auth()->user());
+            }
 
             if (isset($data['business_logo']) && $data['business_logo'] instanceof UploadedFile) {
                 if ($borrower->business_logo) {

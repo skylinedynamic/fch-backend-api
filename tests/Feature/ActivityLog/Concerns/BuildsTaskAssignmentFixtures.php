@@ -78,10 +78,16 @@ trait BuildsTaskAssignmentFixtures
         return User::findOrFail($id);
     }
 
-    /** A calendar day $days from today, in the viewer's timezone. */
+    /** 3:30 PM $days from today, in the viewer's timezone. */
     protected function dueDate(int $days = 3): string
     {
-        return now(self::TIMEZONE)->addDays($days)->format('Y-m-d');
+        return now(self::TIMEZONE)->addDays($days)->setTime(15, 30)->format('Y-m-d H:i:s');
+    }
+
+    /** A due date-time picked in the viewer's timezone, as the UTC value stored. */
+    protected function dueDateUtc(string $local): string
+    {
+        return \Illuminate\Support\Carbon::parse($local, self::TIMEZONE)->utc()->toDateTimeString();
     }
 
     /** A Task on the partner's client, assigned to one of the partner's staff. */
@@ -128,9 +134,11 @@ trait BuildsTaskAssignmentFixtures
             ->putJson("/api/v1/common/activity-logs/{$id}", $payload);
     }
 
-    /** "09:00 on the due date" in the viewer's timezone, as the UTC value stored. */
+    /** "09:00 on the due day" in the viewer's timezone, as the UTC value stored. */
     protected function dueMorningUtc(string $dueDate): string
     {
-        return \Illuminate\Support\Carbon::parse("{$dueDate} 09:00:00", self::TIMEZONE)->utc()->toDateTimeString();
+        $day = substr($dueDate, 0, 10);
+
+        return \Illuminate\Support\Carbon::parse("{$day} 09:00:00", self::TIMEZONE)->utc()->toDateTimeString();
     }
 }

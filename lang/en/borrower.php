@@ -95,6 +95,7 @@ return [
     'retrieved' => 'Borrowers retrieved successfully.',
     'retrieved_details' => 'Borrower details retrieved successfully.',
     'created' => 'Borrower created successfully.',
+    'paid_version_only' => 'Paid clients are only available in the Paid Version. Upgrade your plan to add a paid client, or add this client on the Limited Free Plan.',
     'updated' => 'Borrower updated successfully.',
     'deleted' => 'Borrower(s) deleted successfully.',
     'archived' => 'Borrower(s) archived successfully.',
