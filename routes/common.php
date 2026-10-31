@@ -217,7 +217,7 @@ Route::prefix('v1')->group(function () {
                 Route::delete('borrowers/{borrowerId}/credit-profile', [BorrowerController::class, 'deleteCreditProfile'])
                     ->whereNumber('borrowerId');
             });
-            Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
+            Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile'])->whereNumber('borrowerId');
 
             // The PDF sent to iSoftPull when they ask us to prove a client
             // authorised a pull. Host partner only, enforced in the controller.
@@ -225,7 +225,7 @@ Route::prefix('v1')->group(function () {
             // Only the file has a route of its own - the records themselves ride
             // along with the credit profile request details, which is the screen
             // that shows them.
-            Route::get('credit-authorizations/{id}/download', [CreditAuthorizationConsentController::class, 'download']);
+            Route::get('credit-authorizations/{id}/download', [CreditAuthorizationConsentController::class, 'download'])->whereNumber('id');
 
             // Borrower routes
             // MUST stay above the wildcard `borrowers/{id}` below: routes match in
@@ -258,12 +258,12 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
 
 
-            Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus']);
+            Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus'])->whereNumber('id');
             Route::post('borrowers-documents-delete/{id}', [BorrowerController::class, 'deleteDocument']);
-            Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
+            Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument'])->whereNumber('documentId');
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
             Route::get('doc-types', [BorrowerController::class, 'documentTypes']);
-            Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile']);
+            Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile'])->whereNumber('borrowerId');
 
 
             //Request Application
@@ -432,7 +432,7 @@ Route::prefix('v1')->group(function () {
 
             // 💳 Billing
             Route::post('billing/fetch-upcoming', [BillingController::class, 'fetchUpcoming']);
-            Route::get('billing/{id}', [BillingController::class, 'details']);
+            Route::get('billing/{id}', [BillingController::class, 'details'])->whereNumber('id');
 
             // 📋 Non-Host Partner My Subscription Module
             Route::prefix('my-subscription')->group(function () {
@@ -458,12 +458,12 @@ Route::prefix('v1')->group(function () {
             Route::prefix('subscriptions')->group(function () {
                 Route::post('fetch-all', [CommonSubscriptionController::class, 'index']);
                 Route::get('partner-borrower-fee', [CommonSubscriptionController::class, 'getPartnerBorrowerFee']);
-                Route::get('{id}', [CommonSubscriptionController::class, 'show']);
+                Route::get('{id}', [CommonSubscriptionController::class, 'show'])->whereNumber('id');
             });
 
             // Commissions
             Route::prefix('commissions')->group(function () {
-                Route::get('/{id}', [CommissionController::class, 'show']);
+                Route::get('/{id}', [CommissionController::class, 'show'])->whereNumber('id');
                 Route::post('/', [CommissionController::class, 'index']);
             });
 
@@ -569,8 +569,8 @@ Route::prefix('v1')->group(function () {
             // 📚 Resources
             Route::prefix('resources')->group(function () {
                 Route::get('/', [CommonResourceController::class, 'index']);
-                Route::get('/{id}', [CommonResourceController::class, 'show']);
-                Route::get('/download/{id}', [CommonResourceController::class, 'download']);
+                Route::get('/{id}', [CommonResourceController::class, 'show'])->whereNumber('id');
+                Route::get('/download/{id}', [CommonResourceController::class, 'download'])->whereNumber('id');
             });
 
             // 📝 Embedded Form Management (Internal / Authenticated)

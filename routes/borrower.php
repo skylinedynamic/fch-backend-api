@@ -143,7 +143,7 @@ Route::prefix('v1/borrower')->group(function () {
                     // Credit Accounts
                     Route::post('/credit-accounts', [CreditAccountController::class, 'index']);
                     Route::get('/credit-accounts/filter-options', [CreditAccountController::class, 'filterOptions']);
-                    Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply']);
+                    Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply'])->whereNumber('id');
                 }
             );
 
@@ -153,13 +153,13 @@ Route::prefix('v1/borrower')->group(function () {
                 Route::get('/overview', [CapitalAccessOverviewController::class, 'index']);
                 Route::get('/strategies-list', [CapitalAccessStrategyController::class, 'listForSelection']);
                 Route::get('/strategies', [CapitalAccessStrategyController::class, 'index']);
-                Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
-                Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview']);
-                Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist']);
-                Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap']);
-                Route::post('/strategies/{id}/start', [CapitalAccessStrategyController::class, 'startPlay']);
-                Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep']);
-                Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep']);
+                Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show'])->whereNumber('id');
+                Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview'])->whereNumber('id');
+                Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist'])->whereNumber('id');
+                Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap'])->whereNumber('id');
+                Route::post('/strategies/{id}/start', [CapitalAccessStrategyController::class, 'startPlay'])->whereNumber('id');
+                Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep'])->whereNumber(['id', 'sequenceId']);
+                Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep'])->whereNumber(['id', 'sequenceId']);
             }
             );
 
