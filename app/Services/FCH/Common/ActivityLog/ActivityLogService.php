@@ -498,12 +498,14 @@ class ActivityLogService
         $subjectPattern = config('activity_messages.subjects.default', ':model :action');
         $subject = $customSubject ?? str_replace([':model', ':action'], [$modelName, $action], $subjectPattern);
 
-        $displayName = $model->name
+        // Names, emails and subjects come from users and the portals render
+        // descriptions as HTML: each goes in escaped, as text (BUG-004).
+        $displayName = e($model->name
             ?? $model->full_name
             ?? $model->company_name
             ?? $model->contact_person
             ?? $model->subject
-            ?? (isset($model->first_name) ? "{$model->first_name} {$model->last_name}" : ($model->customer_name ?? 'Record'));
+            ?? (isset($model->first_name) ? "{$model->first_name} {$model->last_name}" : ($model->customer_name ?? 'Record')));
 
         // Resolve Final Description logic
         $descDefaultPattern = config('activity_messages.descriptions.default', ':model profile :action for :display_name');
@@ -520,7 +522,7 @@ class ActivityLogService
             $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
         } elseif ($logType === ActivityLog::LOG_TYPE_EMAIL_UPDATE) {
             $descPattern = config('activity_messages.descriptions.email_update', ':model contact email was updated to :new_email for :display_name.');
-            $newEmail = $extraProperties['new_email'] ?? 'N/A';
+            $newEmail = e($extraProperties['new_email'] ?? 'N/A');
             $description = $customDescription ?? str_replace(
                 [':model', ':new_email', ':display_name'],
                 [$modelName, $newEmail, $displayName],
@@ -584,7 +586,7 @@ class ActivityLogService
             $appointmentDescPattern = config('activity_messages.descriptions.appointment', 'Appointment (:subject) :action for :entity_name on :time.');
             $description = $customDescription ?? str_replace(
                 [':subject', ':action', ':entity_name', ':time'],
-                [$model->subject, $descriptionAction, $entityName, $timeStr],
+                [e($model->subject), $descriptionAction, e($entityName), $timeStr],
                 $appointmentDescPattern
             );
         } elseif ($model instanceof Payment) {
