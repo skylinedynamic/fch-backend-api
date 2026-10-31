@@ -252,7 +252,8 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
 
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
-            Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
+            Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount'])
+                ->whereNumber('borrowerId');
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
 

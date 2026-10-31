@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\ActivityLog;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\FetchActivityLogsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogTaskStatusRequest;
@@ -21,7 +22,7 @@ class ActivityLogController extends Controller
     /**
      * List activity logs (all / filtered by type)
      */
-    public function index(Request $request)
+    public function index(FetchActivityLogsRequest $request)
     {
         try {
             $filters = $request->all();
