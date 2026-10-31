@@ -153,8 +153,9 @@ class Subscription extends Model
     }
 
     /**
-     * Invoices still owed. Excludes Expired — a rolled-past cycle is not a
-     * collectable debt, it is a record of a cycle that was missed.
+     * Invoices still owed. Excludes Expired: no invoice is set to Expired any
+     * more, but older ones were, when a missed cycle was rolled past. Those are
+     * a record of the missed cycle, not a collectable debt.
      */
     public function unpaidInvoices()
     {

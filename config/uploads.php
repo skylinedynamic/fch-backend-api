@@ -52,4 +52,29 @@ return [
         'application/x-sh',
     ],
 
+    /*
+    | Size limits and picture checks (BUG-014)
+    |
+    | A picture - any of picture_extensions, uploaded as a document or as an
+    | image - may be up to max_kilobytes.picture; anything else up to
+    | max_kilobytes.document. Nginx (client_max_body_size) and PHP
+    | (upload_max_filesize, post_max_size) must allow at least the document
+    | limit, or the request is cut off before this check can answer.
+    */
+    'max_kilobytes' => [
+        'document' => 20 * 1024,
+        'picture' => 5 * 1024,
+    ],
+
+    'picture_extensions' => [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'tiff', 'tif', 'ico', 'avif', 'svg',
+    ],
+
+    // Pictures PHP can open (getimagesize). One that does not open is refused:
+    // a PNG signature followed by zeros is not a picture.
+    'decodable_picture_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+
+    // What a profile picture may be, chosen from the file manager.
+    'profile_picture_extensions' => ['jpg', 'jpeg', 'png'],
+
 ];

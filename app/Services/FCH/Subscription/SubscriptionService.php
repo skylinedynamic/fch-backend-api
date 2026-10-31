@@ -876,10 +876,10 @@ class SubscriptionService
                 $isPlatformFee = $phase === Subscription::PHASE_PLATFORM_FEE;
 
                 // Installment limit check — keyed on actual payments collected
-                // (installments_paid), not raw invoice row count. A missed cycle now
-                // generates an Expired row that's rolled past, not a real payment, so
-                // counting rows here would stop billing before the plan is actually
-                // paid off.
+                // (installments_paid), not raw invoice row count. Invoice rows are not
+                // payments: older subscriptions still carry Expired rows from the
+                // retired roll-forward billing, and counting them would stop billing
+                // before the plan is actually paid off.
                 if ($phase === Subscription::PHASE_INSTALLMENT) {
                     $totalCount = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installment_count_upto ?? 0);
                     $paidCount = (int) ($subscription->installments_paid ?? 0);

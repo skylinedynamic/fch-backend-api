@@ -87,4 +87,60 @@ class SafeUploadTest extends TestCase
         $this->assertFalse($this->passes(SafeUpload::image(), UploadedFile::fake()->create('logo.pdf', 20, 'application/pdf')));
         $this->assertTrue($this->passes(SafeUpload::image(), UploadedFile::fake()->image('logo.png')));
     }
+
+    /**
+     * BUG-014 (QA round 2): a 12 MB file named qa-12mb.png - the PNG signature
+     * and then zeros - was accepted by the file manager and could be picked as
+     * a profile picture. Uploads now have a size limit (pictures 5 MB, anything
+     * else 20 MB) and a picture has to be one.
+     */
+    private const PNG_MAGIC = "\x89PNG\r\n\x1a\n";
+
+    private function sized(string $name, int $kilobytes, string $head = ''): UploadedFile
+    {
+        return $this->file($name, $head . str_repeat("\0", $kilobytes * 1024 - strlen($head)));
+    }
+
+    #[Test]
+    public function a_document_may_be_up_to_20_mb(): void
+    {
+        $this->assertTrue($this->passes(SafeUpload::document(), $this->sized('statement.pdf', 20 * 1024, '%PDF-1.7')));
+        $this->assertSame(
+            __('uploads.too_large', ['size' => 20]),
+            $this->errorFor(SafeUpload::document(), $this->sized('statement.pdf', 20 * 1024 + 1, '%PDF-1.7'))
+        );
+    }
+
+    #[Test]
+    public function a_picture_may_be_up_to_5_mb_as_a_document_or_an_image(): void
+    {
+        $this->assertSame(__('uploads.too_large', ['size' => 5]), $this->errorFor(SafeUpload::document(), $this->sized('photo.png', 5 * 1024 + 1, self::PNG_MAGIC)));
+        $this->assertSame(__('uploads.too_large', ['size' => 5]), $this->errorFor(SafeUpload::image(), $this->sized('logo.jpg', 5 * 1024 + 1, "\xFF\xD8\xFF")));
+        $this->assertTrue($this->passes(SafeUpload::image(), UploadedFile::fake()->image('logo.png', 400, 400)));
+    }
+
+    #[Test]
+    public function qa_12_mb_fake_png_is_refused(): void
+    {
+        $this->assertSame(
+            __('uploads.too_large', ['size' => 5]),
+            $this->errorFor(SafeUpload::document(), $this->sized('qa-12mb.png', 12 * 1024, self::PNG_MAGIC))
+        );
+    }
+
+    #[Test]
+    public function a_picture_that_does_not_open_as_one_is_refused(): void
+    {
+        // Small enough to pass the size check: only the content is wrong.
+        $fake = fn (string $name, string $head) => $this->sized($name, 100, $head);
+
+        $this->assertSame(__('uploads.invalid_image'), $this->errorFor(SafeUpload::document(), $fake('qa.png', self::PNG_MAGIC)));
+        $this->assertSame(__('uploads.invalid_image'), $this->errorFor(SafeUpload::image(), $fake('logo.jpg', "\xFF\xD8\xFF")));
+        $this->assertSame(__('uploads.invalid_image'), $this->errorFor(SafeUpload::document(), $this->file('scan.jpg', 'just text')));
+    }
+
+    private function errorFor(SafeUpload $rule, mixed $value): ?string
+    {
+        return Validator::make(['file' => $value], ['file' => [$rule]])->errors()->first('file') ?: null;
+    }
 }

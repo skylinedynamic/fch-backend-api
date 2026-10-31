@@ -478,6 +478,20 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
+     * The user's own folder in the file manager (public disk), where a profile
+     * picture is picked from: partners/{id} or employees/{id}. Null for a user
+     * with no such record, whose picture path is stored as sent.
+     */
+    public function profilePictureFolder(): ?string
+    {
+        return match ($this->entity_type) {
+            Partner::class => 'partners/' . $this->entity_id,
+            Employee::class => 'employees/' . $this->entity_id,
+            default => null,
+        };
+    }
+
+    /**
      * Polymorphic relation to the associated entity model.
      */
     public function entity(): MorphTo

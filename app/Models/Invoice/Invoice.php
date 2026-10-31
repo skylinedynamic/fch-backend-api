@@ -59,6 +59,8 @@ class Invoice extends Model
     const STATUS_SUCCESS = 'Success';
     const STATUS_CANCELED = 'Canceled';
     const STATUS_OVERDUE = 'Overdue';
+    // Not set any more (the roll-forward billing that wrote it was retired on
+    // 2026-10-11); older invoices still carry it.
     const STATUS_EXPIRED = 'Expired';
     const STATUS_PROCESSING = 'Processing';
     const STATUS_ALL = 'All Status';
