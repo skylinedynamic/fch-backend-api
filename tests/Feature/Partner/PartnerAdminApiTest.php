@@ -274,6 +274,36 @@ class PartnerAdminApiTest extends TestCase
     }
 
     #[Test]
+    public function a_clients_joining_date_is_the_day_it_was_created(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $borrower = $this->makeBorrower($partner, ['business_start_date' => '2015-06-01']);
+        $borrower->forceFill(['created_at' => '2026-03-14 18:45:10'])->save();
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/fetch-borrowers', ['partner_id' => $partner->id])
+            ->assertOk()
+            ->assertJsonPath('data.0.created_at', '2026-03-14');
+    }
+
+    #[Test]
+    public function clients_are_filtered_by_joining_date(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $joinedInMarch = $this->makeBorrower($partner);
+        $joinedInMarch->forceFill(['created_at' => '2026-03-14 18:45:10'])->save();
+        $this->makeBorrower($partner)->forceFill(['created_at' => '2026-05-02 09:00:00'])->save();
+        $this->actingAsUser($this->hostAdmin);
+
+        $ids = collect($this->postJson('/api/v1/admin/partners/fetch-borrowers', [
+            'partner_id' => $partner->id,
+            'filters' => ['created_at' => ['operator' => 'and', 'constraints' => [['value' => '2026-03', 'matchMode' => 'contains']]]],
+        ])->assertOk()->json('data'))->pluck('id');
+
+        $this->assertSame([$joinedInMarch->id], $ids->all());
+    }
+
+    #[Test]
     public function a_partner_with_no_history_is_deletable_and_is_deleted(): void
     {
         $partner = $this->makeCertifiedPartner();

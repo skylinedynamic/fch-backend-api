@@ -24,7 +24,7 @@ Unchanged:
 ## Testing
 - Both new tests failed before the change (no charge without a past card payment, so no key), then passed.
 - `tests/Integration/{Payment,Subscription}`, `tests/Feature/{Payment,Billing,Subscription,Invoice}`: 358 passed.
-- Full suite: see the session / PR.
+- Full fch-api suite: 4313 tests, 0 failures, 2 skipped.
 
 ## Open items
 - Not committed; the target branch is to be confirmed.
