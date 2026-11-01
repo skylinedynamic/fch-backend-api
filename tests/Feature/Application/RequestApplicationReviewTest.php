@@ -333,6 +333,29 @@ class RequestApplicationReviewTest extends TestCase
     }
 
     /**
+     * Status Notes is optional (decided 2026-11-01): a status is changed with no
+     * note, left out or empty. The admin form no longer marks it required.
+     */
+    #[Test]
+    public function a_status_is_changed_without_a_note(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+        ])->assertOk();
+        $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, FundingApplication::find($this->myApplicationId)->status);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::WITHDRAWN,
+            'status_note' => '',
+        ])->assertOk()->assertJsonMissingValidationErrors('status_note');
+        $this->assertSame(FundingApplication::WITHDRAWN, FundingApplication::find($this->myApplicationId)->status);
+    }
+
+    /**
      * Defect: both status updates looked the record up by id alone, so any
      * partner could move another partner's applications - funded included,
      * which also books the commission.

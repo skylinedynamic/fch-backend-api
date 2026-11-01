@@ -1,10 +1,10 @@
-# QA round 2: Arafat's defects (and BUG-008)
+# QA round 2 bug fixes (branch qa-round2-bugfix)
 
 **Date:** 2026-11-01
 **Branch:** `qa-round2-bugfix` in `fch-backend-api`, `Fch-admin-frontend-react`, `fch-borrower-react` (not committed, not pushed)
 **Author:** arafat-invento
 
-Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, plus BUG-008 (assigned to Awlad in the sheet, done here on request). BUG-011 and BUG-031 were done and then removed on request (skipped, F195 and F204). Findings: `docs/test-findings.md` F192-F220, D14, O74-O77. Plan: `2026-10-28-qa-round2-arafat-plan.md` (old numbering, see below).
+Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, plus BUG-008 (assigned to Awlad in the sheet, done here on request). BUG-011 and BUG-031 were done and then removed on request (skipped, F195 and F204). Findings: `docs/test-findings.md` F192-F220, D14, O74-O77. Plan: `2026-10-28-qa-round2-bugfix-plan.md` (old numbering, see below).
 
 ## The sheet was renumbered
 
@@ -88,6 +88,8 @@ After merging `origin/stage` (2026-11-01) and removing BUG-011:
 Admin e2e per bug: 008 `lenders/lender-duplicate-name`; 009, 010, 030 `funding-sequence/underwriting-logic-r2`; 019, 048 `intake-review/funding-request/funding-request-details`; 029 `employees/employee-job-status`; 032, 033 `e2e/fund-application-r2`; 036, 037, 038 `intake-review/funding-application/funding-application-details-r2`; 050 `partners/partner-clear-fields`; 051, 065 `clients/client-r2`; 055 `leads/lead-default-country`; 073 `appointments/appointment-availability`. API-only fixes (020, 056, 061, 063) are covered by Feature/Integration tests - a mocked e2e would only test its own mock. Borrower-portal fixes (025, 026, 027, 032-033 borrower side, 045, 046) have vitest coverage; borrower e2e needs the live backend (O77).
 
 Updated existing expectations: `AppointmentTimeAndClashTest` (2, new "You and X" wording), `BorrowerFundingApplicationStepsTest` (409 has no `errors`), `funding-request-details.spec.ts` (body carries `expected_status`), `LeadOwnerTeamTest` (BUG-051 on stage's `active_only` + `keep_ids`), admin `ClientAssignTo.test.tsx`. Stage's `ActivityEditModal.test.tsx` "replaces the saved attachments" failed on Node 22+ (undici refuses jsdom's File in `request.formData()`); its handler now parses the multipart body itself, same assertions.
+
+Also (2026-11-01, D17): the admin Funding Application page no longer marks Status Notes required - the API never required it. Tests: `RequestApplicationReviewTest::a_status_is_changed_without_a_note`, admin `FundingApplicationDetails.test.tsx`.
 
 ## Open / follow-up
 - **O74** last admin can still lose the Admin role (role assignment, and Edit Role since BUG-011 was skipped).
