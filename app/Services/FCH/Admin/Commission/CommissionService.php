@@ -113,6 +113,7 @@ class CommissionService
         $commission = app(CommissionPayoutService::class)->pay(
             Commission::findOrFail($commissionId),
             $data['partner_payment_method'],
+            $data['environment'],
             $data['note'] ?? null,
         );
 

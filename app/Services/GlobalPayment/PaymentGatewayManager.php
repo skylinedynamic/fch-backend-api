@@ -37,6 +37,22 @@ class PaymentGatewayManager
      */
     public function resolvePartnerProvider(?int $partnerId, ?int $providerId = null): PartnerPaymentProvider
     {
+        $partnerProvider = $this->findPartnerProvider($partnerId, $providerId);
+
+        if (!$partnerProvider) {
+            throw new RuntimeException("No active payment provider configured for partner ID: " . ($partnerId ?? 'Host'));
+        }
+
+        return $partnerProvider;
+    }
+
+    /**
+     * The same configuration as resolvePartnerProvider(), or null when there is
+     * none - for a caller that has to know which method a payment would have
+     * used even when it never gets that far.
+     */
+    public function findPartnerProvider(?int $partnerId, ?int $providerId = null): ?PartnerPaymentProvider
+    {
         $query = PartnerPaymentProvider::query()
             ->with('provider')
             ->where('partner_id', $partnerId)
@@ -48,13 +64,7 @@ class PaymentGatewayManager
             $query->orderByDesc('is_default');
         }
 
-        $partnerProvider = $query->first();
-
-        if (!$partnerProvider) {
-            throw new RuntimeException("No active payment provider configured for partner ID: " . ($partnerId ?? 'Host'));
-        }
-
-        return $partnerProvider;
+        return $query->first();
     }
 
     /**

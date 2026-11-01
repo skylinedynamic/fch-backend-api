@@ -8,6 +8,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
 use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Services\FCH\Common\Commission\CommissionPayoutService;
 use Carbon\Carbon;
@@ -131,7 +132,7 @@ class CommissionDatesInViewerTimezoneTest extends TestCase
         Carbon::setTestNow(Carbon::parse(self::UTC_MOMENT, 'UTC'));
         Passport::actingAs($this->admin);
         $this->withHeader('X-Timezone', 'Asia/Dhaka')
-            ->postJson("/api/v1/admin/commission/{$commission->id}/payout", ['partner_payment_method' => 'Cash', 'note' => 'Paid in person'])
+            ->postJson("/api/v1/admin/commission/{$commission->id}/payout", ['partner_payment_method' => 'Cash', 'note' => 'Paid in person', 'environment' => PaymentProvider::MODE_PRODUCTION])
             ->assertOk();
         Carbon::setTestNow();
     }

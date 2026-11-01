@@ -606,14 +606,14 @@ class SubscriptionService
      * invoice at a time a cycle is never rolled forward without payment, so the
      * second date it existed to carry has nothing left to record.
      */
-    private function nextCycleFrom(Subscription $subscription): Carbon
+    private function nextCycleFrom(Subscription $subscription, int $months = 1): Carbon
     {
         // subscription_end_date is cast to a date, so it arrives as Carbon already.
         $end = $subscription->subscription_end_date?->copy()->startOfDay();
 
         $anchor = $end && $end->gt(today()) ? $end : today();
 
-        return $anchor->copy()->addMonth();
+        return $anchor->copy()->addMonths($months);
     }
 
     /**
@@ -682,10 +682,11 @@ class SubscriptionService
                 'current_cycle_invoice_id' => null,
             ]);
         } else {
-            // Renewal: extend from where the seat is already paid through, so buying
-            // a seat early never costs the days already paid for.
-            $currentEnd = Carbon::parse($subscription->subscription_end_date);
-            $newEnd = $currentEnd->addMonths($monthsPaid);
+            // Renewal: paid early, extend from where the seat is already paid
+            // through, so it never costs the days already paid for; paid late, run
+            // from today, so paying does not leave the user locked out behind a
+            // date still in the past. The same rule as every other cycle.
+            $newEnd = $this->nextCycleFrom($subscription, (int) $monthsPaid);
 
             $subscription->update([
                 'subscription_end_date' => $newEnd,

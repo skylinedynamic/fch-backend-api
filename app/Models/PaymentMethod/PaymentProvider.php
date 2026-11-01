@@ -52,6 +52,17 @@ class PaymentProvider extends Model
     public const MODE_SANDBOX = 'sandbox';
     public const MODE_PRODUCTION = 'production';
 
+    public const MODES = [self::MODE_SANDBOX, self::MODE_PRODUCTION];
+
+    /**
+     * The mode to suggest where a person states it by hand (a commission
+     * payout): Production only on the production app, Sandbox everywhere else.
+     */
+    public static function defaultModeForApp(): string
+    {
+        return app()->isProduction() ? self::MODE_PRODUCTION : self::MODE_SANDBOX;
+    }
+
     public function partnerPaymentProviders()
     {
         return $this->hasMany(PartnerPaymentProvider::class, 'payment_provider_id');

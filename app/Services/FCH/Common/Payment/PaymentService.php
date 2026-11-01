@@ -469,29 +469,26 @@ class PaymentService
         $note = trim((string) ($data['note'] ?? $data['details'] ?? ''));
 
 
-        return DB::transaction(function () use ($id, $note, $authUser) {
+        // The approval is recorded in one transaction; charging the borrower fee
+        // and sending the receipt happen only after it commits. A charge is not
+        // undone by a rollback, so a failure after it - in the subscription
+        // update or the SMTP call - used to erase the approval and the fee's
+        // record while the partner's money stayed taken. Same order as Pay Now
+        // (UnifiedPaymentService::processPayment()).
+        $approval = DB::transaction(function () use ($id, $note, $authUser) {
             /** @var Payment|null $payment */
             $payment = Payment::lockForUpdate()->with(['invoice', 'partner', 'borrower', 'entity'])->find($id);
 
             if (!$payment) {
-                return [
-                    'status' => false,
-                    'message' => __('payment.not_found')
-                ];
+                return ['refused' => __('payment.not_found')];
             }
 
             if (strtolower((string) $payment->status) !== Payment::STATUS_PROCESSING) {
-                return [
-                    'status' => false,
-                    'message' => __('payment.only_processing_can_be_approved')
-                ];
+                return ['refused' => __('payment.only_processing_can_be_approved')];
             }
 
             if (!$payment->canApproveForUser($authUser)) {
-                return [
-                    'status' => false,
-                    'message' => __('payment.unauthorized_approve')
-                ];
+                return ['refused' => __('payment.unauthorized_approve')];
             }
 
             $now = now();
@@ -512,6 +509,7 @@ class PaymentService
 
             $invoice = $payment->invoice;
             $subscription = Subscription::find($invoice->subscription_id);
+            $borrowerFeeInvoice = null;
 
             // Update invoice status to Paid and set paid_at to now
             if ($invoice) {
@@ -537,11 +535,7 @@ class PaymentService
                         ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
                         ->where('status', Invoice::STATUS_UNPAID)
                         ->first();
-
-                    if ($borrowerFeeInvoice) {
-                        $unifiedPaymentService = app(UnifiedPaymentService::class);
-                        $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
-                    }
+                    // Charged once the approval has committed, below.
                 }
 
                 // Update subscription data
@@ -549,17 +543,42 @@ class PaymentService
                     $subscriptionService = app(SubscriptionService::class);
                     $subscriptionService->handleSuccessfulPayment($invoice->fresh(), $subscription);
                 }
-
-                // Send payment approval receipt email via centralized PaymentMailService
-                app(PaymentMailService::class)->sendApproved($payment, $invoice, $note ?? null);
             }
 
-            return [
-                'status' => true,
-                'message' => __('payment.approved_successfully'),
-                'data' => new PaymentResource($payment->fresh())
-            ];
+            return ['payment' => $payment, 'invoice' => $invoice, 'borrower_fee' => $borrowerFeeInvoice];
         });
+
+        if (isset($approval['refused'])) {
+            return [
+                'status' => false,
+                'message' => $approval['refused']
+            ];
+        }
+
+        // Auto charge partner host fee upon approval of manual borrower payment.
+        // Records its own success or failure, and never throws.
+        if ($approval['borrower_fee']) {
+            app(UnifiedPaymentService::class)->triggerPartnerAutoChargeForBorrowerInvoice($approval['borrower_fee']);
+        }
+
+        // Send payment approval receipt email via centralized PaymentMailService.
+        // The approval stands whatever happens to the mail.
+        if ($approval['invoice']) {
+            try {
+                app(PaymentMailService::class)->sendApproved($approval['payment'], $approval['invoice'], $note ?? null);
+            } catch (\Throwable $e) {
+                Log::error('[PaymentApproval] Payment approved but its receipt could not be sent', [
+                    'payment_id' => $approval['payment']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return [
+            'status' => true,
+            'message' => __('payment.approved_successfully'),
+            'data' => new PaymentResource($approval['payment']->fresh())
+        ];
     }
 
     /**
