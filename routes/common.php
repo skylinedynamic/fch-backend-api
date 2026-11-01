@@ -357,7 +357,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('fetch-all', [AppointmentController::class, 'index']);
                 Route::post('fetch-selectable-users', [AppointmentController::class, 'selectableUsers']);
             });
-            // Cancel (not delete) - also open to the person the appointment is with (R2 BUG-056).
+            // Cancel (not delete) - also open to the person the appointment is with (R2 BUG-046).
             Route::post('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
             Route::apiResource('appointments', AppointmentController::class);
 

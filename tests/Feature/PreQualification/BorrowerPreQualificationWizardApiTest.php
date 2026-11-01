@@ -108,7 +108,7 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-034 - the borrower left the wizard after saving Funding
+     * Defect: R2 BUG-026 - the borrower left the wizard after saving Funding
      * Needs and came back to an empty step 3: the GET blanked every Funding
      * Needs field even though the in-progress draft held them.
      */

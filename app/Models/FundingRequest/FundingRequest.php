@@ -154,7 +154,7 @@ class FundingRequest extends Model
         }
 
         // An inactive lender is not offered: not matched, so not in the
-        // Assign list or the lender filter built from it (R2 BUG-027).
+        // Assign list or the lender filter built from it (R2 BUG-020).
         $visibilities = LenderVisibility::with('lender')
             ->where('lender_product_category_id', $category->id)
             ->whereHas('lender', fn ($q) => $q->where('status', Lender::STATUS_ACTIVE))

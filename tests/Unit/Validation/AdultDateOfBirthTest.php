@@ -11,7 +11,7 @@ use Tests\TestCase;
 
 /**
  * An owner's or co-borrower's date of birth: at least 18 years ago
- * (R2 BUG-039). Empty and unparseable values are left to required / date.
+ * (R2 BUG-031). Empty and unparseable values are left to required / date.
  */
 #[CoversClass(AdultDateOfBirth::class)]
 class AdultDateOfBirthTest extends TestCase

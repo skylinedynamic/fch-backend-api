@@ -191,7 +191,7 @@ class PartnerAdminApiTest extends TestCase
     }
 
     /**
-     * R2 BUG-060: an optional field sent empty is cleared. (The admin form used
+     * R2 BUG-050: an optional field sent empty is cleared. (The admin form used
      * to leave an emptied field out of the request, so the old value stayed;
      * this pins the API side the form now relies on.)
      */

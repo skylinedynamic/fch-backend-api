@@ -65,7 +65,7 @@ class DocumentController extends Controller
             }
             return ApiResponse::success(null, __('borrower.document_deleted_successfully'));
         } catch (DocumentInUseException $e) {
-            // An open request still needs it (R2 BUG-055) - say which.
+            // An open request still needs it (R2 BUG-045) - say which.
             return ApiResponse::error($e->getMessage(), 422, ['funding_request_ids' => $e->fundingRequestIds]);
         } catch (\Throwable $e) {
             return ApiResponse::error(__('borrower.document_delete_failed'));

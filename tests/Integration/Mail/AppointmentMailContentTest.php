@@ -16,7 +16,7 @@ use Tests\TestCase;
 /**
  * What the appointment emails say.
  *
- * Defect: R2 BUG-075 - "New Appointment Scheduled" showed only the date, time
+ * Defect: R2 BUG-063 - "New Appointment Scheduled" showed only the date, time
  * slot, zone and "Scheduled By", with an empty block above them: no title, no
  * meeting type, no attendee, and no link to view it or add it to a calendar.
  */

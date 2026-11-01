@@ -607,7 +607,7 @@ class FundingApplication extends Model
     /**
      * Which copy of the application a page is showing: its last-saved time.
      * A wizard step sends it back as `expected_version`, and a save from an
-     * older copy is refused rather than overwriting a newer one (R2 BUG-041).
+     * older copy is refused rather than overwriting a newer one (R2 BUG-033).
      * A save that changes nothing does not touch updated_at, so paging through
      * the wizard does not move it on.
      */
@@ -632,7 +632,7 @@ class FundingApplication extends Model
         $isLocked = ! $this->isEditableBy($user);
 
         return [
-            // The copy the page is showing, sent back with the next save (R2 BUG-041).
+            // The copy the page is showing, sent back with the next save (R2 BUG-033).
             'version' => $this->version(),
             'status_key' => self::statusKey($this->status),
             'max_editable_status_key' => self::maxEditableStatusKey(),

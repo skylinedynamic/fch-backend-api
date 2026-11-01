@@ -18,7 +18,7 @@ use Tests\TestCase;
 /**
  * Cancelling an appointment someone else booked with you.
  *
- * Defect: R2 BUG-056 - an appointment the host booked with a client opened
+ * Defect: R2 BUG-046 - an appointment the host booked with a client opened
  * read-only in the client portal: no way to cancel it. The person it is with
  * (or its organiser) can cancel - not delete - an upcoming appointment, and
  * the other party is emailed once.

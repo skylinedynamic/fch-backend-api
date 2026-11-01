@@ -52,7 +52,7 @@ class FundingApplicationEditGuard
     }
 
     /**
-     * Refuse a save made from an older copy of the application (R2 BUG-041).
+     * Refuse a save made from an older copy of the application (R2 BUG-033).
      *
      * Each step re-sends the whole step, so a tab left open on an earlier copy
      * silently undid what another tab (or another person) had saved since. The

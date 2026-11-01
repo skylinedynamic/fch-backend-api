@@ -16,7 +16,7 @@ class CommonService
      * is_inactive - the caller's own, or for the host, the partner it names.
      *
      * Logins of Inactive or Suspended employees are left out, so they are not
-     * offered for a new assignment (R2 BUG-061). $includeUserId keeps one of
+     * offered for a new assignment (R2 BUG-051). $includeUserId keeps one of
      * them - the record's current assignee - so its name still shows.
      */
     public function getAllUsers(?int $partnerId = null, ?int $includeUserId = null)

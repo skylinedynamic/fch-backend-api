@@ -11,7 +11,7 @@ use Tests\TestCase;
 
 /**
  * A list that may not share a value with its sibling list - a lender rule's
- * restricted states against its allowed states (R2 BUG-012).
+ * restricted states against its allowed states (R2 BUG-010).
  */
 #[CoversClass(DisjointFrom::class)]
 class DisjointFromTest extends TestCase

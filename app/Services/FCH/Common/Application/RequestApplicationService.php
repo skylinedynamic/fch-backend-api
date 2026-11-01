@@ -442,7 +442,7 @@ class RequestApplicationService
 
         // One change at a time per application: the row is locked until this
         // change is written, so a second request (a double-click, another tab)
-        // reads the status the first one left (R2 BUG-045).
+        // reads the status the first one left (R2 BUG-037).
         return DB::transaction(fn () => $this->applyFundingApplicationStatus($data));
     }
 

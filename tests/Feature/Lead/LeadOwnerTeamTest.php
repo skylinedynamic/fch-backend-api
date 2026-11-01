@@ -91,7 +91,7 @@ class LeadOwnerTeamTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-061 - an employee set to Inactive (or Suspended) was still
+     * Defect: R2 BUG-051 - an employee set to Inactive (or Suspended) was still
      * offered in the client "Assign to" list. A client already assigned to them
      * keeps the name on screen: include_user_id brings that one user back,
      * flagged inactive.

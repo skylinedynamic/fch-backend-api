@@ -240,7 +240,7 @@ class FundingApplicationPdfTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-066 - the Funding Request section printed "Use of Funds:
+     * Defect: R2 BUG-056 - the Funding Request section printed "Use of Funds:
      * ..., Other" but not the note saying what "Other" is, nor the timeframe
      * and collateral the detail page shows.
      */

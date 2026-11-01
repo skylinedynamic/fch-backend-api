@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * The funding application's Purpose Note is validated up to 500 characters
  * (portal, partner form and embedded form alike), but the column was a
  * VARCHAR(255), so a note of 256-500 characters failed the save with a server
- * error (R2 BUG-040). TEXT holds the 500 the rule allows, and any limit the
+ * error (R2 BUG-032). TEXT holds the 500 the rule allows, and any limit the
  * business settles on later without another migration.
  *
  * Collateral Available had the same mismatch (validated up to 500, stored in

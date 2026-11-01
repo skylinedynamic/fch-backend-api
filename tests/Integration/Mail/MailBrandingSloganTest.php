@@ -14,7 +14,7 @@ use Tests\TestCase;
 /**
  * The tagline under the logo in every email.
  *
- * Defect: R2 BUG-073 - a partner with no slogan of its own got the host's
+ * Defect: R2 BUG-061 - a partner with no slogan of its own got the host's
  * "Where Strategy Meets Funding." under the partner's own name and logo. A
  * partner's email shows only the partner's own slogan, or none.
  */

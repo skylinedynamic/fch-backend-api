@@ -492,7 +492,7 @@ class BorrowerService
     public function update(Borrower $borrower, array $data)
     {
         // Saved from a form showing an older copy of the client's details: the
-        // whole form would put back what someone else changed (R2 BUG-079).
+        // whole form would put back what someone else changed (R2 BUG-065).
         $expectedVersion = $data['expected_version'] ?? null;
         unset($data['expected_version']);
         if ($expectedVersion !== null && $expectedVersion !== '' && $borrower->fresh()->clientInfoVersion() !== $expectedVersion) {

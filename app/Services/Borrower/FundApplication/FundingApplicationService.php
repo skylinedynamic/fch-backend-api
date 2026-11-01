@@ -64,7 +64,7 @@ class FundingApplicationService
 
         // An application is started only on an Approved request - the only one
         // the portal offers "Process Application" for. A typed-in id of any
-        // other request opened a blank wizard (R2 BUG-035). An application
+        // other request opened a blank wizard (R2 BUG-027). An application
         // already started stays reachable whatever the request's status now.
         $started = FundingApplication::where('borrower_id', $borrowerId)
             ->where('funding_request_id', $request->id)
@@ -240,7 +240,7 @@ class FundingApplicationService
                     throw $e;
                 }
 
-                // Not from a tab showing an older copy (R2 BUG-041).
+                // Not from a tab showing an older copy (R2 BUG-033).
                 $this->editGuard->assertCurrent($existing, request()->input('expected_version'));
 
                 $data = $decision['data'];

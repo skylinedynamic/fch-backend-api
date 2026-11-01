@@ -193,7 +193,7 @@ class AppointmentService
     /**
      * Cancel an appointment: kept, marked cancelled, and the other party - the
      * organiser when the attendee cancels, else the attendee - is emailed once
-     * (R2 BUG-056).
+     * (R2 BUG-046).
      */
     public function cancel(Appointment $appointment, User $by): Appointment
     {

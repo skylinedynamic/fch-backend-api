@@ -25,6 +25,7 @@ return [
     'time_in_past' => 'This time has already passed. Choose a later time.',
     'time_taken_by' => ':name already has an appointment from :from to :to. Choose another time.',
     'time_taken_by_you' => 'You already have an appointment from :from to :to. Choose another time.',
+    'time_taken_by_both' => 'You and :name already have an appointment from :from to :to. Choose another time.',
     'the_attendee' => 'The attendee',
     'external_email' => 'Microsoft 365 sync is not available for external email addresses.',
 

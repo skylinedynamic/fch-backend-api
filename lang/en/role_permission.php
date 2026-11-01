@@ -18,6 +18,7 @@ return [
     'role_updated' => 'Role updated successfully.',
     'role_deleted' => 'Role deleted successfully.',
     'role_static_cannot_delete' => 'Static role cannot be deleted.',
+    'role_static_cannot_change' => 'This is a system role: its name and permissions cannot be changed.',
     'role_has_users_cannot_delete' => 'Role has users and cannot be deleted.',
     'ids_required' => 'Role IDs are required.',
     'ids_array' => 'Role IDs must be an array.',

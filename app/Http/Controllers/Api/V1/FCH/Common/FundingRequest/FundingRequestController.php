@@ -71,7 +71,7 @@ class FundingRequestController extends Controller
         $request->validate([
             'id' => 'required|exists:funding_requests,id',
             'lender_ids' => 'nullable|array',
-            // Only an active lender can be assigned (R2 BUG-027). A lender
+            // Only an active lender can be assigned (R2 BUG-020). A lender
             // assigned before it was deactivated stays assigned until changed.
             'lender_ids.*' => [
                 'bail',

@@ -164,7 +164,7 @@ class FundingRequestReviewApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-058 - request 48 open in two tabs: tab A approved it (the
+     * Defect: R2 BUG-048 - request 48 open in two tabs: tab A approved it (the
      * borrower was told to proceed), then tab B, still showing Pending, rejected
      * it and the status silently flipped. A decision made on a page showing an
      * older status is refused; nothing changes and nobody is notified.
@@ -294,7 +294,7 @@ class FundingRequestReviewApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-027 - a lender set to Inactive was still listed as a 4/4
+     * Defect: R2 BUG-020 - a lender set to Inactive was still listed as a 4/4
      * Excellent Match with an Assign button (and in the "All Lenders" filter,
      * which is built from the same list), and assign-lender took it.
      */

@@ -11,6 +11,7 @@ return [
     'deletable_check_failed' => 'Could not check whether these lenders can be deleted.',
 
     'name_required' => 'The name field is required.',
+    'name_taken' => 'A lender with this name already exists.',
     'name_string' => 'The name field must be a string.',
     'name_max' => 'The name field may not be greater than 255 characters.',
 

@@ -92,7 +92,7 @@ class Appointment extends Model
         return $this->hasMany(AppointmentDetail::class, 'appointment_id');
     }
 
-    /** Still ahead, and not already cancelled or completed (R2 BUG-056). */
+    /** Still ahead, and not already cancelled or completed (R2 BUG-046). */
     public function isCancellable(): bool
     {
         if (in_array($this->status, [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true) || !$this->appointment_date) {

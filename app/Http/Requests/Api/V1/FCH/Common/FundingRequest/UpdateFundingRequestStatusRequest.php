@@ -31,7 +31,7 @@ class UpdateFundingRequestStatusRequest extends BaseApiRequest
                 ])
             ],
             'reject_reason' => ['nullable', 'string', 'required_if:status,' . FundingRequest::STATUS_REJECTED],
-            // The status the page was showing - a decision made from an older one is refused (R2 BUG-058).
+            // The status the page was showing - a decision made from an older one is refused (R2 BUG-048).
             'expected_status' => ['nullable', 'string', 'max:255'],
         ];
     }

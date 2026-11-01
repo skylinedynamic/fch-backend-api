@@ -31,7 +31,7 @@ class StoreEmployeeRequest extends BaseApiRequest
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
             // One of the three statuses - a free string let "[object Object]" be
-            // stored, which the list showed and no filter matched (R2 BUG-037).
+            // stored, which the list showed and no filter matched (R2 BUG-029).
             'job_status'     => ['nullable', 'string', Rule::in(Employee::STATUSES)],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],

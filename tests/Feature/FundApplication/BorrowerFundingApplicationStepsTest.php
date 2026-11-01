@@ -244,7 +244,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-041 - the same application open in two tabs: tab A saved
+     * Defect: R2 BUG-033 - the same application open in two tabs: tab A saved
      * Timeframe "1 Month", then tab B (never reloaded) saved Collateral and
      * silently put Timeframe back to "1-2 Weeks". Each save sends the whole
      * step; a save from an older copy is now refused with 409.
@@ -272,7 +272,9 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1-2 Weeks', 'collateral_available' => 'Real Estate', 'expected_version' => $loaded])
             ->assertStatus(409)
             ->assertJsonPath('message', __('application.funding_application_changed'))
-            ->assertJsonPath('errors.version', $newVersion);
+            // Not a field error, so no `errors`: the partner wizard showed
+            // `errors.version` as "Please resolve validation errors".
+            ->assertJsonMissingPath('errors');
         $saved = FundingApplication::find($this->myApplicationId);
         $this->assertSame('1 Month', $saved->timeframe_needed);
         $this->assertSame('Inventory', $saved->collateral_available);
@@ -283,7 +285,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-035 - /fund-application/86 (an application id typed as a
+     * Defect: R2 BUG-027 - /fund-application/86 (an application id typed as a
      * request id) opened a blank wizard for request 86, which had not been
      * approved: an application can only be started on an Approved request. One
      * already started stays reachable whatever the request's status now is.
@@ -311,7 +313,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-040 - a Purpose Note of 256-500 characters answered 500
+     * Defect: R2 BUG-032 - a Purpose Note of 256-500 characters answered 500
      * "Failed to update funding request": the rule allows 500 but the column
      * was a VARCHAR(255). SQLite does not enforce a VARCHAR length, so the
      * column's type is pinned as well as the rule. Collateral Available had the
@@ -336,7 +338,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-039 - an owner born 15 Oct 2009 (17) was saved, and a
+     * Defect: R2 BUG-031 - an owner born 15 Oct 2009 (17) was saved, and a
      * 17-year-old co-borrower raised no date-of-birth error. Both must be adults.
      */
     #[Test]

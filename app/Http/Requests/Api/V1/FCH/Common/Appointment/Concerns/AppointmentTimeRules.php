@@ -128,11 +128,17 @@ trait AppointmentTimeRules
         ];
 
         $me = (int) $this->user()?->id;
-        if ((int) $clash->scheduled_by === $me || (int) $clash->assigned_for === $me) {
-            return __('appointment.time_taken_by_you', $times);
-        }
+        $with = (int) ($this->input('assigned_for') ?? $this->appointmentBeingEdited()?->assigned_for);
+        $involves = fn (int $id) => $id !== 0 && ((int) $clash->scheduled_by === $id || (int) $clash->assigned_for === $id);
+        $attendee = (int) $clash->assigned_for === $with ? $clash->assignedFor : $clash->scheduledBy;
 
-        $attendee = (int) $clash->assigned_for === (int) $this->input('assigned_for') ? $clash->assignedFor : $clash->scheduledBy;
+        if ($involves($me)) {
+            // Both busy - e.g. booking the same client into a slot the two of
+            // them already share - so name the attendee too (R2 BUG-073).
+            return $involves($with) && $with !== $me
+                ? __('appointment.time_taken_by_both', $times + ['name' => $attendee?->name ?? __('appointment.the_attendee')])
+                : __('appointment.time_taken_by_you', $times);
+        }
 
         return __('appointment.time_taken_by', $times + ['name' => $attendee?->name ?? __('appointment.the_attendee')]);
     }

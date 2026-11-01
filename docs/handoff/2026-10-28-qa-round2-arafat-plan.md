@@ -1,5 +1,7 @@
 # QA round 2: Arafat's defects, plan (2026-10-28)
 
+> **Superseded 2026-11-01:** done - see `2026-11-01-qa-round2-arafat.md`. The sheet has been renumbered since; that file maps these numbers to the current ones (e.g. 011 here is now BUG-009).
+
 Source: QA Round 2 defect log (Google Sheet, gid 27742395), the 26 rows with **Assigned Dev = Arafat**:
 BUG-011, 012, 021, 026, 027, 033, 034, 035, 037, 038, 039, 040, 041, 044, 045, 046, 055, 056, 058, 060, 061, 065, 066, 073, 075, 079.
 (The other 46 rows are Awlad's and are not covered here.)

@@ -87,7 +87,7 @@ class AppointmentNotification extends Mailable implements ShouldQueue
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'action' => $this->action,
                 'assigneeName' => $this->appointment->assignedFor->name ?? 'User',
-                // What the meeting is and with whom, and where to see it (R2 BUG-075).
+                // What the meeting is and with whom, and where to see it (R2 BUG-063).
                 'attendeeNames' => $this->attendeeNames(),
                 'appointmentUrl' => $this->appointmentUrl(),
                 'business_info' => [
@@ -102,7 +102,7 @@ class AppointmentNotification extends Mailable implements ShouldQueue
 
     /**
      * An .ics file so the meeting can be added to (or, on a cancellation,
-     * removed from) the recipient's calendar (R2 BUG-075).
+     * removed from) the recipient's calendar (R2 BUG-063).
      *
      * @return array<int, Attachment>
      */

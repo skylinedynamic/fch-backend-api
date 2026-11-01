@@ -281,7 +281,7 @@ class BorrowerRecordsApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-079 - the partner owner changed client 162's phone, then a
+     * Defect: R2 BUG-065 - the partner owner changed client 162's phone, then a
      * staff user whose page was opened earlier saved a new home address: the
      * whole form went back, and the phone silently reverted. A save from a page
      * showing older client details is refused (409); a change in another

@@ -174,7 +174,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->assertSame('234567890', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
     }
 
-    /** Defect: R2 BUG-041, on the partner's form too: a save from an older copy is refused. */
+    /** Defect: R2 BUG-033, on the partner's form too: a save from an older copy is refused. */
     #[Test]
     public function a_partners_save_from_an_older_copy_is_refused(): void
     {
@@ -227,7 +227,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
         ]);
     }
 
-    /** Defect: R2 BUG-039 - the partner's copy of the ownership step took a 17-year-old owner or co-borrower. */
+    /** Defect: R2 BUG-031 - the partner's copy of the ownership step took a 17-year-old owner or co-borrower. */
     #[Test]
     public function a_partners_ownership_step_needs_an_adult_owner_and_co_borrowers(): void
     {

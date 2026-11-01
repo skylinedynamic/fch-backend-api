@@ -1,0 +1,94 @@
+# QA round 2: Arafat's defects (and BUG-008, BUG-011)
+
+**Date:** 2026-11-01
+**Branch:** `qa-round2-bugfix` in `fch-backend-api`, `Fch-admin-frontend-react`, `fch-borrower-react` (not committed, not pushed)
+**Author:** arafat-invento
+
+Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, plus BUG-008 and BUG-011 (assigned to Awlad in the sheet, done here on request). Findings: `docs/test-findings.md` F163-F191, D14, O70-O73. Plan: `2026-10-28-qa-round2-arafat-plan.md` (old numbering, see below).
+
+## The sheet was renumbered
+
+The plan of 28 Oct used the sheet's numbers of that day; the sheet has since been renumbered. Code comments and test docblocks now use the **current** numbers.
+
+| Now | Was | Now | Was | Now | Was |
+|---|---|---|---|---|---|
+| 009 | 011 | 029 | 037 | 046 | 056 |
+| 010 | 012 | 030 | 038 | 048 | 058 |
+| 017 | 021 | 031 | 039 | 050 | 060 |
+| 019 | 026 | 032 | 040 | 051 | 061 |
+| 020 | 027 | 033 | 041 | 055 | 065 |
+| 025 | 033 | 036 | 044 | 056 | 066 |
+| 026 | 034 | 037 | 045 | 061 | 073 |
+| 027 | 035 | 038 | 046 | 063 | 075 |
+| | | 045 | 055 | 065 | 079 |
+
+New since the plan: **BUG-073** (availability check), **BUG-008**, **BUG-011**.
+
+## Problem and solution, per bug
+
+| Bug | Module | Was | Now | Repos |
+|---|---|---|---|---|
+| 008 | Lenders | Duplicate lender name accepted | Name unique (case/spaces ignored, deleted lenders free); error under the field | API, admin |
+| 009 | Funding Sequence | Min FICO 851 saved | 300-850 on all saves; input bounds | API, admin |
+| 010 | Funding Sequence | State both allowed and restricted | `DisjointFrom` (states, industries); options exclude each other | API, admin |
+| 011 | Roles | Admin role fully editable | Static role keeps name + permissions (422); page read-only with notice | API, admin |
+| 017 | Profile | 9-digit phone / 6-digit ZIP | API refuses both (already on stage); field errors shown | API test, borrower test |
+| 019 | Funding Request | Garbled "Lender Required" text | Plain sentence | admin |
+| 020 | Funding Request | Inactive lender matched / assignable | Not matched; assign refuses it | API |
+| 025 | Pre-qualification | Long name broke Review layout | Values wrap; grid shrinks | borrower CSS |
+| 026 | Pre-qualification | Draft lost Funding Needs, restarted at step 1 | Draft answers returned; resumes at first unsaved step | API, borrower |
+| 027 | Funding Application | Wrong id opened a blank wizard | 404 -> "Request not found" (read-only already on stage) | API, borrower |
+| 029 | Employees | Status "[object Object]" | API takes 3 statuses; migration repairs rows; form sends values only | API, admin |
+| 030 | Underwriting Logic | Inactive lender "Unknown Lender" | Own name + Inactive tag; in the filter | admin |
+| 031 | Funding Application | Owner/co-borrower under 18 | `AdultDateOfBirth`; pickers stop at 18 years ago (both wizards) | all 3 |
+| 032 | Funding Application | Note 256-500 chars -> 500 error | Column TEXT; maxlength 500 + counter (both wizards) | all 3 |
+| 033 | Funding Application | Two tabs: stale save overwrote | `expected_version` -> 409; sticky Reload message (both wizards) | all 3 |
+| 036 | Commission | Refused Success Fee silent | Error shown; card back to stored; 1-100 | admin |
+| 037 | Update Status | Double-click applied twice | Click guard + row lock + repeat no-op + `expected_status` | API, admin |
+| 038 | Close | No warning when funded >> requested | Warning + tick before Confirm | admin |
+| 045 | Documents | Accepted in-use document deletable | 422 naming the request; reason shown; confirm says "accepted" | API, borrower |
+| 046 | Appointment | Client could not cancel admin-booked | `POST appointments/{id}/cancel`; Cancel button; organiser emailed | API, borrower |
+| 048 | Funding Request | Stale tab flipped Approved -> Rejected | `expected_status` -> 409, nothing sent; page reloads | API, admin |
+| 050 | Partners | Cleared Address/Contact kept old value | Sent empty on edit | admin |
+| 051 | Clients | Inactive employee in Assign to | Left out; current assignee kept, flagged | API, admin |
+| 055 | Leads | Default country not in form data | Default put into the form | admin |
+| 056 | PDF | Purpose note / timeframe / collateral missing | Rows added | API |
+| 061 | Email | Partner emails carried host tagline | Partner's own slogan or none | API |
+| 063 | Appointment email | No title/type/attendee/link | Summary, View Appointment, `.ics` | API |
+| 065 | Clients | Two users: stale save reverted | `client_info_version` -> 409 | API, admin |
+| 073 | Appointments | Live check sent record id (422) | Sends user id; clash shown before Confirm; shared clash names both | API, admin |
+
+## Behaviour changes other apps will notice
+- New optional request fields: `expected_status` (funding request / application status), `expected_version` (wizard steps, client info), `include_user_id` (`common/get-all-users`). Without them nothing is checked.
+- New **409** answers (stale save / decision) - no `errors` key on the wizard ones.
+- New endpoint `POST api/v1/common/appointments/{id}/cancel` (borrowers allowed).
+- Role show returns `is_static`; a static role's name/permissions cannot be changed (422).
+- Lender name must be unique.
+- Migrations (run on deploy): `2026_10_28_100000` (purpose_note, collateral_available -> TEXT), `2026_10_28_100100` (job_status repair).
+
+## Files changed (main ones)
+- **API:** `app/Rules/{AdultDateOfBirth,DisjointFrom,UniqueLenderName}.php`; `app/Exceptions/{StaleRecordException,DocumentInUseException}.php`; `FundingApplicationEditGuard`, `FundingRequestService`, `RequestApplicationService`, `BorrowerService`, `CommonService`, `DocumentService`, `AppointmentService`, `PreQualificationService`, borrower/partner `FundingApplicationService`; step resources + `Concerns/CarriesApplicationVersion`; Lender/Role/Employee/Appointment requests; `AppointmentTimeRules` (clash wording); `MailableBranding`, `AppointmentNotification` + `emails/appointment/*`; `pdf/funding-application.blade.php`; `lang/en/*`; 2 migrations.
+- **Admin:** `modules/appointment/availability.ts`, `modules/employee/logic.ts`, `modules/funding-application/{applicationRules,applicationVersion,staleApplication}.ts` + `services.ts`, `modules/funding/visibilityRules.ts`, `utils/staleRecord.ts`; `AppointmentModal.jsx`, `EmployeeDetails.jsx`, `EditRole.tsx`, `role/services.ts`, wizard steps, `FundingRequestDetail.tsx`, `FundingApplicationDetails.tsx`, `ConfirmationModal.jsx`, `FundedAmountModal.tsx`, `ClientInfoSection.tsx`, `LenderVisibilityGrid.tsx`, `LeadDetails.jsx`, `partner/logic.ts`.
+- **Borrower:** `modules/funding-application/{applicationRules,applicationVersion}.ts`, `services.ts`, `saveFeedback.ts`; `modules/appointment/{cancel,services}.ts`; `prequalification/hooks/{resumeStep,usePreQualificationForm}.ts`; wizard steps + `CoBorrowerModal`, `FundApplication.tsx`; `Documents.tsx`; `AppointmentModal.tsx`; `assets/css/custom.min.css`.
+
+## Tests
+Every new test failed before its fix (checked against the old code where it mattered) and passes now. Each carries a `Defect: R2 BUG-0xx` docblock.
+
+| Suite | Result (2026-11-01) |
+|---|---|
+| API `php artisan test` (Unit + Integration + Feature) | 3978 passed, 2 skipped |
+| Admin `vitest run` | 1987 passed, 2 expected fail (pre-existing markers) |
+| Borrower `vitest run` | 1385 passed |
+| Admin + borrower `tsc --noEmit` | clean |
+| Admin mocked e2e, R2 specs (`system-role-locked`, `lender-duplicate-name`, `appointment-availability`, `funding-application-details-r2`, `funding-request-details`) | 24/24 passed (run with `E2E_BASE_URL=` against the build) |
+
+Updated existing expectations: `AppointmentTimeAndClashTest` (2, new "You and X" wording), `BorrowerFundingApplicationStepsTest` (409 has no `errors`), `funding-request-details.spec.ts` (body carries `expected_status`), `role/services.test.ts` (`is_static`).
+
+## Open / follow-up
+- **O70** last admin can still lose the Admin role through role assignment.
+- **O71** ~83 older admin mocked e2e tests fail on HEAD as well (stale permissions etc.), not R2.
+- **O72** version is to the second.
+- **O73** borrower e2e not run (it uses the `.env` database).
+- **D14** decisions taken as dev defaults - BA to confirm (Purpose Note 500 vs 2,000 in the QA case; Success Fee minimum 1%).
+- QA retest needed on stage for BUG-025 (layout) and the email ones (061, 063) in Mailpit.
+- Nothing committed; first push must be `git push -u origin qa-round2-bugfix` (never to `release`/`stage` directly).

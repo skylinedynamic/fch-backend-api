@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Lender;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lender\Lender;
+use App\Rules\UniqueLenderName;
 use App\Rules\UsPhoneNumber;
 
 class StoreLenderRequest extends BaseApiRequest
@@ -24,7 +25,8 @@ class StoreLenderRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
+            // Not one another lender already has (R2 BUG-008).
+            'name' => ['required', 'string', 'max:255', new UniqueLenderName()],
             'legal_name' => 'required|string|max:255',
             'product_categories' => 'required|array',
             'product_categories.*' => 'integer',

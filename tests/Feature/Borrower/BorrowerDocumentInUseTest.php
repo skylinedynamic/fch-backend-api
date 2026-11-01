@@ -18,7 +18,7 @@ use Tests\TestCase;
 /**
  * Removing a document from the borrower portal's Documents page.
  *
- * Defect: R2 BUG-055 - the client removed an Accepted Driver's License that
+ * Defect: R2 BUG-045 - the client removed an Accepted Driver's License that
  * an open funding request's option required; the delete answered 200 and the
  * option then reported the licence missing. An Accepted document that is the
  * only copy of a type an open request or application needs is kept, and the

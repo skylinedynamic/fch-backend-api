@@ -197,7 +197,7 @@ class RequestApplicationReviewTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-045 - a double-click on Update sent the status change
+     * Defect: R2 BUG-037 - a double-click on Update sent the status change
      * twice and the Activity tab showed two identical "Status Changed" entries.
      * The exact same change again (same status, same note) is a no-op.
      */
@@ -221,7 +221,7 @@ class RequestApplicationReviewTest extends TestCase
     }
 
     /**
-     * R2 BUG-045 / BUG-058: a status chosen on a page that still shows an
+     * R2 BUG-037 / BUG-058: a status chosen on a page that still shows an
      * older status is refused (409), not applied over what someone else did.
      */
     #[Test]

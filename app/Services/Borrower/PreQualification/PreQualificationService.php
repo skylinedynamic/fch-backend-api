@@ -279,7 +279,7 @@ class PreQualificationService
 
         // The in-progress draft keeps its own Funding Needs answers: they used
         // to be blanked here on every load, so a borrower who left after step 3
-        // came back to an empty step (R2 BUG-034).
+        // came back to an empty step (R2 BUG-026).
 
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;

@@ -74,13 +74,9 @@ class AppointmentController extends Controller
     }
 
     /**
-     * The appointments the signed-in user is on - scheduled by them or with
-     * them - the same rule the appointment list applies.
-     */
-    /**
      * Cancel an upcoming appointment: its organiser or the person it is with.
      * A client can cancel one the host booked with them, which they cannot
-     * edit or delete (R2 BUG-056). The other party is emailed.
+     * edit or delete (R2 BUG-046). The other party is emailed.
      */
     public function cancel($id)
     {
@@ -95,6 +91,10 @@ class AppointmentController extends Controller
         return ApiResponse::success(new AppointmentResource($cancelled), __('appointment.cancelled'));
     }
 
+    /**
+     * The appointments the signed-in user is on - scheduled by them or with
+     * them - the same rule the appointment list applies.
+     */
     private function ownAppointment()
     {
         $userId = auth()->id();

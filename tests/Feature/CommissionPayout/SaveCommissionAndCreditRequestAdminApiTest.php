@@ -71,7 +71,7 @@ class SaveCommissionAndCreditRequestAdminApiTest extends TestCase
     }
 
     /**
-     * R2 BUG-044: the Success Fee is 1-100%. QA saw "must be at least 1" for
+     * R2 BUG-036: the Success Fee is 1-100%. QA saw "must be at least 1" for
      * 101 because the browser emptied the field; sent as typed, each end of
      * the range is named for what it is, and a refused value changes nothing.
      */

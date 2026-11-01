@@ -14,7 +14,7 @@ use Tests\TestCase;
 /**
  * The phone number and ZIP code on the borrower's own Personal Info.
  *
- * R2 BUG-021: a 9-digit phone "(555) 555-012" was saved (QA build of 21 Oct).
+ * R2 BUG-017: a 9-digit phone "(555) 555-012" was saved (QA build of 21 Oct).
  * The shared UsPhoneNumber / UsPostalCode rules reached stage on 24 Oct; this
  * pins them on this screen. The 6-digit ZIP was cut to 5 by the portal's input
  * mask, which is intended - the API refuses one sent as is.

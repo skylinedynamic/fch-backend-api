@@ -209,7 +209,7 @@ class FundingRequestService
 
         // The read, the stale check and the write happen under a row lock, so
         // two decisions on the same request are taken one after the other and
-        // the second sees what the first did (R2 BUG-058).
+        // the second sees what the first did (R2 BUG-048).
         [$review, $oldStatus] = DB::transaction(function () use ($data, $authUser) {
             $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
                 ->where('id', $data['id'])

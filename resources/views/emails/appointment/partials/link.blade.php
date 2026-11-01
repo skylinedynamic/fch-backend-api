@@ -1,4 +1,4 @@
-{{-- Where to see the appointment; the .ics attached adds it to a calendar (R2 BUG-075). --}}
+{{-- Where to see the appointment; the .ics attached adds it to a calendar (R2 BUG-063). --}}
 @if (!empty($appointmentUrl))
     <div class="btn-container" style="margin: 10px 0 30px; text-align: center;">
         <a href="{{ $appointmentUrl }}" class="btn"

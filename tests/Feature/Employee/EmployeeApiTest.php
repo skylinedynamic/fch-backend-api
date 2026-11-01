@@ -266,7 +266,7 @@ class EmployeeApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-037 - an employee was stored with job status
+     * Defect: R2 BUG-029 - an employee was stored with job status
      * "[object Object]" (the portal sent an object), shown as such in the list
      * and never matched by the Status filter. Only a known status is taken.
      */
@@ -286,7 +286,7 @@ class EmployeeApiTest extends TestCase
         $this->assertSame(Employee::STATUS_SUSPENDED, $employee->fresh()->job_status);
     }
 
-    /** R2 BUG-037: rows already stored as "[object Object]" are repaired on deploy. */
+    /** R2 BUG-029: rows already stored as "[object Object]" are repaired on deploy. */
     #[Test]
     public function the_migration_repairs_an_unreadable_job_status(): void
     {

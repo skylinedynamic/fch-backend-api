@@ -127,7 +127,7 @@ class BorrowerController extends Controller
             // e.g. the new email is already taken — the form needs to show why.
             throw $e;
         } catch (StaleRecordException $e) {
-            // Changed by someone else since this form loaded (R2 BUG-079).
+            // Changed by someone else since this form loaded (R2 BUG-065).
             return ApiResponse::error($e->getMessage(), 409);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));

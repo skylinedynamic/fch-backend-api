@@ -128,7 +128,7 @@ class MyApplicationsApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-039 - "+ Add Co-Borrower" with a date of birth giving age
+     * Defect: R2 BUG-031 - "+ Add Co-Borrower" with a date of birth giving age
      * 17 listed only the other empty fields; no date_of_birth error. Same on
      * the partner form.
      */

@@ -227,6 +227,80 @@ class RoleAndPermissionApiTest extends TestCase
         $this->assertTrue($hostRole->hasPermissionTo('view partners'));
     }
 
+    /** A seeded, static Admin role holding two permissions, held by the partner's admin. */
+    private function staticAdminRole(): Role
+    {
+        $admin = $this->roleFor($this->partner, 'Admin', [$this->viewLeads, $this->notForCertified]);
+        $admin->update(['is_static' => true, 'code' => 'admin']);
+        $this->partnerAdmin->assignRole($admin);
+
+        return $admin;
+    }
+
+    /**
+     * Defect: R2 BUG-011 - the seeded Admin role was fully editable: its
+     * permissions could be unticked and saved, so the only admin could take
+     * away their own access. A static role keeps the permissions it has.
+     */
+    #[Test]
+    public function a_static_roles_permissions_cannot_be_taken_away(): void
+    {
+        $admin = $this->staticAdminRole();
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/roles/{$admin->id}", [
+            'name' => 'Admin',
+            'permission_ids' => [$this->viewLeads->id],
+        ])->assertStatus(422)->assertJsonValidationErrors(['permission_ids' => __('role_permission.role_static_cannot_change')]);
+
+        $this->assertTrue($admin->fresh()->hasPermissionTo('view cms'));
+        $this->assertTrue($this->partnerAdmin->fresh()->hasPermissionTo('view cms'));
+    }
+
+    /** R2 BUG-011 - nor can it be renamed. */
+    #[Test]
+    public function a_static_role_cannot_be_renamed(): void
+    {
+        $admin = $this->staticAdminRole();
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/roles/{$admin->id}", [
+            'name' => 'Not Admin',
+            'permission_ids' => [$this->viewLeads->id, $this->notForCertified->id],
+        ])->assertStatus(422)->assertJsonValidationErrors(['name' => __('role_permission.role_static_cannot_change')]);
+
+        $this->assertSame('Admin', $admin->fresh()->name);
+    }
+
+    /** R2 BUG-011 - its description may still be edited, and an unchanged save goes through. */
+    #[Test]
+    public function a_static_roles_description_can_still_be_edited(): void
+    {
+        $admin = $this->staticAdminRole();
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/roles/{$admin->id}", [
+            'name' => 'Admin',
+            'description' => 'Everything, always',
+            'permission_ids' => [$this->notForCertified->id, $this->viewLeads->id],
+        ])->assertOk();
+
+        $this->assertSame('Everything, always', $admin->fresh()->description);
+        $this->assertTrue($admin->fresh()->hasPermissionTo('view leads'));
+    }
+
+    /** R2 BUG-011 - the role says it is a system role, so the page can show it read-only. */
+    #[Test]
+    public function a_role_says_whether_it_is_a_system_role(): void
+    {
+        $admin = $this->staticAdminRole();
+        $sales = $this->roleFor($this->partner, 'Sales');
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson("/api/v1/common/roles/{$admin->id}")->assertOk()->assertJsonPath('data.is_static', true);
+        $this->getJson("/api/v1/common/roles/{$sales->id}")->assertOk()->assertJsonPath('data.is_static', false);
+    }
+
     #[Test]
     public function a_role_shows_its_permissions_and_members(): void
     {

@@ -82,7 +82,7 @@ class Borrower extends Model
      * Which copy of the client's details a client-info form is showing: a
      * fingerprint of the stored CLIENT_INFO_FIELDS. The form sends it back as
      * expected_version and a save from an older copy is refused, rather than
-     * putting back what another user changed meanwhile (R2 BUG-079).
+     * putting back what another user changed meanwhile (R2 BUG-065).
      */
     public function clientInfoVersion(): string
     {

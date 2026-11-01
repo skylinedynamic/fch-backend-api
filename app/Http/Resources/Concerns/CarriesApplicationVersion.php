@@ -9,7 +9,7 @@ use App\Models\Borrower\FundingApplication;
  *
  * The wizard sends it back with its next save as `expected_version`; a save
  * from a tab that loaded an older copy is refused instead of overwriting what
- * the other tab saved (R2 BUG-041). Null when there is no application yet.
+ * the other tab saved (R2 BUG-033). Null when there is no application yet.
  */
 trait CarriesApplicationVersion
 {

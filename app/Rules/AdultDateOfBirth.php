@@ -12,7 +12,7 @@ use Throwable;
  *
  * The embedded form already refused a minor, but the portal's ownership step
  * and co-borrower check took any date up to today, so a 17-year-old owner or
- * co-borrower could be saved (R2 BUG-039). A contract signed by a minor is not
+ * co-borrower could be saved (R2 BUG-031). A contract signed by a minor is not
  * enforceable. The age is the embedded form's, so the two can never disagree.
  *
  * Whether the value is a date at all, or may be left out, is still `date` /

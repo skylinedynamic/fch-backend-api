@@ -193,7 +193,7 @@ class DocumentService
     /**
      * Refuse to remove an Accepted document that is the borrower's only usable
      * copy of a type an open funding request or unfinished application needs
-     * (R2 BUG-055): the option would then report it missing. A replacement can
+     * (R2 BUG-045): the option would then report it missing. A replacement can
      * be uploaded first, after which the old copy is free to go.
      *
      * Open: a request that is Pending, In Progress or Approved, or any request

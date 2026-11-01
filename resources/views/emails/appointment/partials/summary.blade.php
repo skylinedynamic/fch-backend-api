@@ -1,4 +1,4 @@
-{{-- What the meeting is and with whom (R2 BUG-075): the title was only in the subject line. --}}
+{{-- What the meeting is and with whom (R2 BUG-063): the title was only in the subject line. --}}
 <h2 style="font-size: 18px; font-weight: 700; color: #1a2e44; margin: 0 0 6px 0; text-align: left; word-break: break-word;">
     {{ $appointment->subject }}
 </h2>

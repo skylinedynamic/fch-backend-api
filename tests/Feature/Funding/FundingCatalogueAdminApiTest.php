@@ -66,6 +66,12 @@ class FundingCatalogueAdminApiTest extends TestCase
         ], $overrides);
     }
 
+    /** A lender payload the API accepts as is: with a product category. */
+    private function categorisedLender(array $overrides = []): array
+    {
+        return $this->lender(array_merge(['product_categories' => [$this->productCategory()]], $overrides));
+    }
+
     private function sequence(array $overrides = []): array
     {
         return array_merge([
@@ -223,6 +229,53 @@ class FundingCatalogueAdminApiTest extends TestCase
 
         $this->putJson("/api/v1/admin/lenders/{$first}", $this->lender(['name' => 'First Lender Renamed', 'product_categories' => $categories]))->assertOk();
         $this->putJson("/api/v1/admin/lenders/{$second}", $this->lender(['name' => 'Second Lender Renamed', 'product_categories' => $categories]))->assertOk();
+    }
+
+    /**
+     * Defect: R2 BUG-008 - Add Lender accepted a name already in use (a second
+     * "Kabbage"). The name is what borrowers, partners and the funding
+     * sequences show, so two alike cannot be told apart.
+     */
+    #[Test]
+    public function a_lender_cannot_be_added_under_a_name_already_in_use(): void
+    {
+        $this->actingAsUser($this->admin);
+        $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated();
+
+        foreach (['Kabbage', 'kabbage', '  KABBAGE '] as $same) {
+            $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => $same]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['name' => __('lender.name_taken')]);
+        }
+
+        $this->assertSame(1, Lender::where('name', 'Kabbage')->count());
+    }
+
+    /** R2 BUG-008 - nor renamed to another lender's name; keeping its own is fine. */
+    #[Test]
+    public function a_lender_cannot_be_renamed_to_another_lenders_name(): void
+    {
+        $this->actingAsUser($this->admin);
+        $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated();
+        $other = $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'OnDeck']))->assertCreated()->json('data.id');
+
+        $this->putJson("/api/v1/admin/lenders/{$other}", $this->categorisedLender(['name' => 'KABBAGE']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['name' => __('lender.name_taken')]);
+        $this->assertSame('OnDeck', Lender::find($other)->name);
+
+        $this->putJson("/api/v1/admin/lenders/{$other}", $this->categorisedLender(['name' => 'OnDeck', 'website' => 'https://ondeck.example.org']))->assertOk();
+    }
+
+    /** R2 BUG-008 - a deleted lender's name is free to use again. */
+    #[Test]
+    public function a_deleted_lenders_name_can_be_used_again(): void
+    {
+        $this->actingAsUser($this->admin);
+        $old = $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated()->json('data.id');
+        $this->deleteJson("/api/v1/admin/lenders/{$old}")->assertOk();
+
+        $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated();
     }
 
     #[Test]
@@ -581,7 +634,31 @@ class FundingCatalogueAdminApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-011 - a Min FICO of 851 was saved from Underwriting Logic.
+     * R2 BUG-030 - a rule whose lender was set to Inactive showed "Unknown
+     * Lender": the grid named it from the active-lender list. The rule list
+     * carries its own lender, name and status, which the grid now uses.
+     */
+    #[Test]
+    public function a_rule_keeps_its_lenders_name_and_status_after_the_lender_is_deactivated(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'R2 Lender A']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $data['funding_type_id'])];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        $lender->update(['status' => Lender::STATUS_INACTIVE]);
+
+        $rows = $this->postJson("/api/v1/admin/funding-sequencings/{$id}/visibilities/fetch")->assertOk()->json('data');
+        $rule = collect($rows)->firstWhere('lender_id', $lender->id);
+
+        $this->assertNotNull($rule, 'The rule of an inactive lender is still listed.');
+        $this->assertSame('R2 Lender A', $rule['lender']['name']);
+        $this->assertSame(Lender::STATUS_INACTIVE, $rule['lender']['status']);
+    }
+
+    /**
+     * Defect: R2 BUG-009 - a Min FICO of 851 was saved from Underwriting Logic.
      * The per-category save (what the grid's Update button calls) must refuse
      * a score outside 300-850 like the other two saves.
      */
@@ -607,7 +684,7 @@ class FundingCatalogueAdminApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-012 - Texas could be saved as both an allowed and a
+     * Defect: R2 BUG-010 - Texas could be saved as both an allowed and a
      * restricted state, leaving the rule for a Texas borrower undefined. The
      * same applies to industries.
      */
