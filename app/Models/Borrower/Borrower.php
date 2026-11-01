@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Support\Database\LikePattern;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
@@ -519,29 +520,29 @@ class Borrower extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.middle_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.business_name', 'LIKE', "%{$search}%")
+            $q->whereContains('borrowers.first_name', $search)
+                ->orWhereContains('borrowers.middle_name', $search)
+                ->orWhereContains('borrowers.last_name', $search)
+                ->orWhereContains('borrowers.email', $search)
+                ->orWhereContains('borrowers.phone_number', $search)
+                ->orWhereContains('borrowers.status', $search)
+                ->orWhereContains('borrowers.business_name', $search)
                 ->orWhereHas(
                     'partner',
                     function ($q) use ($search) {
-                        $q->where('full_name', 'LIKE', "%{$search}%");
+                        $q->whereContains('full_name', $search);
                     }
                 )
                 ->orWhereHas(
                     'tier',
                     function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->whereContains('name', $search);
                     }
                 )
                 ->orWhereHas(
                     'assignedUser',
                     function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->whereContains('name', $search);
                     }
                 )
                 // The whole name as displayed, so "John Quincy Smith" is found by
@@ -549,8 +550,8 @@ class Borrower extends Model
                 // instead of collapsing the whole expression to NULL, which is what
                 // plain CONCAT would do.
                 ->orWhereRaw(
-                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ?",
-                    ["%{$search}%"]
+                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ? " . LikePattern::ESCAPE_CLAUSE,
+                    [LikePattern::contains($search)]
                 );
         });
     }

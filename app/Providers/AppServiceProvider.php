@@ -14,6 +14,8 @@ use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use App\Support\Database\LikePattern;
 use Spatie\Health\Facades\Health;
 use Spatie\Health\Checks\Checks\DatabaseCheck;
 use Spatie\Health\Checks\Checks\UsedDiskSpaceCheck;
@@ -47,6 +49,22 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Model::preventLazyLoading(!app()->isProduction());
+
+        // A contains-search that matches the text as typed: % and _ are not
+        // wildcards (BUG-002). Reached from Eloquent builders too.
+        QueryBuilder::macro('whereContains', function (string $column, string $text, string $boolean = 'and') {
+            /** @var QueryBuilder $this */
+            return $this->whereRaw(
+                $this->getGrammar()->wrap($column) . ' LIKE ? ' . LikePattern::ESCAPE_CLAUSE,
+                [LikePattern::contains($text)],
+                $boolean
+            );
+        });
+        QueryBuilder::macro('orWhereContains', function (string $column, string $text) {
+            /** @var QueryBuilder $this */
+            return $this->whereContains($column, $text, 'or');
+        });
+
 
         // The mail layout paints its header band and footer in the tenant's brand
         // colours. Every mailable copies only the keys it names into its own view

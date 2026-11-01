@@ -310,18 +310,18 @@ class Partner extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('company_name', 'LIKE', "%{$search}%")
-                ->orWhere('email', 'LIKE', "%{$search}%")
-                ->orWhere('phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('full_name', 'LIKE', "%{$search}%")
-                ->orWhere('contact_person', 'LIKE', "%{$search}%")
-                ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
-                ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('partner_type', 'LIKE', "%{$search}%")
-                ->orWhere('status', 'LIKE', "%{$search}%")
+            $q->whereContains('company_name', $search)
+                ->orWhereContains('email', $search)
+                ->orWhereContains('phone_number', $search)
+                ->orWhereContains('full_name', $search)
+                ->orWhereContains('contact_person', $search)
+                ->orWhereContains('contact_person_email', $search)
+                ->orWhereContains('contact_person_phone_number', $search)
+                ->orWhereContains('partner_type', $search)
+                ->orWhereContains('status', $search)
                 ->orWhereHas('assignedUser', function ($userQ) use ($search) {
-                    $userQ->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('email', 'LIKE', "%{$search}%");
+                    $userQ->whereContains('name', $search)
+                        ->orWhereContains('email', $search);
                 });
         });
     }
