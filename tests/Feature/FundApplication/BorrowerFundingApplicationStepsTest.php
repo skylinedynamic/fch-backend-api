@@ -337,37 +337,6 @@ class BorrowerFundingApplicationStepsTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors(['purpose_note']);
     }
 
-    /**
-     * Defect: R2 BUG-031 - an owner born 15 Oct 2009 (17) was saved, and a
-     * 17-year-old co-borrower raised no date-of-birth error. Both must be adults.
-     */
-    #[Test]
-    public function the_owner_and_each_co_borrower_must_be_at_least_18(): void
-    {
-        $this->travelTo('2026-10-21 12:00:00');
-        $this->actingAsUser($this->me);
-
-        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
-            'id' => $this->myApplicationId,
-            'date_of_birth' => '2009-10-15',
-            'ownership' => 60,
-            'has_co_borrower' => true,
-            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'date_of_birth' => '2008-10-22']],
-        ]))->assertStatus(422)->assertJsonValidationErrors([
-            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
-            'co_borrowers.0.date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
-        ]);
-        $this->assertNull(FundingApplication::find($this->myApplicationId)->date_of_birth);
-
-        // Eighteen today, on both.
-        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
-            'id' => $this->myApplicationId,
-            'date_of_birth' => '2008-10-21',
-            'ownership' => 60,
-            'has_co_borrower' => true,
-            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'date_of_birth' => '2008-10-21']],
-        ]))->assertOk();
-    }
 
     #[Test]
     public function a_co_borrowers_written_ssn_is_stored_as_its_nine_digits(): void

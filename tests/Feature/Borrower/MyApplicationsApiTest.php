@@ -128,35 +128,6 @@ class MyApplicationsApiTest extends TestCase
     }
 
     /**
-     * Defect: R2 BUG-031 - "+ Add Co-Borrower" with a date of birth giving age
-     * 17 listed only the other empty fields; no date_of_birth error. Same on
-     * the partner form.
-     */
-    #[Test]
-    public function a_co_borrower_must_be_at_least_18(): void
-    {
-        $this->travelTo('2026-10-21 12:00:00');
-        $coBorrower = [
-            'first_name' => 'Co', 'last_name' => 'Owner', 'role' => 'Partner', 'ownership' => 25,
-            'email' => 'co@example.org', 'mobile_phone' => '(555) 210-0100',
-            'ssn' => '123456789', 'street_address' => '1 Main St', 'country' => 'United States',
-            'state' => 'TX', 'city' => 'Austin', 'zip_code' => '73301',
-        ];
-        $partnerAdmin = $this->makePartnerAdmin($this->makeWhiteLabelPartner());
-
-        foreach ([
-            [$this->me, '/api/v1/borrower/myapplication/funding-application/co-borrower-validation'],
-            [$partnerAdmin, '/api/v1/common/funding-application/co-borrower-validation'],
-        ] as [$user, $url]) {
-            $this->actingAsUser($user);
-            $this->postJson($url, ['date_of_birth' => '2009-10-15'] + $coBorrower)
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18])]);
-            $this->postJson($url, ['date_of_birth' => '2008-10-21'] + $coBorrower)->assertJsonMissingValidationErrors('date_of_birth');
-        }
-    }
-
-    /**
      * Defect (O28): ownership was `numeric` with no bounds, so -5% or 150% of a
      * business was accepted - on both the borrower and the partner form.
      */

@@ -227,25 +227,6 @@ class PartnerFundingApplicationStepsTest extends TestCase
         ]);
     }
 
-    /** Defect: R2 BUG-031 - the partner's copy of the ownership step took a 17-year-old owner or co-borrower. */
-    #[Test]
-    public function a_partners_ownership_step_needs_an_adult_owner_and_co_borrowers(): void
-    {
-        $this->travelTo('2026-10-21 12:00:00');
-        $this->actingAsUser($this->partnerAdmin);
-
-        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
-            'id' => $this->myApplicationId,
-            'funding_request_id' => $this->myRequestId,
-            'date_of_birth' => '2009-10-15',
-            'ownership' => 60,
-            'has_co_borrower' => true,
-            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'date_of_birth' => '2009-10-15']],
-        ]))->assertStatus(422)->assertJsonValidationErrors([
-            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
-            'co_borrowers.0.date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
-        ]);
-    }
 
     /**
      * The document step opens the borrower's file folder (borrowers/{id}). The

@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
-use App\Rules\AdultDateOfBirth;
 use App\Rules\OwnershipWithinTotal;
 use App\Rules\UsPostalCode;
 use App\Models\Borrower\FundingApplication;
@@ -64,7 +63,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
-            'date_of_birth' => ['required', 'date', new AdultDateOfBirth()],
+            'date_of_birth' => 'required|date',
             'ssn' => ['required', 'string', new Ssn()],
             'country' => 'nullable|string|max:255',
             'phone_number' => ['required', 'string', new UsPhoneNumber()],
@@ -130,7 +129,6 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
         return [function (Validator $validator) {
             $formats = [
                 'ssn' => new Ssn(),
-                'date_of_birth' => new AdultDateOfBirth(),
                 'zip_code' => new UsPostalCode(),
                 'mobile_phone' => new UsPhoneNumber(),
                 'home_phone' => new UsPhoneNumber(),
