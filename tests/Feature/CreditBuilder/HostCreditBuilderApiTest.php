@@ -122,6 +122,40 @@ class HostCreditBuilderApiTest extends TestCase
             ->assertJsonValidationErrors(['name', 'sub_title', 'target_exposure_max', 'est_timeline_min', 'what_you_will_get', 'pre_flight_checklist']);
     }
 
+    /**
+     * A strategy's and each step's minimum FICO is compared with the client's
+     * FICO. Create took any integer from 0 and update 300-850, and the per-step
+     * minimum took any integer at all - so the same field had three answers.
+     */
+    #[Test]
+    public function a_capital_access_fico_requirement_must_be_a_fico_score(): void
+    {
+        $id = $this->capitalAccess();
+        $this->actingAsUser($this->hostAdmin);
+        $message = __('common.fico_score_invalid', ['min' => 300, 'max' => 850]);
+        $payload = ['minimum_fico_requirement' => 0, 'credit_accounts' => [['minimum_fico_requirement' => 900]]];
+
+        $this->postJson('/api/v1/common/capital-accesses', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['minimum_fico_requirement' => $message, 'credit_accounts.0.minimum_fico_requirement' => $message]);
+        $this->putJson("/api/v1/common/capital-accesses/{$id}", $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['minimum_fico_requirement' => $message, 'credit_accounts.0.minimum_fico_requirement' => $message]);
+    }
+
+    #[Test]
+    public function a_stored_fico_requirement_sent_back_as_a_decimal_passes_its_own_check(): void
+    {
+        // minimum_fico_requirement is a decimal column, so an edit form echoes
+        // "700.00" back; that is still the whole number 700. The rest of the
+        // form is missing, so the request still fails - but not on this field.
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/common/capital-accesses', ['minimum_fico_requirement' => '700.00', 'credit_accounts' => [['minimum_fico_requirement' => 650]]])
+            ->assertStatus(422)
+            ->assertJsonMissingValidationErrors(['minimum_fico_requirement', 'credit_accounts.0.minimum_fico_requirement']);
+    }
+
     #[Test]
     public function the_host_rejects_a_clients_task_verification_with_a_note(): void
     {
@@ -201,5 +235,22 @@ class HostCreditBuilderApiTest extends TestCase
 
         $this->getJson("/api/v1/common/borrowers/{$borrower->id}/capital-access-overview")->assertOk();
         $this->getJson("/api/v1/common/borrowers/{$borrower->id}/capital-access-strategies")->assertOk();
+    }
+
+    /**
+     * BUG-031: the admin's Capital Access tab shows the estimate short ($1.4M),
+     * as the client portal does - so the overview sends the compact form too,
+     * from the same helper (formatCompactCurrency).
+     */
+    #[Test]
+    public function the_overview_sends_the_estimate_in_short_form_too(): void
+    {
+        $borrower = $this->makeBorrower($this->partner);
+        $this->actingAsUser($this->hostAdmin);
+
+        $data = $this->getJson("/api/v1/common/borrowers/{$borrower->id}/capital-access-overview")->assertOk()->json('data');
+
+        $this->assertArrayHasKey('estimated_total_access_compact', $data);
+        $this->assertSame(formatCompactCurrency(0), $data['estimated_total_access_compact']);
     }
 }

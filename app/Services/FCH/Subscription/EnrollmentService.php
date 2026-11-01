@@ -398,7 +398,11 @@ class EnrollmentService
         bool $isMigration = false,
         ?string $plainPassword = null
     ): array {
-        $isNonHostPartner = !$isHostCreating && ($partner ? !$partner->is_host : true);
+        // Whose borrower it is decides the fee, not who enrolls them: a borrower
+        // of any partner but the host costs that partner the borrower fee, even
+        // when the host converts the partner's lead or moves its free-trial
+        // borrower onto a paid plan.
+        $isNonHostPartner = $partner ? !$partner->is_host : true;
         $planId = isset($enrollment['plan_id']) ? (int) $enrollment['plan_id'] : null;
 
         [$plan] = $this->resolveBorrowerPlan($planId);
@@ -421,7 +425,8 @@ class EnrollmentService
                 'borrower_id' => $borrower->id,
                 'entity_type' => Partner::class,
                 'entity_id' => $borrower->partner_id,
-                'customer_name' => $partner->company_name ?: $partner->full_name,
+                // The person billed, never the company (see InvoiceCustomerNameTest).
+                'customer_name' => $partner->full_name,
                 'email' => $partner->email,
                 'country' => $partner->country,
                 'payment_amount' => $borrowerPartnerFeeAmount,

@@ -329,4 +329,24 @@ class RoleAndPermissionApiTest extends TestCase
         $this->postJson("/api/v1/common/users/{$staff->id}/permissions", [])->assertStatus(422);
         $this->postJson('/api/v1/common/roles', ['name' => 'X'])->assertStatus(422);
     }
+
+    /**
+     * BUG-038: the admin form now sends an empty name instead of stopping
+     * silently, and shows errors.name under the field - pin that message.
+     */
+    #[Test]
+    public function an_empty_role_name_is_refused_with_role_name_is_required(): void
+    {
+        $role = $this->roleFor($this->partner, 'Closers');
+        $this->actingAsUser($this->partnerAdmin);
+        $payload = ['name' => '', 'permission_ids' => [$this->viewLeads->id]];
+
+        $this->postJson('/api/v1/common/roles', $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.name', 'The role name is required.');
+        $this->putJson("/api/v1/common/roles/{$role->id}", $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.name', 'The role name is required.');
+        $this->assertSame('Closers', $role->fresh()->name);
+    }
 }

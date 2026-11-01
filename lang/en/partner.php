@@ -68,9 +68,12 @@ return [
             'max' => 'Sub Domain must not exceed 50 characters.',
             'regex' => 'Sub Domain must start with a letter and only contain letters, numbers, and hyphens, and cannot end with a hyphen.',
             'unique' => 'This subdomain is already taken. Please choose a different one.',
+            'host' => 'Enter a valid domain, e.g. admin.example.com.',
+            'portal_required' => 'Enter the partner portal domain.',
         ],
         'borrower_domain' => [
             'unique' => 'This borrower domain is already taken. Please choose a different one.',
+            'host' => 'Enter a valid domain, e.g. app.example.com.',
         ],
         'first_reg_date' => [
             'date' => 'First registration date must be a valid date.',
@@ -211,8 +214,6 @@ return [
     'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
     'default_enrollment_type' => 'Paid Enrollment',
     'trial_end_date' => 'Trial End Date',
-    'assigned_user' => 'Assigned User',
-    'field_changed' => ':field was changed',
     'field_updated' => ':field was updated to :value',
     'empty_value' => 'empty',
 

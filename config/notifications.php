@@ -55,6 +55,30 @@ use App\Services\FCH\Common\Notification\Sms\SmsChannel;
 // tests/Unit/Notification/NotificationCatalogueTest::TEXTED_TYPES.
 $bellAndMail = ['database', 'broadcast', 'mail'];
 
+// A Task activity assigned to a staff member: the same bell and email for
+// every record it can be logged on, only the link differs. One key per record
+// because a placeholder value is URL-encoded and so can't carry the path.
+$taskAssigned = fn (string $record, string $url) => [
+    'name' => "Task assigned to a staff member ({$record})",
+    'category' => 'reminder',
+    'icon' => 'ri-task-line',
+    'channels' => $bellAndMail,
+    'title' => 'New task assigned: {{subject}}',
+    'body' => '{{assigned_by}} assigned you a task on {{record}}. Due {{due_date}}, {{priority}} priority, {{status}}.',
+    'url' => $url,
+];
+
+// The task's other person (creator or assignee) told what changed on it.
+$taskUpdated = fn (string $record, string $url) => [
+    'name' => "Task updated - date, due date, priority or status ({$record})",
+    'category' => 'reminder',
+    'icon' => 'ri-task-line',
+    'channels' => $bellAndMail,
+    'title' => 'Task updated: {{subject}}',
+    'body' => '{{updated_by}} updated a task on {{record}}: {{changes}}.',
+    'url' => $url,
+];
+
 return [
 
     // Channel name => Laravel notification channel (name or class) for the
@@ -174,6 +198,18 @@ return [
             'title' => 'Your application is ready to review',
             'body' => 'A funding application has been prepared for you. Review it and submit.',
             'url' => '/fund-application/{{id}}',
+        ],
+
+        // Bell only: the borrower portal's pre-qualification page shows the
+        // status and note, and there is no status email for it yet (BUG-063).
+        'borrower.pre_qualification.status_changed' => [
+            'name' => 'Pre-qualification status changed (borrower)',
+            'category' => 'funding',
+            'icon' => 'ri-survey-line',
+            'channels' => ['database', 'broadcast'],
+            'title' => 'Pre-qualification {{status}}',
+            'body' => 'Your pre-qualification is now {{status}}.{{note}}',
+            'url' => '/pre-qualification',
         ],
 
         'partner.pre_qualification.submitted' => [
@@ -377,6 +413,38 @@ return [
             'url' => '/my-subscription',
         ],
 
+        // BUG-005: auto-charge stopped after too many failed attempts. The payer
+        // pays by hand from then on; a client's partner is told too.
+        'borrower.payment.auto_charge_stopped' => [
+            'name' => 'Automatic payment stopped (borrower)',
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => 'Automatic payment stopped',
+            'body' => "We stopped trying to charge invoice {{invoice}} automatically. Please pay it from your billing page.",
+            'url' => '/billing-details',
+        ],
+
+        'partner.payment.auto_charge_stopped' => [
+            'name' => 'Automatic payment stopped (partner)',
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => 'Automatic payment stopped',
+            'body' => "We stopped trying to charge invoice {{invoice}} automatically. Please pay it from My Subscription.",
+            'url' => '/my-subscription',
+        ],
+
+        'partner.client_auto_charge_stopped' => [
+            'name' => "A client's automatic payment stopped",
+            'category' => 'payment',
+            'icon' => 'ri-error-warning-line',
+            'channels' => $bellAndMail,
+            'title' => "Client's automatic payment stopped",
+            'body' => "We stopped trying to charge {{client}}'s invoice {{invoice}} automatically. They need to pay it themselves.",
+            'url' => '/invoices',
+        ],
+
         'invoice.sent' => [
             'name' => 'Invoice sent',
             'category' => 'payment',
@@ -425,8 +493,21 @@ return [
             'icon' => 'ri-edit-box-line',
             'channels' => $bellAndMail,
             'title' => 'Profile change request {{status}}',
-            'body' => 'Your request to change your {{field}} was {{status}}.',
+            // {{reason}} is " Reason: ..." for a rejection with a note (BUG-076), empty otherwise.
+            'body' => 'Your request to change your {{field}} was {{status}}.{{reason}}',
             'url' => '/profile',
+        ],
+
+        // A borrower document Accepted or Rejected by the host or partner
+        // (BUG-087). {{reason}} is " Reason: ..." for a rejection, empty otherwise.
+        'borrower.document.reviewed' => [
+            'name' => 'Document reviewed (borrower)',
+            'category' => 'document',
+            'icon' => 'ri-file-check-line',
+            'channels' => $bellAndMail,
+            'title' => 'Document {{status}}',
+            'body' => 'Your {{document}} was {{status}}.{{reason}}',
+            'url' => '/documents',
         ],
 
         'host.credit_builder.verification_requested' => [
@@ -533,6 +614,18 @@ return [
             'channels' => $bellAndMail,
             'title' => 'Your free trial has started',
             'body' => 'Your free trial is active until {{date}}.',
+            'url' => '/dashboard',
+        ],
+
+        // A Limited Free Plan with no end date (every embed form conversion):
+        // there is no trial and no date to name (BUG-143).
+        'borrower.account.free_plan_started' => [
+            'name' => 'Borrower free plan started',
+            'category' => 'system',
+            'icon' => 'ri-gift-line',
+            'channels' => $bellAndMail,
+            'title' => 'Your Limited Free Plan is active',
+            'body' => 'Welcome! Your Limited Free Plan is active - no payment is needed. Upgrade any time for full access.',
             'url' => '/dashboard',
         ],
 
@@ -659,6 +752,18 @@ return [
         ],
 
         // ── Email only: no login behind the address ─────────────────────
+
+        'activity_log.task_assigned.partner' => $taskAssigned('partner', '/partners/{{id}}'),
+        'activity_log.task_assigned.client' => $taskAssigned('client', '/clients/{{id}}'),
+        'activity_log.task_assigned.lead' => $taskAssigned('lead', '/leads/{{id}}'),
+        'activity_log.task_assigned.funding_application' => $taskAssigned('funding application', '/intake-review/funding-application/{{id}}'),
+        'activity_log.task_assigned.funding_request' => $taskAssigned('funding request', '/intake-review/funding-request/{{id}}'),
+
+        'activity_log.task_updated.partner' => $taskUpdated('partner', '/partners/{{id}}'),
+        'activity_log.task_updated.client' => $taskUpdated('client', '/clients/{{id}}'),
+        'activity_log.task_updated.lead' => $taskUpdated('lead', '/leads/{{id}}'),
+        'activity_log.task_updated.funding_application' => $taskUpdated('funding application', '/intake-review/funding-application/{{id}}'),
+        'activity_log.task_updated.funding_request' => $taskUpdated('funding request', '/intake-review/funding-request/{{id}}'),
 
         'activity_log.email' => [
             'name' => 'Email composed from the activity log',

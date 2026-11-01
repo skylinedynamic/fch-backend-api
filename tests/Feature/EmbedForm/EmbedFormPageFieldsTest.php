@@ -60,6 +60,30 @@ class EmbedFormPageFieldsTest extends TestCase
         $this->assertMatchesRegularExpression('/<input[^>]*name="business_postal_code"[^>]*data-req[^>]*>/', $page);
     }
 
+    /**
+     * The SSN field is the portals' one: masked ***-**-1234 at rest, dots while
+     * typed, the digits on the eye button. What is shown is never what is sent -
+     * the number itself travels in a hidden field carrying the name.
+     */
+    #[Test]
+    public function the_ssn_is_the_portals_masked_field_with_an_eye_button(): void
+    {
+        $page = $this->page()->getContent();
+
+        // The owner: a visible field the check reads, and the named value beside it.
+        $this->assertMatchesRegularExpression('/<input[^>]*id="ssn"[^>]*class="[^"]*ssn-field[^"]*"[^>]*data-req[^>]*data-type="ssn"[^>]*>/', $page);
+        $this->assertDoesNotMatchRegularExpression('/<input[^>]*id="ssn"[^>]*name="ssn"[^>]*>/', $page);
+        $this->assertMatchesRegularExpression('/<input type="hidden" class="ssn-value" name="ssn">/', $page);
+        $this->assertStringContainsString('aria-label="Show SSN"', $page);
+
+        // A co-borrower's SSN is the same field.
+        $this->assertStringContainsString('class="ssn-value" name="co_borrowers[${index}][ssn]"', $page);
+
+        // Masked at rest, the digits on the eye button.
+        $this->assertStringContainsString('function ssnMask(value)', $page);
+        $this->assertStringContainsString("'***-**-' + digits.slice(-4)", $page);
+    }
+
     #[Test]
     public function the_owners_country_and_zip_are_required(): void
     {

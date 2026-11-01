@@ -3,7 +3,10 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\OwnershipWithinTotal;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\Ssn;
 
 class CoBorrowerValidationRequest extends BaseApiRequest
 {
@@ -13,6 +16,19 @@ class CoBorrowerValidationRequest extends BaseApiRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * An SSN is nine digits; the hyphens are only how it is written. This used
+     * to demand bare digits, and the value is stored as sent, so a written SSN
+     * is reduced here - one stored form - while anything else is left for the
+     * rule to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('ssn')) {
+            $this->merge(['ssn' => Ssn::canonical($this->input('ssn'))]);
+        }
     }
 
     /**
@@ -28,12 +44,15 @@ class CoBorrowerValidationRequest extends BaseApiRequest
             'last_name' => 'required|string|max:255',
             'role' => 'required|string|max:255',
             // A percentage of the business.
-            'ownership' => 'required|numeric|min:0|max:100',
+            // other_ownership_total: what the owner and the other co-borrowers
+            // already hold, so this share must fit in what is left (BUG-108).
+            'ownership' => ['required', 'numeric', 'min:0', 'max:100', new OwnershipWithinTotal((float) $this->input('other_ownership_total', 0))],
+            'other_ownership_total' => 'nullable|numeric|min:0|max:100',
             'email' => 'required|email|max:255',
-            'mobile_phone' => 'required|string|max:20|regex:/^[\d\s\(\)\-\+]+$/',
-            'home_phone' => 'nullable|string|max:20|regex:/^[\d\s\(\)\-\+]+$/',
+            'mobile_phone' => ['required', 'string', new UsPhoneNumber()],
+            'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'date_of_birth' => 'required|date',
-            'ssn' => 'required|digits:9',
+            'ssn' => ['required', new Ssn()],
             'street_address' => 'required|string|max:255',
             'country' => 'required|string|max:255',
             'state' => 'required|string|max:255',

@@ -159,6 +159,8 @@ class BorrowerCapitalAccessController extends Controller
             'readiness_status_color' => $result['score_label_color'] ?? null,
             'factors'                => $result['factors'] ?? [],
             'estimated_total_access' => $estimatedAccess,
+            // Short, as the cards show it ($1.4M) - as the borrower's overview sends it.
+            'estimated_total_access_compact' => formatCompactCurrency($totalExposureMax),
             'exposure_breakdown'     => $exposureBreakdown,
             'current_play'           => $currentPlay,
             'reason_code'            => $reasonCode,

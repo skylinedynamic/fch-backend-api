@@ -3,12 +3,20 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\ActivityLog;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\Concerns\ValidatesTaskAssignment;
 use App\Models\ActivityLog\ActivityLog;
+use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
+use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lead\Lead;
+use App\Models\Partner\Partner;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
 
 class StoreActivityLogRequest extends BaseApiRequest
 {
+    use ValidatesTaskAssignment;
+
     public function authorize(): bool
     {
         return true;
@@ -46,7 +54,8 @@ class StoreActivityLogRequest extends BaseApiRequest
             ],
 
             'subject'       => ['required', 'string', 'max:200'],
-            'description'   => ['required', 'string'],
+            // The New Event form's Message has no *; an email needs its body.
+            'description'   => [Rule::requiredIf($this->log_type === ActivityLog::TYPE_EMAIL), 'nullable', 'string'],
 
             'to_emails' => [
                 Rule::requiredIf($this->log_type === ActivityLog::TYPE_EMAIL),
@@ -85,7 +94,9 @@ class StoreActivityLogRequest extends BaseApiRequest
                 'date'
             ],
             'category'      => ['nullable', 'string', 'max:255'],
-            'assigned_to'   => ['nullable', 'exists:users,id'],
+
+            // "Want to Assign" on a Task
+            ...$this->taskAssignmentRules(),
 
             // Attachments array
             'attachments'   => ['nullable', 'array'],
@@ -116,9 +127,30 @@ class StoreActivityLogRequest extends BaseApiRequest
         ];
     }
 
+    protected function taskReference(): ?string
+    {
+        return $this->input('reference');
+    }
+
+    /**
+     * The owner of the lead / client / funding request / funding application
+     * the activity is logged on; a Partner's own page names none.
+     */
+    protected function taskTeamPartner(): ?Partner
+    {
+        return $this->teamForRecordOwner(match (true) {
+            $this->filled('lead_id') => Lead::whereKey($this->input('lead_id'))->value('partner_id'),
+            $this->filled('borrower_id') => Borrower::whereKey($this->input('borrower_id'))->value('partner_id'),
+            $this->filled('funding_request_id') => FundingRequest::whereKey($this->input('funding_request_id'))->value('partner_id'),
+            $this->filled('funding_application_id') => FundingApplication::whereKey($this->input('funding_application_id'))->value('partner_id'),
+            default => null,
+        });
+    }
+
     public function messages(): array
     {
         return [
+            ...$this->taskAssignmentMessages(),
             'visibility.required'    => 'Please select who can see this activity.',
             'visibility.in'          => 'That visibility level is not available to you.',
             'to_emails.required'     => __('activity_log.to_emails_required'),
@@ -127,7 +159,10 @@ class StoreActivityLogRequest extends BaseApiRequest
             'to_emails.max'          => __('validation.max.string', ['attribute' => 'email', 'max' => 255]),
             'reference.required'     => __('activity_log.reference_required'),
             'activity_date.required' => __('activity_log.activity_date_required'),
-            'subject.required'       => __('activity_log.subject_required'),
+            // The New Event form labels `subject` Summary; the email form, Subject.
+            'subject.required'       => $this->log_type === ActivityLog::TYPE_ACTIVITY
+                ? __('activity_log.summary_required')
+                : __('activity_log.subject_required'),
             'subject.max'            => 'The summary may not be greater than 200 characters.',
             'description.required'   => __('activity_log.description_required'),
             'attachments.*.file'     => __('activity_log.attachment_file'),
@@ -138,6 +173,8 @@ class StoreActivityLogRequest extends BaseApiRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            $this->validateTaskAssignment($validator);
+
             $allowedExtensions = [
                 'jpg','jpeg','png','pdf','gif','webp','svg',
                 'xls','xlsx','doc','docx','ppt','pptx','txt',

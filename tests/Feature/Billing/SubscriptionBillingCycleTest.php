@@ -569,6 +569,78 @@ class SubscriptionBillingCycleTest extends TestCase
         $this->assertCount(1, $this->cycleInvoices($subscription));
     }
 
+    // ── A manual payment awaiting approval ──────────────────────────
+
+    /**
+     * A partner's platform fee raised and then paid by Cash / Bank Transfer:
+     * the invoice is Processing until the host approves it.
+     */
+    private function platformFeeAwaitingApproval(): array
+    {
+        $reseller = $this->partner(isHost: false);
+        $subscription = $this->enrol($reseller, $this->partnerOneTime);
+        $this->payInvoice($this->openInvoice($subscription), $subscription);
+
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $fee = Invoice::where('subscription_id', $subscription->id)->where('type', Invoice::INVOICE_TYPE_PLATFORM_FEE)->sole();
+        $fee->update(['status' => Invoice::STATUS_PROCESSING]);
+
+        return [$subscription->fresh(), $fee->fresh()];
+    }
+
+    private function platformFees(Subscription $subscription)
+    {
+        return Invoice::where('subscription_id', $subscription->id)->where('type', Invoice::INVOICE_TYPE_PLATFORM_FEE)->get();
+    }
+
+    /**
+     * Defect: only an Unpaid invoice counted as open, so while a manual payment
+     * waited for approval the cron raised the same cycle again - and charged it
+     * to the saved card, taking a second payment for a month already paid in
+     * cash. A payment awaiting approval is still the cycle's open invoice.
+     */
+    #[Test]
+    public function a_payment_awaiting_approval_holds_the_next_invoice_back(): void
+    {
+        [$subscription] = $this->platformFeeAwaitingApproval();
+        Queue::fake();
+
+        $this->runCron();
+        $this->runCron();
+
+        $this->assertCount(1, $this->platformFees($subscription), 'the cycle was raised again while its payment awaited approval');
+        Queue::assertNotPushed(ChargeSubscriptionInvoiceJob::class);
+        $this->assertFalse($this->callGuard($subscription->fresh()), 'the guard must see a Processing invoice as open');
+    }
+
+    #[Test]
+    public function once_the_payment_is_approved_the_next_cycle_is_raised(): void
+    {
+        [$subscription, $fee] = $this->platformFeeAwaitingApproval();
+
+        $this->payInvoice($fee, $subscription);
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $this->assertCount(2, $this->platformFees($subscription));
+        $this->assertSame(Invoice::STATUS_UNPAID, $this->platformFees($subscription)->sortByDesc('id')->first()->status);
+    }
+
+    #[Test]
+    public function a_rejected_payment_leaves_the_same_invoice_open_and_raises_no_other(): void
+    {
+        [$subscription, $fee] = $this->platformFeeAwaitingApproval();
+
+        // Rejecting a manual payment puts its invoice back to Unpaid.
+        $fee->update(['status' => Invoice::STATUS_UNPAID]);
+        $this->runCron();
+
+        $this->assertCount(1, $this->platformFees($subscription));
+        $this->assertSame(Invoice::STATUS_UNPAID, $fee->fresh()->status);
+    }
+
     #[Test]
     public function the_open_invoice_guard_holds_even_when_the_query_filter_is_bypassed(): void
     {
@@ -646,6 +718,47 @@ class SubscriptionBillingCycleTest extends TestCase
         $this->assertNotNull($raised, 'the due cycle should have been billed');
         $this->assertEquals(558.00, (float) $raised->payment_amount);
         $this->assertNotEquals(474.67, round((float) $raised->payment_amount, 2), 'the down payment must not be subtracted twice');
+    }
+
+    /**
+     * BUG-126: after the down payment was paid the subscription still said the
+     * down payment was due - installments_paid stays 0 (the down payment is not
+     * one of the installments), and nextBilling() read that as "nothing paid".
+     * What it shows must be what the next cycle actually bills.
+     */
+    #[Test]
+    public function after_the_down_payment_the_next_amount_due_is_the_monthly_installment(): void
+    {
+        $reseller = $this->partner(isHost: false);
+
+        $subscription = $this->enrol($reseller, $this->partnerOneTime, [
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT,
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'down_payment' => 1000.00,
+            'payable_amount' => 7696.70,
+            'total_subscription_amount' => 6696.70,
+            'subscription_amount_per_month' => 558.06,
+        ]);
+        $downPayment = Invoice::where('subscription_id', $subscription->id)->firstOrFail();
+        $downPayment->update(['type' => Invoice::INVOICE_TYPE_DOWN_PAYMENT, 'payment_amount' => 1000.00]);
+
+        $this->assertSame(1000.0, $subscription->fresh()->nextBilling()['amount'], 'before any payment the down payment is due');
+
+        $this->payInvoice($downPayment, $subscription);
+
+        $next = $subscription->fresh()->nextBilling();
+        $this->assertSame(__('subscription.next_billing.installment'), $next['type']);
+        $this->assertSame(558.06, $next['amount']);
+
+        // And the next cycle bills exactly that - no second down payment.
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $raised = $this->openInvoice($subscription);
+        $this->assertNotNull($raised, 'the due cycle should have been billed');
+        $this->assertSame(Invoice::INVOICE_TYPE_INSTALLMENT, $raised->type);
+        $this->assertEquals(558.06, (float) $raised->payment_amount);
     }
 
     #[Test]

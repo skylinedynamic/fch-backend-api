@@ -96,7 +96,7 @@ class BorrowerPortalLoginTest extends TestCase
 
         $this->login($admin->email)
             ->assertUnauthorized()
-            ->assertJsonPath('message', __('auth.invalid_email'));
+            ->assertJsonPath('message', __('auth.invalid_login'));
     }
 
     #[Test]

@@ -31,7 +31,8 @@ class InvoiceResource extends JsonResource
             'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'displayable_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'payment_date' => toDateOnly($this->payment_date),
-            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
+            // The invoice's own date, as the PDF shows it - not shifted into the viewer's zone (BUG-122).
+            'created_at' => toDateOnly($this->created_at),
             'status' => $this->status,
             'type' => $this->getFormattedType(),
             'details' => $this->details,

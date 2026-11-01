@@ -32,6 +32,8 @@ use Illuminate\Validation\ValidationException;
 
 class BorrowerService
 {
+    /** The numbers a client's details carry masked, which revealField() gives in full. */
+    public const REVEALABLE_FIELDS = ['ssn', 'business_ein', 'credit_profile_ssn'];
     use PaginatesApi, UploadsFiles;
 
     public function __construct(
@@ -297,10 +299,16 @@ class BorrowerService
 
         // Calculate statistics from the partner-scoped (but otherwise unfiltered) query, so the
         // summary cards show true totals rather than fluctuating with the table's search/filters.
+        // The host's split of its book: its own clients against its partners'.
+        $hostPartnerIds = Partner::where('is_host', true)->select('id');
+
         $statistics = [
             'total_borrowers' => (clone $statsQuery)->count(),
             'active_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_ACTIVE)->count(),
             'inactive_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_INACTIVE)->count(),
+            'suspended_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_SUSPENDED)->count(),
+            'host_borrowers' => (clone $statsQuery)->whereIn('borrowers.partner_id', $hostPartnerIds)->count(),
+            'partner_borrowers' => (clone $statsQuery)->whereNotIn('borrowers.partner_id', $hostPartnerIds)->count(),
             'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
@@ -342,6 +350,25 @@ class BorrowerService
     /**
      * Store a new borrower.
      */
+    /**
+     * A partner on a free trial may only add Limited Free Plan clients (BUG-142).
+     * The Convert Lead screen held this back but Add Client did not, and the API
+     * never checked, so a paid client and both its invoices could be created.
+     * The host is not on a trial and is never held back.
+     *
+     * @throws ValidationException
+     */
+    private function ensureMayAddPaidClient(?User $authUser): void
+    {
+        $partner = $authUser?->partner;
+
+        if ($partner && !$partner->is_host && $partner->is_free_trail) {
+            throw ValidationException::withMessages([
+                'is_free_trail' => __('borrower.paid_version_only'),
+            ]);
+        }
+    }
+
     public function store(array $data)
     {
         DB::beginTransaction();
@@ -358,6 +385,11 @@ class BorrowerService
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
 
             $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
+
+            // Add Client, Convert Lead and the embedded form all add clients here.
+            if (!$isFreeTrial) {
+                $this->ensureMayAddPaidClient($authUser);
+            }
 
             $data['status'] = $isFreeTrial ? Borrower::STATUS_ACTIVE : Borrower::STATUS_ONBOARDING;
 
@@ -435,13 +467,15 @@ class BorrowerService
                         __('borrower.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                     );
 
+                    // With no end date there is nothing to be "active until"
+                    // (BUG-143): the free plan welcome, not the trial bell.
                     $this->sendBorrowerMail(
-                        'borrower.account.trial_started',
+                        $trialEndDate ? 'borrower.account.trial_started' : 'borrower.account.free_plan_started',
                         $user,
                         $user->email,
                         new \App\Mail\Trial\BorrowerTrialMail(array_merge($mailData, ['trial_end_date' => $trialEndDate]), $borrower->partner_id),
                         $borrower->partner_id,
-                        ['date' => $trialEndDate ?? 'N/A']
+                        $trialEndDate ? ['date' => $trialEndDate] : []
                     );
 
                     $isHostPartner = $partner && $partner->is_host == 1;
@@ -494,6 +528,11 @@ class BorrowerService
 
             $wasFreeTrial = (bool) $borrower->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
+
+            // Taking a Limited Free Plan client onto a paid plan is a paid client too.
+            if ($wasFreeTrial && !$isFreeTrialInput) {
+                $this->ensureMayAddPaidClient(auth()->user());
+            }
 
             if (isset($data['business_logo']) && $data['business_logo'] instanceof UploadedFile) {
                 if ($borrower->business_logo) {
@@ -587,6 +626,24 @@ class BorrowerService
                         continue;
                     }
 
+                    // Who the client is assigned to, by name rather than user id
+                    if ($field === 'assign_id') {
+                        $owner = $this->activityLogService->describeOwnerChange(
+                            __('activity_log.owner_label_client'),
+                            $borrower->getPrevious()['assign_id'] ?? null,
+                            $newValue
+                        );
+                        $changedFields[] = $owner['sentence'];
+                        $extraProps['changes']['assign_id'] = $owner['change'];
+                        continue;
+                    }
+
+                    // An SSN or date of birth is recorded as changed, never repeated
+                    if (ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
                     $name = ucwords(str_replace('_', ' ', $field));
                     $val = (string) $newValue;
                     $val = $val === '' ? __('borrower.empty_value') : $val;
@@ -602,11 +659,14 @@ class BorrowerService
                     $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
                 }
 
+                // Only the Assigned To changed: an entry saying just that
+                $customSubject = array_keys($changes) === ['assign_id'] ? __('activity_log.owner_subject_client') : null;
+
                 $this->activityLogService->logModelEvent(
                     $borrower,
                     $logType,
                     $extraProps,
-                    null,
+                    $customSubject,
                     $customDescription
                 );
             }
@@ -764,6 +824,34 @@ class BorrowerService
     }
 
     /**
+     * A client's number that the details only carry masked, in full (BUG-014).
+     * Every reveal is logged on the client - who looked, never the number.
+     *
+     * @param  string  $field  one of REVEALABLE_FIELDS
+     */
+    public function revealField(Borrower $borrower, string $field): ?string
+    {
+        $label = ActivityLog::fieldLabel($field);
+
+        $this->activityLogService->logSystemEvent(
+            Borrower::class,
+            $borrower->id,
+            $borrower->partner_id,
+            $borrower->id,
+            "{$label} Viewed",
+            "The full {$label} was viewed.",
+        );
+
+        // The SSN printed on the credit report, kept with the credit profile
+        // (BUG-145) - not always the borrower's own.
+        if ($field === 'credit_profile_ssn') {
+            return $borrower->creditProfile?->personal_info['ssn'] ?? null;
+        }
+
+        return $borrower->{$field} ?: null;
+    }
+
+    /**
      * Get borrower details.
      */
     public function getDetails(int $id)
@@ -849,18 +937,23 @@ class BorrowerService
         // used to fail with "Failed to delete borrower(s)." on stage).
         $borrowers = Borrower::visibleTo(auth()->user())->with('user')->whereIn('borrowers.id', $ids)->get();
 
-        // A client with a paid invoice is kept (the payment record must stay).
-        // Refuse the whole selection and name each blocked client, so the user
-        // knows to set them Inactive or Suspended instead.
+        // A client with a paid invoice is kept (the payment record must stay),
+        // and so is one - paid or free - with a pre-qualification or funding
+        // application. Refuse the whole selection and name each blocked client,
+        // so the user knows to change their status instead.
         $blocked = $borrowers->reject(fn (Borrower $borrower) => $borrower->isDeletable());
         if ($blocked->isNotEmpty()) {
-            // One client: the plain sentence. Several: name the blocked ones.
+            // One client: why that client is kept. Several: name the blocked ones.
             $message = $borrowers->count() === 1
-                ? __('borrower.delete_blocked_paid_invoice')
+                ? $blocked->first()->notDeletableReason()
                 : __('borrower.delete_blocked_paid_invoice_named', ['names' => $blocked->pluck('full_name')->implode(', ')]);
 
             return ApiResponse::error($message, 422, [
-                'blocked' => $blocked->map(fn (Borrower $b) => ['id' => $b->id, 'name' => $b->full_name])->values(),
+                'blocked' => $blocked->map(fn (Borrower $b) => [
+                    'id' => $b->id,
+                    'name' => $b->full_name,
+                    'reason_code' => $b->notDeletableReasonCode(),
+                ])->values(),
             ]);
         }
 
@@ -888,12 +981,13 @@ class BorrowerService
         $results = [];
 
         foreach ($borrowers as $borrower) {
-            $is_deletable = $borrower->isDeletable();
+            $reasonCode = $borrower->notDeletableReasonCode();
             $results[] = [
                 'id' => $borrower->id,
                 'name' => $borrower->full_name,
-                'is_deletable' => $is_deletable,
-                'reason' => !$is_deletable ? $borrower->notDeletableReason() : null
+                'is_deletable' => $reasonCode === null,
+                'reason' => $reasonCode !== null ? $borrower->notDeletableReason() : null,
+                'reason_code' => $reasonCode,
             ];
         }
 

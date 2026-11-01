@@ -460,13 +460,27 @@ class PartnerService
                         continue;
                     }
 
-                    $name = $field === 'assign_to'
-                        ? __('partner.assigned_user')
-                        : ($field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field)));
-
+                    // The partner's Agent, by name rather than user id
                     if ($field === 'assign_to') {
-                        $changedFields[] = __('partner.field_changed', ['field' => $name]);
-                    } elseif ($field === 'full_name') {
+                        $owner = $this->activityLogService->describeOwnerChange(
+                            __('activity_log.owner_label_partner'),
+                            $partner->getPrevious()['assign_to'] ?? null,
+                            $newValue
+                        );
+                        $changedFields[] = $owner['sentence'];
+                        $extraProps['changes']['assign_to'] = $owner['change'];
+                        continue;
+                    }
+
+                    // An EIN or account number is recorded as changed, never repeated
+                    if (ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
+                    $name = $field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field));
+
+                    if ($field === 'full_name') {
                         $val = (string) $newValue;
                         $val = $val === '' ? __('partner.empty_value') : $val;
                         $changedFields[] = __('partner.name_updated', ['value' => $val]);
@@ -486,11 +500,14 @@ class PartnerService
                     $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
                 }
 
+                // Only the Agent changed: an entry saying just that
+                $customSubject = array_keys($changes) === ['assign_to'] ? __('activity_log.owner_subject_partner') : null;
+
                 $this->activityLogService->logModelEvent(
                     $partner,
                     $logType,
                     $extraProps,
-                    null,
+                    $customSubject,
                     $customDescription
                 );
             }
@@ -679,8 +696,9 @@ class PartnerService
         // Snapshot the query before any user-facing filter is applied, so the
         // summary cards keep showing true totals instead of recounting whatever the
         // table is currently filtered to. Archived partners are excluded: they are
-        // not active business.
-        $statsQuery = (clone $query)->notArchived();
+        // not active business. The host's own row stays in the table but is not
+        // one of its partners, so it is not counted.
+        $statsQuery = (clone $query)->notArchived()->excludingHost();
 
         // Filter based on authenticated user's host status
         // if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
@@ -1000,7 +1018,7 @@ class PartnerService
                     ->orWhere('business_name', 'LIKE', "%{$search}%")
                     ->orWhere('email', 'LIKE', "%{$search}%")
                     ->orWhere('phone_number', 'LIKE', "%{$search}%")
-                    ->orWhere('business_start_date', 'LIKE', "%{$search}%")
+                    ->orWhere('created_at', 'LIKE', "%{$search}%")
                     // Search concatenated full_name (first_name + last_name)
                     ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
             });

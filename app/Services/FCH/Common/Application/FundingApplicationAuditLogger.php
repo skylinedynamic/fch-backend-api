@@ -24,10 +24,6 @@ class FundingApplicationAuditLogger
     public const ACTOR_BORROWER = 'borrower';
     public const ACTOR_PARTNER = 'partner';
 
-    // Never written to the log in the clear - the entry is visible to the
-    // borrower and to staff, and a changed SSN needs recording, not repeating.
-    private const SENSITIVE_FIELD_MARKERS = ['ssn', 'ein', 'tax_id', 'date_of_birth', 'account_number', 'routing'];
-
     public function __construct(private ActivityLogService $activityLog)
     {
     }
@@ -283,15 +279,11 @@ class FundingApplicationAuditLogger
         ));
     }
 
+    // Never written to the log in the clear - the entry is visible to the
+    // borrower and to staff, and a changed SSN needs recording, not repeating.
     private function isSensitive(string $field): bool
     {
-        foreach (self::SENSITIVE_FIELD_MARKERS as $marker) {
-            if ($field === $marker || str_contains($field, $marker . '_') || str_ends_with($field, '_' . $marker)) {
-                return true;
-            }
-        }
-
-        return false;
+        return ActivityLog::isSensitiveField($field);
     }
 
     private function displayValue(mixed $value): string

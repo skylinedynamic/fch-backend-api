@@ -14,8 +14,14 @@ class CommonService
     /**
      * A partner's team (User::teamOf) as id, name, email and phone - the
      * caller's own, or for the host, the partner it names.
+     *
+     * The assign pickers ask for $activeOnly: inactive members are left out,
+     * except $keepIds (whoever is already assigned, so the field still shows
+     * them). List filters ask for everyone.
+     *
+     * @param  int[]  $keepIds
      */
-    public function getAllUsers(?int $partnerId = null)
+    public function getAllUsers(?int $partnerId = null, bool $activeOnly = false, array $keepIds = [])
     {
         $user = Auth::user();
 
@@ -31,6 +37,10 @@ class CommonService
 
         $users = User::query()
             ->teamOf($partner)
+            ->when($activeOnly, fn ($query) => $query->where(function ($query) use ($keepIds) {
+                $query->where('status', User::STATUS['active'])
+                    ->when($keepIds, fn ($query) => $query->orWhereIn('id', $keepIds));
+            }))
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();
@@ -46,22 +56,11 @@ class CommonService
         $user = Auth::user();
 
         if ($user->partner && $user->partner->is_host == 0) {
-            $count = User::where('partner_id', $user->partner->id)
-                ->where(function ($query) {
-                    $query->whereIn('entity_type', [Partner::class, Employee::class])
-                        ->orWhereNull('entity_type');
-                })
-                ->count();
-
-            $seatPlan = SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT)
-                ->where('partner_type', $user->partner->partner_type)
-                ->active()
-                ->first();
-
-            $partnerSubscription = $user->partner->subscription;
+            $partner = $user->partner;
+            $count = $partner->usedUserSeats();
+            $seatPlan = $partner->userSeatPlan();
             $perSeatPrice = $seatPlan ? (float) $seatPlan->total_amount : 49.00;
-            
-            $userSeats = $partnerSubscription ? ($partnerSubscription->user_seats ?? ($seatPlan?->total_seat_count ?? 3)) : ($seatPlan?->total_seat_count ?? 3);
+            $userSeats = $partner->userSeatLimit();
 
             return [
                 'count' => $count,

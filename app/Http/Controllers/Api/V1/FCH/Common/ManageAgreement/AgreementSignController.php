@@ -91,7 +91,9 @@ class AgreementSignController extends Controller
     }
 
     /**
-     * Get the raw signed HTML content for frontend preview.
+     * Get the raw signed HTML content for frontend preview, and whether the
+     * record is marked as signed - signed with no content means the signed
+     * copy is missing (the page then offers Re-sign).
      */
     public function getSignedHtml(Request $request, $userId = null)
     {
@@ -99,8 +101,10 @@ class AgreementSignController extends Controller
             if (!$targetUserId = $this->validateAccess($userId)) {
                 return ApiResponse::notFound(__('agreement.not_found'));
             }
-            $html = $this->agreementService->getSignedHtml($targetUserId);
-            return ApiResponse::success(['content_html' => $html]);
+            return ApiResponse::success([
+                'content_html' => $this->agreementService->getSignedHtml($targetUserId),
+                'has_sign' => $this->agreementService->isMarkedSigned($targetUserId),
+            ]);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.retrieval_failed') . ': ' . $e->getMessage());
         }

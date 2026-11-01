@@ -70,7 +70,7 @@ class UserManagementApiTest extends TestCase
         return array_merge([
             'name' => $user->name,
             'email' => $user->email,
-            'phone_number' => '555-' . random_int(1000000, 9999999),
+            'phone_number' => '555-' . random_int(2000000, 9999999), // exchange must not start with 0 or 1
             'role_id' => $this->salesRole->id,
             'status' => User::STATUS['active'],
         ], $overrides);
@@ -171,6 +171,18 @@ class UserManagementApiTest extends TestCase
         $this->postJson('/api/v1/common/users', $this->newUserPayload())
             ->assertStatus(400)
             ->assertJsonPath('status', false);
+    }
+
+    #[Test]
+    public function a_paid_seat_is_bought_for_at_least_one_whole_month(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        foreach (['-3', '0', 'abc', '1.5'] as $bad) {
+            $this->postJson('/api/v1/common/users', $this->newUserPayload(['is_paid' => true, 'months' => $bad]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['months']);
+        }
     }
 
     #[Test]

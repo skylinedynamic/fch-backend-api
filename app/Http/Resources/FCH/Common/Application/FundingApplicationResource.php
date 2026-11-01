@@ -77,11 +77,11 @@ class FundingApplicationResource extends JsonResource
             'debt_balance' => $this->debt_balance ? currencyFormat($this->debt_balance) : null,
             // Formatted for display (e.g. "$25,000.00"); *_original is the raw numeric
             // value for calculations and form inputs, which cannot parse the formatted one.
-            'requested_amount' => $this->requested_amount ? currencyFormat($this->requested_amount) : null,
+            'requested_amount' => currencyFormat($this->requestedAmountOrRequest()),
             'requested_amount_original' => $this->requested_amount !== null ? (float) $this->requested_amount : null,
-            'purpose_of_funds' => $this->purpose_of_funds,
+            'purpose_of_funds' => $this->purposeOfFundsOrRequest(),
             'purpose_note' => $this->purpose_note,
-            'preferred_funding_type' => $this->preferred_funding_type,
+            'preferred_funding_type' => $this->fundingTypeOrRequest(),
             'additional_funding_types' => $this->additional_funding_types ?? [],
             'timeframe_needed' => $this->timeframe_needed,
             'collateral_available' => $this->collateral_available,
@@ -96,8 +96,9 @@ class FundingApplicationResource extends JsonResource
             // edit form opens on, and whether the status is in the editable
             // list. When it isn't, locked_reason is what every viewer is shown.
             'funding_request_id' => $this->funding_request_id,
-            'is_editable' => $this->isEditable(),
-            'locked_reason' => $this->editingState()['locked_reason'],
+            // For the signed-in user: the host's team may edit at any status.
+            'is_editable' => $this->isEditableBy($request->user()),
+            'locked_reason' => $this->editingState($request->user())['locked_reason'],
             'credit_pull_authorization' => $this->credit_pull_authorization,
             'terms_conditions_acceptance' => $this->terms_conditions_acceptance,
             'filed_for_bankruptcy' => $this->filed_for_bankruptcy,

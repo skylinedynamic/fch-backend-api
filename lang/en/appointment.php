@@ -20,6 +20,10 @@ return [
     'update_failed' => 'Failed to update appointment.',
     'delete_failed' => 'Failed to delete appointment.',
     'time_slot_unavailable' => 'The selected time slot is not available for one or both users.',
+    'time_in_past' => 'This time has already passed. Choose a later time.',
+    'time_taken_by' => ':name already has an appointment from :from to :to. Choose another time.',
+    'time_taken_by_you' => 'You already have an appointment from :from to :to. Choose another time.',
+    'the_attendee' => 'The attendee',
     'external_email' => 'Microsoft 365 sync is not available for external email addresses.',
 
     // Availability messages

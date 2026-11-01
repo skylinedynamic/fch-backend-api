@@ -73,6 +73,69 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertCount(2, $this->postJson('/api/v1/common/embed-forms/submissions/fetch')->assertOk()->json('data'));
     }
 
+    /**
+     * Defect (BUG-009, OP-EMB-11): clicking Applicant, Contact Info or Desired
+     * Funding did nothing - the list was always newest first, whatever the sort.
+     */
+    #[Test]
+    public function the_inbox_sorts_by_each_sortable_column_in_both_directions(): void
+    {
+        $zed = $this->submissionFor($this->partner, ['first_name' => 'Zed', 'email' => 'a@example.test', 'desired_funding_amount' => 5000, 'status' => EmbedFormSubmission::STATUS_REVIEWING, 'created_at' => now()->subDay()]);
+        $amy = $this->submissionFor($this->partner, ['first_name' => 'Amy', 'email' => 'z@example.test', 'desired_funding_amount' => 50000, 'status' => EmbedFormSubmission::STATUS_NEW, 'created_at' => now()]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $field, string $order) => collect($this->postJson('/api/v1/common/embed-forms/submissions/fetch', [
+            'sort_field' => $field,
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$amy, $zed], $sorted('first_name', 'asc'));
+        $this->assertSame([$zed, $amy], $sorted('first_name', 'desc'));
+        $this->assertSame([$zed, $amy], $sorted('email', 'asc'));
+        $this->assertSame([$amy, $zed], $sorted('email', 'desc'));
+        $this->assertSame([$zed, $amy], $sorted('desired_funding_amount', 'asc'));
+        $this->assertSame([$amy, $zed], $sorted('desired_funding_amount', 'desc'));
+        $this->assertSame([$amy, $zed], $sorted('status', 'asc'));
+        $this->assertSame([$zed, $amy], $sorted('created_at', 'asc'));
+        $this->assertSame([$amy, $zed], $sorted('created_at', 'desc'));
+    }
+
+    /**
+     * Defect: Desired Funding asc/desc did nothing on the host's Loan
+     * Applications. Since the funding-application rewrite a submission stores
+     * requested_amount and leaves desired_funding_amount null; the column shows
+     * requested_amount, but the sort only read the (null) legacy column.
+     */
+    #[Test]
+    public function desired_funding_sorts_by_the_amount_the_column_shows(): void
+    {
+        $small = $this->submissionFor($this->partner, ['desired_funding_amount' => null, 'requested_amount' => 20000, 'created_at' => now()->subDays(2)]);
+        $large = $this->submissionFor($this->partner, ['desired_funding_amount' => null, 'requested_amount' => 80000, 'created_at' => now()]);
+        $legacy = $this->submissionFor($this->partner, ['desired_funding_amount' => 40000, 'requested_amount' => null, 'created_at' => now()->subDay()]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/common/embed-forms/submissions/fetch', [
+            'sort_field' => 'desired_funding_amount',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$small, $legacy, $large], $sorted('asc'));
+        $this->assertSame([$large, $legacy, $small], $sorted('desc'));
+    }
+
+    #[Test]
+    public function an_unknown_sort_field_falls_back_to_newest_first(): void
+    {
+        $older = $this->submissionFor($this->partner, ['created_at' => now()->subDay()]);
+        $newer = $this->submissionFor($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/embed-forms/submissions/fetch', ['sort_field' => 'ssn; drop table users', 'sort_order' => 'asc'])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newer)
+            ->assertJsonPath('data.1.id', $older);
+    }
+
     #[Test]
     public function i_open_and_move_my_partners_submission(): void
     {
@@ -105,6 +168,27 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertNotSame(200, $this->postJson("/api/v1/common/embed-forms/submissions/{$theirs}/convert-to-borrower")->status());
 
         $this->assertSame(EmbedFormSubmission::STATUS_NEW, DB::table('embedded_form_submissions')->where('id', $theirs)->value('status'));
+        $this->assertSame(0, DB::table('borrowers')->where('partner_id', $this->partner->id)->count());
+    }
+
+    /**
+     * BUG-098: a Rejected submission could still be converted, and ended up
+     * Converted. It has to be moved out of Rejected first.
+     */
+    #[Test]
+    public function a_rejected_submission_cannot_be_converted_or_previewed(): void
+    {
+        $rejected = $this->submissionFor($this->partner, ['status' => EmbedFormSubmission::STATUS_REJECTED]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson("/api/v1/common/embed-forms/submissions/{$rejected}/conversion-preview")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('embed_form.rejected_cannot_convert'));
+        $this->postJson("/api/v1/common/embed-forms/submissions/{$rejected}/convert-to-borrower")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('embed_form.rejected_cannot_convert'));
+
+        $this->assertSame(EmbedFormSubmission::STATUS_REJECTED, DB::table('embedded_form_submissions')->where('id', $rejected)->value('status'));
         $this->assertSame(0, DB::table('borrowers')->where('partner_id', $this->partner->id)->count());
     }
 

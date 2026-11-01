@@ -73,6 +73,16 @@ class TemplateRendererTest extends TestCase
     }
 
     #[Test]
+    public function a_link_missing_its_last_value_opens_the_parent_page(): void
+    {
+        $renderer = new TemplateRenderer();
+
+        $this->assertSame('/funding-requests', $renderer->render($this->type(), [])->url);
+        $this->assertSame('/funding-requests', $renderer->render($this->type(), ['id' => null])->url);
+        $this->assertSame('/', $renderer->render($this->type(['url' => '/']), [])->url);
+    }
+
+    #[Test]
     public function placeholder_values_cannot_break_out_of_the_link_path(): void
     {
         $rendered = (new TemplateRenderer())->render($this->type(), ['id' => '1/../../admin?x=1', 'status' => 'x']);

@@ -119,7 +119,8 @@ class FundingRequestResource extends JsonResource
             // acts on: a change to an application the borrower has already signed
             // withdraws *their* signature, so the partner is warned before it
             // happens rather than after.
-            ...($fundingApp ? $fundingApp->editingState() : self::noApplicationEditingState()),
+            // For the signed-in user: the host's team is never locked out.
+            ...($fundingApp ? $fundingApp->editingState($request->user()) : self::noApplicationEditingState()),
         ];
     }
 

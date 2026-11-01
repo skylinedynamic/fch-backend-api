@@ -223,6 +223,31 @@ class Subscription extends Model
     }
 
     /**
+     * Scope: order by the subscriber's name as the lists show it - a partner's
+     * full name, a client's first / middle / last name, a seat's user or
+     * employee name. The name is not a column, so each part is read with a
+     * correlated subquery: no join, which would let the joined table's id and
+     * status overwrite the subscription's own.
+     */
+    public function scopeOrderBySubscriberName($query, string $direction = 'asc')
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+        $part = fn (string $table, string $column) => "(SELECT {$table}.{$column} FROM {$table} WHERE {$table}.id = subscriptions.entity_id)";
+
+        return $query
+            ->orderByRaw(
+                'CASE subscriptions.entity_type WHEN ? THEN ' . $part('partners', 'full_name')
+                . ' WHEN ? THEN ' . $part('borrowers', 'first_name')
+                . ' WHEN ? THEN ' . $part('users', 'name')
+                . ' WHEN ? THEN ' . $part('employees', 'first_name')
+                . " END {$direction}",
+                [Partner::class, Borrower::class, User::class, Employee::class]
+            )
+            ->orderByRaw('CASE subscriptions.entity_type WHEN ? THEN ' . $part('borrowers', 'middle_name') . " END {$direction}", [Borrower::class])
+            ->orderByRaw('CASE subscriptions.entity_type WHEN ? THEN ' . $part('borrowers', 'last_name') . " END {$direction}", [Borrower::class]);
+    }
+
+    /**
      * Whether billing is currently stopped for this subscription.
      *
      * Derived from the subscriber's live status every time it is asked, never from
@@ -355,25 +380,29 @@ class Subscription extends Model
                 if ($isEnrollmentCompleted) {
                     // Enrollment paid off -> recurring platform fee.
                     $date = $this->subscription_end_date;
-                    $type = 'Platform Fee';
+                    $type = __('subscription.next_billing.platform_fee');
                     $amount = $this->monthly_platform_fee;
                 } else {
                     $date = $this->subscription_end_date ?? $this->first_payment_date;
-                    $type = 'One Time Enrollment';
+                    $type = __('subscription.next_billing.one_time_enrollment');
                     $amount = $this->payable_amount ?? $this->total_subscription_amount;
                 }
             } else {
                 $date = $this->subscription_end_date;
                 if (!$isEnrollmentCompleted) {
-                    if ((int) $this->installments_paid === 0 && (float) $this->down_payment > 0) {
-                        $type = 'Down Payment';
+                    // The down payment is due only while nothing has been paid:
+                    // the first payment sets subscription_start_date. Paying the
+                    // down payment leaves installments_paid at 0 (it is not one of
+                    // the installments), so that count cannot tell (BUG-126).
+                    if (!$this->subscription_start_date && (float) $this->down_payment > 0) {
+                        $type = __('subscription.next_billing.down_payment');
                         $amount = $this->down_payment;
                     } else {
-                        $type = 'Installment';
+                        $type = __('subscription.next_billing.installment');
                         $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
                     }
                 } else {
-                    $type = 'Platform Fee';
+                    $type = __('subscription.next_billing.platform_fee');
                     $amount = $this->monthly_platform_fee;
                 }
             }
@@ -382,14 +411,14 @@ class Subscription extends Model
             // there is no borrower platform fee.
             if (!$isEnrollmentCompleted) {
                 $date = $this->subscription_end_date;
-                $type = 'Installment';
+                $type = __('subscription.next_billing.installment');
                 $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
             }
         } else {
             // Additional Seat Subscription.
             $seatTotal = ($this->user_seats ?? 0) * ($this->per_seat_amount ?? 0);
             $date = $this->subscription_end_date;
-            $type = 'Seat Fee';
+            $type = __('subscription.next_billing.seat_fee');
             $amount = $seatTotal > 0 ? $seatTotal : $this->payable_amount;
         }
 

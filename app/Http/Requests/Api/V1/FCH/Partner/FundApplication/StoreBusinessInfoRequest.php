@@ -7,6 +7,7 @@ use App\Rules\UsPostalCode;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Rules\VisibleToUser;
+use App\Rules\UsPhoneNumber;
 
 class StoreBusinessInfoRequest extends BaseApiRequest
 {
@@ -32,7 +33,7 @@ class StoreBusinessInfoRequest extends BaseApiRequest
             'full_name' => 'required|string|max:255',
             'business_name' => 'required|string|max:255',
             'business_email' => 'required|email|max:255',
-            'business_phone_no' => 'required|string|max:255',
+            'business_phone_no' => ['required', 'string', new UsPhoneNumber()],
             'business_country' => 'required|string|max:255',
             'business_country_code' => 'required|string|max:10',
             'business_address' => 'required|string|max:255',

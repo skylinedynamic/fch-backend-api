@@ -12,6 +12,7 @@ use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
 use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Services\FCH\Common\Commission\CommissionPayoutService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,7 +43,11 @@ class CommissionPayoutTest extends TestCase
         Mail::fake();
 
         $this->host = $this->partner('Host LLC', true);
-        $this->admin = $this->user('admin@host.test', $this->host);
+        // The host's own login (its owner), who sees and pays every commission.
+        $this->admin = $this->user('admin@host.test', $this->host, [
+            'entity_type' => Partner::class,
+            'entity_id' => $this->host->id,
+        ]);
     }
 
     private function partner(string $name, bool $isHost): Partner
@@ -276,7 +281,7 @@ class CommissionPayoutTest extends TestCase
         Passport::actingAs($this->admin);
 
         return $this->postJson("/api/v1/admin/commission/{$commission->id}/payout", array_merge(
-            ['partner_payment_method' => 'Cash', 'note' => 'Paid in person'],
+            ['partner_payment_method' => 'Cash', 'note' => 'Paid in person', 'environment' => PaymentProvider::MODE_PRODUCTION],
             $data
         ));
     }
@@ -378,6 +383,55 @@ class CommissionPayoutTest extends TestCase
         $this->assertSame(0, CommissionPayout::count());
     }
 
+    /**
+     * The payment a payout records says which environment it was in. A payout
+     * goes through no gateway, so there is no payment method's mode to take it
+     * from: the host says, in the payout dialog.
+     */
+    #[Test]
+    public function the_environment_is_needed_to_pay(): void
+    {
+        $commission = $this->commission($this->host, $this->sellerOnTenPercent());
+
+        $this->pay($commission, ['environment' => null])->assertStatus(422)->assertJsonValidationErrors('environment');
+        $this->pay($commission, ['environment' => 'live'])->assertStatus(422)->assertJsonValidationErrors('environment');
+
+        $this->assertSame(0, CommissionPayout::count());
+    }
+
+    #[Test]
+    public function the_payment_is_recorded_in_the_environment_chosen(): void
+    {
+        $production = $this->commission($this->host, $this->sellerOnTenPercent());
+        $this->pay($production, ['environment' => PaymentProvider::MODE_PRODUCTION])->assertOk();
+
+        $sandbox = $this->commission($this->partner('Reseller Co', false), null);
+        $this->pay($sandbox, ['environment' => PaymentProvider::MODE_SANDBOX])->assertOk();
+
+        $this->assertSame(PaymentProvider::ENVIRONMENT_PRODUCTION, (int) Payment::where('invoice_id', $production->fresh()->payout->invoice_id)->sole()->is_environment);
+        $this->assertSame(PaymentProvider::ENVIRONMENT_SANDBOX, (int) Payment::where('invoice_id', $sandbox->fresh()->payout->invoice_id)->sole()->is_environment);
+    }
+
+    #[Test]
+    public function the_dialog_suggests_sandbox_outside_production(): void
+    {
+        $this->app['env'] = 'local';
+
+        $payout = $this->payout($this->commission($this->host, $this->sellerOnTenPercent()));
+
+        $this->assertSame(PaymentProvider::MODE_SANDBOX, $payout['default_environment']);
+    }
+
+    #[Test]
+    public function the_dialog_suggests_production_in_production(): void
+    {
+        $this->app['env'] = 'production';
+
+        $payout = $this->payout($this->commission($this->host, $this->sellerOnTenPercent()));
+
+        $this->assertSame(PaymentProvider::MODE_PRODUCTION, $payout['default_environment']);
+    }
+
     // ── Payout, invoice and payment records — the same for either payee ───
 
     #[Test]
@@ -446,6 +500,35 @@ class CommissionPayoutTest extends TestCase
         $this->assertSame('Reseller Co', $payout->name);
         $this->assertSame($invoice->id, $payout->invoice_id);
         $this->assertSame($payment->id, $payout->payment_id);
+    }
+
+    #[Test]
+    public function a_partner_payout_invoice_is_in_the_owners_name_never_the_company(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $commission = $this->commission($other, null);
+
+        $this->pay($commission, ['partner_payment_method' => 'Cash'])->assertOk();
+
+        $this->assertSame(
+            'Reseller Co Owner',
+            Invoice::where('type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)->sole()->customer_name
+        );
+    }
+
+    #[Test]
+    public function a_partner_with_no_owner_name_does_not_get_the_company_as_the_payout_name(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $other->update(['full_name' => null]);
+        $commission = $this->commission($other, null);
+
+        $this->pay($commission, ['partner_payment_method' => 'Cash'])->assertOk();
+
+        $this->assertNotSame(
+            'Reseller Co',
+            Invoice::where('type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)->sole()->customer_name
+        );
     }
 
     #[Test]

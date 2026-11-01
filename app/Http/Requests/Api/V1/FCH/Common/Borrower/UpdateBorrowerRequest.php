@@ -4,18 +4,45 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
+use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\Ssn;
+use App\Rules\FicoScore;
+use App\Rules\PartnerTeamMember;
+use App\Rules\BusinessCreditScore;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * The screen writes an EIN as XX-XXXXXXX; the number is the nine digits,
+     * and that is the one form the column holds. Anything that is not a writing
+     * of an EIN is left for BusinessEin to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        // The client's details carry both numbers masked (BUG-014); a form that
+        // sends the mask back has not changed the number, so the one on file stays.
+        foreach (['ssn', 'business_ein'] as $field) {
+            if (BusinessEin::isMask($this->input($field))) {
+                $this->request->remove($field);
+                $this->json()->remove($field);
+            }
+        }
+
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
+        }
     }
 
     public function rules(): array
@@ -35,7 +62,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'first_name'   => ['sometimes', 'required', 'string', 'max:255'],
             'middle_name'   => ['nullable', 'string', 'max:255'],
             'last_name'    => ['sometimes', 'required', 'string', 'max:255'],
-            'phone_number' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'phone_number' => ['sometimes', 'required', 'string', new UsPhoneNumber()],
             'email' => [
                 'sometimes', 'required', 'email', 'max:255',
                 // Matches the users.email index exactly: deleted accounts still hold theirs.
@@ -54,22 +81,20 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'home_address' => ['nullable', 'string', 'max:255'],
             'date_of_birth'=> ['nullable'],
-            'last_4_ssn'   => ['nullable', 'string', 'max:4'],
             // Full SSN, digits only or dashed (123456789 / 123-45-6789). Replaces
             // the stored value entirely — omit the field to leave it unchanged.
-            'ssn'          => ['nullable', 'string', 'regex:/^\d{3}-?\d{2}-?\d{4}$/'],
-
+            'ssn'          => ['nullable', 'string', new Ssn()],
             // ── Business Info ───────────────────────────────────────────────
             'business_name'         => ['nullable', 'string', 'max:255'],
             'business_ein'          => ['nullable', 'string', new BusinessEin()],
-            'business_phone'        => ['nullable', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'business_phone'        => ['nullable', 'string', new UsPhoneNumber()],
             'business_address'      => ['nullable', 'string', 'max:255'],
             'business_city'         => ['sometimes', 'nullable', 'string', 'max:255'],
             'business_country'      => ['sometimes', 'required', 'string', 'max:255'],
             'business_country_code' => ['nullable'],
             'business_other_city'   => ['required_if:business_city,Others', 'nullable', 'string', 'max:255'],
             'business_state'        => ['sometimes', 'nullable', 'string', 'max:255'],
-            'business_postal_code'  => ['nullable', 'string', 'max:255'],
+            'business_postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'business_email'        => ['nullable', 'email', 'max:255'],
             'business_website'      => ['nullable', 'max:255'],
             'business_entity_type'  => ['nullable', 'string', 'max:255'],
@@ -86,11 +111,11 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'partner_id'       => ['nullable', 'integer', 'exists:partners,id'],
             'status'           => ['nullable', 'string', 'max:255'],
             'current_tier'     => ['nullable'],
-            'assign_id'        => ['nullable', 'integer', 'exists:users,id'],
+            'assign_id'        => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner($borrower), $borrower?->assign_id, __('borrower_validation.assign_id_not_in_team'))],
             'notes'            => ['nullable', 'string'],
             'additional_data'  => ['nullable', 'json'],
-            'fico_score'       => ['nullable', 'numeric'],
-            'paydex_score'     => ['nullable', 'numeric'],
+            'fico_score'       => ['nullable', new FicoScore()],
+            'paydex_score'     => ['nullable', new BusinessCreditScore()],
             'is_free_trail'    => ['nullable', 'boolean'],
             'free_trail_end_date' => ['nullable'],
 
@@ -120,6 +145,21 @@ class UpdateBorrowerRequest extends BaseApiRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * The partner the client is filed under after this save: its own, or the
+     * one the host moves it to.
+     */
+    private function clientPartner(?Borrower $borrower): ?Partner
+    {
+        $partnerId = $this->integer('partner_id');
+
+        if ($partnerId && $this->user()?->partner?->is_host) {
+            return Partner::find($partnerId);
+        }
+
+        return $borrower?->partner ?? $this->user()?->partner;
     }
 
     public function messages(): array

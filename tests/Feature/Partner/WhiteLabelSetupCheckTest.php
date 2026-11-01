@@ -73,7 +73,7 @@ class WhiteLabelSetupCheckTest extends TestCase
             'first_name' => 'Ada',
             'last_name' => 'Lovelace',
             'email' => 'ada-' . uniqid() . '@example.test',
-            'phone_number' => '(555) 123-4567',
+            'phone_number' => '(555) 234-5678',
             'country' => 'United States',
             'business_country' => 'United States',
             'is_free_trail' => true,

@@ -37,6 +37,7 @@ class PreQualificationResource extends JsonResource
             'business_name' => $this->business_name ?? null,
             'industry_type' => $this->industry_type ?? null,
             'business_structure' => $this->business_structure ?? null,
+            'business_start_date' => toDateOnly($startDate),
             'years_in_business' => $yearsInBusiness,
             'monthly_revenue' => !empty($this->monthly_revenue) ? currencyFormat($this->monthly_revenue) : null,
             'annual_revenue' => !empty($this->annual_revenue) ? currencyFormat($this->annual_revenue) : null,

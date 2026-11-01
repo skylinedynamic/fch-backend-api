@@ -162,6 +162,8 @@ return [
     'years_in_business_required' => 'Years in business is required',
     'years_in_business_string' => 'Years in business must be a string',
     'years_in_business_max' => 'Years in business cannot exceed 255 characters',
+    'prequalification_business_start_date_required' => 'Business start date is required to work out Time in Business',
+    'business_start_date_future' => 'Business start date cannot be in the future',
 
     'avg_bank_balance_numeric' => 'Average bank balance must be a number',
     'avg_bank_balance_min' => 'Average bank balance cannot be negative',
@@ -244,6 +246,7 @@ return [
     // Service & Admin
     'partner_id_exists' => 'Selected partner does not exist',
     'assign_id_exists' => 'Selected assigned user does not exist',
+    'assign_id_not_in_team' => 'Assign the client to someone on the client\'s partner team.',
     'notes_max' => 'Notes cannot exceed 1000 characters',
     'id_integer' => 'ID must be an integer',
     'id_exists' => 'Selected record not found',
@@ -310,6 +313,8 @@ return [
     'citizenship_status_string' => 'Citizenship status must be a string',
     'citizenship_status_max' => 'Citizenship status cannot exceed 255 characters',
     'ownership_numeric' => 'Ownership must be a number',
+    'ownership_between' => 'Ownership must be between 0% and 100%.',
+    'ownership_total_max' => 'Total ownership of the owner and co-borrowers cannot be more than 100% (now :total%).',
     'has_co_borrower_boolean' => 'Has co-borrower must be true or false',
 
     // Funding Application Financial Info
@@ -407,4 +412,21 @@ return [
     
     // Bank Accounts
     'bank_name_required' => 'Bank Name is required.',
+
+    // Change Password (worded as the admin portal's, lang/en/profile.php)
+    'current_password_required' => 'Current password is required.',
+    'current_password_incorrect' => 'Current password does not match our records.',
+    'new_password_required' => 'New password is required.',
+    'new_password_min' => 'New password must be at least 8 characters long.',
+    'new_password_mixed' => 'New password must include both uppercase and lowercase letters.',
+    'new_password_letters' => 'New password must contain at least one letter.',
+    'new_password_numbers' => 'New password must include at least one number.',
+    'new_password_symbols' => 'New password must include at least one special character.',
+    'new_password_confirmed' => 'New password confirmation does not match.',
+    'new_password_different' => 'New password must be different from the old password.',
+    'password_update_success' => 'Password updated successfully.',
+
+    // Funding request
+    'approved_funding_string' => 'Approved funding must be text.',
+    'approved_funding_max' => 'Approved funding cannot exceed 255 characters.',
 ];

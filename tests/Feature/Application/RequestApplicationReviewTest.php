@@ -8,6 +8,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -142,6 +143,57 @@ class RequestApplicationReviewTest extends TestCase
         $this->getJson($this->url("funding-application/{$this->theirApplicationId}"))
             ->assertJsonPath('status', false)
             ->assertJsonMissingPath('data.id');
+    }
+
+    /**
+     * BUG-120. Defect: the funded date was the UTC day, so a deal closed at
+     * 03:30 on 21 Oct in Dhaka (20 Oct 21:30 UTC) was funded on 20 Oct.
+     */
+    #[Test]
+    public function a_funded_date_is_the_day_in_the_closers_timezone(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        Carbon::setTestNow(Carbon::parse('2026-10-20 21:30:00', 'UTC'));
+
+        $this->withHeader('X-Timezone', 'Asia/Dhaka')->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::CLOSED_COMPLETED,
+            'funded_amount' => 50000,
+        ])->assertOk();
+        Carbon::setTestNow();
+
+        $this->assertStringStartsWith('2026-10-21', (string) DB::table('funding_applications')->where('id', $this->myApplicationId)->value('funded_date'));
+    }
+
+    /** A status change, and a note on its own, are written to the activity log. */
+    #[Test]
+    public function a_status_change_and_a_note_are_logged(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+            'status_note' => 'Docs in',
+        ])->assertOk();
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+            'status_note' => 'Still waiting on bank statements',
+        ])->assertOk();
+
+        $logs = DB::table('activity_log')
+            ->where('log_name', 'funding_application_status_update')
+            ->where('subject_id', $this->myApplicationId)
+            ->orderBy('id')
+            ->get(['event', 'description']);
+
+        $from = ucwords(str_replace('_', ' ', FundingApplication::SUBMITTED));
+        $to = ucwords(str_replace('_', ' ', FundingApplication::UNDERWRITING_REVIEW));
+        $this->assertSame("Funding Application Status Changed: {$from} → {$to}", $logs[0]->event);
+        $this->assertSame("Status updated to: {$to}\nNote: Docs in", $logs[0]->description);
+        $this->assertSame('Funding Application Note Updated', $logs[1]->event);
+        $this->assertSame("Status note was updated.\nNote: Still waiting on bank statements", $logs[1]->description);
     }
 
     #[Test]

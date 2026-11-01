@@ -157,6 +157,19 @@
             padding: 9px 12px;
         }
 
+        /* The SSN field's eye button: the field's own border, nothing louder. */
+        .ssn-eye {
+            border: 1px solid #e2e8f0 !important;
+            background-color: #fff;
+            color: #64748b;
+            border-radius: 0 4px 4px 0 !important;
+            box-shadow: none !important;
+        }
+
+        .ssn-eye:hover {
+            color: #334155;
+        }
+
         /* Outline whole input group including icon in red ONLY on validation error */
         .input-group.is-invalid .input-group-text,
         .input-group:has(>.form-control.is-invalid) .input-group-text {
@@ -1262,8 +1275,15 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Social Security Number <span
                                     class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="ssn" id="ssn" data-req data-type="ssn"
-                                placeholder="XXX-XX-XXXX" maxlength="11" autocomplete="off">
+                            {{-- The portals' SSN field: masked ***-**-1234 at rest, dots while
+                                 typed, the digits on the eye button. The number itself travels
+                                 in the hidden field that carries the name. --}}
+                            <div class="input-group">
+                                <input type="password" id="ssn" class="form-control ssn-field" data-req data-type="ssn"
+                                    placeholder="XXX-XX-XXXX" maxlength="11" autocomplete="off" inputmode="numeric">
+                                <button type="button" class="btn ssn-eye" tabindex="-1" aria-label="Show SSN" title="Show SSN"><i class="bi bi-eye"></i></button>
+                                <input type="hidden" class="ssn-value" name="ssn">
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Citizenship Status <span
@@ -2525,7 +2545,8 @@
          */
         function fieldError(el) {
             const type = el.dataset.type;
-            const value = (el.value || '').trim();
+            // An SSN field shows a mask; the number is in its hidden twin.
+            const value = (type === 'ssn' ? ssnValueOf(el).value : (el.value || '')).trim();
 
             if (type === 'consent') return el.checked ? '' : 'Please check this box to continue.';
 
@@ -2822,7 +2843,11 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold small mb-1">SSN</label>
-                    <input type="text" class="form-control form-control-sm co-ssn" maxlength="11" placeholder="XXX-XX-XXXX" name="co_borrowers[${index}][ssn]">
+                    <div class="input-group input-group-sm">
+                        <input type="password" class="form-control form-control-sm ssn-field" maxlength="11" placeholder="XXX-XX-XXXX" autocomplete="off" inputmode="numeric">
+                        <button type="button" class="btn ssn-eye" tabindex="-1" aria-label="Show SSN" title="Show SSN"><i class="bi bi-eye"></i></button>
+                        <input type="hidden" class="ssn-value" name="co_borrowers[${index}][ssn]">
+                    </div>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold small mb-1">Street Address</label>
@@ -2885,9 +2910,54 @@
             return digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits;
         }
 
+        /* The portals' SSN field (borrower-fch SsnInput): masked at rest, dots
+           while typed, the digits on the eye button. */
+
+        /** ***-**-1234 - the only part of an SSN shown at rest. */
+        function ssnMask(value) {
+            const digits = String(value || '').replace(/\D/g, '');
+            return '***-**-' + digits.slice(-4);
+        }
+
+        function ssnValueOf(field) {
+            return field.parentElement.querySelector('.ssn-value');
+        }
+
+        function renderSsn(field) {
+            const value = ssnValueOf(field).value;
+            const complete = value.replace(/\D/g, '').length === 9;
+            const revealed = field.dataset.revealed === '1';
+            const masked = complete && !revealed && document.activeElement !== field;
+
+            field.type = masked || revealed ? 'text' : 'password';
+            field.value = masked ? ssnMask(value) : value;
+
+            const eye = field.parentElement.querySelector('.ssn-eye');
+            eye.setAttribute('aria-label', revealed ? 'Hide SSN' : 'Show SSN');
+            eye.title = revealed ? 'Hide SSN' : 'Show SSN';
+            eye.querySelector('i').className = revealed ? 'bi bi-eye-slash' : 'bi bi-eye';
+        }
+
+        document.addEventListener('focusin', function (e) {
+            if (e.target.classList && e.target.classList.contains('ssn-field')) renderSsn(e.target);
+        });
+
+        document.addEventListener('focusout', function (e) {
+            if (e.target.classList && e.target.classList.contains('ssn-field')) setTimeout(() => renderSsn(e.target));
+        });
+
+        document.addEventListener('click', function (e) {
+            const eye = e.target.closest && e.target.closest('.ssn-eye');
+            if (!eye) return;
+            const field = eye.parentElement.querySelector('.ssn-field');
+            field.dataset.revealed = field.dataset.revealed === '1' ? '0' : '1';
+            renderSsn(field);
+        });
+
         document.addEventListener('input', function (e) {
-            if (e.target.id === 'ssn' || e.target.classList.contains('co-ssn')) {
+            if (e.target.classList.contains('ssn-field')) {
                 e.target.value = maskSsn(e.target.value);
+                ssnValueOf(e.target).value = e.target.value;
             }
             if (e.target.dataset.type === 'ein') {
                 e.target.value = maskEin(e.target.value);

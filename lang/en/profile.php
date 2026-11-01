@@ -18,6 +18,7 @@ return [
     'change_request_list_success' => 'Change requests retrieved successfully.',
     'change_request_status_updated' => 'Change request status updated successfully.',
     'change_request_already_processed' => 'This change request has already been processed and cannot be modified.',
+    'change_request_nothing_to_reveal' => 'Only an SSN or EIN change is masked; this one has nothing to reveal.',
 
     // Notifications. A submission is announced to the host; a decision goes back
     // to the borrower only. See App\Services\Profile\ChangeRequestNotifier.

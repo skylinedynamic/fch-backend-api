@@ -183,6 +183,9 @@ class LeadController extends Controller
             }
 
             return ApiResponse::success($result, __('lead.conversion_success'));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // e.g. a partner on a free trial converting into a paid client (BUG-142).
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage() ?: __('lead.conversion_failed'));
         }

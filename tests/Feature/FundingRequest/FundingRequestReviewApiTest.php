@@ -97,6 +97,34 @@ class FundingRequestReviewApiTest extends TestCase
         $this->assertCount(2, $this->postJson('/api/v1/common/funding-request')->assertOk()->json('data'));
     }
 
+    /**
+     * Defect (BUG-008, OP-FREQ-04): the FUNDING SEQUENCE column sorted by the
+     * sequence's id, not the name it shows, so the second (descending) click
+     * gave "Colt Bright / Equipment Leasing / Vendor Credit / Business Credit".
+     */
+    #[Test]
+    public function the_list_sorts_by_the_funding_sequence_name_both_ways(): void
+    {
+        // Created in an order that is not alphabetical, so id order != name order.
+        $byName = ['Business Lines of Credit' => $this->myRequestId];
+        foreach (['Vendor Credit', 'Business Credit', 'Equipment Leasing'] as $name) {
+            $sequence = DB::table('funding_sequencings')->insertGetId(['name' => $name, 'status' => 'Active', 'created_at' => now(), 'updated_at' => now()]);
+            $request = $this->requestFor($this->myBorrower);
+            DB::table('funding_requests')->where('id', $request)->update(['funding_sequence_id' => $sequence]);
+            $byName[$name] = $request;
+        }
+        ksort($byName);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/common/funding-request', [
+            'sort_field' => 'funding_sequence_id',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame(array_values($byName), $sorted('asc'));
+        $this->assertSame(array_reverse(array_values($byName)), $sorted('desc'));
+    }
+
     #[Test]
     public function the_list_narrows_to_one_client(): void
     {
@@ -179,6 +207,53 @@ class FundingRequestReviewApiTest extends TestCase
             ->assertJsonPath('status', false);
         $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->myRequestId, 'lender_ids' => [999999]])
             ->assertStatus(422);
+    }
+
+    /**
+     * Defect (BUG-070): the activity entry read "Lenders Assigned to Request"
+     * with the lender only in the collapsed description, so two assignments
+     * could not be told apart.
+     */
+    /**
+     * Defect (BUG-070): the tracker had only created_at and updated_at, so once
+     * the request was approved the dates of the steps in between were gone. The
+     * detail carries when each status was reached (from the status-change log).
+     */
+    #[Test]
+    public function the_detail_keeps_the_date_each_status_was_reached(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $steps = [
+            FundingRequest::STATUS_ACCEPTED => '2026-10-20 09:00:00',
+            FundingRequest::STATUS_IN_PROGRESS => '2026-10-21 10:30:00',
+            FundingRequest::STATUS_APPROVED => '2026-10-22 15:45:00',
+        ];
+        foreach ($steps as $status => $at) {
+            $this->travelTo(\Carbon\Carbon::parse($at));
+            $this->postJson('/api/v1/common/funding-request/status-update', ['id' => $this->myRequestId, 'status' => $status])->assertOk();
+            $this->travelBack();
+        }
+
+        $dates = $this->getJson("/api/v1/common/funding-request/{$this->myRequestId}")->assertOk()->json('data.status_dates');
+
+        foreach ($steps as $status => $at) {
+            $this->assertSame($at, \Carbon\Carbon::parse($dates[$status])->format('Y-m-d H:i:s'), $status);
+        }
+    }
+
+    #[Test]
+    public function the_assignment_activity_names_the_lender(): void
+    {
+        $lenderId = DB::table('lenders')->insertGetId(['name' => 'Big Bank', 'created_at' => now(), 'updated_at' => now()]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->myRequestId, 'lender_ids' => [$lenderId]])->assertOk();
+
+        $this->assertSame('Lender Assigned: Big Bank', DB::table('activity_log')
+            ->where('subject_type', FundingRequest::class)
+            ->where('subject_id', $this->myRequestId)
+            ->latest('id')
+            ->value('event'));
     }
 
     #[Test]

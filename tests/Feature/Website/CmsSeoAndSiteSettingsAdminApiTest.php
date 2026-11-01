@@ -59,6 +59,63 @@ class CmsSeoAndSiteSettingsAdminApiTest extends TestCase
         $this->getJson("/api/v1/admin/cms/seo-settings/{$id}")->assertNotFound();
     }
 
+    /** @return array<int, string> page names listed for this request body */
+    private function listedPages(array $body): array
+    {
+        return collect($this->postJson('/api/v1/admin/cms/seo-settings', $body)->assertOk()->json('data'))->pluck('page_name')->sort()->values()->all();
+    }
+
+    private function seedPages(): void
+    {
+        foreach ([
+            ['FAQ', '/faq', 'Frequently Asked Questions'],
+            ['FAQ Funding', '/funding-faq', 'Funding questions'],
+            ['Partner Program', '/partner-program', 'Partner with Four Corner Funding'],
+            ['Home', '/', 'Welcome'],
+        ] as [$name, $path, $title]) {
+            SeoSetting::create(['partner_id' => $this->host->id, 'page_name' => $name, 'path' => $path, 'meta_title' => $title]);
+        }
+    }
+
+    /**
+     * Defect (BUG-124): the Page Name / Path / Meta Title column filters were
+     * never sent - the list ignored "Starts with FAQ" and showed every page.
+     * The list takes them as filters[field] = {value, match_mode}.
+     */
+    #[Test]
+    public function the_list_filters_by_each_column_with_its_match_mode(): void
+    {
+        $this->actingAsUser($this->editor);
+        $this->seedPages();
+        $filter = fn (string $field, string $value, string $mode = 'startsWith') => ['filters' => [$field => ['value' => $value, 'match_mode' => $mode]]];
+
+        $this->assertSame(['FAQ', 'FAQ Funding'], $this->listedPages($filter('page_name', 'FAQ')));
+        $this->assertSame(['FAQ', 'FAQ Funding'], $this->listedPages($filter('path', '/f')));
+        $this->assertSame(['Partner Program'], $this->listedPages($filter('meta_title', 'Partner')));
+
+        $this->assertSame(['FAQ Funding', 'Partner Program'], $this->listedPages($filter('meta_title', 'fund', 'contains')));
+        $this->assertSame(['Home', 'Partner Program'], $this->listedPages($filter('page_name', 'FAQ', 'notContains')));
+        $this->assertSame(['FAQ Funding'], $this->listedPages($filter('page_name', 'Funding', 'endsWith')));
+        $this->assertSame(['Home'], $this->listedPages($filter('path', '/', 'equals')));
+        $this->assertSame(['FAQ', 'FAQ Funding', 'Partner Program'], $this->listedPages($filter('path', '/', 'notEquals')));
+
+        // Columns combine with each other and with the search box.
+        $this->assertSame(['FAQ Funding'], $this->listedPages(['search' => 'funding', 'filters' => ['page_name' => ['value' => 'FAQ', 'match_mode' => 'startsWith']]]));
+        // An empty value or an unknown column / mode filters nothing.
+        $this->assertCount(4, $this->listedPages(['filters' => ['page_name' => ['value' => '', 'match_mode' => 'startsWith'], 'og_image' => ['value' => 'x'], 'path' => ['value' => '/f', 'match_mode' => 'regex']]]));
+    }
+
+    /** sort_field was put straight into ORDER BY; only listed columns are accepted now. */
+    #[Test]
+    public function an_unknown_sort_column_falls_back_to_the_default_order(): void
+    {
+        $this->actingAsUser($this->editor);
+        $this->seedPages();
+
+        $this->postJson('/api/v1/admin/cms/seo-settings', ['sort_field' => 'id desc, (select 1)', 'sort_order' => 'sideways'])->assertOk()->assertJsonCount(4, 'data');
+        $this->assertSame('Partner Program', $this->postJson('/api/v1/admin/cms/seo-settings', ['sort_field' => 'page_name', 'sort_order' => 'desc'])->json('data.0.page_name'));
+    }
+
     #[Test]
     public function two_entries_cannot_share_a_path(): void
     {
@@ -78,7 +135,7 @@ class CmsSeoAndSiteSettingsAdminApiTest extends TestCase
         $this->postJson('/api/v1/admin/cms/site-settings', [
             'site_name' => 'Four Corner',
             'address' => '1 Main St',
-            'phone_number' => '+1 (555) 010-0100',
+            'phone_number' => '+1 (555) 210-0100',
             'email' => 'hello@example.org',
             'map_iframe' => '<iframe src="https://maps.example.org"></iframe>',
             'social_links' => [['platform' => 'X', 'url' => ' https://x.example.org/fc ']],
@@ -89,6 +146,55 @@ class CmsSeoAndSiteSettingsAdminApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.site_name', 'Four Corner')
             ->assertJsonPath('data.social_links.0.url', 'https://x.example.org/fc');
+    }
+
+    private function validSiteSettings(): array
+    {
+        return [
+            'site_name' => 'Four Corner',
+            'address' => '1 Main St',
+            'phone_number' => '+1 (555) 210-0100',
+            'email' => 'hello@example.org',
+            'map_iframe' => '<iframe src="https://maps.example.org"></iframe>',
+        ];
+    }
+
+    /**
+     * Defect (BUG-022, OP-CMS-03): the reCAPTCHA secret came back in full and
+     * the form showed it as plain text. It is reported as set (masked) only.
+     */
+    #[Test]
+    public function the_recaptcha_secret_is_never_sent_back(): void
+    {
+        AppConfiguration::set('recaptcha_site_key', 'site-key-public', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        AppConfiguration::set('recaptcha_secret_key', 'secret-key-0123456789', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        $this->actingAsUser($this->editor);
+
+        $this->getJson('/api/v1/admin/cms/site-settings')
+            ->assertOk()
+            ->assertJsonPath('data.recaptcha_site_key', 'site-key-public')
+            ->assertJsonPath('data.recaptcha_secret_key', AppConfiguration::SECRET_MASK)
+            ->assertDontSee('secret-key-0123456789');
+
+        $this->postJson('/api/v1/admin/cms/site-settings', $this->validSiteSettings())
+            ->assertOk()
+            ->assertDontSee('secret-key-0123456789');
+    }
+
+    #[Test]
+    public function saving_without_retyping_the_secret_keeps_it_and_a_new_one_replaces_it(): void
+    {
+        AppConfiguration::set('recaptcha_secret_key', 'secret-key-0123456789', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        $this->actingAsUser($this->editor);
+        $stored = fn () => AppConfiguration::get('recaptcha_secret_key', null, AppConfiguration::MODULE_WEBSITE, $this->host->id);
+
+        foreach (['', AppConfiguration::SECRET_MASK] as $sentBack) {
+            $this->postJson('/api/v1/admin/cms/site-settings', [...$this->validSiteSettings(), 'recaptcha_secret_key' => $sentBack])->assertOk();
+            $this->assertSame('secret-key-0123456789', $stored());
+        }
+
+        $this->postJson('/api/v1/admin/cms/site-settings', [...$this->validSiteSettings(), 'recaptcha_secret_key' => 'rotated-secret'])->assertOk();
+        $this->assertSame('rotated-secret', $stored());
     }
 
     #[Test]

@@ -98,10 +98,15 @@ class Reminder extends Model
         });
     }
 
-    /** Whether the due-reminder pop-up shows it: fired, or past its time and not yet fired. */
+    /**
+     * Whether the due-reminder pop-up shows it: fired, or past its time and not
+     * yet fired. A silent row (is_reminder false - e.g. the creator's copy of a
+     * task only its assignee is reminded of) is listed but never shown.
+     */
     public function isShowable(): bool
     {
-        return self::showable($this->status, $this->reminder_date_time ?? $this->send_at ?? $this->set_date_time);
+        return $this->is_reminder !== false
+            && self::showable($this->status, $this->reminder_date_time ?? $this->send_at ?? $this->set_date_time);
     }
 
     /** isShowable() for the values the row had before the current change. */
@@ -109,7 +114,8 @@ class Reminder extends Model
     {
         $at = $this->getOriginal('reminder_date_time') ?? $this->getOriginal('send_at') ?? $this->getOriginal('set_date_time');
 
-        return self::showable($this->getOriginal('status'), $at);
+        return $this->getOriginal('is_reminder') !== false
+            && self::showable($this->getOriginal('status'), $at);
     }
 
     private static function showable(?string $status, $at): bool
@@ -162,7 +168,8 @@ class Reminder extends Model
 
     private static function clientRelations(): array
     {
-        return ['activityLog', 'entity' => function (MorphTo $morphTo) {
+        // activityLog.causer: who assigned the task, shown with its status
+        return ['activityLog.causer', 'entity' => function (MorphTo $morphTo) {
             $morphTo->morphWith([
                 FundingRequest::class => ['borrower'],
                 FundingApplication::class => ['borrower'],
@@ -287,7 +294,9 @@ class Reminder extends Model
 
     public function scopeDue($query)
     {
+        // Silent rows (is_reminder false) are listed only, never fired
         return $query->where('status', self::STATUS_PENDING)
+            ->where('is_reminder', true)
             ->where(function ($q) {
                 $q->where(function ($q2) {
                     $q2->whereNotNull('reminder_date_time')

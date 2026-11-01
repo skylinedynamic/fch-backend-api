@@ -246,6 +246,31 @@ class EmbedFormService
     /**
      * Reduce a URL or bare domain to a comparable lowercase host.
      */
+    /**
+     * The sites the browser may show the form page in an iframe on - only the
+     * Allowed Domains, each with and without "www." (BUG-092). The submit's
+     * Origin check above cannot do this: inside an iframe the form's own page
+     * sends the request, so the browser reports the form's host, never the
+     * site around it. Null when the list is empty: unrestricted.
+     */
+    public function frameAncestors(EmbedFormConfig $config): ?string
+    {
+        $allowed = is_array($config->allowed_domains) ? $config->allowed_domains : [];
+
+        $sources = [];
+        foreach ($allowed as $domain) {
+            $host = $this->normalizeHost($domain);
+            if (!$host) {
+                continue;
+            }
+            $scheme = preg_match('#^http://#i', trim((string) $domain)) ? 'http' : 'https';
+            $sources[] = "{$scheme}://{$host}";
+            $sources[] = "{$scheme}://www.{$host}";
+        }
+
+        return $sources ? implode(' ', array_values(array_unique($sources))) : null;
+    }
+
     protected function normalizeHost(?string $value): ?string
     {
         if (!$value) {
@@ -751,8 +776,12 @@ class EmbedFormService
             : 'partner.embed_form.submitted';
 
         try {
-            app(Notifier::class)->send($type, $partner, $data,
-                mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null);
+            app(Notifier::class)->send(
+                $type,
+                $partner,
+                $data,
+                mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null
+            );
         } catch (\Exception $e) {
             Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
@@ -779,10 +808,14 @@ class EmbedFormService
         $partnerName = $partner->company_name ?: $partner->full_name;
 
         try {
-            app(Notifier::class)->send('host.embed_form.submitted', $host, $data + ['partner' => $partnerName],
+            app(Notifier::class)->send(
+                'host.embed_form.submitted',
+                $host,
+                $data + ['partner' => $partnerName],
                 mail: $host->email
-                    ? (new NewSubmissionMail($submission, hostCopy: true, hostPartnerId: (int) $host->id, formPartnerName: $partnerName))->to($host->email)
-                    : null);
+                ? (new NewSubmissionMail($submission, hostCopy: true, hostPartnerId: (int) $host->id, formPartnerName: $partnerName))->to($host->email)
+                : null
+            );
         } catch (\Exception $e) {
             Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
@@ -1144,36 +1177,67 @@ class EmbedFormService
     ): ?FundingApplication {
         $copied = [
             // Business Information
-            'full_name', 'business_name', 'business_email', 'business_phone_no',
-            'business_country', 'business_country_code', 'business_address',
-            'business_city', 'business_state', 'business_postal_code',
-            'industry_type', 'entity_type', 'years_in_business', 'number_of_employees',
+            'full_name',
+            'business_name',
+            'business_email',
+            'business_phone_no',
+            'business_country',
+            'business_country_code',
+            'business_address',
+            'business_city',
+            'business_state',
+            'business_postal_code',
+            'industry_type',
+            'entity_type',
+            'years_in_business',
+            'number_of_employees',
 
             // Ownership Information
-            'first_name', 'last_name', 'date_of_birth', 'citizenship_status',
-            'street_address', 'country', 'city', 'state', 'zip_code',
-            'ownership', 'has_co_borrower',
+            'first_name',
+            'last_name',
+            'date_of_birth',
+            'citizenship_status',
+            'street_address',
+            'country',
+            'city',
+            'state',
+            'zip_code',
+            'ownership',
+            'has_co_borrower',
 
             // Financial Information
-            'monthly_revenue', 'annual_revenue', 'business_bank_name',
-            'business_checking_start_date', 'self_reported_personal_credit_score',
-            'self_reported_business_credit_score', 'has_business_debt', 'debt_balance',
+            'monthly_revenue',
+            'annual_revenue',
+            'business_bank_name',
+            'business_checking_start_date',
+            'self_reported_personal_credit_score',
+            'self_reported_business_credit_score',
+            'has_business_debt',
+            'debt_balance',
 
             // Funding Request
             'requested_amount', 'purpose_of_funds', 'purpose_note', 'approved_funding',
             'preferred_funding_type', 'additional_funding_types', 'timeframe_needed', 'collateral_available',
 
             // Disclosures and consent
-            'credit_pull_authorization', 'terms_conditions_acceptance',
+            'credit_pull_authorization',
+            'terms_conditions_acceptance',
 
             // Federal Compliance Disclosures
-            'filed_for_bankruptcy', 'any_pending_lawsuits', 'has_federal_loan',
-            'has_federal_debt', 'has_criminal_offense', 'has_parole_or_probation',
-            'suspended_or_debarred', 'any_outstanding_judgments_business',
-            'any_outstanding_judgments_owner', 'federal_compliance_disclosures_explanation',
+            'filed_for_bankruptcy',
+            'any_pending_lawsuits',
+            'has_federal_loan',
+            'has_federal_debt',
+            'has_criminal_offense',
+            'has_parole_or_probation',
+            'suspended_or_debarred',
+            'any_outstanding_judgments_business',
+            'any_outstanding_judgments_owner',
+            'federal_compliance_disclosures_explanation',
 
             // Attestation and authorization
-            'attestation_authorization', 'signature_data',
+            'attestation_authorization',
+            'signature_data',
         ];
 
         $attributes = [];
@@ -1246,8 +1310,12 @@ class EmbedFormService
             // Each staff copy comes from its recipient's own company: the host's
             // from the host, the partner's from the partner.
             try {
-                $notifier->send('partner.embed_form.converted', $recipient, $staffData,
-                    mail: $email ? (new EmbedFormConverted($submission, $application, true, (int) $recipient->id, $existingClient))->to($email) : null);
+                $notifier->send(
+                    'partner.embed_form.converted',
+                    $recipient,
+                    $staffData,
+                    mail: $email ? (new EmbedFormConverted($submission, $application, true, (int) $recipient->id, $existingClient))->to($email) : null
+                );
             } catch (Throwable $e) {
                 Log::error('Failed to notify staff of an embed form conversion', [
                     'submission_id' => $submission->id,
@@ -1258,8 +1326,12 @@ class EmbedFormService
         }
 
         try {
-            $notifier->send('borrower.embed_form.converted', $application->borrower, [],
-                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false, existingClient: $existingClient))->to($submission->email) : null);
+            $notifier->send(
+                'borrower.embed_form.converted',
+                $application->borrower,
+                [],
+                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false, existingClient: $existingClient))->to($submission->email) : null
+            );
         } catch (Throwable $e) {
             Log::error('Failed to send conversion notice to embed form applicant', [
                 'submission_id' => $submission->id,

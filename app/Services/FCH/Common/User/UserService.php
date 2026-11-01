@@ -60,17 +60,8 @@ class UserService
         if ($partner && !$partner->is_host) {
             $isPaid = isset($data['is_paid']) && $data['is_paid'];
             if (!$isPaid) {
-                $currentCount = User::where('partner_id', $partnerId)
-                    ->where(function ($query) {
-                        $query->whereIn('entity_type', [Partner::class, Employee::class])
-                            ->orWhereNull('entity_type');
-                    })
-                    ->count();
-
-                $partnerSub = $partner->subscription;
-                $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
-
-                if ($currentCount >= $allowedSeats) {
+                // The same rule the Users screen's count uses (Partner::userSeatLimit).
+                if (!$partner->hasFreeUserSeat()) {
                     throw new \Exception('User limit reached. Please purchase additional seats.');
                 }
             }
@@ -136,7 +127,8 @@ class UserService
                     'subscription_id' => $subscription->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $authUser->partner_id,
-                    'customer_name' => $partner ? ($partner->full_name ?: $partner->company_name) : $user->name,
+                    // The person billed, never the company (see InvoiceCustomerNameTest).
+                    'customer_name' => $partner ? $partner->full_name : $user->name,
                     'email' => $partner ? $partner->email : $user->email,
                     'payment_amount' => $amount,
                     'month_count' => $months,

@@ -99,7 +99,7 @@ class EmployeeService
 
         // Sorting
         $sortField = $filters['sort_field'] ? ($filters['sort_field'] == 'full_name' ? 'first_name' : $filters['sort_field']) : 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'desc' : 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         if ($sortField === 'phone_number') {
             $sortField = 'phone_number_1';
@@ -149,17 +149,8 @@ class EmployeeService
 
         // Check user limit if not host and creating a user account and not purchasing a paid seat
         if ($partner && !$partner->is_host && $userData && !$isPaid) {
-            $currentCount = User::where('partner_id', $partnerId)
-                ->where(function ($query) {
-                    $query->whereIn('entity_type', [Partner::class, Employee::class])
-                        ->orWhereNull('entity_type');
-                })
-                ->count();
-
-            $partnerSub = $partner->subscription;
-            $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
-
-            if ($currentCount >= $allowedSeats) {
+            // The same rule the Users screen's count uses (Partner::userSeatLimit).
+            if (!$partner->hasFreeUserSeat()) {
                 throw new \Exception('User limit reached. Please purchase additional seats.');
             }
         }
@@ -245,7 +236,8 @@ class EmployeeService
                     'subscription_id' => $subscription->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $partner->id,
-                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $employee->full_name,
+                    // The person billed, never the company (see InvoiceCustomerNameTest).
+                    'customer_name' => $partner ? $partner->full_name : $employee->full_name,
                     'email' => $partner ? $partner->email : $employee->email,
                     'payment_amount' => $amount,
                     'payment_date' => null,

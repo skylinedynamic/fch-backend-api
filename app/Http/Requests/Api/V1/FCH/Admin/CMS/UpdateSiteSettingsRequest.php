@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\CMS;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPhoneNumber;
 
 class UpdateSiteSettingsRequest extends BaseApiRequest
 {
@@ -26,7 +27,7 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'entity_type' => ['nullable', 'string'],
             'site_name' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string', 'max:500', 'regex:/^[^<>]*$/'],
-            'phone_number' => ['required', 'string', 'max:20', 'regex:/^([0-9\s\-\+\(\)]*)$/'],
+            'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'email' => ['required', 'email', 'max:255'],
             'map_iframe' => ['required', 'string', 'max:2000'],
             'site_slogan' => ['nullable', 'string', 'max:255'],

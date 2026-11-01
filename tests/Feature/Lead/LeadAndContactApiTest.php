@@ -64,7 +64,7 @@ class LeadAndContactApiTest extends TestCase
             'first_name' => 'Connie',
             'last_name' => 'Contact',
             'email' => 'contact-' . uniqid() . '@example.test',
-            'mobile_number' => '(555) 123-4567',
+            'mobile_number' => '(555) 234-5678',
         ], $attributes));
     }
 
@@ -136,6 +136,167 @@ class LeadAndContactApiTest extends TestCase
      * rewrite or delete another partner's leads.
      */
     #[Test]
+    public function a_leads_contact_info_is_checked_against_the_shared_formats(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", [
+            'contact_person' => 'Jane Doe', 'email' => 'jane@example.test', 'country' => 'US',
+            'phone_number' => '(124) 982-7457', 'business_phone' => '555-0100',
+            'business_ein' => 'AB-CDEFGHI', 'duns_number' => '12345678', 'zip_code' => '1234',
+        ])->assertStatus(422)->assertJsonValidationErrors([
+            'phone_number' => __('embed_form.phone_invalid'),
+            'business_phone' => __('embed_form.phone_invalid'),
+            'business_ein' => __('common.business_ein_invalid'),
+            'duns_number' => __('common.duns_number_invalid'),
+            'zip_code' => __('common.postal_code_invalid'),
+        ]);
+    }
+
+    private function contactInfo(array $overrides = []): array
+    {
+        return array_merge(['contact_person' => 'Jane Doe', 'email' => 'jane@example.test', 'phone_number' => '(555) 234-5678', 'country' => 'United States'], $overrides);
+    }
+
+    /**
+     * A lead's SSN is the full number, as on a client's profile, kept
+     * encrypted - it used to be the last four digits only, in plain text.
+     */
+    #[Test]
+    public function a_leads_ssn_is_the_full_number_kept_encrypted(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn' => '123-45-6789']))->assertOk();
+
+        $this->assertSame('123456789', $lead->fresh()->ssn);
+        $this->assertStringNotContainsString('6789', (string) $lead->fresh()->getRawOriginal('ssn_encrypted'));
+        $this->getJson("/api/v1/common/leads/{$lead->id}")
+            ->assertOk()
+            ->assertJsonPath('data.ssn', '123456789')
+            ->assertJsonMissingPath('data.ssn_last_4');
+    }
+
+    #[Test]
+    public function a_leads_ssn_must_be_a_valid_full_ssn_and_stays_optional(): void
+    {
+        $lead = $this->leadOf($this->partner, ['ssn' => '123456789']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        foreach (['6789', '12-345', '000-12-3456', 'abc-de-fghi'] as $bad) {
+            $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn' => $bad]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['ssn' => __('common.ssn_invalid')]);
+        }
+
+        // The last four alone are no longer taken.
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn_last_4' => '1111']))->assertOk();
+        $this->assertSame('123456789', $lead->fresh()->ssn);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['ssn' => null]))->assertOk();
+        $this->assertNull($lead->fresh()->ssn);
+    }
+
+    /**
+     * BUG-017: the admin form now sends an empty lead instead of stopping at
+     * Contact Person, so the API must name every required field in one go.
+     */
+    #[Test]
+    public function an_empty_lead_gets_every_required_error_at_once(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/leads/details', [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'probability' => __('lead.probability_required'),
+                'lead_type' => __('lead.lead_type_required'),
+                'status' => __('lead.status_required'),
+                'company_name' => __('lead.company_name_required'),
+                'contact_person' => __('lead.contact_person_required'),
+            ]);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'contact_person' => __('lead.contact_person_required'),
+                'email' => __('lead.email_required'),
+                'phone_number' => __('lead.phone_number_required'),
+                'country' => __('lead.country_required'),
+            ]);
+    }
+
+    /** BUG-018: Lead Source is optional on create, so it stays optional on update. */
+    #[Test]
+    public function a_lead_created_without_a_lead_source_can_be_updated_without_one(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $id = $this->postJson('/api/v1/common/leads/details', $this->leadDetails(['lead_source' => null]))
+            ->assertSuccessful()
+            ->json('data.id');
+
+        $this->postJson("/api/v1/common/leads/{$id}/details", $this->leadDetails(['lead_source' => null, 'status' => 'Working']))
+            ->assertOk()
+            ->assertJsonMissingValidationErrors('lead_source');
+        $this->assertSame('Working', Lead::find($id)->status);
+    }
+
+    /** BUG-021: QA's values - an EIN of "12.5" and a DUNS of "12" - are refused. */
+    #[Test]
+    public function a_fractional_ein_and_a_short_duns_are_refused(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['business_ein' => '12.5', 'duns_number' => '12']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'business_ein' => __('common.business_ein_invalid'),
+                'duns_number' => __('common.duns_number_invalid'),
+            ]);
+        $this->assertNull($lead->fresh()->business_ein);
+    }
+
+    #[Test]
+    public function a_leads_ein_is_kept_as_its_nine_digits(): void
+    {
+        $lead = $this->leadOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['business_ein' => '53-4534534']))->assertOk();
+        $this->assertSame('534534534', $lead->fresh()->business_ein);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", $this->contactInfo(['business_ein' => 'AB-CDEFGHI']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['business_ein' => __('common.business_ein_invalid')]);
+    }
+
+    #[Test]
+    public function converting_a_lead_carries_its_full_ssn_to_the_new_client(): void
+    {
+        $lead = $this->leadOf($this->partner, ['ssn' => '123456789', 'phone_number' => '(555) 234-5678']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/leads/{$lead->id}/convert", ['is_free_trail' => true])->assertSuccessful();
+
+        $this->assertSame('123456789', \App\Models\Borrower\Borrower::where('email', $lead->email)->firstOrFail()->ssn);
+    }
+
+    #[Test]
+    public function a_contacts_mobile_must_be_a_real_us_number(): void
+    {
+        // Written correctly, but area code 124 does not exist.
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/contacts', ['first_name' => 'Rae', 'email' => 'rae@example.test', 'mobile_number' => '(124) 982-7457'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['mobile_number' => __('embed_form.phone_invalid')]);
+    }
+
+    #[Test]
     public function another_partners_lead_cannot_be_read_changed_or_deleted(): void
     {
         $theirs = $this->leadOf($this->otherPartner, ['company_name' => 'Theirs']);
@@ -144,7 +305,7 @@ class LeadAndContactApiTest extends TestCase
         $this->getJson("/api/v1/common/leads/{$theirs->id}")->assertNotFound();
         $this->postJson("/api/v1/common/leads/{$theirs->id}/details", $this->leadDetails(['company_name' => 'Hijacked']))->assertNotFound();
         $this->postJson("/api/v1/common/leads/{$theirs->id}/contact-info", [
-            'contact_person' => 'X', 'phone_number' => '(555) 000-0000', 'email' => 'x@example.test', 'country' => 'US',
+            'contact_person' => 'X', 'phone_number' => '(555) 200-0000', 'email' => 'x@example.test', 'country' => 'US',
         ])->assertNotFound();
         $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$theirs->id]])->assertNotFound();
 
@@ -305,7 +466,7 @@ class LeadAndContactApiTest extends TestCase
     {
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->postJson('/api/v1/common/contacts', ['mobile_number' => '5551234567'])
+        $this->postJson('/api/v1/common/contacts', ['mobile_number' => '5552345678'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['first_name', 'email', 'mobile_number']);
     }
@@ -318,7 +479,7 @@ class LeadAndContactApiTest extends TestCase
 
         $this->getJson("/api/v1/common/contacts/{$contact->id}")->assertOk()->assertJsonPath('data.id', $contact->id);
         $this->putJson("/api/v1/common/contacts/{$contact->id}", [
-            'first_name' => 'Renamed', 'email' => $contact->email, 'mobile_number' => '(555) 123-4567',
+            'first_name' => 'Renamed', 'email' => $contact->email, 'mobile_number' => '(555) 234-5678',
         ])->assertOk();
         $this->assertSame('Renamed', $contact->fresh()->first_name);
 
@@ -338,7 +499,7 @@ class LeadAndContactApiTest extends TestCase
         $this->actingAsUser($this->partnerAdmin);
 
         $this->getJson("/api/v1/common/contacts/{$theirs->id}")->assertNotFound();
-        $this->putJson("/api/v1/common/contacts/{$theirs->id}", ['first_name' => 'X', 'email' => 'x@example.test', 'mobile_number' => '(555) 123-4567'])
+        $this->putJson("/api/v1/common/contacts/{$theirs->id}", ['first_name' => 'X', 'email' => 'x@example.test', 'mobile_number' => '(555) 234-5678'])
             ->assertForbidden();
         $this->deleteJson("/api/v1/common/contacts/{$theirs->id}")->assertForbidden();
         $this->postJson('/api/v1/common/contacts/multiple-delete', ['ids' => [$theirs->id]]);

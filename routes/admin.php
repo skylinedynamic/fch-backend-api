@@ -15,7 +15,6 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationControll
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
@@ -62,6 +61,8 @@ Route::prefix('v1/admin')
         // 💰 Plan & Fee (Admin/Host Partner only)
         Route::post('plan-fee/fetch-subscription-plans', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'index']);
         Route::put('plan-fee/update-subscription-plan/{id}', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'update']);
+        // Check the values with the same rules, saving nothing - before the confirmation (BUG-096).
+        Route::put('plan-fee/validate-subscription-plan/{id}', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'validatePlan']);
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
@@ -71,17 +72,18 @@ Route::prefix('v1/admin')
         // 🏆 Credit Builder
         Route::prefix('credit-builder')->group(
             function () {
-            // Tiers
+            // Tiers (Manage Tier)
             Route::post('tiers/fetch-tiers', [TierController::class, 'index']);
             Route::post('tiers', [TierController::class, 'store']);
             Route::get('tiers/{id}', [TierController::class, 'show']);
             Route::put('tiers/{id}', [TierController::class, 'update']);
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
             Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
+            // A client's own credit builder progress, read from the client page.
             Route::post('tiers/borrowers/tier-wise-tasklist', [TierController::class, 'getBorrowerTierTaskList']);
             Route::post('tiers/borrowers/progress', [TierController::class, 'getBorrowerProgress']);
 
-            // Tier Tasks
+            // Tier Tasks (Manage Tier)
             Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
             Route::post('tier-tasks', [TierTaskController::class, 'store']);
             Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
@@ -89,15 +91,17 @@ Route::prefix('v1/admin')
             Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
             Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus']);
 
-            // Vendors
+            // Vendors (Manage Tier)
             Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index']);
             Route::post('vendors', [CreditBuilderVendorController::class, 'store']);
             Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);
             Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update']);
             Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy']);
+            Route::post('vendors-multiple-delete', [CreditBuilderVendorController::class, 'multipleDelete']);
 
             // Credit Accounts
             Route::post('credit-accounts/fetch-accounts', [CreditAccountController::class, 'index']);
+            Route::post('credit-accounts/multiple-delete', [CreditAccountController::class, 'multipleDelete']);
             Route::post('credit-accounts', [CreditAccountController::class, 'store']);
             Route::get('credit-accounts/{id}', [CreditAccountController::class, 'show']);
             Route::put('credit-accounts/{id}', [CreditAccountController::class, 'update']);
@@ -177,6 +181,7 @@ Route::prefix('v1/admin')
         Route::prefix('change-requests')->group(function () {
             Route::post('/', [ChangeRequestController::class, 'index']);
             Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus']);
+            Route::post('/{id}/reveal', [ChangeRequestController::class, 'reveal']);
         });
 
         // 📚 Resources

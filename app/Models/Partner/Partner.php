@@ -24,6 +24,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
 use App\Models\Concerns\Archivable;
+use App\Support\Branding\PartnerDomain;
 
 class Partner extends Model
 {
@@ -109,6 +110,21 @@ class Partner extends Model
         self::STATUS_SUSPENDED => self::STATUS_SUSPENDED,
         self::STATUS_ONBOARDING => self::STATUS_ONBOARDING,
     ];
+
+    /**
+     * A domain's cached partner is cleared when a partner takes, changes or
+     * gives up a domain, and when it is deleted or restored (BUG-118).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Partner $partner) {
+            if ($partner->wasRecentlyCreated || $partner->wasChanged(PartnerDomain::COLUMNS)) {
+                PartnerDomain::forgetPartner($partner);
+            }
+        });
+        static::deleted(fn (Partner $partner) => PartnerDomain::forgetPartner($partner));
+        static::restored(fn (Partner $partner) => PartnerDomain::forgetPartner($partner));
+    }
 
     /**
      * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.
@@ -274,6 +290,15 @@ class Partner extends Model
     }
 
     /**
+     * The partners the host manages: everyone but the host's own record. Used by
+     * the partner count cards (dashboard and Partners list) so they agree.
+     */
+    public function scopeExcludingHost($query)
+    {
+        return $query->where($this->qualifyColumn('is_host'), false);
+    }
+
+    /**
      * Scope: apply text search across common partner fields.
      */
     public function scopeSearch($query, ?string $search)
@@ -325,6 +350,48 @@ class Partner extends Model
     public function subscription(): \Illuminate\Database\Eloquent\Relations\MorphOne
     {
         return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
+    }
+
+    /** Seats a partner gets when neither its subscription nor Plan & Fee says. */
+    public const DEFAULT_USER_SEATS = 3;
+
+    /** Logins that take a seat: the partner's own and its employees'. */
+    public function usedUserSeats(): int
+    {
+        return User::where('partner_id', $this->id)
+            ->where(function ($query) {
+                $query->whereIn('entity_type', [self::class, Employee::class])
+                    ->orWhereNull('entity_type');
+            })
+            ->count();
+    }
+
+    /** The Plan & Fee "User Seat" plan for this partner's type, if any. */
+    public function userSeatPlan(): ?SubscriptionPlan
+    {
+        return SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT)
+            ->where('partner_type', $this->partner_type)
+            ->active()
+            ->first();
+    }
+
+    /**
+     * How many logins the partner may have - the one rule for the Users
+     * screen's count and the server's own check: its subscription's
+     * user_seats, else the Plan & Fee seat plan's, else DEFAULT_USER_SEATS.
+     */
+    public function userSeatLimit(): int
+    {
+        $this->loadMissing('subscription');
+
+        return (int) ($this->subscription?->user_seats
+            ?? $this->userSeatPlan()?->total_seat_count
+            ?? self::DEFAULT_USER_SEATS);
+    }
+
+    public function hasFreeUserSeat(): bool
+    {
+        return $this->usedUserSeats() < $this->userSeatLimit();
     }
 
 

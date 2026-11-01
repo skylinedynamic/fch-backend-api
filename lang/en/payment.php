@@ -39,6 +39,8 @@ return [
     'stripe_payment_failed' => 'Stripe Payment Failed',
     'autocharge_exception' => 'AutoCharge Exception',
     'autocharge_missing_card_msg' => 'Could not find saved Stripe customer ID or payment method for partner',
+    'autocharge_default_not_stripe' => 'AutoCharge Default Not Stripe',
+    'autocharge_default_not_stripe_msg' => 'The partner\'s default payment method is not Stripe, so it is not charged automatically',
     'autocharge_host_not_found_msg' => 'Host partner not found for automatic billing.',
     'autocharge_pi_failed_msg' => 'PaymentIntent failed with status: :status',
     'log_unified_error' => '[UnifiedPaymentService] Error: :error',
@@ -78,5 +80,11 @@ return [
     'mail_subject_default_rejected' => ':company - Payment Verification Notice',
     'log_mail_constructed' => '[:mail] Constructed',
     'log_mail_send_error' => 'Failed to send :mail email: :error',
+
+    // BUG-005: the scheduler stopped auto-charging an invoice.
+    'auto_charge_stopped' => [
+        'subject' => 'Automatic payment stopped - :site',
+        'already_paid_alert' => 'Invoice :invoice is Unpaid but succeeded payments already cover its :amount. Auto-charge stopped so it is not charged twice - reconcile it with php artisan invoices:reconcile-paid.',
+    ],
 ];
 

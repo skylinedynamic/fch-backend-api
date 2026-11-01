@@ -2,6 +2,7 @@
 
 namespace App\Models\PaymentMethod;
 
+use App\Support\Payment\PaymentSetup;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -51,15 +52,27 @@ class PaymentProvider extends Model
     public const MODE_SANDBOX = 'sandbox';
     public const MODE_PRODUCTION = 'production';
 
+    public const MODES = [self::MODE_SANDBOX, self::MODE_PRODUCTION];
+
+    /**
+     * The mode to suggest where a person states it by hand (a commission
+     * payout): Production only on the production app, Sandbox everywhere else.
+     */
+    public static function defaultModeForApp(): string
+    {
+        return app()->isProduction() ? self::MODE_PRODUCTION : self::MODE_SANDBOX;
+    }
+
     public function partnerPaymentProviders()
     {
         return $this->hasMany(PartnerPaymentProvider::class, 'payment_provider_id');
     }
 
     /**
-     * Whether a gateway is on the platform and switched on by this partner - the
-     * same list GET /payment/providers offers, so a default payment method can
-     * only be one the payer was actually offered.
+     * Whether a gateway is on the platform, switched on by this partner and set
+     * up to take payments - the same list GET /payment/get-payment-methods
+     * offers, so a default payment method can only be one the payer was
+     * actually offered. Stripe switched on without keys is not (BUG-151).
      */
     public static function isOfferedBy(?string $name, ?int $partnerId): bool
     {
@@ -67,10 +80,16 @@ class PaymentProvider extends Model
             return false;
         }
 
-        return static::query()
+        $provider = static::query()
             ->where('status', true)
             ->whereRaw('LOWER(name) = ?', [strtolower(trim($name))])
-            ->whereHas('partnerPaymentProviders', fn ($q) => $q->where('partner_id', $partnerId)->where('status', true))
-            ->exists();
+            ->first();
+
+        $linkage = $provider?->partnerPaymentProviders()
+            ->where('partner_id', $partnerId)
+            ->where('status', true)
+            ->first();
+
+        return PaymentSetup::isReady($linkage, $provider?->name);
     }
 }

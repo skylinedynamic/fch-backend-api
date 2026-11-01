@@ -10,6 +10,7 @@ use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\DownloadHistory;
 use App\Models\Borrower\FundingApplication;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
 use App\Models\Common\AppConfiguration;
@@ -153,7 +154,7 @@ class RequestApplicationService
             $authUser = Auth::user();
             
             $query = FundingApplication::query()
-                ->with(['borrower', 'fundingSequence'])
+                ->with(['borrower', 'fundingSequence', 'fundingRequest'])
                 // ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                     $query->where('partner_id', $authUser->partner_id);
@@ -173,9 +174,32 @@ class RequestApplicationService
                 $query->search($search);
             }
 
+            // Status filter: accepted but never applied before, so every status
+            // showed the same rows (BUG-048).
+            if (!empty($filters['status'])) {
+                $query->where('funding_applications.status', $filters['status']);
+            }
+
+            // Date Range: whole days in the viewer's timezone - the DATE column
+            // shows created_at there - turned into UTC bounds for the stored
+            // value. It used to be ignored altogether.
+            $timezone = $this->validTimezone($filters['timezone'] ?? null);
+            if (!empty($filters['start_date'])) {
+                $query->where('funding_applications.created_at', '>=', Carbon::parse($filters['start_date'], $timezone)->startOfDay()->utc());
+            }
+            if (!empty($filters['end_date'])) {
+                $query->where('funding_applications.created_at', '<=', Carbon::parse($filters['end_date'], $timezone)->endOfDay()->utc());
+            }
+
             $sortField = $filters['sort_field'] ?? 'id';
             $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
             $advancedFilters = $filters['filters'] ?? [];
+
+            // DATE shows created_at ("20 Oct 2026"); `date` is not a column, so
+            // sorting on it never changed the order.
+            if ($sortField === 'date') {
+                $sortField = 'created_at';
+            }
 
             // Sorting on status follows the lifecycle (key 1-26), not the
             // alphabet - "Approved" is not the first thing that happens.
@@ -193,6 +217,10 @@ class RequestApplicationService
                 $sortByStatusKey ? ['skip_sorting' => true] : []
             );
 
+            // Equal values (two applications on the same day) keep one order
+            // across pages.
+            $query->orderBy('funding_applications.id', 'desc');
+
             $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
             $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -204,6 +232,14 @@ class RequestApplicationService
                 __('application.funding_application_retrieved')
             );
         }
+
+    /** The viewer's timezone if it is a real one, else the app's. */
+    private function validTimezone(?string $timezone): string
+    {
+        return $timezone && in_array($timezone, \DateTimeZone::listIdentifiers(), true)
+            ? $timezone
+            : config('app.timezone');
+    }
     /**
      * Get Pre-Qualification Application By ID
      */
@@ -377,11 +413,21 @@ class RequestApplicationService
             return ApiResponse::error(__('application.pre_qualification_not_found'));
         }
 
+        $oldStatus = $application->status;
         $application->status = $data['status'];
         if (isset($data['status_note'])) {
             $application->status_note = $data['status_note'];
         }
         $application->save();
+
+        // The client hears of each real status change in their bell (BUG-063).
+        if ($oldStatus !== $application->status && $application->borrower) {
+            app(Notifier::class)->send('borrower.pre_qualification.status_changed', $application->borrower, [
+                'id' => $application->id,
+                'status' => $application->status,
+                'note' => filled($data['status_note'] ?? null) ? ' Note: ' . $data['status_note'] : '',
+            ]);
+        }
 
         return ApiResponse::success(new PreQualificationRequestResource($application), __('application.status_updated'));
     }
@@ -405,7 +451,8 @@ class RequestApplicationService
 
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];
-            $application->funded_date = Carbon::now();
+            // The day in the closer's zone, not the UTC one (BUG-120).
+            $application->funded_date = todayInRequestTimezone();
         }
 
         $application->status = $data['status'];
@@ -419,27 +466,27 @@ class RequestApplicationService
             $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
             
             if ($oldStatus === $data['status']) {
-                $title = "Funding Application Note Updated";
-                $description = "Status note was updated.";
+                $title = __('application.activity_note_updated_title');
+                $description = __('application.activity_note_updated_description');
             } else {
-                $title = "Funding Application Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
-                $description = "Status updated to: " . $newStatusFormatted;
+                $title = __('application.activity_status_changed_title', ['from' => $oldStatusFormatted, 'to' => $newStatusFormatted]);
+                $description = __('application.activity_status_changed_description', ['to' => $newStatusFormatted]);
             }
 
             if (isset($data['status_note'])) {
-                $description .= "\nNote: " . $data['status_note'];
+                $description .= "\n" . __('application.activity_status_note', ['note' => $data['status_note']]);
             }
 
-            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+            app(ActivityLogService::class)->logSystemEvent(
                 FundingApplication::class,
                 $application->id,
                 $application->partner_id,
                 $application->borrower_id,
                 $title,
                 $description,
-                'funding_application_status_update',
+                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
                 ['visible_to_borrower' => true, 'visible_to_partner' => true],
-                \App\Models\ActivityLog\ActivityLog::VISIBILITY_EVERYONE
+                ActivityLog::VISIBILITY_EVERYONE
             );
         }
 

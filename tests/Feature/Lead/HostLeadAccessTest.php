@@ -104,6 +104,29 @@ class HostLeadAccessTest extends TestCase
         $response->assertJsonPath('statistics.total_leads', 1);
     }
 
+    /**
+     * Defect: the cards were counted from the filtered table, so searching or
+     * filtering the list changed Total Leads. They now count every visible,
+     * non-deleted lead (narrowed only by the host's Partner filter).
+     */
+    #[Test]
+    public function the_lead_cards_keep_their_totals_while_the_table_is_searched_or_filtered(): void
+    {
+        $this->leadOf($this->host, ['company_name' => 'Findable Co']);
+        $this->leadOf($this->whiteLabel, ['status' => Lead::STATUS_LEAD_DECLINED]);
+        $this->leadOf($this->certified);
+        $this->leadOf($this->certified)->delete();
+        $this->actingAsUser($this->hostAdmin);
+
+        $response = $this->postJson('/api/v1/common/leads/fetch-leads', [
+            'search' => 'Findable',
+            'status' => 'New',
+        ])->assertOk();
+
+        $this->assertCount(1, $response->json('data'));
+        $response->assertJsonPath('statistics.total_leads', 3);
+    }
+
     #[Test]
     public function a_partner_cannot_use_the_partner_filter_to_reach_another_partners_leads(): void
     {
@@ -155,7 +178,7 @@ class HostLeadAccessTest extends TestCase
 
         $this->getJson("/api/v1/common/leads/{$lead->id}")->assertOk()->assertJsonPath('data.id', $lead->id);
         $this->postJson("/api/v1/common/leads/{$lead->id}/contact-info", [
-            'contact_person' => 'Lee Lead', 'phone_number' => '(555) 000-0000', 'email' => 'lee@example.test', 'country' => 'US',
+            'contact_person' => 'Lee Lead', 'phone_number' => '(555) 234-5678', 'email' => 'lee@example.test', 'country' => 'US',
         ])->assertOk();
 
         $this->assertSame('lee@example.test', $lead->fresh()->email);

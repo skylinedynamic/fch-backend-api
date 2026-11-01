@@ -350,6 +350,11 @@ class FundingRequest extends Model
                 ->orWhere('funding_type', 'like', "%{$search}%")
                 ->orWhere('use_of_funds', 'like', "%{$search}%")
                 ->orWhere('requested_amount', 'like', "%{$search}%")
+                // The amount as the list shows it ("$300,000"): without the $
+                // and commas it is the stored number.
+                ->when(preg_match('/^\$?[\d,]+(\.\d+)?$/', $search) && strpbrk($search, '$,') !== false, function ($qAmount) use ($search) {
+                    $qAmount->orWhere('requested_amount', 'like', '%' . str_replace(['$', ','], '', $search) . '%');
+                })
                 ->orWhere('status', 'like', "{$search}%")
                 
                 // Search funding application status
@@ -365,9 +370,11 @@ class FundingRequest extends Model
                     });
                 }
 
-                // Search matching lenders
+                // Search matching lenders: the one assigned (the ASSIGNED LENDER
+                // column) as well as the matched ones.
                 $lenderIds = Lender::where('name', 'like', "%{$search}%")->pluck('id')->toArray();
                 if (!empty($lenderIds)) {
+                    $q->orWhereIn('assign_lender', $lenderIds);
                     foreach ($lenderIds as $lId) {
                         $q->orWhereJsonContains('lender_ids', $lId);
                     }

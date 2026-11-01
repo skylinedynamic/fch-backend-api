@@ -55,6 +55,10 @@ class LeadService
             $query->where('leads.partner_id', $filters['partner_id']);
         }
 
+        // Snapshot before the search, dropdown and column filters, so the summary
+        // cards show true totals instead of recounting whatever the table is
+        // currently narrowed to (as the Partners and Clients lists do).
+        $statsQuery = clone $query;
 
         // Apply Dropdown Filters - Strictly skip if null or empty string to show "All" data
         if ($leadType !== null && $leadType !== '') {
@@ -156,8 +160,7 @@ class LeadService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-        // Calculate statistics based on the filtered query (before pagination)
-        $statistics = $this->getStats(clone $query);
+        $statistics = $this->getStats($statsQuery);
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
@@ -278,25 +281,42 @@ class LeadService
 
             if (!empty($changes)) {
                 $changedFields = [];
+                $extraProps = [];
                 foreach ($changes as $field => $newValue) {
-                    $name = $field === 'salesperson_id' ? 'Assigned Salesperson' : ucwords(str_replace('_', ' ', $field));
-
+                    // The Lead Owner, by name rather than user id
                     if ($field === 'salesperson_id') {
-                        $changedFields[] = "{$name} was changed";
-                    } else {
-                        $val = (string) $newValue;
-                        $val = $val === '' ? 'empty' : $val;
-                        $changedFields[] = "{$name} was updated to {$val}";
+                        $owner = $this->activityLogService->describeOwnerChange(
+                            __('activity_log.owner_label_lead'),
+                            $lead->getPrevious()['salesperson_id'] ?? null,
+                            $newValue
+                        );
+                        $changedFields[] = $owner['sentence'];
+                        $extraProps['changes']['salesperson_id'] = $owner['change'];
+                        continue;
                     }
+
+                    // An EIN is recorded as changed, never repeated
+                    if (\App\Models\ActivityLog\ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => \App\Models\ActivityLog\ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
+                    $name = ucwords(str_replace('_', ' ', $field));
+                    $val = (string) $newValue;
+                    $val = $val === '' ? 'empty' : $val;
+                    $changedFields[] = "{$name} was updated to {$val}";
                 }
                 $fieldsList = implode(', ', $changedFields);
                 $customDescription = "{$fieldsList}.";
 
+                // Only the Lead Owner changed: an entry saying just that
+                $customSubject = array_keys($changes) === ['salesperson_id'] ? __('activity_log.owner_subject_lead') : null;
+
                 $this->activityLogService->logModelEvent(
                     $lead,
                     \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
-                    [],
-                    null,
+                    $extraProps,
+                    $customSubject,
                     $customDescription
                 );
             }
@@ -341,6 +361,12 @@ class LeadService
 
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
+                    // An EIN is recorded as changed, never repeated
+                    if (\App\Models\ActivityLog\ActivityLog::isSensitiveField($field)) {
+                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => \App\Models\ActivityLog\ActivityLog::fieldLabel($field)]);
+                        continue;
+                    }
+
                     $name = ucwords(str_replace('_', ' ', $field));
                     $val = (string) $newValue;
                     $val = $val === '' ? 'empty' : $val;
@@ -505,7 +531,7 @@ class LeadService
                 'business_start_date' => $lead->business_start_date,
                 'duns_number' => $lead->duns_number,
                 'state_file_number' => $lead->state_file_number,
-                'last_4_ssn' => $lead->ssn_last_4,
+                'ssn' => $lead->ssn,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
                 'country' => $lead->country,

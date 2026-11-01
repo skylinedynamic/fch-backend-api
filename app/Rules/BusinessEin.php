@@ -82,6 +82,41 @@ class BusinessEin implements ValidationRule
     }
 
     /**
+     * What a request should hand this rule: a writing of an EIN (12-3456789)
+     * reduced to its nine digits, so the column holds one form - and anything
+     * else exactly as sent, so the rule still sees the letters normalize() would
+     * strip.
+     */
+    public static function canonical(mixed $value): mixed
+    {
+        if (!is_string($value) || !preg_match('/^[\d\s-]+$/', $value)) {
+            return $value;
+        }
+
+        return self::normalize($value);
+    }
+
+    /**
+     * The number as it may be shown without being revealed: last four only,
+     * written like an EIN - the counterpart of Ssn::mask().
+     */
+    public static function mask(mixed $value): ?string
+    {
+        $digits = self::normalize($value);
+
+        return $digits === null ? null : '**-***' . substr($digits, -4);
+    }
+
+    /**
+     * A value that is a mask (Ssn::mask(), mask()) rather than a number typed
+     * in - what a form showing the masked number sends back unchanged.
+     */
+    public static function isMask(mixed $value): bool
+    {
+        return is_string($value) && str_contains($value, '*');
+    }
+
+    /**
      * How long a written EIN is, so the rule, the forms and any client-side
      * check can never drift apart. Ten: nine digits plus the hyphen.
      */

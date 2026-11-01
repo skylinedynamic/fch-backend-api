@@ -78,6 +78,9 @@ return [
             ['name' => 'update funding request', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'view change requests', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update change requests', 'is_certified' => 0, 'is_host' => 1],
+            // Intake & Review › Request Credit Profile. Checked by the admin panel;
+            // keyed for CreditProfileRequestPermissionSeeder (BUG-097).
+            'manage_credit_profile_requests' => ['name' => 'manage credit profile requests', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 

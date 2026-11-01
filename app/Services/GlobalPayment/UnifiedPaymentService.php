@@ -14,8 +14,7 @@ use App\Models\Employee\Employee;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
-use Stripe\PaymentIntent;
-use Stripe\Stripe;
+use Stripe\Exception\CardException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\GlobalPayment\PaymentMailService;
@@ -148,14 +147,23 @@ class UnifiedPaymentService
                 ];
             } else {
                 $driver = $this->gatewayManager->driverFor($partnerProvider);
-                $gatewayResult = $driver->charge([
-                    'amount' => $invoice->payment_amount,
-                    'currency' => $invoice->currency ?? 'USD',
-                    'payment_method_id' => $data['payment_method_id'],
-                    'payment_token' => $data['payment_token'] ?? null,
-                    'invoice_id' => $invoice->id,
-                    'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
-                ]);
+                try {
+                    $gatewayResult = $driver->charge([
+                        'amount' => $invoice->payment_amount,
+                        'currency' => $invoice->currency ?? 'USD',
+                        'payment_method_id' => $data['payment_method_id'],
+                        'payment_token' => $data['payment_token'] ?? null,
+                        'invoice_id' => $invoice->id,
+                        'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
+                    ]);
+                } catch (CardException $e) {
+                    // Stripe answers a declined card with an error, not a result.
+                    $this->recordCheckoutFailure($invoice, $partnerId, $borrowerId, $providerName, Payment::environmentOf($partnerProvider), $e->getMessage(), [
+                        'code' => $e->getStripeCode(),
+                        'decline_code' => $e->getDeclineCode(),
+                    ]);
+                    throw $e;
+                }
             }
 
             if (empty($gatewayResult['success'])) {
@@ -180,7 +188,12 @@ class UnifiedPaymentService
                     throw new Exception(__('payment.charge_requires_authentication'));
                 }
 
-                throw new Exception(__('payment.charge_failed', ['provider' => $providerName ?? __('payment.gateway')]));
+                $message = __('payment.charge_failed', ['provider' => $providerName ?? __('payment.gateway')]);
+                $this->recordCheckoutFailure($invoice, $partnerId, $borrowerId, $providerName, Payment::environmentOf($partnerProvider), $message, [
+                    'gateway_status' => $gatewayResult['raw']['status'] ?? null,
+                ], $gatewayResult['transaction_id'] ?? null);
+
+                throw new Exception($message);
             }
 
             // The money has moved. From here the only work is recording it, so the
@@ -210,6 +223,7 @@ class UnifiedPaymentService
                 'is_partner_paying' => $isPartnerPaying,
                 'is_manual' => $isManual,
                 'status' => $paymentStatus,
+                'is_environment' => Payment::environmentOf($partnerProvider),
                 'details' => $gatewayResult['raw'] ?? [],
             ]);
 
@@ -398,6 +412,13 @@ class UnifiedPaymentService
      */
     protected function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount, ?Borrower $borrower = null, ?Payment $payment = null): bool
     {
+        // The partner's card is charged on the host's Stripe account, so that
+        // account's mode is the environment - succeeded or failed.
+        $host = Partner::where('is_host', true)->first();
+        $stripe = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
+        $hostStripe = $host && $stripe ? $this->gatewayManager->findPartnerProvider($host->id, $stripe->id) : null;
+        $environment = Payment::environmentOf($hostStripe);
+
         $failedData = [
             'partner_id' => $partner->id,
             'invoice_id' => $invoice->id,
@@ -405,69 +426,53 @@ class UnifiedPaymentService
             'entity_id' => $partner->id,
             'amount' => $amount * 100,
             'currency' => Payment::CURRENCY_USD,
+            'is_environment' => $environment,
         ];
 
         try {
-            // ── Step 1: Find a successful payment from this partner to get their default payment method
-            $partnerPayment = Payment::where('entity_type', Partner::class)
-                ->where('entity_id', $partner->id)
-                ->where('status', Payment::STATUS_SUCCEEDED)
-                ->where('payment_from', PaymentProvider::STRIPE)
-                ->orderBy('id', 'desc')
-                ->get()
-                ->first(function ($p) {
-                    return !empty($p->details['payment_method']);
-                });
-
-            $customerId = $partner->stripe_customer_id_raw;
-            if (!$customerId && $partnerPayment) {
-                $customerId = $partnerPayment->details['customer'] ?? null;
+            // Only a partner who chose Stripe as their default is charged
+            // automatically; anyone else pays the fee by hand.
+            if (strcasecmp((string) $partner->default_payment_method, PaymentProvider::STRIPE) !== 0) {
+                $this->recordFailedPayment($failedData, __('payment.autocharge_default_not_stripe_msg'), __('payment.autocharge_default_not_stripe'));
+                return false;
             }
 
-            if (!$customerId || !$partnerPayment || empty($partnerPayment->details['payment_method'])) {
+            // ── Step 1: The card saved on the partner (My Subscription) - the one
+            // the cron charges too. Past card payments are not where it lives: a
+            // partner that paid in cash and then saved a card had none, so the fee
+            // failed here and waited for the cron while the borrower stayed locked.
+            $customerId = $partner->stripe_customer_id_raw;
+
+            if (!$customerId) {
                 Log::warning(__('payment.log_autocharge_missing_card_warning', ['partner_id' => $partner->id]));
                 $this->recordFailedPayment($failedData, __('payment.autocharge_missing_card_msg'), __('payment.autocharge_missing_card'));
                 return false;
             }
 
-            $paymentMethodId = $partnerPayment->details['payment_method'];
-
-            // ── Step 2: Fetch the Host's Stripe credentials
-            $host = Partner::where('is_host', true)->first();
-            if (!$host) {
+            // ── Step 2: The host's Stripe, which receives the fee
+            if (!$hostStripe) {
                 Log::error(__('payment.log_autocharge_host_not_found_error'));
                 $this->recordFailedPayment($failedData, __('payment.autocharge_host_not_found_msg'), __('payment.autocharge_config_error'));
                 return false;
             }
 
-            $this->paymentRecord->configureStripeForPartner($host->id);
+            // ── Step 3: Charge it off-session on the host's account - exactly as the
+            // cron does, under the same idempotency reference, so the two paths can
+            // never both take the same fee.
+            $charge = $this->gatewayManager->driverFor($hostStripe)->chargeOffSession(
+                $customerId,
+                (int) round($amount * 100),
+                Payment::CURRENCY_USD,
+                __('payment.partner_enrollment_fee_desc', ['partner_id' => $partner->id]),
+                'invoice_' . $invoice->id
+            );
 
-            // ── Step 3: Create off-session PaymentIntent on the Host's Stripe account
-            $paymentIntent = PaymentIntent::create([
-                'amount' => (int) round($amount * 100),
-                'currency' => Payment::CURRENCY_USD,
-                'customer' => $customerId,
-                'payment_method' => $paymentMethodId,
-                'off_session' => true,
-                'confirm' => true,
-                'description' => __('payment.partner_enrollment_fee_desc', ['partner_id' => $partner->id]),
-                'metadata' => [
-                    'partner_id' => $partner->id,
-                    'invoice_id' => $invoice->id,
-                    'auto_charge' => 'true',
-                ],
-                'automatic_payment_methods' => [
-                    'enabled' => true,
-                    'allow_redirects' => 'never',
-                ],
-            ]);
-
-            if (!in_array($paymentIntent->status, [Payment::STATUS_SUCCEEDED, Payment::STATUS_REQUIRES_CAPTURE])) {
+            if (empty($charge['success'])) {
                 Log::error(__('payment.log_autocharge_pi_failed_error'), [
-                    'pi_id' => $paymentIntent->id,
-                    'status' => $paymentIntent->status,
+                    'pi_id' => $charge['transaction_id'] ?? null,
+                    'status' => $charge['status'] ?? null,
                 ]);
-                $this->recordFailedPayment($failedData, __('payment.autocharge_pi_failed_msg', ['status' => $paymentIntent->status]), __('payment.stripe_payment_failed'));
+                $this->recordFailedPayment($failedData, __('payment.autocharge_pi_failed_msg', ['status' => $charge['status'] ?? 'unknown']), __('payment.stripe_payment_failed'));
                 return false;
             }
 
@@ -491,14 +496,15 @@ class UnifiedPaymentService
                 'invoice_id' => $invoice->id,
                 'entity_type' => Partner::class,
                 'entity_id' => (string) $partner->id,
-                'transaction_id' => $paymentIntent->id,
+                'transaction_id' => $charge['transaction_id'],
                 'payment_from' => PaymentProvider::STRIPE,
                 'payment_type' => PaymentProvider::TYPE_CARD,
                 'amount' => $amount,
                 'currency' => Payment::CURRENCY_USD,
                 'is_partner_paying' => true,
-                'details' => $paymentIntent->toArray(),
-                'status' => $paymentIntent->status,
+                'is_environment' => $environment,
+                'details' => $charge['raw'] ?? [],
+                'status' => Payment::STATUS_SUCCEEDED,
                 'transaction_date' => now(),
             ]);
 
@@ -510,6 +516,37 @@ class UnifiedPaymentService
             Log::error(__('payment.log_autocharge_exception_error', ['error' => $e->getMessage()]));
             $this->recordFailedPayment($failedData, $e->getMessage(), __('payment.autocharge_exception'));
             return false;
+        }
+    }
+
+    /**
+     * Record a card declined at checkout ("Pay Now") as a FAILED payment, so
+     * every attempt shows in Payments as declined auto-charges do (BUG-035).
+     * The invoice is left Unpaid. A recording error never hides the decline.
+     */
+    protected function recordCheckoutFailure(Invoice $invoice, ?int $partnerId, $borrowerId, ?string $providerName, int $environment, string $error, array $gateway = [], ?string $transactionId = null): void
+    {
+        try {
+            $this->paymentRecord->createRecord([
+                'partner_id' => $partnerId,
+                'borrower_id' => $borrowerId,
+                'invoice_id' => $invoice->id,
+                'entity_type' => $invoice->entity_type,
+                'entity_id' => $invoice->entity_id,
+                'transaction_id' => $transactionId ?: 'FAILED_' . uniqid(),
+                'amount' => $invoice->payment_amount,
+                'currency' => strtoupper($invoice->currency ?? 'USD'),
+                'payment_from' => $providerName ?? __('payment.default_provider'),
+                'payment_type' => PaymentProvider::TYPE_CARD,
+                'status' => Payment::STATUS_FAILED,
+                'is_environment' => $environment,
+                'details' => array_filter([
+                    Payment::DETAIL_FAILURE_SOURCE => Payment::FAILURE_SOURCE_CHECKOUT,
+                    'error' => $error,
+                ] + $gateway, fn ($value) => $value !== null),
+            ]);
+        } catch (Exception $e) {
+            Log::error(__('payment.log_record_failed_payment_error', ['error' => $e->getMessage()]));
         }
     }
 
@@ -536,6 +573,7 @@ class UnifiedPaymentService
                     'input_data' => $data
                 ],
                 'status' => Payment::STATUS_FAILED,
+                'is_environment' => $data['is_environment'] ?? null,
             ]);
         } catch (Exception $e) {
             Log::error(__('payment.log_record_failed_payment_error', ['error' => $e->getMessage()]));

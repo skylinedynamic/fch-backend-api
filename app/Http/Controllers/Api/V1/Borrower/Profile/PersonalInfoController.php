@@ -11,6 +11,7 @@ use App\Services\Borrower\Profile\ProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 /**
  *  Borrower Profile
@@ -43,12 +44,20 @@ class PersonalInfoController extends Controller
     {
         try {
             $user = Auth::user();
-            // Update profile using the service
-            $updatedUser = $this->profileService->updateProfile($user, $request->validated());
+            // A new email isn't saved yet: it waits for confirmation from the
+            // link sent to it, which the message tells the borrower.
+            $requestedEmail = $this->profileService->updateProfile($user, $request->validated());
+            $updatedUser = User::with('entity')->find($user->id);
+
             return ApiResponse::success(
                 new PersonalProfileResource($updatedUser),
-                __('borrower.update_personal_profile')
+                $requestedEmail
+                    ? __('email_change.requested', ['email' => $requestedEmail])
+                    : __('borrower.update_personal_profile')
             );
+        } catch (ValidationException $e) {
+            // An email another account uses is a 422 on the field, not a failure.
+            throw $e;
         } catch (\Exception $e) {
             return ApiResponse::error(__($e->getMessage()), 500);
         }

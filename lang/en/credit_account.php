@@ -23,4 +23,7 @@ return [
     'personal_guarantee_max' => 'Personal Guarantee must not exceed 255 characters.',
     'business_credit_profile_max' => 'Business Credit Profile must not exceed 255 characters.',
     'final_approval_max' => 'Final Approval must not exceed 255 characters.',
+    'credit_accounts_deleted' => 'Credit accounts deleted successfully.',
+    'delete_blocked_applied' => 'This card has borrower applications, so it cannot be deleted. Make it Inactive instead.',
+    'delete_blocked_applied_named' => 'Nothing was deleted: borrowers have applied for :names. Deselect them, or make them Inactive instead.',
 ];

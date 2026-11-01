@@ -21,6 +21,9 @@ class PersonalProfileResource extends JsonResource
             'middle_name' => $this->entity->middle_name,
             'last_name' => $this->entity->last_name,
             'email' => $this->email,
+            // A new email waiting to be confirmed from the link sent to it;
+            // `email` stays the one to sign in with until then.
+            'pending_email' => $this->pending_email,
             'phone_number' => $this->entity->phone_number, 
             'country' => $this->entity->country,
             'country_code' => $this->entity->country_code,

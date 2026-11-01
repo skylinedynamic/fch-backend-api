@@ -217,6 +217,18 @@ class FundingRequestService
             $query->orderBy("funding_requests.{$sortField}", $sortOrder);
         } elseif ($sortField === 'amount_range') {
             $query->orderBy('funding_sequencings.amount_range', $sortOrder);
+        } elseif ($sortField === 'application_status') {
+            // APPLICATION STATUS is the latest application's status - not a
+            // column here, so it never sorted (BUG-009). Lifecycle order, with
+            // "no application yet" (Not Started / blank) first.
+            [$case, $bindings] = FundingApplication::statusKeyCase('latest_application.status');
+            $query->orderByRaw(
+                "COALESCE((SELECT {$case} FROM funding_applications AS latest_application"
+                . ' WHERE latest_application.funding_request_id = funding_requests.id'
+                . ' AND latest_application.deleted_at IS NULL'
+                . " ORDER BY latest_application.id DESC LIMIT 1), 0) {$sortOrder}",
+                $bindings
+            )->orderBy('funding_requests.id', 'desc');
         } else {
             $query->orderBy('funding_requests.id', 'desc');
         }

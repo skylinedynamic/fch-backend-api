@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\UsPostalCode;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPhoneNumber;
 
 class StoreBusinessInfoRequest extends BaseApiRequest
 {
@@ -31,7 +32,7 @@ class StoreBusinessInfoRequest extends BaseApiRequest
             'full_name' => 'required|string|max:255',
             'business_name' => 'required|string|max:255',
             'business_email' => 'required|email|max:255',
-            'business_phone_no' => 'required|string|max:255',
+            'business_phone_no' => ['required', 'string', new UsPhoneNumber()],
             'business_country' => 'required|string|max:255',
             'business_country_code' => 'required|string|max:10',
             'business_address' => 'required|string|max:255',

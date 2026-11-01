@@ -243,6 +243,9 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers', [BorrowerController::class, 'store']);
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
+            // The SSN or EIN in full - the details carry both masked (BUG-014).
+            // Anyone who can open the client may reveal; each reveal is logged.
+            Route::post('borrowers/{id}/reveal', [BorrowerController::class, 'reveal']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::get('borrowers/{id}/capital-access-overview', [BorrowerCapitalAccessController::class, 'getOverview']);
             Route::get('borrowers/{id}/capital-access-strategies', [BorrowerCapitalAccessController::class, 'strategiesForClient']);
@@ -276,6 +279,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
+                // The same downloads with the password in the body (BUG-094).
+                Route::post('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
+                Route::post('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
+                Route::post('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
                 Route::get('download-history/{historyId}/download', [RequestApplicationController::class, 'downloadFromHistory']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
@@ -336,7 +343,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('credit-accounts/all', [AdminCreditAccountController::class, 'allActive']);
             });
 
-            // Capital Access CRUD
+            // Capital Access CRUD - its menu item uses the credit account
+            // permissions, so the API does too.
             Route::prefix('capital-accesses')->middleware('host-only')->group(function () {
                 Route::post('fetch-all', [CommonCapitalAccessController::class, 'index']);
                 Route::post('/', [CommonCapitalAccessController::class, 'store']);
@@ -367,6 +375,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
                 Route::post('/', [ActivityLogController::class, 'store']);
                 Route::match(['patch', 'post'], '/{id}/visibility', [ActivityLogController::class, 'updateVisibility']);
+                Route::match(['patch', 'post'], '/{id}/task-status', [ActivityLogController::class, 'updateTaskStatus']);
                 Route::match(['put', 'post'], '/{id}', [ActivityLogController::class, 'update']);
                 Route::delete('/{id}', [ActivityLogController::class, 'destroy']);
             });

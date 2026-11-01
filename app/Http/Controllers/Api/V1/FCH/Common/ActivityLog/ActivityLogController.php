@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogTaskStatusRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogVisibilityRequest;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
@@ -109,6 +110,23 @@ class ActivityLogController extends Controller
             if ($code === 422) return ApiResponse::error($e->getMessage(), 422);
             Log::error('ActivityLog visibility update error:', ['id' => $id, 'error' => $e->getMessage()]);
             return ApiResponse::serverError(__('activity_log.visibility_update_failed'));
+        }
+    }
+
+    /**
+     * Change an assigned task's status from its reminder (creator or assignee).
+     */
+    public function updateTaskStatus(UpdateActivityLogTaskStatusRequest $request, $id)
+    {
+        try {
+            $log = $this->activityLogService->updateTaskStatus((int) $id, $request->validated('task_status'));
+            return ApiResponse::success(new ActivityLogResource($log), __('activity_log.task_status_updated'));
+        } catch (\Exception $e) {
+            $code = $e->getCode();
+            if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            if ($code === 422) return ApiResponse::error($e->getMessage(), 422);
+            Log::error('ActivityLog task status update error:', ['id' => $id, 'error' => $e->getMessage()]);
+            return ApiResponse::serverError(__('activity_log.task_status_update_failed'));
         }
     }
 

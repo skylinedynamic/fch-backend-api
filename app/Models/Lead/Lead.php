@@ -7,6 +7,7 @@ use App\Models\Contact\Contact;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\HasEncryptedSsn;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,8 @@ use Spatie\Activitylog\Contracts\Activity;
 class Lead extends Model
 {
     use HasFactory, SoftDeletes;
+    // The full SSN, encrypted in ssn_encrypted - as on a client's profile.
+    use HasEncryptedSsn;
 
     protected $table = 'leads';
 
@@ -26,6 +29,8 @@ class Lead extends Model
     const BORROWER_TYPE_LEAD = 'Borrower';
 
     const DEFAULT_COUNTRY_CODE = '+1';
+    // The website pre-qualification asks for a US state of incorporation.
+    const DEFAULT_COUNTRY = 'United States';
 
     const STATUS_NEW_LEAD = 'New Lead';
     const STATUS_CONTACT_INITIATED = 'Contact Initiated';

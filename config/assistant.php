@@ -73,7 +73,7 @@ return [
             'pre_qualification' => ['label' => 'Pre-Qualification', 'path' => '/pre-qualification'],
             'funding_request' => ['label' => 'Funding Request', 'path' => '/funding-requests'],
             'my_applications' => ['label' => 'My Applications', 'path' => '/my-applications'],
-            // The portal moved Capital Access to /credit-card-stacking (the old URL only redirects).
+            // The borrower menu calls it Credit Card Stacking now; /capital-access only redirects there.
             'capital_access' => ['label' => 'Credit Card Stacking', 'path' => '/credit-card-stacking'],
             'invoices' => ['label' => 'Invoices', 'path' => '/invoices'],
             'payments' => ['label' => 'Payments', 'path' => '/payments'],

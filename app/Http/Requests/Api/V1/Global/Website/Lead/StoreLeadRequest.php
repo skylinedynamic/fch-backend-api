@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\Global\Website\Lead;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\ReCaptcha;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPhoneNumber;
 
 class StoreLeadRequest extends BaseApiRequest
 {
@@ -25,7 +26,7 @@ class StoreLeadRequest extends BaseApiRequest
             'phone_number' => [
                 'nullable',
                 'string',
-                'regex:/^(\(\d{3}\) \d{3}-\d{4}|\d{10})$/',
+                new UsPhoneNumber(),
             ],
             'company_name' => ['nullable', 'string', 'max:255'],
             'requirements_details' => ['nullable', 'string'],

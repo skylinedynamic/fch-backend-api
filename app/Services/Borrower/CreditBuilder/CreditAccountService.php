@@ -40,7 +40,9 @@ class CreditAccountService
             );
         });
 
-        $accounts = $query->orderBy('difficulty_rank')->paginate(16);
+        // Many cards share a rank; the id breaks ties so every page request
+        // orders them the same way and each card is on exactly one page (BUG-138).
+        $accounts = $query->orderBy('difficulty_rank')->orderBy('credit_accounts.id')->paginate(16);
 
         return CreditAccountResource::collection($accounts)->additional([
             'status' => true,

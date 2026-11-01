@@ -71,6 +71,11 @@ class RequestApplicationController extends Controller
                 'sort_order'    => $input['sort_order'] ?? null,
                 'status'        => $input['status'] ?? null,
                 'borrower_id'   => $input['borrower_id'] ?? null,
+                // The Date Range filter, in the viewer's days (the DATE column
+                // shows created_at in their timezone).
+                'start_date'    => $input['start_date'] ?? null,
+                'end_date'      => $input['end_date'] ?? null,
+                'timezone'      => $request->header('X-Timezone') ?? config('app.timezone'),
             ];
 
             return $this->requestApplicationService->getFundingApplicationList($filters);
@@ -144,8 +149,12 @@ class RequestApplicationController extends Controller
     public function downloadApplication(Request $request, $id)
     {
         try {
-            $password = $request->query('password');
-            return $this->documentService->downloadApplicationPdf($id, $password);
+            // The password travels in the body, never the URL (BUG-094): a
+            // query string is written to server and proxy logs.
+            if ($request->query->has('password')) {
+                return ApiResponse::error(__('application.download_password_in_body'), 422);
+            }
+            return $this->documentService->downloadApplicationPdf($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('application.error_downloading_funding_application'));
         }
@@ -157,8 +166,12 @@ class RequestApplicationController extends Controller
     public function downloadSignature(Request $request, $id)
     {
         try {
-            $password = $request->query('password');
-            return $this->documentService->downloadSignaturePdf($id, $password);
+            // The password travels in the body, never the URL (BUG-094): a
+            // query string is written to server and proxy logs.
+            if ($request->query->has('password')) {
+                return ApiResponse::error(__('application.download_password_in_body'), 422);
+            }
+            return $this->documentService->downloadSignaturePdf($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('application.error_downloading_signature'));
         }
@@ -170,8 +183,12 @@ class RequestApplicationController extends Controller
     public function downloadZip(Request $request, $id)
     {
         try {
-            $password = $request->query('password');
-            return $this->documentService->downloadZip($id, $password);
+            // The password travels in the body, never the URL (BUG-094): a
+            // query string is written to server and proxy logs.
+            if ($request->query->has('password')) {
+                return ApiResponse::error(__('application.download_password_in_body'), 422);
+            }
+            return $this->documentService->downloadZip($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError('An error occurred while generating the ZIP file.');
         }

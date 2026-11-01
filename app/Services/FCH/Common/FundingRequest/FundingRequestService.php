@@ -8,6 +8,7 @@ use App\Mail\FundingRequest\PartnerFundingRequestApproved;
 use App\Mail\FundingRequest\UnderwritingStatusUpdated;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Lender\Lender;
@@ -70,13 +71,37 @@ class FundingRequestService
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
-        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name'];
-        
+        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name', 'lender_names', 'application_status'];
+
         if (in_array($sortField, $allowedSortFields)) {
             if ($sortField === 'borrower_name') {
+                // The name as the column reads it, "first last" - first name
+                // then last name put "QA-TEST" + "R2..." before "QA-TEST ONB"
+                // + "..." (BUG-150).
                 $query->orderBy(
-                    Borrower::select('first_name')
+                    Borrower::selectRaw("CONCAT_WS(' ', first_name, last_name)")
                         ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
+                        ->limit(1),
+                    $sortOrder
+                );
+            } elseif ($sortField === 'application_status') {
+                // APPLICATION STATUS is the latest application's status - not a
+                // column here, so it never sorted (BUG-150). Lifecycle order,
+                // "no application yet" first, as the borrower's list (BUG-009).
+                [$case, $bindings] = FundingApplication::statusKeyCase('latest_application.status');
+                $query->orderByRaw(
+                    "COALESCE((SELECT {$case} FROM funding_applications AS latest_application"
+                    . ' WHERE latest_application.funding_request_id = funding_requests.id'
+                    . ' AND latest_application.deleted_at IS NULL'
+                    . " ORDER BY latest_application.id DESC LIMIT 1), 0) {$sortOrder}",
+                    $bindings
+                );
+            } elseif ($sortField === 'lender_names') {
+                // ASSIGNED LENDER: the name of the lender set on the request. It
+                // was not a sortable field, so the click fell back to newest first.
+                $query->orderBy(
+                    Lender::select('name')
+                        ->whereColumn('lenders.id', 'funding_requests.assign_lender')
                         ->limit(1),
                     $sortOrder
                 );
@@ -87,12 +112,24 @@ class FundingRequestService
                         ->limit(1),
                     $sortOrder
                 );
+            } elseif ($sortField === 'funding_sequence_id') {
+                // The FUNDING SEQUENCE column shows the sequence's name, so it
+                // sorts by name - by id the order looked random (BUG-008).
+                $query->orderBy(
+                    FundingSequencing::select('name')
+                        ->whereColumn('funding_sequencings.id', 'funding_requests.funding_sequence_id')
+                        ->limit(1),
+                    $sortOrder
+                );
             } else {
-                $query->orderBy($sortField, $sortOrder);
+                $query->orderBy('funding_requests.' . $sortField, $sortOrder);
             }
-        } else {
-            $query->orderBy('id', 'desc'); // Fallback
         }
+
+        // Rows with an equal value (many $300,000 requests) need one fixed order,
+        // or a row can show on two pages and another on none. Newest first is
+        // also the list's default when nothing (or an unknown field) is sorted.
+        $query->orderBy('funding_requests.id', 'desc');
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
@@ -142,7 +179,34 @@ class FundingRequestService
         // the application's lifecycle key, not from a list of status names.
         $review->fundingApplication?->append(['status_key', 'is_editable']);
 
+        // When each status was reached, so the tracker keeps the dates of the
+        // steps in between once the request is decided (BUG-070).
+        $review->setAttribute('status_dates', $this->statusDates($review));
+
         return ApiResponse::success($review);
+    }
+
+    /**
+     * Status => when the request last reached it, from the status-change log.
+     * Submission is created_at, which the tracker already shows.
+     *
+     * @return array<string, string>
+     */
+    private function statusDates(FundingRequest $review): array
+    {
+        $dates = [];
+
+        ActivityLog::where('subject_type', FundingRequest::class)
+            ->where('subject_id', $review->id)
+            ->where('log_name', ActivityLog::LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE)
+            ->oldest()->oldest('id')
+            ->get(['properties', 'created_at'])
+            ->each(function ($log) use (&$dates) {
+                $status = $log->properties['status'] ?? null;
+                if ($status) $dates[$status] = $log->created_at->toIso8601String();
+            });
+
+        return array_filter($dates);
     }
 
     /**
@@ -374,7 +438,8 @@ class FundingRequestService
             $review->id,
             $review->partner_id,
             $review->borrower_id,
-            "Lenders Assigned to Request",
+            // The lender goes in the title: it is what tells one assignment from the next.
+            (count($lenderNames) > 1 ? 'Lenders Assigned: ' : 'Lender Assigned: ') . $lendersStr,
             "Assigned Lender(s): " . $lendersStr,
             'update',
             [

@@ -7,6 +7,7 @@ use App\Models\Commission\Commission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -335,11 +336,29 @@ class FundingApplication extends Model
      */
     public function scopeOrderByStatusKey($query, string $direction = 'asc')
     {
-        $keys = self::statusKeys();
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
 
-        if ($keys === []) {
+        if (self::statusKeys() === []) {
             return $query->orderBy($query->qualifyColumn('status'), $direction);
+        }
+
+        [$case, $bindings] = self::statusKeyCase($query->qualifyColumn('status'));
+
+        return $query->orderByRaw("{$case} {$direction}", $bindings);
+    }
+
+    /**
+     * SQL turning a status column into its lifecycle key (unknown statuses
+     * last), with its bindings - for ordering by status from another table,
+     * e.g. a funding request by its application's status.
+     *
+     * @return array{0: string, 1: array<int, string>}
+     */
+    public static function statusKeyCase(string $column): array
+    {
+        $keys = self::statusKeys();
+        if ($keys === []) {
+            return ['0', []];
         }
 
         $cases = '';
@@ -359,10 +378,7 @@ class FundingApplication extends Model
 
         $unknown = max($keys) + 1;
 
-        return $query->orderByRaw(
-            "CASE {$query->qualifyColumn('status')}{$cases} ELSE {$unknown} END {$direction}",
-            $bindings
-        );
+        return ["CASE {$column}{$cases} ELSE {$unknown} END", $bindings];
     }
 
     /**
@@ -511,11 +527,45 @@ class FundingApplication extends Model
     }
 
     /**
-     * Editability, for serialising alongside a raw model (`append`).
+     * The host's own team - its admin and staff, not a borrower of the host and
+     * not a partner. It may edit any partner's borrower's application at any
+     * status; the status lock is for borrowers and partners.
+     */
+    public static function isHostTeam(?User $user): bool
+    {
+        return $user !== null
+            && $user->user_type !== User::BORROWER
+            && $user->entity_type !== Borrower::class
+            && (bool) $user->partner?->is_host;
+    }
+
+    /**
+     * Whether this user may change the application's data: the host's team
+     * always, everyone else while the status is still editable.
+     */
+    public function isEditableBy(?User $user): bool
+    {
+        return self::isHostTeam($user) || $this->isEditable();
+    }
+
+    /**
+     * Whether a real change by this user costs the borrower's signature. The
+     * host editing past the lock is changing figures the borrower signed, so
+     * the borrower signs again then too.
+     */
+    public function invalidatesSignatureOnEditBy(?User $user): bool
+    {
+        return $this->invalidatesSignatureOnEdit()
+            || (self::isHostTeam($user) && $this->isLockedForEdit() && $this->hasBeenSubmitted());
+    }
+
+    /**
+     * Editability, for serialising alongside a raw model (`append`), for the
+     * signed-in user.
      */
     public function getIsEditableAttribute(): bool
     {
-        return $this->isEditable();
+        return $this->isEditableBy(auth()->user());
     }
 
     /**
@@ -575,9 +625,10 @@ class FundingApplication extends Model
      *
      * @return array<string, mixed>
      */
-    public function editingState(): array
+    public function editingState(?User $user = null): array
     {
-        $isLocked = $this->isLockedForEdit();
+        // For the given user: the host's team is never locked out.
+        $isLocked = ! $this->isEditableBy($user);
 
         return [
             'status_key' => self::statusKey($this->status),
@@ -586,7 +637,7 @@ class FundingApplication extends Model
             'requires_resign' => (bool) $this->requires_resign,
             // True when the form is open but a change will cost the signature -
             // what the portal warns about before letting an edit through.
-            'edit_requires_resign' => ! $isLocked && $this->invalidatesSignatureOnEdit(),
+            'edit_requires_resign' => ! $isLocked && $this->invalidatesSignatureOnEditBy($user),
             // True when the form is open and the application has been submitted
             // at some point, whatever status it sits at now - On Hold and Draft
             // included. The portal asks before letting an edit through on these;
@@ -741,6 +792,38 @@ class FundingApplication extends Model
         return $this->belongsTo(FundingRequest::class, 'funding_request_id');
     }
 
+    /*
+    | Until the client reaches the Funding step, a started (On Hold) application
+    | has no amount, type or purpose of its own. The funding request it was
+    | started from already has them, so those are shown instead (BUG-136).
+    | For display only: the stored columns are not changed.
+    */
+
+    public function requestedAmountOrRequest(): mixed
+    {
+        return $this->ownOrRequest($this->requested_amount, 'requested_amount');
+    }
+
+    public function fundingTypeOrRequest(): ?string
+    {
+        return $this->ownOrRequest($this->preferred_funding_type, 'funding_type');
+    }
+
+    public function purposeOfFundsOrRequest(): ?string
+    {
+        return $this->ownOrRequest($this->purpose_of_funds, 'use_of_funds');
+    }
+
+    private function ownOrRequest(mixed $own, string $requestField): mixed
+    {
+        if ($own !== null && $own !== '') {
+            return $own;
+        }
+
+        $fromRequest = $this->funding_request_id ? $this->fundingRequest?->{$requestField} : null;
+
+        return $fromRequest === '' ? null : $fromRequest;
+    }
 
 
     public function downloadHistories()

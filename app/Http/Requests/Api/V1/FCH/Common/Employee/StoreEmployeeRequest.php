@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
 
 class StoreEmployeeRequest extends BaseApiRequest
 {
@@ -31,12 +32,14 @@ class StoreEmployeeRequest extends BaseApiRequest
             'job_status'     => ['nullable', 'string', 'max:255'],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'emergency_phone' => ['nullable', 'string', 'max:50'],
-            'phone_number_2' => ['nullable'],
+            'emergency_phone' => ['nullable', 'string', new UsPhoneNumber()],
+            'phone_number_2' => ['nullable', 'string', new UsPhoneNumber()],
+            // The login's own number, when an account is created with the employee.
+            'phone_number'   => ['nullable', 'string', new UsPhoneNumber()],
             'phone_number_1'   => [
                 'nullable',
                 'string',
-                'max:50',
+                new UsPhoneNumber(),
                 Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)->whereNull('deleted_at')),
             ],
             'email' => [
@@ -57,7 +60,7 @@ class StoreEmployeeRequest extends BaseApiRequest
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
             'address'        => ['nullable', 'string', 'max:500'],
             'is_paid'        => ['nullable'],
-            'months'         => ['nullable'],
+            'months'         => ['nullable', 'integer', 'min:1'],
             'amount'         => ['nullable'],
         ];
     }

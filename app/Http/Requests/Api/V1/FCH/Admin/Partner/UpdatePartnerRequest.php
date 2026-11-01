@@ -8,6 +8,8 @@ use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\UsPhoneNumber;
+use App\Rules\BusinessEin;
 
 class UpdatePartnerRequest extends BaseApiRequest
 {
@@ -17,6 +19,18 @@ class UpdatePartnerRequest extends BaseApiRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * A Tax ID is an EIN: the screen writes it XX-XXXXXXX, the column keeps the
+     * nine digits. Anything that is not a writing of an EIN is left for
+     * BusinessEin to refuse.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('tax_id')) {
+            $this->merge(['tax_id' => BusinessEin::canonical($this->input('tax_id'))]);
+        }
     }
 
     /**
@@ -55,10 +69,10 @@ class UpdatePartnerRequest extends BaseApiRequest
                     User::where('entity_type', Partner::class)->where('entity_id', (int) $this->id)->value('id')
                 )->whereNull('deleted_at'),
             ],
-            'phone_number'               => ['sometimes', 'required', 'string', 'max:50'],
+            'phone_number'               => ['sometimes', 'required', 'string', new UsPhoneNumber()],
             'status'                     => ['nullable', 'string', 'max:255'],
             'contact_person'             => ['nullable', 'string', 'max:255'],
-            'contact_person_phone_number'=> ['nullable', 'string', 'max:50'],
+            'contact_person_phone_number'=> ['nullable', 'string', new UsPhoneNumber()],
             'contact_person_email'       => ['nullable', 'email', 'max:255'],
             'contact_person_relation'    => ['nullable', 'string', 'max:255'],
             'partner_type'               => ['sometimes', 'required', 'string', 'max:255'],
@@ -68,7 +82,7 @@ class UpdatePartnerRequest extends BaseApiRequest
             'postal_code'                => ['nullable', 'string', new UsPostalCode()],
             'address_line_1'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'address_line_2'             => ['nullable', 'string', 'max:255'],
-            'tax_id'                     => ['nullable', 'string', 'max:100'],
+            'tax_id'                     => ['nullable', 'string', new BusinessEin()],
             'website'                    => ['nullable', 'string'],
             'joining_date'               => ['nullable', 'date'],
             'company_logo'               => ['nullable'],

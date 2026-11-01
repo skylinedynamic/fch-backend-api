@@ -46,4 +46,5 @@ return [
     'category_created' => 'Category created successfully',
     'category_updated' => 'Category updated successfully',
     'category_deleted' => 'Category deleted successfully',
+    'category_name_unique' => 'This category name already exists.',
 ];

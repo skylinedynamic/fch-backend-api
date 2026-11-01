@@ -8,6 +8,7 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\User\User;
 use App\Services\FCH\Common\Application\PreQualificationAiService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -46,7 +47,7 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
             'first_name' => 'Bo',
             'last_name' => 'Rrower',
             'email' => 'bo@example.org',
-            'phone_number' => '5550100',
+            'phone_number' => '5552340100',
             'state_of_incorporation' => 'Texas',
         ], $overrides);
     }
@@ -117,6 +118,82 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
         $this->postJson('/api/v1/borrower/pre-qualification/business-info', $this->business(['monthly_revenue' => -1]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('monthly_revenue');
+    }
+
+    /** BUG-017: step 1 with no first name, a bad email and no state reports all three at once. */
+    #[Test]
+    public function personal_info_reports_every_error_in_one_response(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/pre-qualification/personal-info', $this->personal(['first_name' => '', 'email' => 'bad@', 'state_of_incorporation' => '']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['first_name', 'email', 'state_of_incorporation']);
+    }
+
+    /**
+     * Defect (BUG-037, CP-PREQ-04): a borrower with no business start date in
+     * their profile was stuck on Business Details - Time in Business was a
+     * read-only "Please set business start date in profile" and Next failed
+     * with "Years in business is required". The step now takes the start date,
+     * saves it to the profile and derives Time in Business from it.
+     */
+    #[Test]
+    public function a_borrower_without_a_business_start_date_sets_it_on_the_business_step(): void
+    {
+        $this->assertNull($this->myBorrower()->business_start_date);
+        $startDate = now()->subYears(3)->subMonths(2)->toDateString();
+        $this->actingAsUser($this->me);
+
+        $id = $this->postJson('/api/v1/borrower/pre-qualification/business-info', $this->business([
+            'years_in_business' => null,
+            'business_start_date' => $startDate,
+        ]))->assertOk()->json('data.id');
+
+        $this->assertSame($startDate, Carbon::parse($this->myBorrower()->business_start_date)->toDateString());
+        $draft = PreQualificationRequest::find($id);
+        $this->assertSame($startDate, $draft->business_start_date->toDateString());
+        $this->assertSame(calculateTimeInBusiness($startDate), $draft->years_in_business);
+        $this->getJson('/api/v1/borrower/pre-qualification')
+            ->assertOk()
+            ->assertJsonPath('data.years_in_business', calculateTimeInBusiness($startDate))
+            ->assertJsonPath('data.business_start_date', $startDate);
+    }
+
+    /**
+     * Once the profile has a start date, changing it goes through a profile
+     * change request - the wizard must not become a way around that.
+     */
+    #[Test]
+    public function the_business_step_never_overwrites_a_saved_business_start_date(): void
+    {
+        $this->myBorrower()->update(['business_start_date' => '2015-01-01']);
+        $this->actingAsUser($this->me);
+
+        $id = $this->postJson('/api/v1/borrower/pre-qualification/business-info', $this->business([
+            'years_in_business' => '1 Year',
+            'business_start_date' => '2024-01-01',
+        ]))->assertOk()->json('data.id');
+
+        $this->assertSame('2015-01-01', Carbon::parse($this->myBorrower()->business_start_date)->toDateString());
+        $draft = PreQualificationRequest::find($id);
+        $this->assertSame('2015-01-01', $draft->business_start_date->toDateString());
+        $this->assertSame(calculateTimeInBusiness('2015-01-01'), $draft->years_in_business);
+    }
+
+    #[Test]
+    public function the_business_step_needs_a_start_date_or_time_in_business(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/pre-qualification/business-info', $this->business(['years_in_business' => null]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('years_in_business');
+        $this->postJson('/api/v1/borrower/pre-qualification/business-info', $this->business([
+            'years_in_business' => null,
+            'business_start_date' => now()->addDay()->toDateString(),
+        ]))->assertUnprocessable()->assertJsonValidationErrors('business_start_date');
+        $this->assertNull($this->myBorrower()->business_start_date);
     }
 
     #[Test]

@@ -146,4 +146,20 @@ class BusinessEinTest extends TestCase
             'no digits' => ['--', null],
         ];
     }
+
+    /**
+     * What a request hands the rule: a writing of an EIN reduced to its nine
+     * digits, so the column holds one form - and anything else exactly as sent,
+     * so the rule still sees the letters normalize() would strip.
+     */
+    #[Test]
+    public function canonical_reduces_a_writing_and_leaves_anything_else_for_the_rule(): void
+    {
+        $this->assertSame('534534534', BusinessEin::canonical('53-4534534'));
+        $this->assertSame('534534534', BusinessEin::canonical('534534534'));
+        $this->assertSame('534534534', BusinessEin::canonical('53 4534534'));
+        $this->assertSame('AB-CDEFGHI', BusinessEin::canonical('AB-CDEFGHI'));
+        $this->assertNull(BusinessEin::canonical(null));
+        $this->assertSame(123456789, BusinessEin::canonical(123456789));
+    }
 }

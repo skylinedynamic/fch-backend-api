@@ -10,6 +10,7 @@ use App\Models\Compensation\CompensationSetting;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Services\FCH\Common\Compensation\CompensationService;
 use App\Services\FCH\Common\Invoice\InvoiceService;
@@ -75,7 +76,8 @@ class CommissionPayoutService
                 'base_amount' => null,
                 'amount' => $paid->invoice ? round((float) $paid->invoice->payment_amount, 2) : null,
                 'is_paid' => true,
-                'paid_at' => $paid->paid_at?->format('M d, Y'),
+                // The viewer's day (X-Timezone), not the UTC one (BUG-120).
+                'paid_at' => toTimezone($paid->paid_at, null, __('commission.date_format')),
                 'payment_method' => $paid->payment?->payment_type,
                 'can_pay' => false,
             ];
@@ -88,7 +90,7 @@ class CommissionPayoutService
         if ($commission->payment_status === Commission::PAYMENT_STATUS_PAID) {
             return array_merge($payout, [
                 'is_paid' => true,
-                'paid_at' => $commission->payout_date?->format('M d, Y'),
+                'paid_at' => toDateOnly($commission->payout_date, __('commission.date_format')),
                 'payment_method' => $this->legacyPayment($commission)?->payment_type,
                 'can_pay' => false,
             ]);
@@ -99,6 +101,8 @@ class CommissionPayoutService
             'paid_at' => null,
             'payment_method' => null,
             'can_pay' => $this->reasonNotPayable($commission, $payout) === null,
+            // What the payout dialog's Environment starts on.
+            'default_environment' => PaymentProvider::defaultModeForApp(),
         ]);
     }
 
@@ -106,11 +110,12 @@ class CommissionPayoutService
      * Pay the payee: record the payout, an invoice and a payment, and mark the
      * commission Paid and Completed.
      *
+     * @param string $environment PaymentProvider::MODE_*, as the host stated it
      * @throws ValidationException when there's nothing that can be paid yet
      */
-    public function pay(Commission $commission, string $paymentMethod, ?string $note = null): Commission
+    public function pay(Commission $commission, string $paymentMethod, string $environment, ?string $note = null): Commission
     {
-        [$commission, $invoice] = DB::transaction(function () use ($commission, $paymentMethod, $note) {
+        [$commission, $invoice] = DB::transaction(function () use ($commission, $paymentMethod, $environment, $note) {
             // Locked, so two clicks can't both pay.
             $commission = Commission::whereKey($commission->getKey())->lockForUpdate()->firstOrFail();
 
@@ -130,7 +135,9 @@ class CommissionPayoutService
                 'borrower_id' => $commission->borrower_id,
                 'entity_type' => $entityType,
                 'entity_id' => $payee['id'],
-                'customer_name' => $partner ? ($partner->full_name ?? $partner->company_name) : $payee['name'],
+                // The person paid, never the company: a partner payee's name is
+                // its company, so a partner is named by its owner only.
+                'customer_name' => $partner ? $partner->full_name : $payee['name'],
                 'email' => $payee['email'],
                 'country' => $partner?->country,
                 'payment_amount' => $payout['amount'],
@@ -158,6 +165,7 @@ class CommissionPayoutService
                 'payment_from' => $paymentMethod,
                 'payment_type' => $paymentMethod,
                 'status' => Payment::STATUS_SUCCEEDED,
+                'is_environment' => Payment::environmentFromMode($environment),
                 'transaction_date' => now(),
                 'created_by' => Auth::id(),
             ]);
@@ -181,7 +189,8 @@ class CommissionPayoutService
             $commission->update([
                 'payment_status' => Commission::PAYMENT_STATUS_PAID,
                 'commission_status' => Commission::STATUS_COMPLETED,
-                'payout_date' => now(),
+                // The day in the payer's zone, not the UTC one (BUG-120).
+                'payout_date' => todayInRequestTimezone(),
             ]);
 
             return [$commission, $invoice];

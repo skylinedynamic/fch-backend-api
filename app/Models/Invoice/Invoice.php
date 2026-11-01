@@ -31,6 +31,8 @@ class Invoice extends Model
         'payment_amount',
         'month_count',
         'payment_date',
+        'auto_charge_stopped_at',
+        'auto_charge_stop_reason',
         'status',
         'type',
         'is_partner_paying',
@@ -44,6 +46,10 @@ class Invoice extends Model
         'updated_by',
     ];
 
+
+    /** Why the scheduler stopped auto-charging an invoice (auto_charge_stop_reason, BUG-005). */
+    const AUTO_CHARGE_STOP_ALREADY_PAID = 'already_paid';
+    const AUTO_CHARGE_STOP_TOO_MANY_FAILURES = 'too_many_failures';
 
     const STATUS_PAID = 'Paid';
     const STATUS_UNPAID = 'Unpaid';
@@ -96,7 +102,31 @@ class Invoice extends Model
     ];
 
     /**
-     * An unpaid invoice that is the subscription's own billing cycle.
+     * The invoice types that bill for the subscription's plan itself.
+     *
+     * Only these may describe themselves with the subscription's plan (its
+     * enrollment type). A borrower fee and a platform fee also hang off a
+     * subscription, but they charge something else, so the plan is not theirs.
+     */
+    const PLAN_INVOICE_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+    ];
+
+    /**
+     * Whether this invoice bills for its subscription's plan.
+     */
+    public function billsSubscriptionPlan(): bool
+    {
+        return in_array($this->type, self::PLAN_INVOICE_TYPES, true);
+    }
+
+    /**
+     * An unsettled invoice that is the subscription's own billing cycle: Unpaid, or
+     * Processing - a manual payment awaiting approval has not settled it either,
+     * and raising the cycle again in the meantime billed (and auto-charged) a
+     * month already paid in cash.
      *
      * The single definition of "this subscriber still owes us for their plan", used
      * both to decide whether to raise the next invoice and to exclude such rows in
@@ -104,7 +134,7 @@ class Invoice extends Model
      */
     public function scopeOpenCycle($query)
     {
-        return $query->where('status', self::STATUS_UNPAID)
+        return $query->whereIn('status', [self::STATUS_UNPAID, self::STATUS_PROCESSING])
             ->where(function ($q) {
                 $q->whereIn('type', self::CYCLE_INVOICE_TYPES)->orWhereNull('type');
             });
@@ -130,7 +160,22 @@ class Invoice extends Model
     protected $casts = [
         'details' => 'array',
         'payment_date' => 'date',
+        'auto_charge_stopped_at' => 'datetime',
     ];
+
+    /**
+     * Whether succeeded payments already add up to this invoice's amount - it
+     * was paid, whatever its status says (BUG-005: older code recorded a
+     * Stripe payment and left the invoice Unpaid).
+     */
+    public function isCoveredBySucceededPayments(): bool
+    {
+        $paid = (float) Payment::where('invoice_id', $this->id)
+            ->where('status', Payment::STATUS_SUCCEEDED)
+            ->sum('amount');
+
+        return $paid > 0 && round($paid, 2) >= round((float) $this->payment_amount, 2);
+    }
 
     public function borrower(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

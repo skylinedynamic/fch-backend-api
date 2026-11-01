@@ -19,12 +19,14 @@ use Spatie\Activitylog\Contracts\Activity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use App\Models\Concerns\Archivable;
+use App\Models\Concerns\HasEncryptedSsn;
 use App\Models\Concerns\HasPersonName;
 
 
 class Borrower extends Model
 {
     use HasPersonName;
+    use HasEncryptedSsn;
 
     use HasFactory, SoftDeletes, Archivable;
 
@@ -99,36 +101,9 @@ class Borrower extends Model
      * The one thing this can't cover is a bulk `Borrower::where(...)->update()`
      * call, which bypasses the model entirely — those call sites were updated
      * to fetch an instance first (see ProfileService::updateProfile).
+     *
+     * `ssn` itself (decrypt/encrypt) and hasFullSsn() come from HasEncryptedSsn.
      */
-
-    /**
-     * Decrypt the stored full SSN. Not part of $appends — a resource must ask
-     * for it explicitly, so the full number never gets serialized by default.
-     */
-    public function getSsnAttribute(): ?string
-    {
-        if (!$this->ssn_encrypted) {
-            return null;
-        }
-        try {
-            return \Illuminate\Support\Facades\Crypt::decryptString($this->ssn_encrypted);
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Accepts a full 9-digit SSN (with or without dashes) and encrypts it into
-     * ssn_encrypted — the only place the value is stored.
-     */
-    public function setSsnAttribute(?string $value): void
-    {
-        $digits = preg_replace('/\D/', '', (string) $value);
-
-        $this->attributes['ssn_encrypted'] = $digits === ''
-            ? null
-            : \Illuminate\Support\Facades\Crypt::encryptString($digits);
-    }
 
     /**
      * Legacy accessor: last 4 digits, derived from the decrypted full SSN.
@@ -137,15 +112,6 @@ class Borrower extends Model
     {
         $ssn = $this->ssn;
         return $ssn ? substr($ssn, -4) : null;
-    }
-
-    /**
-     * Whether the full nine-digit SSN is on file - not nothing, and not just
-     * the last four digits rows from before the full SSN was collected hold.
-     */
-    public function hasFullSsn(): bool
-    {
-        return strlen((string) $this->ssn) === \App\Rules\Ssn::digits();
     }
 
     /**
@@ -283,6 +249,11 @@ class Borrower extends Model
         return $this->hasMany(FundingApplication::class, 'borrower_id');
     }
 
+    public function commissions()
+    {
+        return $this->hasMany(\App\Models\Commission\Commission::class, 'borrower_id');
+    }
+
     public function fundingRequests()
     {
         return $this->hasMany(FundingRequest::class, 'borrower_id');
@@ -335,20 +306,48 @@ class Borrower extends Model
     /** Invoice statuses that mean money was received - a client with one is kept. */
     public const PAID_INVOICE_STATUSES = [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS];
 
+    /** Why a client cannot be deleted - see notDeletableReasonCode(). */
+    public const DELETE_BLOCKED_PAID_INVOICE = 'paid_invoice';
+    public const DELETE_BLOCKED_APPLICATIONS = 'applications';
+
     /**
-     * A client can be deleted only while none of their invoices is paid.
+     * A client can be deleted only while none of their invoices is paid and,
+     * paid or free, they have no pre-qualification and no funding application.
      */
     public function isDeletable(): bool
     {
-        return !$this->invoices()
-            ->whereIn('status', self::PAID_INVOICE_STATUSES)
-            ->exists();
+        return $this->notDeletableReasonCode() === null;
+    }
+
+    /**
+     * What keeps this client, or null when nothing does. A paid invoice is
+     * reported first: the payment record is the stronger reason to keep them.
+     */
+    public function notDeletableReasonCode(): ?string
+    {
+        if ($this->invoices()->whereIn('status', self::PAID_INVOICE_STATUSES)->exists()) {
+            return self::DELETE_BLOCKED_PAID_INVOICE;
+        }
+
+        // An embed-form conversion that created a funding application counts
+        // too, even if that application row is no longer there.
+        if ($this->preQualificationRequests()->exists()
+            || $this->fundingApplications()->exists()
+            || \App\Models\EmbedForm\EmbedFormSubmission::where('converted_borrower_id', $this->id)
+                ->whereNotNull('converted_funding_application_id')
+                ->exists()) {
+            return self::DELETE_BLOCKED_APPLICATIONS;
+        }
+
+        return null;
     }
 
     /** Why this client cannot be deleted, and what to do instead. */
     public function notDeletableReason(): string
     {
-        return __('borrower.delete_blocked_paid_invoice');
+        return $this->notDeletableReasonCode() === self::DELETE_BLOCKED_APPLICATIONS
+            ? __('borrower.delete_blocked_applications')
+            : __('borrower.delete_blocked_paid_invoice');
     }
 
     /**
@@ -388,6 +387,14 @@ class Borrower extends Model
             $this->fundingApplications()->delete();
             $this->preQualificationRequests()->delete();
             $this->verificationRequests()->delete();
+
+            // Commissions not paid out go with the deal they were on; left
+            // behind, they counted in the Commissions totals against a funding
+            // application nobody could see any more (BUG-107). One already
+            // paid out stays, as the record of that payout.
+            $this->commissions()
+                ->where('payment_status', '!=', \App\Models\Commission\Commission::PAYMENT_STATUS_PAID)
+                ->delete();
 
             // 6. Finally Delete Borrower record
             $this->delete();

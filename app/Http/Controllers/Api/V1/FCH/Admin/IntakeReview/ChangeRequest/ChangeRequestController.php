@@ -31,6 +31,8 @@ class ChangeRequestController extends Controller
                 'status' => $request->validated()['status'] ?? null,
                 'partner_id' => $request->validated()['partner_id'] ?? null,
                 'borrower_id' => $request->validated()['borrower_id'] ?? null,
+                'sort_field' => $request->validated()['sort_field'] ?? null,
+                'sort_order' => $request->validated()['sort_order'] ?? null,
             ];
 
             return $this->service->list($filters);
@@ -46,6 +48,20 @@ class ChangeRequestController extends Controller
     {
         try {
             return $this->service->updateStatus($id, $request->validated());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('profile.change_request_failed'));
+        }
+    }
+
+    /**
+     * An SSN or EIN change's old and new numbers in full (BUG-014).
+     */
+    public function reveal(int $id): JsonResponse
+    {
+        try {
+            return $this->service->reveal($id);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound();
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('profile.change_request_failed'));
         }

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Services\FCH\Common\Commission\CommissionPayoutService;
+use App\Services\FCH\Common\Commission\CommissionViewer;
+use Illuminate\Support\Facades\Auth;
 
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
@@ -103,9 +105,15 @@ class CommissionService
      */
     public function processPayout($commissionId, array $data)
     {
+        // Host staff may see their own deals, but never pay themselves out.
+        if (!CommissionViewer::for(Auth::user())->canPay()) {
+            return ApiResponse::forbidden(__('commission.payout_not_allowed'));
+        }
+
         $commission = app(CommissionPayoutService::class)->pay(
             Commission::findOrFail($commissionId),
             $data['partner_payment_method'],
+            $data['environment'],
             $data['note'] ?? null,
         );
 

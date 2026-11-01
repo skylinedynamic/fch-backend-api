@@ -3,6 +3,7 @@
 namespace Tests\Feature\MailConfiguration;
 
 use App\Models\Setting\MailConfiguration;
+use App\Services\FCH\Common\Setting\MailConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,8 +15,8 @@ use Tests\TestCase;
  */
 class MailConfigurationApiTest extends TestCase
 {
-    use RefreshDatabase;
     use MailConfigurationFixtures;
+    use RefreshDatabase;
 
     private const URL = '/api/v1/common/mail-configurations';
 
@@ -75,7 +76,8 @@ class MailConfigurationApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.provider', 'smtp')
             ->assertJsonPath('data.smtp_host', 'smtp.acme.test')
-            ->assertJsonPath('data.smtp_password', '••••••••')
+            ->assertJsonPath('data.has_smtp_password', true)
+            ->assertJsonMissingPath('data.smtp_password')
             ->assertJsonPath('data.is_verified', false)
             ->assertJsonPath('data.is_default', false);
 
@@ -114,6 +116,52 @@ class MailConfigurationApiTest extends TestCase
         $this->assertSame('smtp-secret', $config->credentials['smtp_password']);
     }
 
+    /**
+     * Defect (BUG-133): the settings list sent the stored AWS access key in
+     * plain text, and each secret as a mask in its own field. A stored
+     * credential is now only reported as has_<field>.
+     */
+    #[Test]
+    public function the_list_never_sends_a_stored_credential_to_the_browser(): void
+    {
+        $this->actingAsUser($this->owner($this->whiteLabel));
+        $this->postJson(self::URL, $this->smtpPayload())->assertOk();
+        $this->postJson(self::URL, $this->sesPayload())->assertOk();
+
+        $response = $this->getJson(self::URL)->assertOk();
+        // The providers' form schema names the fields; the stored settings must not carry them.
+        $raw = json_encode($response->json('data.configurations'), JSON_UNESCAPED_UNICODE);
+
+        foreach (['smtp-secret', 'AKIAACME', 'ses-secret', MailConfigurationService::MASK] as $leak) {
+            $this->assertStringNotContainsString($leak, $raw);
+        }
+        foreach (['smtp_password', 'aws_access_key', 'aws_secret_key'] as $field) {
+            $this->assertStringNotContainsString('"'.$field.'"', $raw);
+        }
+
+        $configs = collect($response->json('data.configurations'))->keyBy('provider');
+        $this->assertTrue($configs['smtp']['has_smtp_password']);
+        $this->assertTrue($configs['aws_ses']['has_aws_access_key']);
+        $this->assertTrue($configs['aws_ses']['has_aws_secret_key']);
+        $this->assertSame('us-east-1', $configs['aws_ses']['aws_region']);
+    }
+
+    #[Test]
+    public function saving_without_the_aws_keys_keeps_the_stored_ones(): void
+    {
+        $this->actingAsUser($this->owner($this->whiteLabel));
+        $this->postJson(self::URL, $this->sesPayload())->assertOk();
+
+        $this->postJson(self::URL, array_merge($this->sesPayload(), ['aws_access_key' => '', 'aws_secret_key' => '']))
+            ->assertOk()
+            ->assertJsonPath('data.has_aws_access_key', true)
+            ->assertJsonMissingPath('data.aws_access_key');
+
+        $config = MailConfiguration::where('partner_id', $this->whiteLabel->id)->where('provider', 'aws_ses')->firstOrFail();
+        $this->assertSame('AKIAACME', $config->credentials['aws_access_key']);
+        $this->assertSame('ses-secret', $config->credentials['aws_secret_key']);
+    }
+
     #[Test]
     public function a_new_provider_needs_its_secret(): void
     {
@@ -135,7 +183,12 @@ class MailConfigurationApiTest extends TestCase
 
         $this->postJson(self::URL, ['provider' => 'aws_ses', 'from_address' => 'not-an-email'])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['from_address', 'aws_access_key', 'aws_region']);
+            ->assertJsonValidationErrors(['from_address', 'aws_region']);
+
+        // The AWS keys are secrets: never given before, they are still required.
+        $this->postJson(self::URL, ['provider' => 'aws_ses', 'from_address' => 'ses@acme.test', 'aws_region' => 'us-east-1'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['aws_access_key', 'aws_secret_key']);
 
         $this->postJson(self::URL, ['provider' => 'pigeon', 'from_address' => 'mail@acme.test'])
             ->assertUnprocessable()
@@ -166,7 +219,8 @@ class MailConfigurationApiTest extends TestCase
         $response = $this->getJson(self::URL)->assertOk();
 
         $response->assertJsonCount(1, 'data.configurations');
-        $response->assertJsonPath('data.configurations.0.smtp_password', '••••••••');
+        $response->assertJsonPath('data.configurations.0.has_smtp_password', true);
+        $response->assertJsonMissingPath('data.configurations.0.smtp_password');
         $response->assertJsonPath('data.fallback.is_configured', true);
         $response->assertJsonPath('data.fallback.is_verified', true);
         $response->assertJsonPath('data.uses_own_configuration', false);
@@ -183,11 +237,11 @@ class MailConfigurationApiTest extends TestCase
         $this->actingAsUser($this->owner($this->whiteLabel));
         $smtp = $this->smtpConfig($this->whiteLabel);
 
-        $this->postJson(self::URL . "/{$smtp->id}/default")->assertUnprocessable();
+        $this->postJson(self::URL."/{$smtp->id}/default")->assertUnprocessable();
         $this->assertFalse($smtp->refresh()->is_default);
 
         $this->markVerified($smtp);
-        $this->postJson(self::URL . "/{$smtp->id}/default")
+        $this->postJson(self::URL."/{$smtp->id}/default")
             ->assertOk()
             ->assertJsonPath('data.is_default', true);
     }
@@ -199,7 +253,7 @@ class MailConfigurationApiTest extends TestCase
         $smtp = $this->markVerified($this->smtpConfig($this->whiteLabel, ['is_default' => true]));
         $ses = $this->markVerified($this->sesConfig($this->whiteLabel));
 
-        $this->postJson(self::URL . "/{$ses->id}/default")->assertOk();
+        $this->postJson(self::URL."/{$ses->id}/default")->assertOk();
 
         $this->assertTrue($ses->refresh()->is_default);
         $this->assertFalse($smtp->refresh()->is_default);
@@ -211,7 +265,7 @@ class MailConfigurationApiTest extends TestCase
         $this->actingAsUser($this->owner($this->whiteLabel));
         $smtp = $this->smtpConfig($this->whiteLabel, ['is_default' => true]);
 
-        $this->deleteJson(self::URL . "/{$smtp->id}")->assertOk();
+        $this->deleteJson(self::URL."/{$smtp->id}")->assertOk();
 
         $this->assertNull(MailConfiguration::find($smtp->id));
     }
@@ -224,10 +278,10 @@ class MailConfigurationApiTest extends TestCase
         $fallback = $this->markVerified($this->smtpConfig(null));
 
         foreach ([$hostSmtp, $fallback] as $config) {
-            $this->postJson(self::URL . "/{$config->id}/default")->assertNotFound();
-            $this->postJson(self::URL . "/{$config->id}/send-code")->assertNotFound();
-            $this->postJson(self::URL . "/{$config->id}/verify", ['code' => '123456'])->assertNotFound();
-            $this->deleteJson(self::URL . "/{$config->id}")->assertNotFound();
+            $this->postJson(self::URL."/{$config->id}/default")->assertNotFound();
+            $this->postJson(self::URL."/{$config->id}/send-code")->assertNotFound();
+            $this->postJson(self::URL."/{$config->id}/verify", ['code' => '123456'])->assertNotFound();
+            $this->deleteJson(self::URL."/{$config->id}")->assertNotFound();
         }
     }
 
@@ -256,7 +310,7 @@ class MailConfigurationApiTest extends TestCase
 
         $colleague->update(['is_refresh' => false]);
         $config = MailConfiguration::where('partner_id', $this->whiteLabel->id)->firstOrFail();
-        $this->deleteJson(self::URL . "/{$config->id}")->assertOk();
+        $this->deleteJson(self::URL."/{$config->id}")->assertOk();
 
         $this->assertTrue($colleague->refresh()->is_refresh);
     }
