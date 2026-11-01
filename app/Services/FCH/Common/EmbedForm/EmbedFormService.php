@@ -4,12 +4,14 @@ namespace App\Services\FCH\Common\EmbedForm;
 
 use App\Helpers\ApiResponse;
 use App\Models\User\User;
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
+use App\Exceptions\EmbedFormSubmissionConvertedException;
 use App\Mail\EmbedForm\EmbedFormConverted;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormConfig;
@@ -18,6 +20,7 @@ use App\Models\Partner\Partner;
 use App\Rules\BusinessEin;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\SignatureRecorder;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Support\EmbedForm\EmbedFormLocation;
@@ -45,6 +48,15 @@ class EmbedFormService
     /** What converting a submission will do - see conversionPreview(). */
     public const CONVERSION_MODE_NEW = 'new_borrower';
     public const CONVERSION_MODE_EXISTING = 'existing_borrower';
+
+    /** The client's Activity entry when a conversion fills its blank profile fields. */
+    public const PROFILE_FILLED_EVENT = 'Profile Filled From Application';
+
+    /** Profile fields that make up one address; filled together or not at all. */
+    private const ADDRESS_GROUPS = [
+        ['home_address', 'city', 'state', 'postal_code'],
+        ['business_address', 'business_city', 'business_state', 'business_postal_code'],
+    ];
 
     /**
      * Uploads copied into the funding application during the conversion under
@@ -106,9 +118,11 @@ class EmbedFormService
     }
 
     /**
-     * What the partner is shown before agreeing to reuse an existing borrower.
+     * What the partner is shown before agreeing to reuse an existing borrower,
+     * including which of its blank profile fields the submission would fill
+     * if they agree to that too (BUG-064).
      */
-    public function existingBorrowerSummary(Borrower $borrower): array
+    public function existingBorrowerSummary(Borrower $borrower, ?EmbedFormSubmission $submission = null): array
     {
         return [
             'id' => $borrower->id,
@@ -121,7 +135,55 @@ class EmbedFormService
             'partner_name' => $borrower->partner?->company_name ?: $borrower->partner?->full_name,
             'funding_applications_count' => FundingApplication::query()->where('borrower_id', $borrower->id)->count(),
             'created_at' => $borrower->created_at?->toIso8601String(),
+            'fields_to_fill' => $submission ? $this->profileFieldsToFill($borrower, $submission) : [],
         ];
+    }
+
+    /**
+     * The blank profile fields a submission would fill on an existing borrower,
+     * as {field, label, value} for the Convert dialog. An SSN or EIN shows only
+     * its last four.
+     *
+     * @return list<array{field: string, label: string, value: string}>
+     */
+    public function profileFieldsToFill(Borrower $borrower, EmbedFormSubmission $submission): array
+    {
+        $fields = [];
+        foreach ($this->blankProfileFields($borrower, $this->submissionProfile($submission)) as $field => $value) {
+            $fields[] = [
+                'field' => $field,
+                'label' => ActivityLog::fieldLabel($field),
+                'value' => $this->displayValue($field, (string) $value),
+            ];
+        }
+
+        return $fields;
+    }
+
+    private function displayValue(string $field, string $value): string
+    {
+        $digits = preg_replace('/\D/', '', $value);
+
+        return match ($field) {
+            'ssn' => '***-**-' . substr($digits, -4),
+            'business_ein' => '**-***' . substr($digits, -4),
+            default => $value,
+        };
+    }
+
+    /** The borrower profile a submission describes, its SSN decrypted. */
+    private function submissionProfile(EmbedFormSubmission $submission): array
+    {
+        $ssn = null;
+        if ($submission->ssn_encrypted) {
+            try {
+                $ssn = Crypt::decryptString($submission->ssn_encrypted);
+            } catch (Throwable $e) {
+                $ssn = null;
+            }
+        }
+
+        return $this->borrowerProfileFrom($submission, $ssn);
     }
 
     /**
@@ -166,7 +228,7 @@ class EmbedFormService
         $existingBorrower = $this->convertibleBorrower($submission);
 
         return $existingBorrower
-            ? ['mode' => self::CONVERSION_MODE_EXISTING, 'existing_borrower' => $this->existingBorrowerSummary($existingBorrower)]
+            ? ['mode' => self::CONVERSION_MODE_EXISTING, 'existing_borrower' => $this->existingBorrowerSummary($existingBorrower, $submission)]
             : ['mode' => self::CONVERSION_MODE_NEW, 'existing_borrower' => null];
     }
 
@@ -883,6 +945,47 @@ class EmbedFormService
     }
 
     /**
+     * Delete applications, with their attachments, co-borrowers and files.
+     * Limited to one partner's applications when $partnerId is given (null:
+     * the host, any partner's). A converted application is the record behind
+     * a client and a funding application, so a selection that includes one is
+     * refused whole and nothing is deleted.
+     *
+     * @param  list<int>  $ids
+     * @return int how many were deleted
+     */
+    public function deleteSubmissions(array $ids, ?int $partnerId): int
+    {
+        $submissions = EmbedFormSubmission::query()
+            ->whereKey($ids)
+            ->when($partnerId !== null, fn ($query) => $query->where('partner_id', $partnerId))
+            ->get();
+
+        $converted = $submissions->where('status', EmbedFormSubmission::STATUS_CONVERTED);
+        if ($converted->isNotEmpty()) {
+            throw new EmbedFormSubmissionConvertedException(
+                __('embed_form.converted_cannot_delete'),
+                $converted->map(fn (EmbedFormSubmission $s) => [
+                    'id' => $s->id,
+                    'name' => trim("{$s->first_name} {$s->last_name}"),
+                ])->values()->all(),
+            );
+        }
+
+        DB::transaction(function () use ($submissions) {
+            // Attachments and co-borrowers go with the row (cascade).
+            EmbedFormSubmission::whereKey($submissions->modelKeys())->delete();
+        });
+
+        // The uploaded files, once the rows are gone.
+        foreach ($submissions as $submission) {
+            Storage::disk('public')->deleteDirectory("embed_forms/{$submission->partner_id}/{$submission->id}");
+        }
+
+        return $submissions->count();
+    }
+
+    /**
      * Convert an EmbedFormSubmission to a Free Trial Borrower.
      *
      * Embed form applicants are always enrolled on a free trial, so no plan or
@@ -899,7 +1002,7 @@ class EmbedFormService
 
             // Nothing is created until the partner has seen who this is.
             if ($existingBorrower && !filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower, $submission));
             }
 
             $borrowerService = app(BorrowerService::class);
@@ -927,9 +1030,12 @@ class EmbedFormService
 
             if ($existingBorrower) {
                 // The borrower already exists: only the funding application is
-                // new. Their profile is filled where it is blank - what they or
-                // the partner already entered is never overwritten.
-                $this->fillBlankProfileFields($existingBorrower, $profile);
+                // new. Their blank profile fields are filled only when the
+                // partner, shown the list, agreed to it (BUG-064) - and what
+                // they or the partner already entered is never overwritten.
+                if (filter_var($data['fill_profile_fields'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                    $this->fillBlankProfileFields($existingBorrower, $profile);
+                }
                 $borrower = $existingBorrower;
                 $borrowerId = $existingBorrower->id;
             } else {
@@ -1064,9 +1170,22 @@ class EmbedFormService
     {
         $blanks = $this->blankProfileFields($borrower, $profile);
 
-        if ($blanks !== []) {
-            $borrower->forceFill($blanks)->save();
+        if ($blanks === []) {
+            return;
         }
+
+        $borrower->forceFill($blanks)->save();
+
+        // On the client's Activity: which fields, never their values (BUG-064).
+        app(ActivityLogService::class)->logSystemEvent(
+            Borrower::class,
+            $borrower->id,
+            $borrower->partner_id,
+            $borrower->id,
+            self::PROFILE_FILLED_EVENT,
+            "Filled from an embedded form application, with the partner's consent: "
+                . implode(', ', array_map(fn (string $field) => ActivityLog::fieldLabel($field), array_keys($blanks))) . '.',
+        );
     }
 
     /**
@@ -1114,6 +1233,15 @@ class EmbedFormService
             $partialSsn = $field === 'ssn' && strlen((string) $this->ssnDigits($current)) !== 9;
             if ($current === null || $current === '' || $partialSsn || ($field === 'fico_score' && (int) $current === 0)) {
                 $blanks[$field] = $value;
+            }
+        }
+
+        // An address is filled whole or not at all: half the client's address
+        // and half the submission's is no address (BUG-064, Texas + Miami).
+        foreach (self::ADDRESS_GROUPS as $group) {
+            $onFile = array_filter($group, fn (string $field) => !in_array($borrower->getAttribute($field), [null, ''], true));
+            if ($onFile !== []) {
+                $blanks = array_diff_key($blanks, array_flip($group));
             }
         }
 

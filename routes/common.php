@@ -587,6 +587,10 @@ Route::prefix('v1')->group(function () {
 
                 Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions'])
                     ->middleware('permission:view application');
+                // Applications not yet converted only; see EmbedFormService::deleteSubmissions().
+                // No role permission for now (product decision); the controller
+                // still limits a partner to their own applications.
+                Route::post('submissions/delete', [EmbedFormController::class, 'deleteSubmissions']);
                 Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission'])
                     ->whereNumber('id')
                     ->middleware('permission:view application');

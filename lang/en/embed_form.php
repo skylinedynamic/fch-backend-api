@@ -19,6 +19,8 @@ return [
 
     // Submissions
     'submission_not_found' => 'Submission not found.',
+    'submissions_deleted' => 'Applications deleted successfully.',
+    'converted_cannot_delete' => 'Converted applications cannot be deleted: they belong to a client and a funding application. Unselect them and try again.',
     'status_updated' => 'Status updated successfully.',
     'status_invalid' => 'That is not a valid submission status.',
     'status_locked_converted' => 'A converted application cannot change status.',
