@@ -250,6 +250,50 @@ class CommissionViewerTest extends TestCase
     }
 
     /**
+     * A partner sees a deal's commission only once the host closes its
+     * application as Closed Completed. Before that the host may still change
+     * the rates, so the figure the partner would see is not final.
+     */
+    #[Test]
+    public function partners_see_a_commission_only_once_its_application_is_closed_completed(): void
+    {
+        $draft = $this->deal($this->partner, $this->partnerStaff, 80000, funded: false, partnerRate: 50);
+        $before = $this->list($this->partnerOwner)->json('statistics');
+
+        foreach ([$this->partnerOwner, $this->partnerStaff] as $partnerUser) {
+            $this->assertNotContains($draft->id, $this->ids($this->list($partnerUser)));
+            $this->getJson("/api/v1/common/commissions/{$draft->id}")->assertNotFound();
+        }
+        $this->assertSame($this->dealIds(4, 5), $this->ids($this->list($this->partnerOwner)));
+        $this->assertEquals(5500, $before['total_commission_amount'], 'the unfunded deal was counted in the partner\'s totals');
+        $this->assertEquals(0, $before['pending_amount']);
+        $this->assertSame(2, $before['total_deals']);
+
+        // The host still sees it, to set it up.
+        $this->assertContains($draft->id, $this->ids($this->list($this->hostOwner)));
+
+        // Once the application is Closed Completed the partner sees it.
+        $draft->fundingApplication->forceFill([
+            'status' => FundingApplication::CLOSED_COMPLETED,
+            'total_funded_amount' => 80000,
+        ])->save();
+        $this->assertContains($draft->id, $this->ids($this->list($this->partnerOwner)));
+        $this->assertContains($draft->id, $this->ids($this->list($this->partnerStaff)));
+    }
+
+    #[Test]
+    public function a_partners_dashboard_card_leaves_out_commissions_not_closed_completed(): void
+    {
+        $before = $this->dashboard($this->partnerOwner);
+        $this->deal($this->partner, $this->partnerStaff, 80000, funded: false, partnerRate: 50);
+        $after = $this->dashboard($this->partnerOwner);
+
+        // The new client and application count elsewhere on the dashboard; the commission card must not move.
+        $this->assertEquals($before['commission'], $after['commission']);
+        $this->assertEquals($before['counts']['total_commission'], $after['counts']['total_commission']);
+    }
+
+    /**
      * Host staff allowed to manage commissions (they pay them out) need the
      * host's whole book, not just their own clients.
      */
