@@ -26,6 +26,7 @@ return [
     'business_credit_score_invalid' => 'Enter the business credit score as a whole number of 0 or more.',
     'date_of_birth_invalid' => 'Enter a valid date of birth.',
     'date_of_birth_min_age' => 'The borrower must be at least :age years old.',
+    'date_not_in_future' => 'The date cannot be in the future.',
     'date_of_birth_max_age' => 'Enter a date of birth no more than :age years ago.',
     // Shown when an operation fails unexpectedly. The real exception is logged;
     // it is never returned to the client, because its text can carry SQL,

@@ -199,6 +199,17 @@ class BorrowerProfileApiTest extends TestCase
         ]);
     }
 
+    /** BUG-007: a change request may not set a business start date in the future. */
+    #[Test]
+    public function a_business_start_date_change_request_in_the_future_is_refused(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'business_start_date', 'new_value' => now()->addYear()->toDateString()])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('new_value');
+    }
+
     #[Test]
     public function a_change_request_value_is_validated_by_the_fields_own_rule(): void
     {

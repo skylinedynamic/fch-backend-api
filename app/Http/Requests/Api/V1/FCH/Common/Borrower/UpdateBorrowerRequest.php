@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
@@ -107,7 +108,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120', SafeUpload::image()],
             'duns_number'           => ['nullable', 'string', new DunsNumber()],
             'state_file_number'     => ['nullable', 'string', 'max:255'],
-            'business_start_date'   => ['nullable'],
+            'business_start_date'   => ['nullable', new NotFutureDate()], // BUG-007
 
             // ── Other ───────────────────────────────────────────────────────
             'partner_id'       => ['nullable', 'integer', 'exists:partners,id'],

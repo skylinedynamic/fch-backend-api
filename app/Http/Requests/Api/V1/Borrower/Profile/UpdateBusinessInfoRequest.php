@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\BusinessEin;
@@ -61,7 +62,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_entity_type_note' => 'required_if:business_entity_type,' . config('borrower.entity_type_other') . '|nullable|string|max:255',
             'business_industry_type' => 'required|string|max:255',
             'business_industry_type_note' => 'required_if:business_industry_type,' . config('borrower.industry_type_other') . '|nullable|string|max:255',
-            'business_start_date' => 'required|date',
+            'business_start_date' => ['required', 'date', new NotFutureDate()], // BUG-007
         ];
     }
 

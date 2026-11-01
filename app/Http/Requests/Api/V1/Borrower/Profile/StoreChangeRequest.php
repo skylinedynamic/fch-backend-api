@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
@@ -71,7 +72,7 @@ class StoreChangeRequest extends BaseApiRequest
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
-            'business_start_date' => 'required|date',
+            'business_start_date' => ['required', 'date', new NotFutureDate()], // BUG-007
             'personal_credit_score' => ['required', new FicoScore()],
             // Financial Info
             'currency' => 'required|string|max:10',

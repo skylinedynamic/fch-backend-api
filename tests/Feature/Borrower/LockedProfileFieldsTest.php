@@ -154,6 +154,17 @@ class LockedProfileFieldsTest extends TestCase
         $this->assertSame('Dallas', $borrower->fresh()->business_city);
     }
 
+    /** BUG-007: a business start date in the future is refused, not saved. */
+    #[Test]
+    public function a_business_start_date_in_the_future_is_refused(): void
+    {
+        $this->signInAs(array_merge(self::SAVED, ['business_start_date' => null]));
+
+        $this->saveBusiness(['business_start_date' => now()->addYear()->toDateString()])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['business_start_date']);
+    }
+
     #[Test]
     public function an_empty_locked_field_may_be_filled_in_once(): void
     {

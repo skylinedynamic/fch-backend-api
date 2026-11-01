@@ -490,8 +490,15 @@ class LeadService
                 throw new \InvalidArgumentException('Contact person, email, and phone number are required for conversion.');
             }
 
-            if ($lead->email && Borrower::where('email', $lead->email)->exists()) {
-                throw new \InvalidArgumentException('A borrower with this email already exists.');
+            // The email already belongs to a client (BUG-018). Two partners can
+            // both hold a lead for the same email before either converts. When
+            // it is another partner's client the message must not say so - that
+            // would tell this partner the person is a client elsewhere.
+            $existing = $lead->email ? Borrower::where('email', $lead->email)->first() : null;
+            if ($existing) {
+                throw new \InvalidArgumentException((int) $existing->partner_id === (int) $lead->partner_id
+                    ? __('lead.email_already_your_client')
+                    : __('lead.email_cannot_be_used'));
             }
 
             $firstName = $this->getFirstName($lead->contact_person);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
@@ -79,7 +80,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_entity_type_note' => ['required_if:business_entity_type,' . config('borrower.entity_type_other'), 'nullable', 'string', 'max:255'],
             'business_industry_type' => ['nullable', 'string', 'max:255'],
             'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
-            'business_start_date'  => ['nullable'],
+            'business_start_date'  => ['nullable', new NotFutureDate()], // BUG-007
             'duns_number'          => ['nullable', 'string', new DunsNumber()],
             'state_file_number'    => ['nullable', 'string', 'max:255'],
 
