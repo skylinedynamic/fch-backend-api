@@ -7,6 +7,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
 use App\Models\Compensation\CompensationSetting;
 use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Services\FCH\Common\Commission\CommissionPayoutService;
 use App\Services\FCH\Common\Commission\CommissionViewer;
@@ -88,7 +89,7 @@ class CommissionViewerTest extends TestCase
 
         // #1 is paid out to hostStaff the way the host pays it.
         Auth::setUser($this->hostOwner);
-        app(CommissionPayoutService::class)->pay($this->deals[1], 'Bank Transfer');
+        app(CommissionPayoutService::class)->pay($this->deals[1], 'Bank Transfer', PaymentProvider::MODE_PRODUCTION);
         Auth::forgetUser();
 
         // #4 was paid to the partner.
@@ -311,14 +312,14 @@ class CommissionViewerTest extends TestCase
         $this->actingAsUser($this->hostStaff);
 
         $this->assertFalse($this->getJson("/api/v1/common/commissions/{$this->deals[2]->id}")->assertOk()->json('data.payout.can_pay'));
-        $this->postJson("/api/v1/admin/commission/{$this->deals[2]->id}/payout", ['partner_payment_method' => 'Bank Transfer'])
+        $this->postJson("/api/v1/admin/commission/{$this->deals[2]->id}/payout", ['partner_payment_method' => 'Bank Transfer', 'environment' => PaymentProvider::MODE_PRODUCTION])
             ->assertForbidden();
         $this->assertSame(Commission::PAYMENT_STATUS_UNPAID, $this->deals[2]->fresh()->payment_status);
 
         $manager = $this->makeStaffUser($this->host, ['update commission']);
         $this->actingAsUser($manager);
         $this->assertTrue($this->getJson("/api/v1/common/commissions/{$this->deals[2]->id}")->assertOk()->json('data.payout.can_pay'));
-        $this->postJson("/api/v1/admin/commission/{$this->deals[2]->id}/payout", ['partner_payment_method' => 'Bank Transfer'])
+        $this->postJson("/api/v1/admin/commission/{$this->deals[2]->id}/payout", ['partner_payment_method' => 'Bank Transfer', 'environment' => PaymentProvider::MODE_PRODUCTION])
             ->assertOk();
     }
 
