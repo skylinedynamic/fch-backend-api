@@ -132,6 +132,25 @@ class ChangeRequestService
         ], __('profile.change_request_list_success'));
     }
 
+    /**
+     * Other pending requests for the same field were filed against the value
+     * this approval just replaced. Their old value becomes the one now on file,
+     * so the reviewer sees the real current value and the history records what
+     * each approval actually replaced (BUG-040). Through the model, so an SSN
+     * stays encrypted.
+     */
+    private function rebaseOtherPendingRequests(BorrowerChangeRequest $approved): void
+    {
+        BorrowerChangeRequest::where('borrower_id', $approved->borrower_id)
+            ->where('field_name', $approved->field_name)
+            ->where('entity_type', $approved->entity_type)
+            ->where('entity_id', $approved->entity_id)
+            ->where('status', BorrowerChangeRequest::STATUS_PENDING)
+            ->whereKeyNot($approved->id)
+            ->get()
+            ->each(fn (BorrowerChangeRequest $pending) => $pending->update(['old_value' => $approved->new_value]));
+    }
+
     public function updateStatus(int $id, array $data): JsonResponse
     {
         $changeRequest = BorrowerChangeRequest::findOrFail($id);
@@ -187,6 +206,10 @@ class ChangeRequestService
                                 $changeRequest->db_field_name => $changeRequest->new_value,
                                 'updated_at' => now(),
                             ]);
+                    }
+
+                    if (!$loginForEmailChange) {
+                        $this->rebaseOtherPendingRequests($changeRequest);
                     }
                 }
             }
