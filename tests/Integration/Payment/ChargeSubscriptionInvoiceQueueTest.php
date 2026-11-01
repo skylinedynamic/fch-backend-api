@@ -173,7 +173,7 @@ class ChargeSubscriptionInvoiceQueueTest extends TestCase
             }
 
             // What the other worker leaves behind once it has finished.
-            (new Payment())->createRecord([
+            (new Payment())->createRecord(['is_environment' => PaymentProvider::ENVIRONMENT_SANDBOX, 
                 'partner_id' => $invoice->partner_id,
                 'invoice_id' => $invoice->id,
                 'entity_type' => $invoice->entity_type,

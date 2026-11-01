@@ -123,7 +123,10 @@ class Invoice extends Model
     }
 
     /**
-     * An unpaid invoice that is the subscription's own billing cycle.
+     * An unsettled invoice that is the subscription's own billing cycle: Unpaid, or
+     * Processing - a manual payment awaiting approval has not settled it either,
+     * and raising the cycle again in the meantime billed (and auto-charged) a
+     * month already paid in cash.
      *
      * The single definition of "this subscriber still owes us for their plan", used
      * both to decide whether to raise the next invoice and to exclude such rows in
@@ -131,7 +134,7 @@ class Invoice extends Model
      */
     public function scopeOpenCycle($query)
     {
-        return $query->where('status', self::STATUS_UNPAID)
+        return $query->whereIn('status', [self::STATUS_UNPAID, self::STATUS_PROCESSING])
             ->where(function ($q) {
                 $q->whereIn('type', self::CYCLE_INVOICE_TYPES)->orWhereNull('type');
             });
