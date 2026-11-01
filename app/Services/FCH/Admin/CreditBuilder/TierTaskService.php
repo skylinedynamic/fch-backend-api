@@ -135,6 +135,26 @@ class TierTaskService
     /**
      * Delete Tier Tasks.
      */
+    /**
+     * These tasks that clients are already using (a verification request or a
+     * migrated task names them), as id and name. They may not be deleted:
+     * those records, and the screens built on them, need the task.
+     *
+     * @param  int[]  $ids
+     * @return array<int, array{id: int, name: string}>
+     */
+    public function inUse(array $ids): array
+    {
+        return TierTask::whereIn('id', $ids)
+            ->where(fn ($query) => $query
+                ->whereExists(fn ($used) => $used->selectRaw(1)->from('borrower_task_verification_requests')->whereColumn('borrower_task_verification_requests.task_id', 'tier_tasks.id'))
+                ->orWhereExists(fn ($used) => $used->selectRaw(1)->from('migrated_tasks')->whereColumn('migrated_tasks.task_id', 'tier_tasks.id')))
+            ->orderBy('title')
+            ->get(['id', 'title'])
+            ->map(fn (TierTask $task) => ['id' => $task->id, 'name' => $task->title])
+            ->all();
+    }
+
     public function delete(array $ids): bool
     {
         try {

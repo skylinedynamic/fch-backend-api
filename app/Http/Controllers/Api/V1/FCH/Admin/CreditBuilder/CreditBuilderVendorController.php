@@ -89,11 +89,36 @@ class CreditBuilderVendorController extends Controller
      */
     public function destroy($id): JsonResponse
     {
+        // A vendor a tier task still uses stays.
+        if ($inUse = $this->service->inUse([(int) $id])) {
+            return ApiResponse::error(__('credit_builder.vendor_in_use'), 422, ['in_use' => $inUse]);
+        }
+
         $this->service->delete($id);
-        
+
         return ApiResponse::success(
             null,
             __('credit_builder.vendor_deleted')
         );
+    }
+
+    /**
+     * Remove several vendors - none of them if any is still used by a tier task.
+     */
+    public function multipleDelete(Request $request): JsonResponse
+    {
+        $ids = $request->input('ids');
+
+        if (empty($ids) || !is_array($ids)) {
+            return ApiResponse::validationError([], __('tier_task.error_no_ids'));
+        }
+
+        if ($inUse = $this->service->inUse($ids)) {
+            return ApiResponse::error(__('credit_builder.vendor_in_use'), 422, ['in_use' => $inUse]);
+        }
+
+        $this->service->deleteMany($ids);
+
+        return ApiResponse::success(null, __('credit_builder.vendor_deleted'));
     }
 }

@@ -243,6 +243,9 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers', [BorrowerController::class, 'store']);
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
+            // The SSN or EIN in full - the details carry both masked (BUG-014).
+            // Anyone who can open the client may reveal; each reveal is logged.
+            Route::post('borrowers/{id}/reveal', [BorrowerController::class, 'reveal']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::get('borrowers/{id}/capital-access-overview', [BorrowerCapitalAccessController::class, 'getOverview']);
             Route::get('borrowers/{id}/capital-access-strategies', [BorrowerCapitalAccessController::class, 'strategiesForClient']);
@@ -374,6 +377,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
                 Route::post('/', [ActivityLogController::class, 'store']);
                 Route::match(['patch', 'post'], '/{id}/visibility', [ActivityLogController::class, 'updateVisibility']);
+                Route::match(['patch', 'post'], '/{id}/task-status', [ActivityLogController::class, 'updateTaskStatus']);
                 Route::match(['put', 'post'], '/{id}', [ActivityLogController::class, 'update']);
                 Route::delete('/{id}', [ActivityLogController::class, 'destroy']);
             });
@@ -550,6 +554,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [AgreementTemplateController::class, 'index']);
                 Route::post('/save/{id?}', [AgreementTemplateController::class, 'store']);
                 Route::post('/show', [AgreementTemplateController::class, 'show']);
+                Route::post('/preview-values', [AgreementTemplateController::class, 'previewValues']);
                 Route::post('/update-status/{id}', [AgreementTemplateController::class, 'updateStatus']);
             });
 

@@ -352,6 +352,48 @@ class Partner extends Model
         return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
     }
 
+    /** Seats a partner gets when neither its subscription nor Plan & Fee says. */
+    public const DEFAULT_USER_SEATS = 3;
+
+    /** Logins that take a seat: the partner's own and its employees'. */
+    public function usedUserSeats(): int
+    {
+        return User::where('partner_id', $this->id)
+            ->where(function ($query) {
+                $query->whereIn('entity_type', [self::class, Employee::class])
+                    ->orWhereNull('entity_type');
+            })
+            ->count();
+    }
+
+    /** The Plan & Fee "User Seat" plan for this partner's type, if any. */
+    public function userSeatPlan(): ?SubscriptionPlan
+    {
+        return SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT)
+            ->where('partner_type', $this->partner_type)
+            ->active()
+            ->first();
+    }
+
+    /**
+     * How many logins the partner may have - the one rule for the Users
+     * screen's count and the server's own check: its subscription's
+     * user_seats, else the Plan & Fee seat plan's, else DEFAULT_USER_SEATS.
+     */
+    public function userSeatLimit(): int
+    {
+        $this->loadMissing('subscription');
+
+        return (int) ($this->subscription?->user_seats
+            ?? $this->userSeatPlan()?->total_seat_count
+            ?? self::DEFAULT_USER_SEATS);
+    }
+
+    public function hasFreeUserSeat(): bool
+    {
+        return $this->usedUserSeats() < $this->userSeatLimit();
+    }
+
 
 
     /**

@@ -8,6 +8,7 @@ use App\Mail\FundingRequest\PartnerFundingRequestApproved;
 use App\Mail\FundingRequest\UnderwritingStatusUpdated;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Lender\Lender;
@@ -71,21 +72,30 @@ class FundingRequestService
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
-        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name', 'lender_names'];
+        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name', 'lender_names', 'application_status'];
 
         if (in_array($sortField, $allowedSortFields)) {
             if ($sortField === 'borrower_name') {
-                // As the column shows it: first name, then last name.
+                // The name as the column reads it, "first last" - first name
+                // then last name put "QA-TEST" + "R2..." before "QA-TEST ONB"
+                // + "..." (BUG-150).
                 $query->orderBy(
-                    Borrower::select('first_name')
+                    Borrower::selectRaw("CONCAT_WS(' ', first_name, last_name)")
                         ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
                         ->limit(1),
                     $sortOrder
-                )->orderBy(
-                    Borrower::select('last_name')
-                        ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
-                        ->limit(1),
-                    $sortOrder
+                );
+            } elseif ($sortField === 'application_status') {
+                // APPLICATION STATUS is the latest application's status - not a
+                // column here, so it never sorted (BUG-150). Lifecycle order,
+                // "no application yet" first, as the borrower's list (BUG-009).
+                [$case, $bindings] = FundingApplication::statusKeyCase('latest_application.status');
+                $query->orderByRaw(
+                    "COALESCE((SELECT {$case} FROM funding_applications AS latest_application"
+                    . ' WHERE latest_application.funding_request_id = funding_requests.id'
+                    . ' AND latest_application.deleted_at IS NULL'
+                    . " ORDER BY latest_application.id DESC LIMIT 1), 0) {$sortOrder}",
+                    $bindings
                 );
             } elseif ($sortField === 'lender_names') {
                 // ASSIGNED LENDER: the name of the lender set on the request. It

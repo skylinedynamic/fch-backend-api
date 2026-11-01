@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement;
 
+use App\Exceptions\AgreementFieldsInvalidException;
+use App\Exceptions\AgreementVersionOutdatedException;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
@@ -56,12 +58,18 @@ class AgreementSignController extends Controller
     {
         $request->validate([
             'agreement_template_id' => 'required|integer|exists:agreement_templates,id',
+            'agreement_template_version_id' => 'nullable|integer',
+            'fields' => 'nullable|array',
         ]);
 
         try {
             $user = Auth::user();
-            $this->agreementService->submitSign($user, $request->all(), $request->ip());
+            $this->agreementService->submitSign($user, $request->all(), $request->ip(), $request->userAgent());
             return ApiResponse::success(null, __('agreement.signed_successfully'));
+        } catch (AgreementVersionOutdatedException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        } catch (AgreementFieldsInvalidException $e) {
+            return ApiResponse::validationError(['fields' => $e->fields], $e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.sign_failed') . ': ' . $e->getMessage());
         }
@@ -83,7 +91,9 @@ class AgreementSignController extends Controller
     }
 
     /**
-     * Get the raw signed HTML content for frontend preview.
+     * Get the raw signed HTML content for frontend preview, and whether the
+     * record is marked as signed - signed with no content means the signed
+     * copy is missing (the page then offers Re-sign).
      */
     public function getSignedHtml(Request $request, $userId = null)
     {
@@ -91,8 +101,10 @@ class AgreementSignController extends Controller
             if (!$targetUserId = $this->validateAccess($userId)) {
                 return ApiResponse::notFound(__('agreement.not_found'));
             }
-            $html = $this->agreementService->getSignedHtml($targetUserId);
-            return ApiResponse::success(['content_html' => $html]);
+            return ApiResponse::success([
+                'content_html' => $this->agreementService->getSignedHtml($targetUserId),
+                'has_sign' => $this->agreementService->isMarkedSigned($targetUserId),
+            ]);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.retrieval_failed') . ': ' . $e->getMessage());
         }

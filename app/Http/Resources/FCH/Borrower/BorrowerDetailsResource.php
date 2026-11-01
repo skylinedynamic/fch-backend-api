@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\FCH\Borrower;
 
+use App\Rules\BusinessEin;
+use App\Rules\Ssn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -40,12 +42,13 @@ class BorrowerDetailsResource extends JsonResource
             'home_phone' => $this->home_phone,
             'date_of_birth' => toDateOnly($this->date_of_birth, 'm-d-Y'),
             'last_4_ssn' => $this->last_4_ssn,
-            // Full SSN, decrypted — shown and editable as-is on the client edit form.
-            'ssn' => $this->ssn,
+            // Masked (BUG-014): the full number is fetched on its own, and the
+            // look logged - BorrowerController::reveal().
+            'ssn' => Ssn::mask($this->ssn),
 
             // Business
             'business_name' => $this->business_name,
-            'business_ein' => $this->business_ein,
+            'business_ein' => BusinessEin::mask($this->business_ein),
             'business_phone' => $this->business_phone,
             'business_address' => $this->business_address,
             'business_country' => $this->business_country,

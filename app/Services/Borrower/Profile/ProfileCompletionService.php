@@ -4,6 +4,7 @@ namespace App\Services\Borrower\Profile;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerBankAccount;
+use App\Models\Borrower\CreditProfileRequest;
 use App\Models\User\User;
 use App\Models\Company\Company;
 use Illuminate\Support\Facades\Auth;
@@ -48,6 +49,27 @@ class ProfileCompletionService
                 'credit_profile_verified' => $borrower->hasVerifiedCreditScore(),
                 'tier_0_completed' => $borrower->hasCompletedTier0(),
             ],
+            'funding' => $this->fundingAccess($borrower),
+        ];
+    }
+
+    /**
+     * Whether the Funding page is open. It waits for FCH to upload the
+     * borrower's credit report: without it every funding criterion reads
+     * "Failed". `credit_profile_submitted` says whether the borrower has done
+     * their part (the credit profile form), so the portal can say what is
+     * still to come.
+     *
+     * @return array{unlocked: bool, credit_profile_submitted: bool}
+     */
+    private function fundingAccess(Borrower $borrower): array
+    {
+        $reportUploaded = $borrower->hasVerifiedCreditScore();
+
+        return [
+            'unlocked' => $reportUploaded,
+            'credit_profile_submitted' => $reportUploaded
+                || CreditProfileRequest::where('borrower_id', $borrower->getKey())->exists(),
         ];
     }
 
@@ -182,12 +204,11 @@ class ProfileCompletionService
 
         // Years in business isn't here: the Financial tab has no field for it.
         // Nor is currency: the tab starts on USD, so there is nothing to ask
-        // for; it is still required, and saved, when the tab is.
+        // for; it is still required, and saved, when the tab is. Annual
+        // personal income and average monthly deposits are optional.
         $fields = [
             'monthly_revenue' => $borrower->monthly_revenue,
             'annual_revenue' => $borrower->annual_revenue,
-            'annual_personal_income' => $borrower->annual_personal_income,
-            'average_monthly_deposits' => $borrower->average_monthly_deposits,
         ];
 
         foreach ($fields as $key => $value) {

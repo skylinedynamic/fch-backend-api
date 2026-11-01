@@ -52,4 +52,18 @@ class ChangeRequestController extends Controller
             return ApiResponse::serverError(__('profile.change_request_failed'));
         }
     }
+
+    /**
+     * An SSN or EIN change's old and new numbers in full (BUG-014).
+     */
+    public function reveal(int $id): JsonResponse
+    {
+        try {
+            return $this->service->reveal($id);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('profile.change_request_failed'));
+        }
+    }
 }

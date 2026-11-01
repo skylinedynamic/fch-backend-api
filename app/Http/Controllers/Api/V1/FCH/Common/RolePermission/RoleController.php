@@ -87,8 +87,6 @@ class RoleController extends Controller
             'id' => $role->id,
             'name' => $role->name,
             'description' => $role->description,
-            // A system role (Admin, Developer): shown read-only (R2 BUG-011).
-            'is_static' => (bool) $role->is_static,
             'permission' => $role->permissions->pluck('name','id')->unique()->toArray(),
             'users' => UserResource::collection(
                 $role->users->reject(function ($user) {

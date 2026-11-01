@@ -29,7 +29,8 @@ class CommonController extends Controller
         try {
             $users = $this->commonService->getAllUsers(
                 $request->integer('partner_id') ?: null,
-                $request->integer('include_user_id') ?: null
+                $request->boolean('active_only'),
+                collect((array) $request->input('keep_ids', []))->filter(fn ($id) => is_numeric($id))->map(fn ($id) => (int) $id)->values()->all(),
             );
 
             return ApiResponse::success(

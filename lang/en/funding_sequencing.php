@@ -87,4 +87,11 @@ return [
     'type_created'               => 'Funding type created successfully.',
     'type_updated'               => 'Funding type updated successfully.',
     'type_deleted'               => 'Funding type deleted successfully.',
+    'bank_statements_failed'     => 'Bank statements failed. Please upload proper bank statements.',
+    'upload_bank_statements'     => 'Upload Bank Statements',
+    'bank_statements_missing'      => 'Bank statements missing. Please upload your business bank statements.',
+    'bank_statements_rejected'     => 'Bank statements rejected. Please upload new business bank statements.',
+    'bank_statements_reason_not_uploaded'  => 'No :document uploaded yet.',
+    'bank_statements_reason_rejected'      => 'Your :document were rejected.',
+    'bank_statements_requirement'          => 'Upload your :document on the Documents page.',
 ];

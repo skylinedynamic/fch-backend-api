@@ -412,4 +412,21 @@ return [
     
     // Bank Accounts
     'bank_name_required' => 'Bank Name is required.',
+
+    // Change Password (worded as the admin portal's, lang/en/profile.php)
+    'current_password_required' => 'Current password is required.',
+    'current_password_incorrect' => 'Current password does not match our records.',
+    'new_password_required' => 'New password is required.',
+    'new_password_min' => 'New password must be at least 8 characters long.',
+    'new_password_mixed' => 'New password must include both uppercase and lowercase letters.',
+    'new_password_letters' => 'New password must contain at least one letter.',
+    'new_password_numbers' => 'New password must include at least one number.',
+    'new_password_symbols' => 'New password must include at least one special character.',
+    'new_password_confirmed' => 'New password confirmation does not match.',
+    'new_password_different' => 'New password must be different from the old password.',
+    'password_update_success' => 'Password updated successfully.',
+
+    // Funding request
+    'approved_funding_string' => 'Approved funding must be text.',
+    'approved_funding_max' => 'Approved funding cannot exceed 255 characters.',
 ];

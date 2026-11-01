@@ -134,6 +134,13 @@ class ReminderService
             return null;
         }
 
+        // An assigned Task's date is its creator's to move: rescheduling moves
+        // the task for both people (below), so the assignee may not.
+        $task = $rescheduleAt && $reminder->activityLog?->isAssignedTask() ? $reminder->activityLog : null;
+        if ($task && !$task->canRescheduleBy($user)) {
+            throw new \Exception("Only the task's creator can reschedule it.", 403);
+        }
+
         if ($rescheduleAt) {
             $timezone = request()->header('X-Timezone', config('app.timezone'));
             $newActivityTime = Carbon::parse($rescheduleAt, $timezone)->setTimezone('UTC');
@@ -186,6 +193,14 @@ class ReminderService
         $reminder->save();
 
         DispatchReminderDueJob::dispatch($reminder->id, $newReminderTime)->delay($newReminderTime);
+
+        // The task acts as one: its activity date and both people's reminders
+        // move with it (its due date stays), and the assignee is told.
+        if ($task) {
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)
+                ->rescheduleTask($task, $newActivityTime, $leadSeconds);
+            $reminder->refresh();
+        }
 
         return $reminder->loadClient();
     }
@@ -243,6 +258,45 @@ class ReminderService
         ]);
 
         DispatchReminderDueJob::dispatch($reminder->id, $remindAtUtc)->delay($remindAtUtc)->afterCommit();
+
+        return $reminder;
+    }
+
+    /**
+     * A reminder owned by $userId - e.g. the staff member a Task activity is
+     * assigned to, who gets a row of their own rather than sharing the
+     * author's, so each snoozes or dismisses their own.
+     *
+     * Updates $existing (that user's earlier one) in place if given. Its time
+     * and state are only reset when $reschedule says the time it was set for
+     * changed - a reminder that already fired, was snoozed or was dismissed
+     * otherwise keeps that, and just takes the new wording.
+     */
+    public function upsertForUser(int $userId, Carbon $remindAt, array $attributes, ?Reminder $existing = null, bool $reschedule = true): Reminder
+    {
+        $attributes = array_merge($attributes, [
+            'created_by' => $userId,
+            'created_by_entity_type' => User::class,
+        ]);
+
+        if ($reschedule || !$existing) {
+            $attributes += [
+                'reminder_date_time' => $remindAt,
+                'send_at' => $remindAt,
+                'status' => Reminder::STATUS_PENDING,
+            ];
+        }
+
+        if ($existing) {
+            $existing->update($attributes);
+            $reminder = $existing;
+        } else {
+            $reminder = Reminder::create($attributes);
+        }
+
+        if ($reschedule || !$existing) {
+            DispatchReminderDueJob::dispatch($reminder->id, $remindAt)->delay($remindAt)->afterCommit();
+        }
 
         return $reminder;
     }

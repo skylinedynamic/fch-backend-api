@@ -29,9 +29,11 @@ use Illuminate\Validation\ValidationException;
  *    the borrower on the Step-By-Step Guide.
  * 2. verify_all: submit every Tier 0 task from the Step-By-Step Guide (Verify
  *    All); a rejected task brings the borrower back here to resubmit it.
- * 3. upload_documents: upload a document in every required category on the
- *    Documents page (Others is optional, and a rejected document doesn't
- *    count). The borrower doesn't wait for Tier 0 to be verified first.
+ * 3. upload_documents: upload a document in each required category on the
+ *    Documents page - Driver's License, Voided Business Check, EIN /
+ *    Corporation Docs and Business Bank Statements (BorrowerDocType::
+ *    REQUIRED_NAMES). The rest are optional, and a rejected document doesn't
+ *    count. The borrower doesn't wait for Tier 0 to be verified first.
  * 4. results_ready: with the credit profile submitted, every Tier 0 task
  *    submitted and every document uploaded (`results_ready` in the response),
  *    the portal shows the results and the choice of what to look at next (see
@@ -390,8 +392,8 @@ class OnboardingStepService
     }
 
     /**
-     * A document, not rejected, in every required category. With no required
-     * categories set up, any document will do.
+     * A document, not rejected, in every required category (BorrowerDocType::
+     * REQUIRED_NAMES). With none of them set up, any document will do.
      */
     private function hasUploadedDocuments(Borrower $borrower): bool
     {

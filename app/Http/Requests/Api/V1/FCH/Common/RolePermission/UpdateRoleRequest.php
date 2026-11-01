@@ -5,8 +5,6 @@ namespace App\Http\Requests\Api\V1\FCH\Common\RolePermission;
 use Illuminate\Validation\Rule;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Validator;
-use App\Models\Common\Role;
 
 class UpdateRoleRequest extends BaseApiRequest
 {
@@ -33,38 +31,6 @@ class UpdateRoleRequest extends BaseApiRequest
             'description' => 'nullable|string|max:255',
             'permission_ids' => 'required|array|exists:permissions,id',
         ];
-    }
-
-    /**
-     * A system role (`is_static`: Admin, Developer) keeps its name and its
-     * permissions. The seeded Admin role was fully editable, so its
-     * permissions could be unticked and the only admin could take away their
-     * own access (R2 BUG-011). Its description may still change, and a save
-     * that leaves the name and permissions as they are goes through.
-     */
-    public function after(): array
-    {
-        return [function (Validator $validator) {
-            if ($validator->errors()->isNotEmpty()) {
-                return;
-            }
-
-            $role = $this->route('role');
-            $role = $role instanceof Role ? $role : Role::find($role);
-            if (!$role || !$role->is_static) {
-                return;
-            }
-
-            if (trim((string) $this->input('name')) !== $role->name) {
-                $validator->errors()->add('name', __('role_permission.role_static_cannot_change'));
-            }
-
-            $sent = collect($this->input('permission_ids', []))->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
-            $held = $role->permissions()->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
-            if ($sent !== $held) {
-                $validator->errors()->add('permission_ids', __('role_permission.role_static_cannot_change'));
-            }
-        }];
     }
 
     public function messages()

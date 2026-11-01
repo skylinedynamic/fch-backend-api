@@ -15,11 +15,16 @@ class CommonService
      * A partner's team (User::teamOf) as id, name, email, phone and
      * is_inactive - the caller's own, or for the host, the partner it names.
      *
-     * Logins of Inactive or Suspended employees are left out, so they are not
-     * offered for a new assignment (R2 BUG-051). $includeUserId keeps one of
-     * them - the record's current assignee - so its name still shows.
+     * A member is inactive when their login is not active, or when they are an
+     * employee set to Inactive or Suspended (R2 BUG-051 - that job status does
+     * not change the login's status). The assign pickers ask for $activeOnly:
+     * inactive members are left out, except $keepIds (whoever is already
+     * assigned, so the field still shows them, flagged). List filters ask for
+     * everyone.
+     *
+     * @param  int[]  $keepIds
      */
-    public function getAllUsers(?int $partnerId = null, ?int $includeUserId = null)
+    public function getAllUsers(?int $partnerId = null, bool $activeOnly = false, array $keepIds = [])
     {
         $user = Auth::user();
 
@@ -40,7 +45,7 @@ class CommonService
 
         return User::query()
             ->teamOf($partner)
-            ->select('id', 'name', 'email', 'phone_number', 'entity_type', 'entity_id')
+            ->select('id', 'name', 'email', 'phone_number', 'status', 'entity_type', 'entity_id')
             ->orderBy('name', 'asc')
             ->get()
             ->map(fn (User $member) => [
@@ -48,10 +53,13 @@ class CommonService
                 'name' => $member->name,
                 'email' => $member->email,
                 'phone_number' => $member->phone_number,
-                'is_inactive' => $member->entity_type === Employee::class
-                    && in_array((int) $member->entity_id, $inactiveEmployeeIds, true),
+                'is_inactive' => $member->status !== User::STATUS['active']
+                    || ($member->entity_type === Employee::class
+                        && in_array((int) $member->entity_id, $inactiveEmployeeIds, true)),
             ])
-            ->filter(fn (array $member) => !$member['is_inactive'] || $member['id'] === $includeUserId)
+            ->filter(fn (array $member) => !$activeOnly
+                || !$member['is_inactive']
+                || in_array($member['id'], $keepIds, true))
             ->values();
     }
 
@@ -63,22 +71,11 @@ class CommonService
         $user = Auth::user();
 
         if ($user->partner && $user->partner->is_host == 0) {
-            $count = User::where('partner_id', $user->partner->id)
-                ->where(function ($query) {
-                    $query->whereIn('entity_type', [Partner::class, Employee::class])
-                        ->orWhereNull('entity_type');
-                })
-                ->count();
-
-            $seatPlan = SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT)
-                ->where('partner_type', $user->partner->partner_type)
-                ->active()
-                ->first();
-
-            $partnerSubscription = $user->partner->subscription;
+            $partner = $user->partner;
+            $count = $partner->usedUserSeats();
+            $seatPlan = $partner->userSeatPlan();
             $perSeatPrice = $seatPlan ? (float) $seatPlan->total_amount : 49.00;
-            
-            $userSeats = $partnerSubscription ? ($partnerSubscription->user_seats ?? ($seatPlan?->total_seat_count ?? 3)) : ($seatPlan?->total_seat_count ?? 3);
+            $userSeats = $partner->userSeatLimit();
 
             return [
                 'count' => $count,

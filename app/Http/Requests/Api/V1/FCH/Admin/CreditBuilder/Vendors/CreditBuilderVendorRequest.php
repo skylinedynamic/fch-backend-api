@@ -32,7 +32,8 @@ class CreditBuilderVendorRequest extends BaseApiRequest
             'description' => 'nullable|string',
             'general_url' => 'required|string',
             'affiliate_url' => 'nullable|string',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            // A path in the File Manager's storage (vendors/uline.png), not an upload.
+            'logo' => ['nullable', 'string', 'max:255', 'regex:/^[\w\-\/ ]+\.(jpe?g|png|gif|svg|webp)$/i', 'not_regex:/\.\./'],
         ];
     }
 
@@ -51,6 +52,8 @@ class CreditBuilderVendorRequest extends BaseApiRequest
             'tier_id.exists' => __('credit_builder.validation_vendor_tier_id_exists'),
             'status.required' => __('credit_builder.validation_vendor_status_required'),
             'general_url.required' => __('credit_builder.validation_vendor_general_url_required'),
+            'logo.regex' => __('credit_builder.validation_vendor_logo'),
+            'logo.not_regex' => __('credit_builder.validation_vendor_logo'),
         ];
     }
 }

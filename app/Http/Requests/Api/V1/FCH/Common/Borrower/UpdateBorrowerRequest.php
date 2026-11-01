@@ -31,6 +31,15 @@ class UpdateBorrowerRequest extends BaseApiRequest
      */
     protected function prepareForValidation(): void
     {
+        // The client's details carry both numbers masked (BUG-014); a form that
+        // sends the mask back has not changed the number, so the one on file stays.
+        foreach (['ssn', 'business_ein'] as $field) {
+            if (BusinessEin::isMask($this->input($field))) {
+                $this->request->remove($field);
+                $this->json()->remove($field);
+            }
+        }
+
         if ($this->has('business_ein')) {
             $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
         }

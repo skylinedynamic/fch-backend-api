@@ -97,6 +97,7 @@ return [
     'retrieved' => 'Borrowers retrieved successfully.',
     'retrieved_details' => 'Borrower details retrieved successfully.',
     'created' => 'Borrower created successfully.',
+    'paid_version_only' => 'Paid clients are only available in the Paid Version. Upgrade your plan to add a paid client, or add this client on the Limited Free Plan.',
     'updated' => 'Borrower updated successfully.',
     'deleted' => 'Borrower(s) deleted successfully.',
     'archived' => 'Borrower(s) archived successfully.',
@@ -120,6 +121,8 @@ return [
 
     'list_failed' => 'Failed to retrieve borrowers.',
     'not_found' => 'Borrower not found.',
+    'credit_profile_not_a_report' => 'This file is not a credit report. Please upload the iSoftPull credit report PDF.',
+    'credit_profile_unreadable_pdf' => 'This PDF could not be read. Please upload the iSoftPull credit report PDF.',
     'funding_data_failed' => 'Failed to load funding data.',
     'funding_option_failed' => 'Funding option not found or failed to load.',
     'create_failed' => 'Failed to create borrower.',

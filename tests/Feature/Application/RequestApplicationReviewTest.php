@@ -265,6 +265,74 @@ class RequestApplicationReviewTest extends TestCase
     }
 
     /**
+     * SCRUM-331: every new status can be chosen from the dropdown and is saved,
+     * here Withdrawn from Matched to Lender, with who withdrew and why in Status
+     * Notes. It locks the file, books no funded amount and is in the audit history.
+     */
+    #[Test]
+    public function an_application_is_moved_to_each_new_status(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        foreach ([
+            FundingApplication::PENDING_CLARIFICATION,
+            FundingApplication::READY_FOR_SUBMISSION,
+            FundingApplication::OFFER_DECLINED_BY_BORROWER,
+            FundingApplication::CLOSED_NO_RESPONSE,
+            FundingApplication::CLOSED_INCOMPLETE_APPLICATION,
+            FundingApplication::CLOSED_ERROR,
+        ] as $status) {
+            $this->postJson($this->url('funding-application/status-update'), ['funding_application_id' => $this->myApplicationId, 'status' => $status])->assertOk();
+            $this->assertSame($status, FundingApplication::find($this->myApplicationId)->status);
+        }
+
+        DB::table('funding_applications')->where('id', $this->myApplicationId)->update(['status' => FundingApplication::MATCHED_TO_LENDER]);
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::WITHDRAWN,
+            'status_note' => 'Withdrawn by borrower: chose another lender.',
+        ])->assertOk();
+
+        $application = FundingApplication::find($this->myApplicationId);
+        $this->assertSame(FundingApplication::WITHDRAWN, $application->status);
+        $this->assertSame('Withdrawn by borrower: chose another lender.', $application->status_note);
+        $this->assertTrue($application->isLockedForEdit());
+        $this->assertNull($application->total_funded_amount);
+        $this->assertDatabaseHas('activity_log', [
+            'subject_type' => FundingApplication::class,
+            'subject_id' => $this->myApplicationId,
+            'event' => 'Funding Application Status Changed: Matched To Lender → Withdrawn',
+        ]);
+    }
+
+    /**
+     * Defect: Status Notes allow 10,000 characters, but the column was a
+     * VARCHAR(255), so a longer note - such as who withdrew a file and why -
+     * failed on save. (SQLite does not enforce the length, so the column type
+     * is asserted too.)
+     */
+    #[Test]
+    public function a_status_note_of_10000_characters_is_saved(): void
+    {
+        $this->assertSame('text', \Illuminate\Support\Facades\Schema::getColumnType('funding_applications', 'status_note'));
+        $this->actingAsUser($this->partnerAdmin);
+        $note = str_repeat('a', 10000);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::WITHDRAWN,
+            'status_note' => $note,
+        ])->assertOk();
+        $this->assertSame($note, FundingApplication::find($this->myApplicationId)->status_note);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::WITHDRAWN,
+            'status_note' => $note . 'a',
+        ])->assertStatus(422);
+    }
+
+    /**
      * Defect: both status updates looked the record up by id alone, so any
      * partner could move another partner's applications - funded included,
      * which also books the commission.

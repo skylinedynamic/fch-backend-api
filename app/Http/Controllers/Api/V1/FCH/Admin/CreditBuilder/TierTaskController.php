@@ -116,6 +116,12 @@ class TierTaskController extends Controller
                 return ApiResponse::validationError([], __('tier_task.error_no_ids'));
             }
 
+            // A task clients already use stays, and so does the rest of this delete.
+            $inUse = $this->tierTaskService->inUse($ids);
+            if ($inUse) {
+                return ApiResponse::error(__('tier_task.error_in_use'), 422, ['in_use' => $inUse]);
+            }
+
             $this->tierTaskService->delete($ids);
 
             return ApiResponse::success(null, __('tier_task.success_deleted'));
