@@ -176,6 +176,29 @@ class BorrowerProfileApiTest extends TestCase
         ]);
     }
 
+    /**
+     * BY DESIGN (BUG-071): a business email may be any address, including one
+     * another account signs in with. Nothing is mailed to it - mail goes to the
+     * client's own sign-in email, and the business email is only shown on the
+     * profile and printed on documents - and two clients of one company may
+     * share an office address. Do not add a uniqueness rule for it.
+     */
+    #[Test]
+    public function a_business_email_may_be_another_accounts_email_by_design(): void
+    {
+        $other = $this->makeBorrowerUser($this->partner);
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'business_email', 'new_value' => $other->email])
+            ->assertOk();
+
+        $this->assertDatabaseHas('borrower_change_requests', [
+            'borrower_id' => $this->me->entity_id,
+            'field_name' => 'business_email',
+            'new_value' => $other->email,
+        ]);
+    }
+
     #[Test]
     public function a_change_request_value_is_validated_by_the_fields_own_rule(): void
     {
