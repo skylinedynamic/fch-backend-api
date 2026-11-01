@@ -92,6 +92,28 @@ class PartnerInvoicesAndPaymentsTest extends TestCase
         ]);
     }
 
+    /**
+     * The fee a partner owes the host for a borrower it created. Unlike its
+     * other debts to the host it carries the borrower's id.
+     */
+    private function borrowerFeeInvoice(Partner $partner, User $borrowerUser): Invoice
+    {
+        return Invoice::create([
+            'invoice_id' => 'INV-' . uniqid(),
+            'partner_id' => $partner->id,
+            'borrower_id' => $borrowerUser->entity_id,
+            'entity_type' => Partner::class,
+            'entity_id' => $partner->id,
+            'customer_name' => $partner->full_name,
+            'email' => $partner->email,
+            'payment_amount' => 800.00,
+            'currency' => 'USD',
+            'status' => Invoice::STATUS_UNPAID,
+            'type' => Invoice::INVOICE_TYPE_BORROWER_FEE,
+            'is_partner_paying' => true,
+        ]);
+    }
+
     private function manualPayment(Invoice $invoice, string $status = Payment::STATUS_PROCESSING): Payment
     {
         $invoice->update(['status' => Invoice::STATUS_PROCESSING]);
@@ -316,6 +338,78 @@ class PartnerInvoicesAndPaymentsTest extends TestCase
             ->assertJsonPath('message', __('payment.unauthorized_approve'));
 
         $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+    }
+
+    /**
+     * Defect: a partner could approve the borrower fee it owes the host. The
+     * non-host rule only asked whether the payment was the partner's and named
+     * a borrower - and a borrower fee does both - so a partner could submit it
+     * as Cash and confirm it itself, marking the host paid with nothing
+     * received. Only whoever receives the money may confirm it.
+     */
+    #[Test]
+    public function a_partner_cannot_approve_the_borrower_fee_it_owes_the_host(): void
+    {
+        $payment = $this->manualPayment($this->borrowerFeeInvoice($this->partner, $this->partnerBorrower));
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('payment.unauthorized_approve'));
+
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+        $this->assertSame(Invoice::STATUS_PROCESSING, $payment->invoice->fresh()->status);
+    }
+
+    #[Test]
+    public function a_certified_partner_cannot_approve_the_borrower_fee_it_owes_the_host(): void
+    {
+        $certifiedAdmin = $this->makePartnerAdmin($this->otherPartner);
+        $borrower = $this->makeBorrowerUser($this->otherPartner);
+        $payment = $this->manualPayment($this->borrowerFeeInvoice($this->otherPartner, $borrower));
+        $this->actingAsUser($certifiedAdmin);
+
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('payment.unauthorized_approve'));
+
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+    }
+
+    #[Test]
+    public function a_partner_cannot_reject_the_borrower_fee_it_owes_the_host(): void
+    {
+        $payment = $this->manualPayment($this->borrowerFeeInvoice($this->partner, $this->partnerBorrower));
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson("/api/v1/common/payments/{$payment->id}/reject", ['reason' => 'x'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('payment.unauthorized_reject'));
+
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+    }
+
+    #[Test]
+    public function a_partner_is_not_offered_approve_on_the_borrower_fee_it_paid(): void
+    {
+        $payment = $this->manualPayment($this->borrowerFeeInvoice($this->partner, $this->partnerBorrower));
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson("/api/v1/common/payments/{$payment->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_approve', false);
+    }
+
+    #[Test]
+    public function the_host_approves_the_borrower_fee_a_partner_paid_it(): void
+    {
+        $payment = $this->manualPayment($this->borrowerFeeInvoice($this->partner, $this->partnerBorrower));
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->getJson("/api/v1/common/payments/{$payment->id}")->assertOk()->assertJsonPath('data.can_approve', true);
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")->assertOk();
+
+        $this->assertSame(Payment::STATUS_SUCCEEDED, $payment->fresh()->status);
     }
 
     #[Test]

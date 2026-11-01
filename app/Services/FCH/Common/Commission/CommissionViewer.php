@@ -87,11 +87,21 @@ final class CommissionViewer
             fn ($b) => $b->withTrashed()->where('assign_id', $this->user->id)
         );
 
+        // A partner's commission shows once the host closes the application as
+        // Closed Completed; before that the host may still change the rates.
+        // Trashed applications too: a deal of a client deleted since still counts.
+        $partnersOwn = fn (Builder $q) => $q
+            ->where('commissions.partner_id', $this->user->partner_id)
+            ->whereHas(
+                'fundingApplication',
+                fn ($a) => $a->withTrashed()->where('status', FundingApplication::CLOSED_COMPLETED)
+            );
+
         return match ($this->role) {
             self::HOST_OWNER => $query,
             self::HOST_STAFF => $assignedToMe($query),
-            self::PARTNER_OWNER => $query->where('commissions.partner_id', $this->user->partner_id),
-            self::PARTNER_STAFF => $assignedToMe($query->where('commissions.partner_id', $this->user->partner_id)),
+            self::PARTNER_OWNER => $partnersOwn($query),
+            self::PARTNER_STAFF => $assignedToMe($partnersOwn($query)),
         };
     }
 

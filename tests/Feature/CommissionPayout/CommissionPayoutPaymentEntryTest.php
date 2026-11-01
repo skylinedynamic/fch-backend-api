@@ -8,6 +8,7 @@ use App\Models\Commission\Commission;
 use App\Models\Compensation\CompensationSetting;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -108,7 +109,7 @@ class CommissionPayoutPaymentEntryTest extends TestCase
     private function pay(Commission $commission): void
     {
         Passport::actingAs($this->admin);
-        $this->postJson("/api/v1/admin/commission/{$commission->id}/payout", ['partner_payment_method' => 'Cash'])->assertOk();
+        $this->postJson("/api/v1/admin/commission/{$commission->id}/payout", ['partner_payment_method' => 'Cash', 'environment' => PaymentProvider::MODE_PRODUCTION])->assertOk();
     }
 
     /** The Payments list as $viewer sees it, optionally filtered by Credit/Debit. */
