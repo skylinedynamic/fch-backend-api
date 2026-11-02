@@ -27,7 +27,6 @@ class EmbedFormConfigResource extends JsonResource
             'public_key' => $this->public_key,
             'form_title' => $this->form_title,
             'allowed_domains' => $this->allowed_domains ?? [],
-            'notification_email' => $this->notification_email,
             'is_active' => (bool) $this->is_active,
 
             // Null rather than a guess when the partner has nowhere to publish.

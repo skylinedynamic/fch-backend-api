@@ -78,7 +78,6 @@ class EmbedFormController extends Controller
             'public_key' => null,
             'form_title' => null,
             'allowed_domains' => [],
-            'notification_email' => null,
             'is_active' => false,
             'embed_snippet' => null,
             'direct_url' => null,

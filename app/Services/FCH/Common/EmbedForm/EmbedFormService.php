@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\EmbedForm;
 
+use App\Support\EmbedForm\AllowedDomain;
 use App\Helpers\ApiResponse;
 use App\Models\User\User;
 use App\Models\ActivityLog\ActivityLog;
@@ -325,9 +326,12 @@ class EmbedFormService
             if (!$host) {
                 continue;
             }
-            $scheme = preg_match('#^http://#i', trim((string) $domain)) ? 'http' : 'https';
-            $sources[] = "{$scheme}://{$host}";
-            $sources[] = "{$scheme}://www.{$host}";
+            // Always https; an entry typed with http:// allows http as well (R2 BUG-035).
+            $schemes = AllowedDomain::allowsHttp((string) $domain) ? ['https', 'http'] : ['https'];
+            foreach ($schemes as $scheme) {
+                $sources[] = "{$scheme}://{$host}";
+                $sources[] = "{$scheme}://www.{$host}";
+            }
         }
 
         return $sources ? implode(' ', array_values(array_unique($sources))) : null;
@@ -403,7 +407,6 @@ class EmbedFormService
             'partner_id' => $partnerId,
             'public_key' => EmbedFormConfig::generatePublicKey(),
             'form_title' => 'Business Funding Application',
-            'notification_email' => null,
             'is_active' => true,
         ]);
     }
@@ -417,7 +420,6 @@ class EmbedFormService
         $config->update(array_filter([
             'form_title' => $data['form_title'] ?? null,
             'allowed_domains' => $data['allowed_domains'] ?? null,
-            'notification_email' => $data['notification_email'] ?? null,
             'is_active' => $data['is_active'] ?? null,
         ], fn($v) => !is_null($v)));
 

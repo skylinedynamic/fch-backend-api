@@ -111,6 +111,12 @@ return [
     'credit_report_mimes' => 'Credit report must be a PDF, Word, Excel, or image file.',
     'credit_report_max' => 'Each credit report file may not exceed 10 MB.',
 
+    // Allowed Domains (R2 BUG-035)
+    'allowed_domain_wildcard' => '":domain": wildcards are not supported. Add each site, such as shop.example.com, on its own.',
+    'allowed_domain_localhost' => '":domain" cannot be allowed. Add the website the form will be shown on.',
+    'allowed_domain_invalid' => '":domain" is not a domain. Enter one such as example.com.',
+    'allowed_domain_duplicate' => '":domain" is already in the list.',
+
     // Logs
     'log_store_failed' => 'EmbedFormService::storeSubmission failed',
     'log_notification_failed' => 'Failed to send embed form notification email',

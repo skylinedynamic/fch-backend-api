@@ -8,6 +8,7 @@ use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -247,8 +248,25 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertSame(['their-key', 'Theirs'], [$theirs->fresh()->public_key, $theirs->fresh()->form_title]);
     }
 
+    /**
+     * notification_email was saved but never used: new-submission mail goes to
+     * the partner's own email, and the portal never sent the field. The column
+     * and the setting are removed.
+     */
     #[Test]
-    public function an_allowed_domain_must_be_a_url(): void
+    public function the_form_has_no_notification_email_setting(): void
+    {
+        EmbedFormConfig::create(['partner_id' => $this->partner->id, 'public_key' => 'my-key', 'form_title' => 'Mine', 'is_active' => true]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->assertFalse(Schema::hasColumn('embedded_form_configs', 'notification_email'));
+        $this->assertArrayNotHasKey('notification_email', $this->getJson('/api/v1/common/embed-forms/config')->assertOk()->json('data'));
+        // Sent anyway, it is neither validated nor stored.
+        $this->putJson('/api/v1/common/embed-forms/config', ['notification_email' => 'not-an-email'])->assertOk();
+    }
+
+    #[Test]
+    public function an_allowed_domain_must_be_a_domain(): void
     {
         $this->actingAsUser($this->partnerAdmin);
 
