@@ -148,7 +148,9 @@ class EmbedFormController extends Controller
         $filters = $request->only(['search', 'status', 'date_from', 'date_to', 'per_page']);
 
         // Build query manually for host to see all
-        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner');
+        // BUG-058: with the client each converted one belongs to, so the list
+        // can name that client's real plan.
+        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower.latestSubscription');
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
         }
@@ -230,7 +232,7 @@ class EmbedFormController extends Controller
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
-        $submission = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower', 'convertedFundingApplication', 'salesRepUser')->find($id);
+        $submission = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower.latestSubscription', 'convertedFundingApplication', 'salesRepUser')->find($id);
 
         if (!$submission) {
             return ApiResponse::notFound(__('embed_form.submission_not_found'));

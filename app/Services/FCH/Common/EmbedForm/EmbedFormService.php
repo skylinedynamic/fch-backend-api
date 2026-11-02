@@ -903,7 +903,7 @@ class EmbedFormService
      */
     public function getSubmissions(int $partnerId, array $filters = []): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'convertedBorrower', 'salesRepUser')
+        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'convertedBorrower.latestSubscription', 'salesRepUser')
             ->where('partner_id', $partnerId);
 
         if (!empty($filters['search'])) {
@@ -943,7 +943,7 @@ class EmbedFormService
     public function updateStatus(EmbedFormSubmission $submission, string $status): EmbedFormSubmission
     {
         $submission->update(['status' => $status]);
-        return $submission->fresh(['attachments.docType', 'coBorrowers', 'convertedBorrower']);
+        return $submission->fresh(['attachments.docType', 'coBorrowers', 'convertedBorrower.latestSubscription']);
     }
 
     /**

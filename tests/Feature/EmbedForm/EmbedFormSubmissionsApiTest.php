@@ -3,9 +3,12 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
+use App\Models\Borrower\Borrower;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
+use App\Models\Partner\SubscriptionPlan;
+use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -273,5 +276,41 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->putJson('/api/v1/common/embed-forms/config', ['allowed_domains' => ['not a url']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('allowed_domains.0');
+    }
+
+    /**
+     * BUG-058 (retest): the Loan Applications list labelled a submission
+     * converted onto a paid client "Free Plan" - the list endpoint never sent
+     * the client it was converted onto, so the portal could not know its plan.
+     */
+    #[Test]
+    public function the_list_sends_the_client_a_submission_was_converted_onto_with_its_plan(): void
+    {
+        $client = Borrower::create([
+            'partner_id' => $this->partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Owner',
+            'last_name' => 'Client Two',
+            'email' => 'client-two@example.test',
+            'is_free_trail' => false,
+        ]);
+        Subscription::create([
+            'entity_type' => Borrower::class,
+            'entity_id' => $client->id,
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $this->submissionFor($this->partner, [
+            'status' => EmbedFormSubmission::STATUS_CONVERTED,
+            'converted_borrower_id' => $client->id,
+        ]);
+
+        $this->actingAsUser($this->partnerAdmin);
+        $row = $this->postJson('/api/v1/common/embed-forms/submissions/fetch')->assertOk()->json('data.0');
+
+        $this->assertSame('Ann Applicant', trim($row['first_name'] . ' ' . $row['last_name']));
+        $this->assertSame($client->id, $row['converted_borrower']['id'] ?? null);
+        $this->assertFalse($row['converted_borrower']['is_free_trail']);
+        $this->assertSame(SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT, $row['converted_borrower']['enrollment_type']);
     }
 }
