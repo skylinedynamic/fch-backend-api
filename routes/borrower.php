@@ -82,6 +82,8 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/onboarding/resume', [ProfileCompletionController::class, 'resumeOnboardingStep']);
                     Route::post('/onboarding/path', [ProfileCompletionController::class, 'chooseOnboardingPath']);
                     Route::post('/change-request', [ChangeRequestController::class, 'store']);
+                    Route::get('/change-requests/pending', [ChangeRequestController::class, 'pending']);
+                    Route::delete('/change-requests/{id}', [ChangeRequestController::class, 'cancel'])->whereNumber('id');
                     // The borrower's own pending sign-in email change (started by
                     // saving a new email above, completed by the emailed link).
                     Route::post('/email-change/resend', [ProfileEmailChangeController::class, 'resend'])->middleware('throttle:6,1');

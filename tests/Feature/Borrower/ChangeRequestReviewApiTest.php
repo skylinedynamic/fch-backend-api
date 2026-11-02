@@ -117,13 +117,19 @@ class ChangeRequestReviewApiTest extends TestCase
      * "Old Co". After the first was approved, the second still showed "Old Co"
      * as the current value and kept it as its old value in the history, though
      * "First Co" was what it actually replaced.
+     *
+     * Since R2 BUG-039 the portal refuses a second request while one is
+     * pending, so the second one here is a row filed before that rule - such
+     * rows exist (QA left three for one field on staging) and still need this.
      */
     #[Test]
     public function approving_one_change_updates_the_current_value_of_the_others_for_that_field(): void
     {
         $this->myBorrower()->update(['business_name' => 'Old Co']);
         $first = $this->file(['field_name' => 'business_name', 'new_value' => 'First Co']);
-        $second = $this->file(['field_name' => 'business_name', 'new_value' => 'Second Co']);
+        $second = BorrowerChangeRequest::find($first)->replicate()->fill(['new_value' => 'Second Co']);
+        $second->save();
+        $second = $second->id;
         $this->actingAsUser($this->reviewer);
 
         $this->patchJson("/api/v1/admin/change-requests/{$first}", ['status' => BorrowerChangeRequest::STATUS_APPROVED])->assertOk();

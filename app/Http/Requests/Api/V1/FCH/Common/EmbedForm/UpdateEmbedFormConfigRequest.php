@@ -39,7 +39,7 @@ class UpdateEmbedFormConfigRequest extends BaseApiRequest
         $this->typedDomains = $domains;
         $this->merge([
             'allowed_domains' => array_map(
-                fn ($entry) => is_string($entry) ? (AllowedDomain::normalize($entry) ?? $entry) : $entry,
+                fn($entry) => is_string($entry) ? (AllowedDomain::normalize($entry) ?? $entry) : $entry,
                 $domains
             ),
         ]);
@@ -49,10 +49,8 @@ class UpdateEmbedFormConfigRequest extends BaseApiRequest
     {
         return [
             'form_title' => ['nullable', 'string', 'max:255'],
-
             'allowed_domains' => ['nullable', 'array'],
             'allowed_domains.*' => ['string', 'max:255', $this->domainRule()],
-
             'is_active' => ['nullable', 'boolean'],
         ];
     }

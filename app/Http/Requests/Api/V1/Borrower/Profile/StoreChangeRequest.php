@@ -13,6 +13,8 @@ use App\Rules\UsPhoneNumber;
 use App\Rules\DunsNumber;
 use App\Rules\FicoScore;
 use App\Rules\Ssn;
+use App\Services\Borrower\Profile\ChangeRequestGuard;
+use Illuminate\Validation\Validator;
 
 class StoreChangeRequest extends BaseApiRequest
 {
@@ -116,6 +118,36 @@ class StoreChangeRequest extends BaseApiRequest
             'entity_type' => 'nullable|string',
             'entity_id' => 'nullable|integer',
         ];
+    }
+
+    /**
+     * A request for the value already on file changes nothing, and a field
+     * already waiting for review takes no second request (R2 BUG-039). An
+     * unknown field or a row that is not the borrower's is left to the service.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $borrower = Auth::user()?->entity;
+            $field = $this->input('field_name');
+
+            if ($validator->errors()->isNotEmpty() || !$borrower || !is_string($field)) {
+                return;
+            }
+
+            $guard = app(ChangeRequestGuard::class);
+            $current = $guard->current($borrower, $field, $this->integer('entity_id') ?: null);
+
+            if (!$current) {
+                return;
+            }
+
+            if ($guard->isSameValue($field, $current['value'], $this->input('new_value'))) {
+                $validator->errors()->add('new_value', __('profile.change_request_same_value'));
+            } elseif ($guard->hasPending($borrower, $field, $current['entity_id'])) {
+                $validator->errors()->add('new_value', __('profile.change_request_already_pending'));
+            }
+        });
     }
 
     /**
