@@ -4,7 +4,7 @@
 **Branch:** `qa-round2-bugfix` in `fch-backend-api`, `Fch-admin-frontend-react`, `fch-borrower-react` (not committed, not pushed)
 **Author:** arafat-invento
 
-Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, BUG-008 (assigned to Awlad in the sheet), BUG-011 and BUG-031 were done and then removed on request (skipped, F192, F195 and F204). Findings: `docs/test-findings.md` F192-F220, D14, O74-O77. Plan: `2026-10-28-qa-round2-bugfix-plan.md` (old numbering, see below).
+Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, BUG-008 (assigned to Awlad in the sheet), BUG-011 and BUG-031 were done and then removed on request (skipped, F192, F195 and F204). Findings: `docs/test-findings.md` F192-F221, D14, O74-O77. Plan: `2026-10-28-qa-round2-bugfix-plan.md` (old numbering, see below).
 
 ## The sheet was renumbered
 
@@ -83,6 +83,15 @@ After merging `origin/stage` (2026-11-01) and removing BUG-011:
 | Borrower `vitest run` | 1541 passed, 0 failed |
 | Admin (`tsconfig.json`, `tsconfig.e2e.json`) + borrower `tsc --noEmit` | clean |
 | Admin mocked e2e: all R2 specs + the get-all-users / task-assign specs touched by the merge | 70/70 passed (run with `E2E_BASE_URL=` against a fresh build) |
+
+After removing BUG-008 and the Underwriting Logic follow-up (2026-11-02, F221):
+
+| Suite | Result |
+|---|---|
+| API `php artisan test` | 4321 passed, 2 skipped, 0 failed |
+| Admin `vitest run` | 2396 passed, 0 failed (+2 `it.fails`); 1 unhandled Bootstrap modal error from `FundingApplicationDetails.test.tsx` (seen before these changes too) |
+| Admin `tsc --noEmit` (`tsconfig.json`, `tsconfig.e2e.json`) | clean |
+| Admin mocked e2e `underwriting-logic-r2.spec.ts` | 7/7 passed. `funding-visibility.spec.ts` fails 13 on HEAD too, before these changes (O75) |
 
 Admin e2e per bug: 009, 010, 030 `funding-sequence/underwriting-logic-r2`; 019, 048 `intake-review/funding-request/funding-request-details`; 029 `employees/employee-job-status`; 032, 033 `e2e/fund-application-r2`; 036, 037, 038 `intake-review/funding-application/funding-application-details-r2`; 050 `partners/partner-clear-fields`; 051, 065 `clients/client-r2`; 055 `leads/lead-default-country`; 073 `appointments/appointment-availability`. API-only fixes (020, 056, 061, 063) are covered by Feature/Integration tests - a mocked e2e would only test its own mock. Borrower-portal fixes (025, 026, 027, 032-033 borrower side, 045, 046) have vitest coverage; borrower e2e needs the live backend (O77).
 
