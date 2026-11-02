@@ -84,6 +84,7 @@ return [
     'group_created'              => 'Funding group created successfully.',
     'group_updated'              => 'Funding group updated successfully.',
     'group_deleted'              => 'Funding group deleted successfully.',
+    'group_in_use'               => 'This funding group is used by a funding sequence and cannot be deleted.',
     'type_created'               => 'Funding type created successfully.',
     'type_updated'               => 'Funding type updated successfully.',
     'type_deleted'               => 'Funding type deleted successfully.',

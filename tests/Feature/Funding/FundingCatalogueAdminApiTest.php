@@ -714,4 +714,150 @@ class FundingCatalogueAdminApiTest extends TestCase
 
         $this->assertSame(1, FundingSequencing::find($second)->lenderVisibilities()->count());
     }
+
+    /** A funding sequence whose underwriting logic has a rule for this category. */
+    private function sequenceUsingCategory(int $categoryId, string $name = 'SBA 7(a)'): int
+    {
+        $lender = Lender::create($this->lender(['name' => 'Lender ' . uniqid()]));
+        $data = $this->sequence(['name' => $name]);
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $categoryId)];
+
+        return $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+    }
+
+    /**
+     * Defect: Manage Product Categories deleted any category - also one a
+     * funding sequence's underwriting logic still has a rule for
+     * (lender_visibilities.lender_product_category_id). Like a blog tag on a
+     * post, a category in use is kept and the refusal names it.
+     */
+    #[Test]
+    public function a_product_category_used_in_a_funding_sequence_is_not_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $this->sequenceUsingCategory($categoryId, 'SBA 7(a)');
+        $this->sequenceUsingCategory($categoryId, 'Equipment');
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('lender.category_in_use'))
+            ->assertJsonPath('errors.blocked.0.id', $categoryId)
+            ->assertJsonPath('errors.blocked.0.name', LenderProductCategory::find($categoryId)->name)
+            ->assertJsonPath('errors.blocked.0.count', 2);
+
+        $this->assertNotNull(LenderProductCategory::find($categoryId));
+    }
+
+    #[Test]
+    public function a_product_category_no_funding_sequence_uses_is_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")->assertOk();
+
+        $this->assertNull(LenderProductCategory::find($categoryId));
+    }
+
+    /**
+     * The list says how many live funding sequences use each category, so the
+     * portal can say "cannot be deleted" at once instead of asking "Are you
+     * sure?" first (like blogs_count on blog tags).
+     */
+    #[Test]
+    public function the_category_list_says_how_many_funding_sequences_use_each_category(): void
+    {
+        $this->actingAsUser($this->admin);
+        $used = $this->productCategory();
+        $this->sequenceUsingCategory($used, 'SBA 7(a)');
+        $this->sequenceUsingCategory($used, 'Equipment');
+        $unused = $this->productCategory();
+        $onlyDeleted = $this->productCategory();
+        FundingSequencing::findOrFail($this->sequenceUsingCategory($onlyDeleted))->delete();
+
+        $rows = collect($this->getJson('/api/v1/admin/lenders/product-categories')->assertOk()->json('data'))->keyBy('id');
+
+        $this->assertSame(2, $rows[$used]['funding_sequences_count']);
+        $this->assertSame(0, $rows[$unused]['funding_sequences_count']);
+        $this->assertSame(0, $rows[$onlyDeleted]['funding_sequences_count']);
+    }
+
+    /** Two lenders' rules for the category in one sequence are still one sequence. */
+    #[Test]
+    public function a_sequence_with_several_rules_for_the_category_counts_once(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $data = $this->sequence();
+        $data['lender_visibilities'] = [
+            $this->visibility(Lender::create($this->lender(['name' => 'Lender A']))->id, $categoryId),
+            $this->visibility(Lender::create($this->lender(['name' => 'Lender B']))->id, $categoryId),
+        ];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful();
+
+        $rows = collect($this->getJson('/api/v1/admin/lenders/product-categories')->json('data'))->keyBy('id');
+        $this->assertSame(1, $rows[$categoryId]['funding_sequences_count']);
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.blocked.0.count', 1);
+    }
+
+    /**
+     * Defect: Manage Funding Groups deleted any group - also one funding
+     * sequences are filed under (funding_sequencings.funding_group_id). Like a
+     * product category in use, it is kept, and the list says how many live
+     * sequences use each group so the portal can refuse at once.
+     */
+    #[Test]
+    public function a_funding_group_used_by_a_funding_sequence_is_not_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $used = FundingGroup::create(['name' => 'Loans', 'status' => 'Active'])->id;
+        $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['name' => 'One', 'funding_group_id' => $used]))->assertSuccessful();
+        $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['name' => 'Two', 'funding_group_id' => $used]))->assertSuccessful();
+        $unused = FundingGroup::create(['name' => 'Spare', 'status' => 'Active'])->id;
+
+        $rows = collect($this->getJson('/api/v1/admin/funding-groups')->assertOk()->json('data'))->keyBy('id');
+        $this->assertSame(2, $rows[$used]['funding_sequences_count']);
+        $this->assertSame(0, $rows[$unused]['funding_sequences_count']);
+
+        $this->deleteJson("/api/v1/admin/funding-groups/{$used}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('funding_sequencing.group_in_use'))
+            ->assertJsonPath('errors.blocked.0.id', $used)
+            ->assertJsonPath('errors.blocked.0.name', 'Loans')
+            ->assertJsonPath('errors.blocked.0.count', 2);
+        $this->assertNotSoftDeleted('funding_groups', ['id' => $used]);
+
+        $this->deleteJson("/api/v1/admin/funding-groups/{$unused}")->assertOk();
+        $this->assertSoftDeleted('funding_groups', ['id' => $unused]);
+    }
+
+    /** A deleted funding sequence no longer holds its group. */
+    #[Test]
+    public function a_funding_group_used_only_by_a_deleted_sequence_is_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $group = FundingGroup::create(['name' => 'Old', 'status' => 'Active'])->id;
+        $sequence = $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['funding_group_id' => $group]))->assertSuccessful()->json('data.id');
+        FundingSequencing::findOrFail($sequence)->delete();
+
+        $this->assertSame(0, collect($this->getJson('/api/v1/admin/funding-groups')->json('data'))->firstWhere('id', $group)['funding_sequences_count']);
+        $this->deleteJson("/api/v1/admin/funding-groups/{$group}")->assertOk();
+    }
+
+    /** A deleted funding sequence no longer uses anything. */
+    #[Test]
+    public function a_product_category_used_only_by_a_deleted_funding_sequence_is_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $sequenceId = $this->sequenceUsingCategory($categoryId);
+        FundingSequencing::findOrFail($sequenceId)->delete();
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")->assertOk();
+
+        $this->assertNull(LenderProductCategory::find($categoryId));
+    }
 }
