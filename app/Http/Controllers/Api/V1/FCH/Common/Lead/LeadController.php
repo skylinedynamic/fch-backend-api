@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Lead;
 
 use App\Models\Lead\Lead;
+use App\Exceptions\LeadConversionRefusedException;
 use App\Exceptions\LeadConvertedException;
 use App\Helpers\ApiResponse;
 use App\Models\Partner\Partner;
@@ -183,6 +184,10 @@ class LeadController extends Controller
             }
 
             return ApiResponse::success($result, __('lead.conversion_success'));
+        } catch (LeadConversionRefusedException $e) {
+            // Already converted (e.g. from another tab, BUG-057), the email is
+            // taken, or details are missing: the partner's to act on, not a 500.
+            return ApiResponse::error($e->getMessage(), 422);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // e.g. a partner on a free trial converting into a paid client (BUG-142).
             return ApiResponse::validationError($e->errors(), $e->getMessage());

@@ -6,6 +6,7 @@ use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Resources\FCH\Lead\LeadResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationRequest;
+use App\Exceptions\LeadConversionRefusedException;
 use App\Exceptions\LeadConvertedException;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
@@ -470,6 +471,12 @@ class LeadService
      */
     public function convert(Lead $lead, array $data = []): Borrower|Partner
     {
+        // Converted already, e.g. from another tab (BUG-057): say so, rather
+        // than failing later on the email the first conversion used.
+        if (!empty($lead->convert_to)) {
+            throw new LeadConversionRefusedException(__('lead.already_converted'));
+        }
+
         if ($lead->lead_type === Lead::BORROWER_TYPE_LEAD) {
             return $this->convertToBorrower($lead, $data);
         } elseif ($lead->lead_type === Lead::PARTNER_TYPE_LEAD) {
@@ -487,7 +494,7 @@ class LeadService
         DB::beginTransaction();
         try {
             if (empty($lead->contact_person) || empty($lead->email) || empty($lead->phone_number)) {
-                throw new \InvalidArgumentException('Contact person, email, and phone number are required for conversion.');
+                throw new LeadConversionRefusedException('Contact person, email, and phone number are required for conversion.');
             }
 
             // The email already belongs to a client (BUG-018). Two partners can
@@ -496,7 +503,7 @@ class LeadService
             // would tell this partner the person is a client elsewhere.
             $existing = $lead->email ? Borrower::where('email', $lead->email)->first() : null;
             if ($existing) {
-                throw new \InvalidArgumentException((int) $existing->partner_id === (int) $lead->partner_id
+                throw new LeadConversionRefusedException((int) $existing->partner_id === (int) $lead->partner_id
                     ? __('lead.email_already_your_client')
                     : __('lead.email_cannot_be_used'));
             }
@@ -604,11 +611,11 @@ class LeadService
         DB::beginTransaction();
         try {
             if (empty($lead->contact_person) || empty($lead->email) || empty($lead->phone_number)) {
-                throw new \InvalidArgumentException('Contact person, email, and phone number are required for conversion.');
+                throw new LeadConversionRefusedException('Contact person, email, and phone number are required for conversion.');
             }
 
             if ($lead->email && Partner::where('email', $lead->email)->exists()) {
-                throw new \InvalidArgumentException('A partner with this email already exists.');
+                throw new LeadConversionRefusedException('A partner with this email already exists.');
             }
 
             $enrollmentData = is_array($data['enrollment'] ?? null) ? $data['enrollment'] : [];
