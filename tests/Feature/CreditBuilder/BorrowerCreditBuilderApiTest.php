@@ -301,6 +301,49 @@ class BorrowerCreditBuilderApiTest extends TestCase
     }
 
     /**
+     * Defect (BUG-052, R2-OP-CACC-02): the borrower requested a card, then the
+     * host raised its FICO minimum above the borrower's score. The card left
+     * their list, and apply answered 404, so they could not see or move their
+     * own request to Processing / Approved. A card they already applied for
+     * stays theirs; borrowers who have not applied still are not offered it.
+     */
+    #[Test]
+    public function a_card_already_requested_stays_with_the_borrower_after_its_minimums_rise(): void
+    {
+        \App\Models\Borrower\Borrower::whereKey($this->me->entity_id)->update([
+            'fico_score' => 760,
+            'business_start_date' => now()->subMonths(36)->toDateString(),
+        ]);
+        $card = DB::table('credit_accounts')->insertGetId([
+            'card_name' => 'Business Platinum', 'status' => 'Active', 'typical_personal_fico_min' => 700, 'time_in_business_min_months' => 0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $other = $this->makeBorrowerUser($this->partner);
+        \App\Models\Borrower\Borrower::whereKey($other->entity_id)->update(['fico_score' => 760]);
+        $listed = fn () => collect($this->postJson('/api/v1/borrower/credit-builder/credit-accounts')->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->actingAsUser($this->me);
+        $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$card}/apply")->assertOk();
+
+        // The host raises both minimums above this borrower.
+        DB::table('credit_accounts')->where('id', $card)->update(['typical_personal_fico_min' => 800, 'time_in_business_min_months' => 120]);
+
+        $this->assertContains($card, $listed());
+        $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$card}/apply", ['status' => CreditAccountApplication::STATUS_APPROVED])->assertOk();
+        $this->assertSame(CreditAccountApplication::STATUS_APPROVED, CreditAccountApplication::where('credit_account_id', $card)->value('status'));
+
+        // A borrower who never applied is no longer offered it.
+        $this->actingAsUser($other);
+        $this->assertNotContains($card, $listed());
+        $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$card}/apply")->assertNotFound();
+
+        // Switching the card off still hides it, request or not (BUG-053).
+        DB::table('credit_accounts')->where('id', $card)->update(['status' => 'Inactive']);
+        $this->actingAsUser($this->me);
+        $this->assertNotContains($card, $listed());
+    }
+
+    /**
      * Defect (BUG-138, CP-CBA-05): the list was ordered by difficulty_rank only.
      * Many cards share a rank, and MySQL returns ties in any order, so each
      * page request could order them differently: ~12 cards came back on both
