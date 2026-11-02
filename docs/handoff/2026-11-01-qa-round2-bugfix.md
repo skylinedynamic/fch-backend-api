@@ -84,6 +84,16 @@ After merging `origin/stage` (2026-11-01) and removing BUG-011:
 | Admin (`tsconfig.json`, `tsconfig.e2e.json`) + borrower `tsc --noEmit` | clean |
 | Admin mocked e2e: all R2 specs + the get-all-users / task-assign specs touched by the merge | 70/70 passed (run with `E2E_BASE_URL=` against a fresh build) |
 
+Full re-run 2026-11-02 afternoon (after F221, F222 and the Client Readiness label):
+
+| Suite | Result |
+|---|---|
+| API `php artisan test` | 4321 passed, 2 skipped, 0 failed |
+| Admin `vitest run` | 2374 passed + 2 `it.fails`; 13 timed out with three suites running at once (Leads.convertOwner, Partners.list, AgreementBuilder) - 55/55 when re-run alone |
+| Borrower `vitest run` | 203/206 files; 3 timed out under the same load (BillingDetails.removeDefault, FundingRequestList, Invoices.emptyState) - 11/11 when re-run alone |
+| Admin + borrower `tsc --noEmit` | clean |
+| Admin mocked e2e, the 9 R2 specs | 38/38 with `--workers=2`; at the default 50% workers single tests time out at random on this machine |
+
 After removing BUG-008 and the Underwriting Logic follow-up (2026-11-02, F221):
 
 | Suite | Result |
