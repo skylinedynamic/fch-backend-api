@@ -179,6 +179,38 @@ class Invoice extends Model
         return $paid > 0 && round($paid, 2) >= round((float) $this->payment_amount, 2);
     }
 
+    /**
+     * What the invoice's line item, email and bell say when this is the last
+     * installment of a plan and its amount differs from the monthly one
+     * (BUG-049). The billing cron records the figures in
+     * details.final_installment; null on every other invoice.
+     *
+     * @return array{number: int, count: int, adjustment: string, difference: string, monthly: string, total: string}|null
+     */
+    public function finalInstallmentNote(): ?array
+    {
+        $final = $this->details['final_installment'] ?? null;
+
+        if (!is_array($final) || !isset($final['adjustment'], $final['monthly'], $final['total'], $final['count'])) {
+            return null;
+        }
+
+        $adjustment = (float) $final['adjustment'];
+
+        return [
+            'number' => (int) $final['count'],
+            'count' => (int) $final['count'],
+            // Signed both ways: "-$0.02" or "+$0.01".
+            'adjustment' => ($adjustment > 0 ? '+' : '') . currencyFormat($adjustment),
+            // In words for the customer: "$0.02 less" or "$0.01 more".
+            'difference' => __($adjustment < 0 ? 'invoice.final_installment.less' : 'invoice.final_installment.more', [
+                'amount' => currencyFormat(abs($adjustment)),
+            ]),
+            'monthly' => currencyFormat($final['monthly']),
+            'total' => currencyFormat($final['total']),
+        ];
+    }
+
     public function borrower(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Borrower::class, 'borrower_id');

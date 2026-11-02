@@ -179,6 +179,8 @@ class MySubscriptionService
                 'payable_amount' => currencyFormat($subscription->payable_amount),
                 'down_payment' => currencyFormat($subscription->down_payment),
                 'subscription_amount_per_month' => currencyFormat($subscription->subscription_amount_per_month),
+                // The last installment, when it takes up the monthly rounding (BUG-049).
+                'final_installment_amount' => currencyFormat($subscription->adjustedFinalInstallmentAmount()),
                 // The recurring platform fee, distinct from subscription_amount_per_month
                 // (which is the installment/enrollment amount and is null once
                 // enrollment is complete - it was never the platform fee).

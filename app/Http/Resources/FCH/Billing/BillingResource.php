@@ -40,7 +40,8 @@ class BillingResource extends JsonResource
         // the next source rather than being reported as a real $0 charge.
         // BillingService::billingAmountSql() sorts on this same amount - change both.
         $billingAmount = match ($this->current_phase) {
-            Subscription::PHASE_INSTALLMENT => $this->subscription_amount_per_month ?: 0,
+            // The adjusted last installment when that is next (BUG-049).
+            Subscription::PHASE_INSTALLMENT => $this->resource->nextInstallmentAmount() ?: 0,
             Subscription::PHASE_PLATFORM_FEE => $this->monthly_platform_fee ?: 0,
             Subscription::PHASE_USER_SEAT => $this->per_seat_amount ?: 0,
             // Nothing recurs after a borrower finishes enrollment.

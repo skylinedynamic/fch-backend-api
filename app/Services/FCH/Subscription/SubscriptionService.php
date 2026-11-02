@@ -902,7 +902,9 @@ class SubscriptionService
                     $partnerId = $entity->id;
                 }
 
-                // Amount by phase
+                // Amount by phase. $details explains an amount that differs
+                // from the usual one (the adjusted last installment).
+                $details = null;
                 if ($phase === Subscription::PHASE_PLATFORM_FEE) {
                     $amount = $subscription->monthly_platform_fee;
                 } elseif ($phase === Subscription::PHASE_USER_SEAT) {
@@ -939,9 +941,18 @@ class SubscriptionService
                         // 12 months was billed 474.67 a month instead of 558.00, so
                         // the customer was undercharged every cycle and the plan
                         // could never settle.
-                        $amount = $isFirstCycle && $hasDownPayment
+                        //
+                        // The last installment takes up the rounding of the monthly
+                        // figure, so the installments total the plan exactly
+                        // (BUG-049) - see Subscription::finalInstallmentAmount().
+                        $isDownPaymentCycle = $isFirstCycle && $hasDownPayment;
+                        $amount = $isDownPaymentCycle
                             ? $subscription->down_payment
-                            : $subscription->subscription_amount_per_month;
+                            : $subscription->nextInstallmentAmount();
+
+                        if (!$isDownPaymentCycle && $subscription->isNextInstallmentFinal()) {
+                            $details = $this->finalInstallmentDetails($subscription);
+                        }
                     } else {
                         $amount = $subscription->payable_amount;
                     }
@@ -1001,6 +1012,7 @@ class SubscriptionService
                     'month_count' => 1,
                     'is_partner_paying' => $isPartnerPaying ? 1 : 0,
                     'is_platform_fee' => $isPlatformFee ? 1 : 0,
+                    'details' => $details,
                 ]);
 
                 // Update current cycle invoice ID
@@ -1043,6 +1055,46 @@ class SubscriptionService
                 ]))->to($emails));
             }
         }
+    }
+
+    /**
+     * The invoice details of a plan's last installment when it differs from the
+     * monthly one (BUG-049): its line item names it and says why, and the
+     * figures are kept for the email and the bell (Invoice::finalInstallmentNote()).
+     * Null when the last installment is the monthly amount - nothing to explain.
+     */
+    private function finalInstallmentDetails(Subscription $subscription): ?array
+    {
+        $adjustment = $subscription->finalInstallmentAdjustment();
+
+        if ($adjustment === null) {
+            return null;
+        }
+
+        $count = (int) $subscription->installment_count;
+        $final = [
+            'adjustment' => $adjustment,
+            'monthly' => (float) $subscription->subscription_amount_per_month,
+            'total' => (float) $subscription->total_subscription_amount,
+            'count' => $count,
+        ];
+
+        // Formatted by the same rule the email and the bell use.
+        $note = (new Invoice(['details' => ['final_installment' => $final]]))->finalInstallmentNote();
+
+        return [
+            'items' => [[
+                'description' => __('invoice.final_installment.description', ['number' => $note['number'], 'count' => $note['count']]),
+                'detail' => __('invoice.final_installment.detail', [
+                    'difference' => $note['difference'],
+                    'monthly' => $note['monthly'],
+                    'count' => $note['count'],
+                    'total' => $note['total'],
+                ]),
+                'amount' => $subscription->finalInstallmentAmount(),
+            ]],
+            'final_installment' => $final,
+        ];
     }
 
     // Cron Job

@@ -52,6 +52,25 @@
             </div>
         </div>
 
+        {{-- The last installment, adjusted for rounding (BUG-049) --}}
+        @php($finalInstallment = $invoice->finalInstallmentNote())
+        @if ($finalInstallment)
+            <div class="box-light"
+                style="background-color: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #d97706; border-radius: 8px; padding: 16px 20px; margin-bottom: 30px; text-align: left;">
+                <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #0f172a;">
+                    {{ __('invoice.final_installment.mail_title') }}
+                </p>
+                <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #64748b;">
+                    {{ __('invoice.final_installment.mail_note', [
+                        'difference' => $finalInstallment['difference'],
+                        'monthly' => $finalInstallment['monthly'],
+                        'count' => $finalInstallment['count'],
+                        'total' => $finalInstallment['total'],
+                    ]) }}
+                </p>
+            </div>
+        @endif
+
         {{-- Action Section --}}
         <div class="box-primary"
             style="background-color: #f0f7ff; border: 1px solid #e0effe; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">

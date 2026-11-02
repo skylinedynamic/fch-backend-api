@@ -183,6 +183,8 @@ class BorrowerBillingService
                 'payable_amount' => currencyFormat($subscription->payable_amount),
                 'down_payment' => currencyFormat($subscription->down_payment),
                 'subscription_amount_per_month' => currencyFormat($subscription->subscription_amount_per_month),
+                // The last installment, when it takes up the monthly rounding (BUG-049).
+                'final_installment_amount' => currencyFormat($subscription->adjustedFinalInstallmentAmount()),
                 'installment_count' => (int) $subscription->installment_count,
                 'installments_paid' => (int) ($subscription->installments_paid ?? 0),
                 'subscription_start_date' => toDateOnly($subscription->subscription_start_date),

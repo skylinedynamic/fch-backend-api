@@ -455,6 +455,17 @@ return [
             'url' => '/invoices/{{id}}',
         ],
 
+        // BUG-049: the last installment takes up the rounding of the monthly amount.
+        'invoice.final_installment' => [
+            'name' => 'Final installment invoice sent',
+            'category' => 'payment',
+            'icon' => 'ri-file-list-2-line',
+            'channels' => $bellAndMail,
+            'title' => 'Final installment invoice',
+            'body' => 'Invoice {{invoice}} for {{amount}} is your final installment. It is {{difference}} than your usual {{monthly}}, so your payments add up to exactly {{total}}.',
+            'url' => '/invoices/{{id}}',
+        ],
+
         'host.borrower_fee_invoice.created' => [
             'name' => 'Borrower fee invoice created (host)',
             'category' => 'payment',
