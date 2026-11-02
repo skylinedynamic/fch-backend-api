@@ -66,12 +66,6 @@ class FundingCatalogueAdminApiTest extends TestCase
         ], $overrides);
     }
 
-    /** A lender payload the API accepts as is: with a product category. */
-    private function categorisedLender(array $overrides = []): array
-    {
-        return $this->lender(array_merge(['product_categories' => [$this->productCategory()]], $overrides));
-    }
-
     private function sequence(array $overrides = []): array
     {
         return array_merge([
@@ -229,53 +223,6 @@ class FundingCatalogueAdminApiTest extends TestCase
 
         $this->putJson("/api/v1/admin/lenders/{$first}", $this->lender(['name' => 'First Lender Renamed', 'product_categories' => $categories]))->assertOk();
         $this->putJson("/api/v1/admin/lenders/{$second}", $this->lender(['name' => 'Second Lender Renamed', 'product_categories' => $categories]))->assertOk();
-    }
-
-    /**
-     * Defect: R2 BUG-008 - Add Lender accepted a name already in use (a second
-     * "Kabbage"). The name is what borrowers, partners and the funding
-     * sequences show, so two alike cannot be told apart.
-     */
-    #[Test]
-    public function a_lender_cannot_be_added_under_a_name_already_in_use(): void
-    {
-        $this->actingAsUser($this->admin);
-        $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated();
-
-        foreach (['Kabbage', 'kabbage', '  KABBAGE '] as $same) {
-            $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => $same]))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['name' => __('lender.name_taken')]);
-        }
-
-        $this->assertSame(1, Lender::where('name', 'Kabbage')->count());
-    }
-
-    /** R2 BUG-008 - nor renamed to another lender's name; keeping its own is fine. */
-    #[Test]
-    public function a_lender_cannot_be_renamed_to_another_lenders_name(): void
-    {
-        $this->actingAsUser($this->admin);
-        $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated();
-        $other = $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'OnDeck']))->assertCreated()->json('data.id');
-
-        $this->putJson("/api/v1/admin/lenders/{$other}", $this->categorisedLender(['name' => 'KABBAGE']))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['name' => __('lender.name_taken')]);
-        $this->assertSame('OnDeck', Lender::find($other)->name);
-
-        $this->putJson("/api/v1/admin/lenders/{$other}", $this->categorisedLender(['name' => 'OnDeck', 'website' => 'https://ondeck.example.org']))->assertOk();
-    }
-
-    /** R2 BUG-008 - a deleted lender's name is free to use again. */
-    #[Test]
-    public function a_deleted_lenders_name_can_be_used_again(): void
-    {
-        $this->actingAsUser($this->admin);
-        $old = $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated()->json('data.id');
-        $this->deleteJson("/api/v1/admin/lenders/{$old}")->assertOk();
-
-        $this->postJson('/api/v1/admin/lenders', $this->categorisedLender(['name' => 'Kabbage']))->assertCreated();
     }
 
     #[Test]

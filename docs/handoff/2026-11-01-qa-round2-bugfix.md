@@ -4,7 +4,7 @@
 **Branch:** `qa-round2-bugfix` in `fch-backend-api`, `Fch-admin-frontend-react`, `fch-borrower-react` (not committed, not pushed)
 **Author:** arafat-invento
 
-Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, plus BUG-008 (assigned to Awlad in the sheet, done here on request). BUG-011 and BUG-031 were done and then removed on request (skipped, F195 and F204). Findings: `docs/test-findings.md` F192-F220, D14, O74-O77. Plan: `2026-10-28-qa-round2-bugfix-plan.md` (old numbering, see below).
+Source: QA Round 2 defect log (Google Sheet, gid 27742395). The 27 rows with **Assigned Dev = Arafat**, BUG-008 (assigned to Awlad in the sheet), BUG-011 and BUG-031 were done and then removed on request (skipped, F192, F195 and F204). Findings: `docs/test-findings.md` F192-F220, D14, O74-O77. Plan: `2026-10-28-qa-round2-bugfix-plan.md` (old numbering, see below).
 
 ## The sheet was renumbered
 
@@ -22,13 +22,13 @@ The plan of 28 Oct used the sheet's numbers of that day; the sheet has since bee
 | 027 | 035 | 038 | 046 | 063 | 075 |
 | | | 045 | 055 | 065 | 079 |
 
-New since the plan: **BUG-073** (availability check), **BUG-008** (BUG-011 skipped).
+New since the plan: **BUG-073** (availability check) (BUG-008 and BUG-011 skipped).
 
 ## Problem and solution, per bug
 
 | Bug | Module | Was | Now | Repos |
 |---|---|---|---|---|
-| 008 | Lenders | Duplicate lender name accepted | Name unique (case/spaces ignored, deleted lenders free); error under the field | API, admin |
+| 008 | Lenders | Duplicate lender name accepted | **Skipped 2026-11-02 on request** - fix removed, not changed | - |
 | 009 | Funding Sequence | Min FICO 851 saved | 300-850 on all saves; input bounds | API, admin |
 | 010 | Funding Sequence | State both allowed and restricted | `DisjointFrom` (states, industries); options exclude each other | API, admin |
 | 011 | Roles | Admin role fully editable | **Skipped on request** - not changed | - |
@@ -62,11 +62,10 @@ New since the plan: **BUG-073** (availability check), **BUG-008** (BUG-011 skipp
 - New optional request fields: `expected_status` (funding request / application status), `expected_version` (wizard steps, client info), `is_inactive` on each `common/get-all-users` member (the picker uses stage's `active_only` + `keep_ids`, which now also drops Inactive/Suspended employees). Without them nothing is checked.
 - New **409** answers (stale save / decision) - no `errors` key on the wizard ones.
 - New endpoint `POST api/v1/common/appointments/{id}/cancel` (borrowers allowed).
-- Lender name must be unique.
 - Migrations (run on deploy): `2026_10_28_100000` (purpose_note, collateral_available -> TEXT), `2026_10_28_100100` (job_status repair).
 
 ## Files changed (main ones)
-- **API:** `app/Rules/{DisjointFrom,UniqueLenderName}.php`; `app/Exceptions/{StaleRecordException,DocumentInUseException}.php`; `FundingApplicationEditGuard`, `FundingRequestService`, `RequestApplicationService`, `BorrowerService`, `CommonService`, `DocumentService`, `AppointmentService`, `PreQualificationService`, borrower/partner `FundingApplicationService`; step resources + `Concerns/CarriesApplicationVersion`; Lender/Employee/Appointment requests; `AppointmentTimeRules` (clash wording); `MailableBranding`, `AppointmentNotification` + `emails/appointment/*`; `pdf/funding-application.blade.php`; `lang/en/*`; 2 migrations.
+- **API:** `app/Rules/DisjointFrom.php`; `app/Exceptions/{StaleRecordException,DocumentInUseException}.php`; `FundingApplicationEditGuard`, `FundingRequestService`, `RequestApplicationService`, `BorrowerService`, `CommonService`, `DocumentService`, `AppointmentService`, `PreQualificationService`, borrower/partner `FundingApplicationService`; step resources + `Concerns/CarriesApplicationVersion`; Employee/Appointment requests; `AppointmentTimeRules` (clash wording); `MailableBranding`, `AppointmentNotification` + `emails/appointment/*`; `pdf/funding-application.blade.php`; `lang/en/*`; 2 migrations.
 - **Admin:** `modules/appointment/availability.ts`, `modules/employee/logic.ts`, `modules/funding-application/{applicationRules,applicationVersion,staleApplication}.ts` + `services.ts`, `modules/funding/visibilityRules.ts`, `utils/staleRecord.ts`; `AppointmentModal.jsx`, `EmployeeDetails.jsx`, wizard steps, `FundingRequestDetail.tsx`, `FundingApplicationDetails.tsx`, `ConfirmationModal.jsx`, `FundedAmountModal.tsx`, `ClientInfoSection.tsx`, `LenderVisibilityGrid.tsx`, `LeadDetails.jsx`, `partner/logic.ts`.
 - **Borrower:** `modules/funding-application/{applicationRules,applicationVersion}.ts`, `services.ts`, `saveFeedback.ts`; `modules/appointment/{cancel,services}.ts`; `prequalification/hooks/{resumeStep,usePreQualificationForm}.ts`; wizard steps + `CoBorrowerModal`, `FundApplication.tsx`; `Documents.tsx`; `AppointmentModal.tsx`; `assets/css/custom.min.css`.
 
@@ -85,7 +84,7 @@ After merging `origin/stage` (2026-11-01) and removing BUG-011:
 | Admin (`tsconfig.json`, `tsconfig.e2e.json`) + borrower `tsc --noEmit` | clean |
 | Admin mocked e2e: all R2 specs + the get-all-users / task-assign specs touched by the merge | 70/70 passed (run with `E2E_BASE_URL=` against a fresh build) |
 
-Admin e2e per bug: 008 `lenders/lender-duplicate-name`; 009, 010, 030 `funding-sequence/underwriting-logic-r2`; 019, 048 `intake-review/funding-request/funding-request-details`; 029 `employees/employee-job-status`; 032, 033 `e2e/fund-application-r2`; 036, 037, 038 `intake-review/funding-application/funding-application-details-r2`; 050 `partners/partner-clear-fields`; 051, 065 `clients/client-r2`; 055 `leads/lead-default-country`; 073 `appointments/appointment-availability`. API-only fixes (020, 056, 061, 063) are covered by Feature/Integration tests - a mocked e2e would only test its own mock. Borrower-portal fixes (025, 026, 027, 032-033 borrower side, 045, 046) have vitest coverage; borrower e2e needs the live backend (O77).
+Admin e2e per bug: 009, 010, 030 `funding-sequence/underwriting-logic-r2`; 019, 048 `intake-review/funding-request/funding-request-details`; 029 `employees/employee-job-status`; 032, 033 `e2e/fund-application-r2`; 036, 037, 038 `intake-review/funding-application/funding-application-details-r2`; 050 `partners/partner-clear-fields`; 051, 065 `clients/client-r2`; 055 `leads/lead-default-country`; 073 `appointments/appointment-availability`. API-only fixes (020, 056, 061, 063) are covered by Feature/Integration tests - a mocked e2e would only test its own mock. Borrower-portal fixes (025, 026, 027, 032-033 borrower side, 045, 046) have vitest coverage; borrower e2e needs the live backend (O77).
 
 Updated existing expectations: `AppointmentTimeAndClashTest` (2, new "You and X" wording), `BorrowerFundingApplicationStepsTest` (409 has no `errors`), `funding-request-details.spec.ts` (body carries `expected_status`), `LeadOwnerTeamTest` (BUG-051 on stage's `active_only` + `keep_ids`), admin `ClientAssignTo.test.tsx`. Stage's `ActivityEditModal.test.tsx` "replaces the saved attachments" failed on Node 22+ (undici refuses jsdom's File in `request.formData()`); its handler now parses the multipart body itself, same assertions.
 
