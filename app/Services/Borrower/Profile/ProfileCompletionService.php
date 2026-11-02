@@ -160,7 +160,12 @@ class ProfileCompletionService
         ];
     }
 
-    private function checkBusiness($borrower): array
+    /**
+     * The Business Details section: complete, and which fields are missing.
+     * Also the rule for the Capital Access pre-flight "Business Information"
+     * item (BUG-043), so the two never disagree.
+     */
+    public function checkBusiness($borrower): array
     {
         $missing = [];
 
