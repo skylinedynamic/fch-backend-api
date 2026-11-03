@@ -220,6 +220,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/user-details', BorrowerUserDetailController::class);
 
             Route::post('/process-payment', [UnifiedPaymentController::class, 'processPayment']);
+            Route::post('/process-payment/confirm', [UnifiedPaymentController::class, 'confirmPayment']);
 
             // auth profile
             Route::prefix('auth-profile')->group(

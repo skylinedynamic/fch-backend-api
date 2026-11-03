@@ -23,6 +23,8 @@ class ScheduleTest extends TestCase
 
     private const EXPECTED = [
         'subscriptions:process-all' => '0 1,13 * * *',
+        // BUG-066: card payments left waiting on 3-D Secure.
+        'payments:settle-card-authentications' => '*/5 * * * *',
         'funding:application-reminders' => '0 14 * * *',
         'task:reminder-check' => '*/5 * * * *',
         'scheduler:heartbeat' => '* * * * *',

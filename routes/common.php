@@ -637,11 +637,13 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::post('process-payment', [UnifiedPaymentController::class, 'processPayment']);
+        Route::post('process-payment/confirm', [UnifiedPaymentController::class, 'confirmPayment']);
         Route::post('process-payment-for-users', [UnifiedPaymentController::class, 'processPayment']);
 
         // Unified Multi-Gateway Payment Routes
         Route::prefix('payment')->group(function () {
             Route::post('process', [UnifiedPaymentController::class, 'processPayment']);
+            Route::post('confirm', [UnifiedPaymentController::class, 'confirmPayment']);
             Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
             Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });

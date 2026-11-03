@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'payment_id_required' => 'The payment ID is required.',
+    'payment_id_integer' => 'The payment ID must be an integer.',
     'amount_numeric' => 'The amount must be a number.',
     'amount_min' => 'The amount must be at least 1.',
     'currency_string' => 'The currency must be a string.',
