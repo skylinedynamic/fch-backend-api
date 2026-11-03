@@ -96,7 +96,7 @@ class FundingApplicationResource extends JsonResource
             // edit form opens on, and whether the status is in the editable
             // list. When it isn't, locked_reason is what every viewer is shown.
             'funding_request_id' => $this->funding_request_id,
-            // For the signed-in user: the host's team may edit at any status.
+            // Editable only at a status in config `statuses.editable` - for everyone.
             'is_editable' => $this->isEditableBy($request->user()),
             'locked_reason' => $this->editingState($request->user())['locked_reason'],
             'credit_pull_authorization' => $this->credit_pull_authorization,

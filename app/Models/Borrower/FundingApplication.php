@@ -528,8 +528,7 @@ class FundingApplication extends Model
 
     /**
      * The host's own team - its admin and staff, not a borrower of the host and
-     * not a partner. It may edit any partner's borrower's application at any
-     * status; the status lock is for borrowers and partners.
+     * not a partner.
      */
     public static function isHostTeam(?User $user): bool
     {
@@ -540,23 +539,21 @@ class FundingApplication extends Model
     }
 
     /**
-     * Whether this user may change the application's data: the host's team
-     * always, everyone else while the status is still editable.
+     * Whether this user may change the application's data: while the status is
+     * in config `statuses.editable` - the same rule for everyone, the host's
+     * team included (decision 2026-11-03).
      */
     public function isEditableBy(?User $user): bool
     {
-        return self::isHostTeam($user) || $this->isEditable();
+        return $this->isEditable();
     }
 
     /**
-     * Whether a real change by this user costs the borrower's signature. The
-     * host editing past the lock is changing figures the borrower signed, so
-     * the borrower signs again then too.
+     * Whether a real change by this user costs the borrower's signature.
      */
     public function invalidatesSignatureOnEditBy(?User $user): bool
     {
-        return $this->invalidatesSignatureOnEdit()
-            || (self::isHostTeam($user) && $this->isLockedForEdit() && $this->hasBeenSubmitted());
+        return $this->invalidatesSignatureOnEdit();
     }
 
     /**
@@ -627,7 +624,7 @@ class FundingApplication extends Model
      */
     public function editingState(?User $user = null): array
     {
-        // For the given user: the host's team is never locked out.
+        // Same status rule for every user, the host's team included.
         $isLocked = ! $this->isEditableBy($user);
 
         return [
@@ -644,10 +641,25 @@ class FundingApplication extends Model
             // one that was never submitted is just being filled in, so it is not.
             'edit_needs_confirmation' => ! $isLocked && $this->hasBeenSubmitted(),
             'can_start_new_funding_request' => $this->allowsNewFundingRequest(),
-            'locked_reason' => $isLocked
-                ? __('application.funding_application_locked', ['status' => $this->status])
-                : null,
+            'locked_reason' => $isLocked ? $this->lockedReasonFor($user) : null,
         ];
+    }
+
+    /**
+     * Why the application can't be edited, worded for who is asking: the
+     * borrower is pointed to their funding advisor; the host and the partners
+     * (white-label, certified) are the advisors, so they are just told so.
+     */
+    public function lockedReasonFor(?User $user): string
+    {
+        $isStaff = $user !== null
+            && $user->user_type !== User::BORROWER
+            && $user->entity_type !== Borrower::class;
+
+        return __(
+            $isStaff ? 'application.funding_application_locked_staff' : 'application.funding_application_locked',
+            ['status' => $this->status]
+        );
     }
 
     /**

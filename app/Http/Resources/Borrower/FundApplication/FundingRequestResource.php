@@ -42,7 +42,9 @@ class FundingRequestResource extends JsonResource
                 ->find($fundingRequestId);
         }
 
-        if (!$fundingReq && auth()->check() && auth()->user()->entity_id) {
+        // Only for a step with no application yet: an application without a
+        // funding request (converted from the embed form) has none to show.
+        if (!$fundingApp && !$fundingReq && auth()->check() && auth()->user()->entity_id) {
             $fundingReq = FundingRequest::with('fundingSequence')
                 ->where('borrower_id', auth()->user()->entity_id)
                 ->where('status', FundingRequest::STATUS_APPROVED)
