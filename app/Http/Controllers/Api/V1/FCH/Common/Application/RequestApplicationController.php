@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Application;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
+use App\Http\Requests\Api\V1\FCH\Common\Application\AssignFundingApplicationLenderRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Application\FetchRequestApplicationRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Application\UpdatePreQualificationStatusRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Application\UpdateFundingApplicationStatusRequest;
@@ -11,6 +12,7 @@ use App\Services\FCH\Common\Application\RequestApplicationService;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class RequestApplicationController extends Controller
 {
@@ -230,6 +232,20 @@ class RequestApplicationController extends Controller
         }
     }
 
+
+    /**
+     * Assign a lender to a funding application (host's team only).
+     */
+    public function assignFundingApplicationLender(AssignFundingApplicationLenderRequest $request, int $id): JsonResponse
+    {
+        try {
+            return $this->requestApplicationService->assignFundingApplicationLender($id, $request->validated('lender_ids'));
+        } catch (\Exception $e) {
+            Log::error('Assign funding application lender failed', ['funding_application_id' => $id, 'error' => $e->getMessage()]);
+
+            return ApiResponse::serverError(__('application.error_assigning_lender'));
+        }
+    }
 
     public function getPreQualificationCardSummary()
     {

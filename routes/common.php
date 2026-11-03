@@ -276,6 +276,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
                 Route::post('funding-application/{id}/audit-history', [RequestApplicationController::class, 'getAuditHistory']);
+                // Host's team only (AssignFundingApplicationLenderRequest).
+                Route::post('funding-application/{id}/assign-lender', [RequestApplicationController::class, 'assignFundingApplicationLender'])->whereNumber('id');
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);

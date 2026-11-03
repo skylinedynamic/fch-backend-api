@@ -4,7 +4,9 @@ namespace App\Http\Resources\FCH\Common\Application;
 
 use App\Http\Resources\Borrower\FundApplication\CoBorrowerResource;
 use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
+use App\Models\Borrower\FundingApplication;
 use App\Models\User\User;
+use App\Services\FCH\Common\Funding\LenderMatchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -99,6 +101,10 @@ class FundingApplicationResource extends JsonResource
             // Editable only at a status in config `statuses.editable` - for everyone.
             'is_editable' => $this->isEditableBy($request->user()),
             'locked_reason' => $this->editingState($request->user())['locked_reason'],
+            // Lender Information - the host's team only (null for anyone else).
+            // From a funding request: that request's matches and lender; from a
+            // loan application: matched on the Preferred and Additional Funding Types.
+            ...$this->lenderInformation($request),
             'credit_pull_authorization' => $this->credit_pull_authorization,
             'terms_conditions_acceptance' => $this->terms_conditions_acceptance,
             'filed_for_bankruptcy' => $this->filed_for_bankruptcy,
@@ -136,6 +142,8 @@ class FundingApplicationResource extends JsonResource
             'payment_status' => $this->commission?->payment_status,
 
             'total_funded_amount' => $this->total_funded_amount,
+            // When it was funded - the details page's Closed (Completed) summary.
+            'funded_date' => $this->funded_date?->format('Y-m-d'),
             'funded_note' => $this->funded_note,
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,
@@ -169,6 +177,29 @@ class FundingApplicationResource extends JsonResource
             'borrower' => $this->whenLoaded('borrower'),
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function lenderInformation(Request $request): array
+    {
+        // Statuses that can only be set once a lender is assigned - for every
+        // viewer who changes the status, and whether one is.
+        $gate = [
+            // Every status outside the editable ones.
+            'lender_required_statuses' => FundingApplication::lenderRequiredStatuses(),
+            'has_assigned_lender' => $this->hasAssignedLender(),
+        ];
+
+        if (! FundingApplication::isHostTeam($request->user())) {
+            return $gate + ['matched_lenders' => null, 'assigned_lender_ids' => null, 'can_assign_lender' => false];
+        }
+
+        return $gate + [
+            'matched_lenders' => app(LenderMatchService::class)->match($this->borrower, $this->lenderCategories()),
+            'assigned_lender_ids' => $this->assignedLenderIds(),
+            // In an editable status, always; past them, only while none is assigned.
+            'can_assign_lender' => $this->canAssignLender(),
         ];
     }
 }

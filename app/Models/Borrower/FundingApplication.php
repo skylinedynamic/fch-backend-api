@@ -124,6 +124,8 @@ class FundingApplication extends Model
         'signature_data' => 'array',
         'previous_signature_data' => 'array',
         'additional_funding_types' => 'array',
+        // Not fillable: only the host's Assign Lender writes these.
+        'lender_ids' => 'array',
         'requires_resign' => 'boolean',
 
         'is_business_info_saved' => 'boolean',
@@ -554,6 +556,72 @@ class FundingApplication extends Model
     public function invalidatesSignatureOnEditBy(?User $user): bool
     {
         return $this->invalidatesSignatureOnEdit();
+    }
+
+    /**
+     * The product categories its lenders are matched on: the funding request's
+     * funding type when it has one (the funding request page's list), else its
+     * own Preferred and Additional Funding Types (converted from a loan
+     * application).
+     *
+     * @return array<int, string>
+     */
+    public function lenderCategories(): array
+    {
+        if ($this->funding_request_id && $this->fundingRequest) {
+            return array_filter([$this->fundingRequest->funding_type]);
+        }
+
+        return array_values(array_filter([
+            $this->preferred_funding_type,
+            ...(array) ($this->additional_funding_types ?? []),
+        ]));
+    }
+
+    /**
+     * The lender(s) assigned: the funding request's when it has one - one
+     * assignment, shared with the funding request page - else its own.
+     *
+     * @return array<int, int>
+     */
+    public function assignedLenderIds(): array
+    {
+        $ids = $this->funding_request_id && $this->fundingRequest
+            ? $this->fundingRequest->lender_ids
+            : $this->lender_ids;
+
+        return array_values(array_map('intval', (array) ($ids ?? [])));
+    }
+
+    public function hasAssignedLender(): bool
+    {
+        return $this->assignedLenderIds() !== [];
+    }
+
+    /**
+     * Whether a status may only be set once a lender is assigned: every status
+     * outside the editable ones (config `statuses.editable`) - decision 2026-11-03.
+     */
+    public static function statusRequiresLender(?string $status): bool
+    {
+        return ! in_array(self::canonicalStatus($status), self::editableStatuses(), true);
+    }
+
+    /** The statuses that need a lender assigned before they can be set. */
+    public static function lenderRequiredStatuses(): array
+    {
+        return array_values(array_filter(self::STATUS, fn ($status) => self::statusRequiresLender($status)));
+    }
+
+    /**
+     * Whether the lender may be assigned or changed now. In an editable status,
+     * always (it is optional). Past them, the lender assigned is the lender: only
+     * an application that got there with none (before this rule) may be given
+     * one, once.
+     */
+    public function canAssignLender(): bool
+    {
+        return $this->isEditable() || ! $this->hasAssignedLender();
     }
 
     /**
