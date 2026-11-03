@@ -164,6 +164,11 @@ class ActivityLog extends Activity
 
     const LOG_TYPE_TASK_VERIFICATION = 'task_verification';
 
+    // A client's credit profile saved or removed on Client > Credit Profile (BUG-075).
+    const LOG_TYPE_CREDIT_PROFILE_SAVE = 'credit_profile_save';
+
+    const LOG_TYPE_CREDIT_PROFILE_DELETE = 'credit_profile_delete';
+
     const LOG_TYPE_FUNDING_REQUEST_CREATE = 'funding_request_create';
 
     const LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE = 'funding_request_status_update';

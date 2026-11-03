@@ -652,8 +652,10 @@ class BorrowerController extends Controller
         $request->validate([
             'borrower_id' => 'required|integer|exists:borrowers,id',
             'metrics' => 'nullable|array',
-            // Stored on the borrower too, where it decides lender matching.
-            'metrics.fico_score' => ['nullable', new FicoScore()],
+            // Stored on the borrower too, where it decides lender matching and
+            // Capital Access readiness, so a profile is never saved without one
+            // (BUG-074).
+            'metrics.fico_score' => ['required', new FicoScore()],
             'personal_info' => 'nullable|array',
             'addresses' => 'nullable|array',
             'trade_accounts' => 'nullable|array',
@@ -662,6 +664,8 @@ class BorrowerController extends Controller
             'document_id' => 'nullable|integer|exists:borrower_documents,id',
             // Optional: ties this pull to the consent that authorised it.
             'isoftpull_transaction_id' => 'nullable|string|max:191',
+        ], [
+            'metrics.fico_score.required' => __('common.fico_score_required'),
         ]);
 
         try {
@@ -836,6 +840,8 @@ class BorrowerController extends Controller
                 ]));
             }
 
+            app(\App\Services\Borrower\CreditProfile\ClientCreditProfileService::class)->recordSaved($borrower);
+
             $this->notifyBorrowerCreditProfileUpdated($borrower);
 
             return ApiResponse::success($creditProfile, 'Credit profile saved successfully.');
@@ -909,9 +915,11 @@ class BorrowerController extends Controller
     }
 
     /**
-     * Whether a parse found anything a credit report has: a score, an
-     * account, an inquiry, an address or the person it is about. The
-     * parsers always fill delinquent_accounts and summary, so those don't count.
+     * Whether a parse found credit data: a score, a trade account or an
+     * inquiry. A name, address, phone or date of birth is on any business
+     * document - a commission invoice ("Payee Name: ...") passed on those
+     * alone - so they no longer count. The parsers always fill
+     * delinquent_accounts and summary, so those don't count either.
      */
     private function looksLikeCreditReport(array $extracted): bool
     {
@@ -922,15 +930,8 @@ class BorrowerController extends Controller
             }
         }
 
-        foreach (['trade_accounts', 'inquiries', 'addresses'] as $list) {
+        foreach (['trade_accounts', 'inquiries'] as $list) {
             if (!empty($extracted[$list])) {
-                return true;
-            }
-        }
-
-        $personal = $extracted['personal_info'] ?? [];
-        foreach (['name', 'ssn', 'dob'] as $field) {
-            if (!empty($personal[$field])) {
                 return true;
             }
         }

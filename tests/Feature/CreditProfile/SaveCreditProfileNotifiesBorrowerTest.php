@@ -134,6 +134,13 @@ class SaveCreditProfileNotifiesBorrowerTest extends TestCase
     {
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', ['borrower_id' => 999999])->assertStatus(422);
 
+        // BUG-074: a cleared FICO Score is refused too, and the client is not told
+        // their profile changed.
+        $this->postJson('/api/v1/common/borrowers/save-credit-profile', [
+            'borrower_id' => $this->borrower->id,
+            'metrics' => ['fico_score' => '', 'paydex_score' => 80],
+        ])->assertStatus(422)->assertJsonValidationErrors(['metrics.fico_score']);
+
         Mail::assertNothingQueued();
     }
 }
