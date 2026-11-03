@@ -3,7 +3,6 @@
 namespace Tests\Feature\Application;
 
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Partner\Partner;
@@ -316,34 +315,40 @@ class RequestApplicationReviewTest extends TestCase
     }
 
     #[Test]
-    public function the_audit_history_is_my_own_applications_only(): void
+    public function the_audit_trail_is_my_own_applications_only(): void
     {
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->postJson($this->url("funding-application/{$this->myApplicationId}/audit-history"))->assertOk();
-        $this->postJson($this->url("funding-application/{$this->theirApplicationId}/audit-history"))
-            ->assertJsonPath('status', false)
+        $this->getJson($this->url("funding-application/{$this->myApplicationId}/audit-trail"))->assertOk();
+        $this->getJson($this->url("funding-application/{$this->theirApplicationId}/audit-trail"))
+            ->assertNotFound()
             ->assertJsonMissingPath('data.0');
     }
 
     /**
      * Defect: a stored download (the generated application PDF, SSNs and all)
-     * was fetched by its history id alone.
+     * was fetched by its history id alone. The audit trail hands out a kept
+     * file only for an application the user may review.
      */
     #[Test]
-    public function a_stored_download_is_fetched_only_for_my_own_application(): void
+    public function a_kept_file_is_fetched_only_for_my_own_application(): void
     {
-        Storage::disk('public')->put('funding-application/mine.pdf', '%PDF mine');
-        Storage::disk('public')->put('funding-application/theirs.pdf', '%PDF theirs');
-        $mine = DownloadHistory::create(['file_type' => 'pdf', 'sha256_hash' => str_repeat('a', 64), 'downloaded_at' => now(), 'funding_application_id' => $this->myApplicationId, 'details' => ['file_path' => 'funding-application/mine.pdf']]);
-        $theirs = DownloadHistory::create(['file_type' => 'pdf', 'sha256_hash' => str_repeat('a', 64), 'downloaded_at' => now(), 'funding_application_id' => $this->theirApplicationId, 'details' => ['file_path' => 'funding-application/theirs.pdf']]);
+        $theirs = app(\App\Services\Audit\FundingApplicationAuditTrail::class)->append([
+            'funding_application_id' => $this->theirApplicationId,
+            'partner_id' => DB::table('funding_applications')->where('id', $this->theirApplicationId)->value('partner_id'),
+            'event' => \App\Models\Audit\FundingApplicationAuditEvent::EVENT_DOCUMENT_ADDED,
+            'file_hash' => str_repeat('a', 64),
+            'file_path' => 'audit/files/theirs.pdf',
+        ]);
+        Storage::disk('public')->put('audit/files/theirs.pdf', '%PDF theirs');
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->get($this->url("download-history/{$mine->id}/download"))->assertOk();
-        $response = $this->getJson($this->url("download-history/{$theirs->id}/download"));
+        foreach ([$this->myApplicationId, $this->theirApplicationId] as $applicationId) {
+            $response = $this->getJson($this->url("funding-application/{$applicationId}/audit-trail/{$theirs->id}/file"));
 
-        $this->assertNotSame(200, $response->status());
-        $this->assertStringNotContainsString('%PDF theirs', (string) $response->getContent());
+            $this->assertNotSame(200, $response->status());
+            $this->assertStringNotContainsString('%PDF theirs', (string) $response->getContent());
+        }
     }
 
     #[Test]

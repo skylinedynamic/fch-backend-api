@@ -1,0 +1,102 @@
+<?php
+
+return [
+    'system' => 'System',
+    'append_only' => 'Audit events are append-only: they cannot be changed or deleted.',
+    'listed' => 'Audit trail retrieved.',
+    'not_found' => 'Funding application not found.',
+    'file_not_found' => 'This event has no file in the audit trail.',
+    'log_record_failed' => 'Could not record a funding application audit event.',
+    'log_file_failed' => 'Could not keep a file in the audit folder.',
+    'log_hash_failed' => 'Could not read a document to record its hash.',
+    'write_failed' => 'Could not write :path to the audit folder.',
+    'copy_mismatch' => 'The audit copy does not match the original.',
+    'yes' => 'yes',
+    'no' => 'no',
+    'empty_value' => '—',
+    'change' => ':field: :old → :new',
+    'context_item' => ':key=:value',
+    'separator' => '; ',
+    'export_file' => 'audit-trail-application-:id.:ext',
+
+    'events' => [
+        'created' => 'Application created',
+        'updated' => 'Application updated',
+        'status_changed' => 'Status changed',
+        'signed' => 'Application signed',
+        'signature_cleared' => 'Signature cleared by an edit',
+        'signed_copy_kept' => 'Signed copy kept',
+        'document_added' => 'Document added',
+        'document_removed' => 'Document removed',
+        'co_borrower_added' => 'Co-borrower added',
+        'co_borrower_updated' => 'Co-borrower updated',
+        'co_borrower_removed' => 'Co-borrower removed',
+        'commission_changed' => 'Commission changed',
+        'downloaded' => 'Downloaded',
+        'deleted' => 'Application deleted',
+        'restored' => 'Application restored',
+    ],
+
+    'files' => [
+        'application_pdf' => 'Application PDF',
+        'signature_certificate' => 'Signature certificate',
+        'application_zip' => 'Application ZIP',
+    ],
+
+    // Labels that a field's own name does not give well.
+    'fields' => [
+        'ssn' => 'SSN',
+        'business_phone_no' => 'Business Phone',
+        'zip_code' => 'ZIP Code',
+        'business_postal_code' => 'Business Postal Code',
+        'self_reported_personal_credit_score' => 'Personal Credit Score (self-reported)',
+        'self_reported_business_credit_score' => 'Business Credit Score (self-reported)',
+        'drivers_license_number' => "Driver's License Number",
+        'drivers_license_state' => "Driver's License State",
+        'mobile_phone' => 'Mobile Phone',
+        'title_role' => 'Title / Role',
+    ],
+
+    'csv' => [
+        'occurred_at' => 'Date (UTC)',
+        'event' => 'Event',
+        'actor' => 'By',
+        'actor_type' => 'Role',
+        'ip_address' => 'IP Address',
+        'changes' => 'Changes',
+        'details' => 'Details',
+        'file_hash' => 'File SHA-256',
+        'hash' => 'Event Hash',
+        'legacy' => 'Imported',
+    ],
+
+    'pdf' => [
+        'title' => 'Audit Trail',
+        'integrity_valid' => 'Integrity verified: :count event(s), every one as it was recorded.',
+        'integrity_broken' => 'Integrity check failed at event #:event: an event was changed or removed.',
+        'empty' => 'No audit events recorded yet.',
+    ],
+
+    'seal' => [
+        'written' => 'Audit seal written for :count application(s): :path',
+    ],
+    'verify' => [
+        'valid' => 'Application #:id: :count event(s), chain intact.',
+        'broken' => 'Application #:id: chain broken at event #:event.',
+    ],
+    'move' => [
+        'dry_run' => 'Dry run: nothing will be moved.',
+        'would_move' => 'Would move :path',
+        'moved' => 'Moved :path to :to',
+        'missing' => 'Application #:id: :path is not on disk; its record is left as it is.',
+        'failed' => 'Could not move :path: :error',
+        'left' => 'Kept (not a signed copy): :path',
+        'done' => ':moved signed copy file(s) moved, :missing missing.',
+    ],
+    'purge' => [
+        'dry_run' => 'Dry run: nothing will be deleted.',
+        'would_delete' => 'Would delete :path',
+        'deleted' => 'Deleted :path',
+        'done' => ':count download copy file(s) :verb.',
+    ],
+];

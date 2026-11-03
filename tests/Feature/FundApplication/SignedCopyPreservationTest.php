@@ -106,4 +106,23 @@ class SignedCopyPreservationTest extends TestCase
         $this->assertSame('Pearl Black', $signature['business_name']);
         $this->assertSame(FundingApplication::PENDING, $signature['status_at_signing']);
     }
+
+    /**
+     * The signed copies are kept in the audit folder, by their SHA-256, not in
+     * funding-applications/ - and the trail records each one there.
+     */
+    #[Test]
+    public function the_signed_copies_are_kept_in_the_audit_folder_by_their_hash(): void
+    {
+        $signature = $this->sign();
+
+        $this->assertSame("audit/files/{$signature['sha256']}.pdf", $signature['signed_application_path']);
+        $this->assertStringStartsWith('audit/files/', $signature['certificate_path']);
+        $this->assertSame($signature['sha256'], hash('sha256', Storage::disk('public')->get($signature['signed_application_path'])));
+        $this->assertSame([], Storage::disk('public')->allFiles('funding-applications'));
+
+        $kept = \App\Models\Audit\FundingApplicationAuditEvent::where('funding_application_id', $this->application->id)
+            ->where('event', \App\Models\Audit\FundingApplicationAuditEvent::EVENT_SIGNED_COPY_KEPT)->pluck('file_path')->all();
+        $this->assertEqualsCanonicalizing([$signature['signed_application_path'], $signature['certificate_path']], $kept);
+    }
 }

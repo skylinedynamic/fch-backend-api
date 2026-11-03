@@ -124,6 +124,7 @@ class EmbedFormConversionDocumentsTest extends TestCase
         $this->assertSame([], Storage::disk('public')->allFiles("embed_forms/{$this->partner->id}/{$this->submission->id}"));
         $this->assertCount(1, Storage::disk('public')->allFiles('funding-application'));
         $this->assertCount(1, Storage::disk('public')->allFiles('borrowers'));
+        // Nowhere else: the audit trail records a document by its hash, without a copy.
         $this->assertCount(2, Storage::disk('public')->allFiles());
     }
 

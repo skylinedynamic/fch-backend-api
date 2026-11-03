@@ -158,6 +158,7 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
         // Once on the application, once in the client's documents.
         $this->assertCount(1, Storage::disk('public')->allFiles('funding-application'));
         $this->assertCount(1, Storage::disk('public')->allFiles('borrowers'));
+        // Nowhere else: the audit trail records a document by its hash, without a copy.
         $this->assertCount(2, Storage::disk('public')->allFiles());
     }
 

@@ -50,6 +50,12 @@ class AppServiceProvider extends ServiceProvider
 
         Model::preventLazyLoading(!app()->isProduction());
 
+        // The funding application audit trail: records changes, never alters them.
+        \App\Models\Borrower\FundingApplication::observe(\App\Observers\Audit\FundingApplicationAuditObserver::class);
+        \App\Models\Borrower\FundingApplicationDocument::observe(\App\Observers\Audit\FundingApplicationDocumentAuditObserver::class);
+        \App\Models\Borrower\FundingApplicationCoBorrower::observe(\App\Observers\Audit\FundingApplicationCoBorrowerAuditObserver::class);
+        \App\Models\Commission\Commission::observe(\App\Observers\Audit\CommissionAuditObserver::class);
+
         // A contains-search that matches the text as typed: % and _ are not
         // wildcards (BUG-002). Reached from Eloquent builders too.
         QueryBuilder::macro('whereContains', function (string $column, string $text, string $boolean = 'and') {

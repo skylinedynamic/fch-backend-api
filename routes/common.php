@@ -276,7 +276,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
-                Route::post('funding-application/{id}/audit-history', [RequestApplicationController::class, 'getAuditHistory']);
+                // The application's audit trail (replaces audit-history / download-history).
+                Route::get('funding-application/{id}/audit-trail', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'index'])->whereNumber('id');
+                Route::get('funding-application/{id}/audit-trail/export', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'export'])->whereNumber('id');
+                Route::get('funding-application/{id}/audit-trail/{eventId}/file', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'file'])->whereNumber(['id', 'eventId']);
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
@@ -284,7 +287,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::post('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::post('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
-                Route::get('download-history/{historyId}/download', [RequestApplicationController::class, 'downloadFromHistory']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
 

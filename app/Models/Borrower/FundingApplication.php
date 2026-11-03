@@ -2,7 +2,6 @@
 
 namespace App\Models\Borrower;
 
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Commission\Commission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
@@ -826,8 +825,9 @@ class FundingApplication extends Model
     }
 
 
-    public function downloadHistories()
+    /** This application's audit trail, oldest first. */
+    public function auditEvents()
     {
-        return $this->hasMany(DownloadHistory::class, 'funding_application_id')->orderBy('created_at', 'desc');
+        return $this->hasMany(\App\Models\Audit\FundingApplicationAuditEvent::class, 'funding_application_id')->orderBy('id');
     }
 }

@@ -206,3 +206,12 @@ Schedule::command('backup:clean')
     ->onFailure($onFailure('backup:clean'))
     ->appendOutputTo($schedulerLogPath)
     ->onSuccess($onSuccess('backup:clean'));
+
+// The day's seal of the funding application audit trail, last thing in the day.
+Schedule::command('audit:seal')
+    ->dailyAt('23:55')
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('audit:seal'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('audit:seal'));

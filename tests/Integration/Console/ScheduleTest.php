@@ -35,6 +35,8 @@ class ScheduleTest extends TestCase
         'monitoring:prune' => '30 3 * * *',
         'backup:run --only-db' => '0 4 * * *',
         'backup:clean' => '0 5 * * *',
+        // The day's seal of the funding application audit trail.
+        'audit:seal' => '55 23 * * *',
     ];
 
     /** @return array<string, Event> keyed by the command line after "artisan" */
