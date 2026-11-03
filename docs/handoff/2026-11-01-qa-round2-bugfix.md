@@ -28,7 +28,7 @@ New since the plan: **BUG-073** (availability check) (BUG-008 and BUG-011 skippe
 
 | Bug | Module | Was | Now | Repos |
 |---|---|---|---|---|
-| 008 | Lenders | Duplicate lender name accepted | **Skipped 2026-11-02 on request** - fix removed, not changed | - |
+| 008 | Lenders | Duplicate lender name accepted | Done 2026-11-03 (was skipped 11-02): legal name unique; every lender shown as "Lender Name - Legal Name" (F192) | API, admin |
 | 009 | Funding Sequence | Min FICO 851 saved | 300-850 on all saves; input bounds | API, admin |
 | 010 | Funding Sequence | State both allowed and restricted | `DisjointFrom` (states, industries); options exclude each other | API, admin |
 | 011 | Roles | Admin role fully editable | **Skipped on request** - not changed | - |

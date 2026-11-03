@@ -131,8 +131,9 @@ class LenderService
             throw new LenderInUseException(
                 $lenders->count() === 1
                     ? __('lender.delete_blocked')
-                    : __('lender.delete_blocked_named', ['names' => $blocked->pluck('name')->implode(', ')]),
-                $blocked->map(fn (Lender $l) => ['id' => $l->id, 'name' => $l->name])->values()->all()
+                    // Named as on screen, "Lender Name - Legal Name" (R2 BUG-008).
+                    : __('lender.delete_blocked_named', ['names' => $blocked->map(fn (Lender $l) => $l->displayName())->implode(', ')]),
+                $blocked->map(fn (Lender $l) => ['id' => $l->id, 'name' => $l->name, 'display_name' => $l->displayName()])->values()->all()
             );
         }
 
@@ -151,6 +152,7 @@ class LenderService
         return Lender::whereIn('id', $ids)->get()->map(fn (Lender $lender) => [
             'id' => $lender->id,
             'name' => $lender->name,
+            'display_name' => $lender->displayName(),
             'is_deletable' => $deletable = $lender->isDeletable(),
             'reason' => $deletable ? null : $lender->notDeletableReason(),
         ])->values()->all();

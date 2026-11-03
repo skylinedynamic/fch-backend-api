@@ -24,6 +24,8 @@ return [
     'contact_unique' => 'This phone number has already been taken.',
 
     'legal_name_required' => 'The legal name is required.',
+    'legal_name_unique' => 'A lender with this legal name already exists.',
+    'legal_name_max' => 'The legal name may not be greater than 255 characters.',
     'product_categories_required' => 'Product categories are required.',
     'contact_name_required' => 'The contact name is required.',
     'contact_title_required' => 'The contact title is required.',

@@ -461,7 +461,8 @@ class FundingRequestService
         $review->assign_lender = !empty($data['lender_ids']) ? $data['lender_ids'][0] : null;
         $review->save();
 
-        $lenderNames = Lender::whereIn('id', $review->lender_ids)->pluck('name')->toArray();
+        // Named as on screen, "Lender Name - Legal Name" (R2 BUG-008).
+        $lenderNames = Lender::whereIn('id', $review->lender_ids)->get()->map(fn (Lender $lender) => $lender->displayName())->all();
         $lendersStr = empty($lenderNames) ? 'None' : implode(', ', $lenderNames);
 
         app(ActivityLogService::class)->logSystemEvent(

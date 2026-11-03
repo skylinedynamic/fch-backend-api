@@ -267,6 +267,8 @@ class FundingRequest extends Model
             $matchedLenders[] = [
                 'id' => $visibility->lender->id,
                 'name' => $visibility->lender->name,
+                // "Lender Name - Legal Name": what the screens show (R2 BUG-008).
+                'display_name' => $visibility->lender->displayName(),
                 'phone' => $visibility->lender->contact_phone,
                 'email' => $visibility->lender->contact_email,
                 'product_category' => $category->name,
@@ -297,7 +299,8 @@ class FundingRequest extends Model
         if (empty($this->assign_lender)) {
             return '';
         }
-        return Lender::where('id', $this->assign_lender)->value('name') ?: '';
+        // "Lender Name - Legal Name", as everywhere a lender is shown (R2 BUG-008).
+        return Lender::find($this->assign_lender)?->displayName() ?? '';
     }
 
     public function partner()

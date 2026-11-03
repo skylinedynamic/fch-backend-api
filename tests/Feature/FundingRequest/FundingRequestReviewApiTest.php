@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\FundingRequest;
 
+use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
 use App\Models\Borrower\Borrower;
@@ -26,6 +27,9 @@ use Tests\TestCase;
  * product (/common/funding-qualification/client-readiness-factors). A partner
  * works its own partner's requests; the host's team every partner's.
  */
+#[CoversClass(FundingRequest::class)]
+#[CoversClass(Lender::class)]
+#[CoversClass(FundingRequestService::class)]
 #[CoversClass(FundingRequestController::class)]
 #[CoversClass(FundingQualificationController::class)]
 class FundingRequestReviewApiTest extends TestCase
@@ -276,6 +280,41 @@ class FundingRequestReviewApiTest extends TestCase
         foreach ($steps as $status => $at) {
             $this->assertSame($at, \Carbon\Carbon::parse($dates[$status])->format('Y-m-d H:i:s'), $status);
         }
+    }
+
+    /**
+     * Defect: R2 BUG-008 - two lenders named "Kabbage" looked the same in
+     * Lender Information, Assigned Lender and the activity log. Each is now
+     * shown as "Lender Name - Legal Name"; `name` itself is unchanged.
+     */
+    #[Test]
+    public function a_lender_is_shown_with_its_legal_name_on_the_request(): void
+    {
+        $category = LenderProductCategory::create(['name' => 'Business Line of Credit', 'status' => 'Active']);
+        $first = Lender::create(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.', 'status' => Lender::STATUS_ACTIVE]);
+        $second = Lender::create(['name' => 'Kabbage', 'legal_name' => 'Kabbage Funding LLC', 'status' => Lender::STATUS_ACTIVE]);
+        foreach ([$first, $second] as $lender) {
+            LenderVisibility::create([
+                'funding_sequencing_id' => $this->sequenceId,
+                'lender_id' => $lender->id,
+                'lender_product_category_id' => $category->id,
+                'min_fico' => 600,
+            ]);
+        }
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $this->myRequestId, 'lender_ids' => [$second->id]])->assertOk();
+
+        $detail = $this->getJson("/api/v1/common/funding-request/{$this->myRequestId}")->assertOk();
+        $matched = collect($detail->json('data.matched_lenders'))->sortBy('id')->values();
+        $this->assertSame(['Kabbage', 'Kabbage'], $matched->pluck('name')->all());
+        $this->assertSame(['Kabbage - Kabbage Inc.', 'Kabbage - Kabbage Funding LLC'], $matched->pluck('display_name')->all());
+        $this->assertSame('Kabbage - Kabbage Funding LLC', $detail->json('data.lender_names'));
+        $this->assertSame('Lender Assigned: Kabbage - Kabbage Funding LLC', DB::table('activity_log')
+            ->where('subject_type', FundingRequest::class)
+            ->where('subject_id', $this->myRequestId)
+            ->latest('id')
+            ->value('event'));
     }
 
     #[Test]
