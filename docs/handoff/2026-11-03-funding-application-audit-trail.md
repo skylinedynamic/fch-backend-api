@@ -6,7 +6,7 @@
 
 ## Problem
 The admin "Audit History" (`download_histories`) recorded only downloads:
-- No application changes, status changes, signing, documents or commission were recorded.
+- No application changes, status changes, signing or documents were recorded.
 - A re-download from the history itself was not recorded.
 - Every download saved a copy of the PDF/ZIP to the public disk at a guessable path, served without login (`/storage/funding-applications/{id}/downloads/Funding_Application_FUND-….pdf`, SSN, EIN and all). The next download overwrote it, so "download from history" gave the wrong file.
 - Rows could be rewritten without trace.
@@ -33,7 +33,8 @@ The admin "Audit History" (`download_histories`) recorded only downloads:
 - **`signed`, `signature_cleared`:** the signature blob is never copied into the trail.
 - **`signed_copy_kept`:** at signing. The signed application and certificate are **written straight to the audit folder** (`audit/files/{sha256}.pdf`), which replaces `funding-applications/{id}/signed/`. `signature_data`'s `signed_application_path` and `certificate_path` point there, and their count numbers the next signed version, as `download_histories` used to. A download still hands out the signed copy, read from the audit disk; a path signed before the move is read from the public disk.
 - **`document_added`, `document_removed`:** recorded by name, type, size and SHA-256 only (`FundingApplicationAuditTrail::fingerprint()`). **No copy of a document is kept** (user decision: the record is enough; a copy doubled document storage). The services delete the file before the record, so the removal takes the hash from the add event. A document event never hands out a file (`FundingApplicationAuditEvent::DOCUMENT_EVENTS`).
-- **`co_borrower_added`, `co_borrower_updated`, `co_borrower_removed`, `commission_changed`.**
+- **`co_borrower_added`, `co_borrower_updated`, `co_borrower_removed`.**
+- **Commission is not recorded** (user decision): no commission observer, no `commission_changed` event. The test "commission changes are not recorded" guards it.
 - **`downloaded`:** file type, password used or not (never the password), version, certificate and browser, with the sha256 of what was handed out. **No copy is saved any more.**
 - **`deleted`, `restored`.**
 - **Who, from where:** actor id, name and type, IP and user agent on every event.
@@ -71,7 +72,7 @@ The admin "Audit History" (`download_histories`) recorded only downloads:
   - migration `2026_11_03_000000_create_funding_application_audit_events_table.php`
   - `app/Models/Audit/FundingApplicationAuditEvent.php`
   - `app/Services/Audit/FundingApplicationAuditTrail.php`
-  - `app/Observers/Audit/*` (4 files)
+  - `app/Observers/Audit/*` (3 files: application, document, co-borrower)
   - `app/Support/Audit/AuditLabels.php`
   - `app/Http/Controllers/Api/V1/FCH/Common/Audit/FundingApplicationAuditTrailController.php`
   - `app/Http/Requests/Api/V1/FCH/Common/Audit/FundingApplicationAuditTrailRequest.php`
@@ -107,6 +108,11 @@ The admin "Audit History" (`download_histories`) recorded only downloads:
   - `purge-download-copies`: deleted 7 download copies, 10 signed files untouched. The old download URL no longer serves the PDF.
   - `audit:move-signed-copies`: moved the 10 signed files (2 referenced, 8 no longer referenced). The records for 65 and 68 point to `audit/files/`, and their sha256 matches. 30 old records point at files never on disk locally, and are left as they are.
   - Two stray test files (`funding-applications/1/*-FUND-TEST-LOCK.pdf`, from 16 Oct) were deleted by hand. `funding-applications/` is gone.
+
+## Merge with `bugfix/embed-form-application-edit`
+- `routes/common.php`: kept the audit-trail routes and the branch's `assign-lender`; dropped the branch's old `POST …/audit-history` (replaced by the trail).
+- The branch's Assign Lender saves `lender_ids` / `assign_lender` on the application, so the trail records it as "Application updated". Labels added (`audit.fields.lender_ids`, `assign_lender`) and a test in `FundingApplicationLenderAssignmentTest` ("assigning a lender is recorded in the audit trail").
+- `FundingApplicationAuditLogger` (the activity log, not this trail) and its embed-form conversion entry are the branch's, unchanged.
 
 ## Open items
 - **The audit folder is on the public disk** (decided for now). Names are unguessable hashes and the files are served only by the API, but the URL works without login if leaked. Set `AUDIT_DISK` to a private disk or S3 with Object Lock when BUG-016 is fixed.

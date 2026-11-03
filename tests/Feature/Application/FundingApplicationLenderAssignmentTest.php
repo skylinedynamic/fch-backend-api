@@ -6,12 +6,14 @@ use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationControl
 use App\Http\Requests\Api\V1\FCH\Common\Application\AssignFundingApplicationLenderRequest;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource;
 use App\Models\ActivityLog\ActivityLog;
+use App\Models\Audit\FundingApplicationAuditEvent;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Application\RequestApplicationService;
+use App\Support\Audit\AuditLabels;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -214,6 +216,26 @@ class FundingApplicationLenderAssignmentTest extends TestCase
         $this->assertSame([$this->termLoanLenderId], $application->lender_ids);
         $this->assertTrue(ActivityLog::where('subject_type', FundingApplication::class)->where('subject_id', $id)
             ->where('event', 'Lender Assigned: Fundbox Financing')->exists());
+    }
+
+    #[Test]
+    public function assigning_a_lender_is_recorded_in_the_audit_trail(): void
+    {
+        $id = $this->application(['status' => FundingApplication::APPROVED_FINAL, 'preferred_funding_type' => 'Term Loan']);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assign($id, $this->termLoanLenderId)->assertOk();
+
+        $event = FundingApplicationAuditEvent::where('funding_application_id', $id)
+            ->where('event', FundingApplicationAuditEvent::EVENT_UPDATED)
+            ->latest('id')
+            ->firstOrFail();
+        $changes = collect($event->changes)->keyBy('field');
+        $this->assertSame((string) $this->termLoanLenderId, $changes['assign_lender']['new']);
+        $this->assertNotNull($changes['lender_ids']['new']);
+        $this->assertSame(__('audit.fields.assign_lender'), AuditLabels::field('assign_lender'));
+        $this->assertSame(__('audit.fields.lender_ids'), AuditLabels::field('lender_ids'));
+        $this->assertNotSame('audit.fields.lender_ids', __('audit.fields.lender_ids'));
     }
 
     #[Test]

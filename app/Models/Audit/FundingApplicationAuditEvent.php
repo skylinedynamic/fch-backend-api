@@ -31,7 +31,6 @@ class FundingApplicationAuditEvent extends Model
     public const EVENT_CO_BORROWER_ADDED = 'co_borrower_added';
     public const EVENT_CO_BORROWER_UPDATED = 'co_borrower_updated';
     public const EVENT_CO_BORROWER_REMOVED = 'co_borrower_removed';
-    public const EVENT_COMMISSION_CHANGED = 'commission_changed';
     public const EVENT_DOWNLOADED = 'downloaded';
     public const EVENT_DELETED = 'deleted';
     public const EVENT_RESTORED = 'restored';
@@ -51,7 +50,6 @@ class FundingApplicationAuditEvent extends Model
         self::EVENT_CO_BORROWER_ADDED,
         self::EVENT_CO_BORROWER_UPDATED,
         self::EVENT_CO_BORROWER_REMOVED,
-        self::EVENT_COMMISSION_CHANGED,
         self::EVENT_DOWNLOADED,
         self::EVENT_DELETED,
         self::EVENT_RESTORED,

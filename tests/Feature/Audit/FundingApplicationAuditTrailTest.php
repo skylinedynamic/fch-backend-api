@@ -276,7 +276,7 @@ class FundingApplicationAuditTrailTest extends TestCase
     }
 
     #[Test]
-    public function commission_changes_are_recorded(): void
+    public function commission_changes_are_not_recorded(): void
     {
         $this->actingAsUser($this->hostAdmin);
 
@@ -288,9 +288,11 @@ class FundingApplicationAuditTrailTest extends TestCase
         ]);
         $commission->update(['admin_commission' => 3]);
 
-        $events = $this->events(FundingApplicationAuditEvent::EVENT_COMMISSION_CHANGED);
-        $this->assertCount(2, $events);
-        $this->assertSame('3.00', collect($events->last()->changes)->firstWhere('field', 'admin_commission')['new']);
+        $commission->delete();
+
+        // Commission is not part of the application's audit trail.
+        $this->assertCount(0, $this->events());
+        $this->assertNotContains('commission_changed', FundingApplicationAuditEvent::EVENTS);
     }
 
     #[Test]

@@ -31,7 +31,6 @@ return [
         'co_borrower_added' => 'Co-borrower added',
         'co_borrower_updated' => 'Co-borrower updated',
         'co_borrower_removed' => 'Co-borrower removed',
-        'commission_changed' => 'Commission changed',
         'downloaded' => 'Downloaded',
         'deleted' => 'Application deleted',
         'restored' => 'Application restored',
@@ -55,6 +54,8 @@ return [
         'drivers_license_state' => "Driver's License State",
         'mobile_phone' => 'Mobile Phone',
         'title_role' => 'Title / Role',
+        'lender_ids' => 'Lenders',
+        'assign_lender' => 'Assigned Lender',
     ],
 
     'csv' => [
