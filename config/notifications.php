@@ -455,6 +455,47 @@ return [
             'url' => '/invoices/{{id}}',
         ],
 
+        // BUG-069: a cancelled subscription was resumed, or reactivated by paying an open invoice.
+        'borrower.subscription.reactivated' => [
+            'name' => 'Subscription reactivated',
+            'category' => 'payment',
+            'icon' => 'ri-refresh-line',
+            'channels' => $bellAndMail,
+            'title' => 'Subscription active again',
+            'body' => 'Your subscription is active again. Billing continues on your current plan.',
+            'url' => '/billing-details',
+        ],
+
+        'partner.subscription.reactivated' => [
+            'name' => 'Subscription reactivated (partner)',
+            'category' => 'payment',
+            'icon' => 'ri-refresh-line',
+            'channels' => $bellAndMail,
+            'title' => 'Subscription active again',
+            'body' => 'Your subscription is active again. Billing continues on your current plan.',
+            'url' => '/my-subscription',
+        ],
+
+        'partner.client_subscription.reactivated' => [
+            'name' => "A client's subscription reactivated",
+            'category' => 'payment',
+            'icon' => 'ri-refresh-line',
+            'channels' => ['database', 'broadcast'],
+            'title' => 'Client subscription active again',
+            'body' => '{{client}} reactivated their subscription.',
+            'url' => '/subscriptions/{{id}}',
+        ],
+
+        'host.subscription.reactivated' => [
+            'name' => 'Subscription reactivated (host)',
+            'category' => 'payment',
+            'icon' => 'ri-refresh-line',
+            'channels' => ['database', 'broadcast'],
+            'title' => 'Subscription active again',
+            'body' => '{{subscriber}} reactivated their subscription.',
+            'url' => '/subscriptions/{{id}}',
+        ],
+
         // BUG-049: the last installment takes up the rounding of the monthly amount.
         'invoice.final_installment' => [
             'name' => 'Final installment invoice sent',

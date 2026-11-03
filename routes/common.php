@@ -440,6 +440,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
                 Route::post('remove-default-payment-method', [MySubscriptionController::class, 'removeDefaultPaymentMethod']);
                 Route::post('cancel-subscription', [MySubscriptionController::class, 'cancelSubscription']);
+                Route::post('resume-subscription', [MySubscriptionController::class, 'resumeSubscription']);
             });
 
 

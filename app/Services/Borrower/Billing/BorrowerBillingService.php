@@ -2,6 +2,9 @@
 
 namespace App\Services\Borrower\Billing;
 
+use App\Services\FCH\Subscription\SubscriptionResumeService;
+use Illuminate\Http\JsonResponse;
+
 use Exception;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Borrower\Payment\PaymentResource;
@@ -358,6 +361,25 @@ class BorrowerBillingService
     /**
      * Cancel borrower subscription.
      */
+    /**
+     * Resume the borrower's cancelled subscription (BUG-069).
+     */
+    public function resumeSubscription(): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user->entity_id || $user->entity_type !== Borrower::class) {
+            return ApiResponse::error(__('borrower.borrower_not_found'), 404);
+        }
+
+        $subscription = Subscription::where('entity_id', $user->entity_id)
+            ->where('entity_type', Borrower::class)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return app(SubscriptionResumeService::class)->resume($subscription);
+    }
+
     public function cancelSubscription(array $data)
     {
         $user = Auth::user();

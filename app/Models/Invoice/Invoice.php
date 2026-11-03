@@ -226,6 +226,21 @@ class Invoice extends Model
         return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
     }
 
+    /**
+     * Whether paying this invoice makes a cancelled subscription active again
+     * (BUG-069): an open cycle invoice of a cancelled subscription. The portals
+     * warn before taking the payment.
+     */
+    public function reactivatesSubscription(): bool
+    {
+        $open = in_array($this->status, [self::STATUS_UNPAID, self::STATUS_PROCESSING], true)
+            && ($this->type === null || in_array($this->type, self::CYCLE_INVOICE_TYPES, true));
+
+        return $open
+            && $this->subscription_id
+            && $this->subscription?->status === Subscription::STATUS_CANCELLED;
+    }
+
     public function subscription(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Subscription::class, 'subscription_id');

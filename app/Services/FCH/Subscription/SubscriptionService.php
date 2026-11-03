@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use App\Mail\CronJobFailureMail;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
+use App\Services\GlobalPayment\PaymentMailService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Subscription\SubscriptionListResource;
@@ -363,6 +364,22 @@ class SubscriptionService
      * @return void
      */
     public function handleSuccessfulPayment(Invoice $invoice, ?Subscription $subscription)
+    {
+        // Paying an invoice a cancelled subscription still had open makes it
+        // Active again (BUG-069); everyone concerned is told so.
+        $wasCancelled = $subscription?->status === Subscription::STATUS_CANCELLED;
+
+        $this->applySuccessfulPayment($invoice, $subscription);
+
+        if ($wasCancelled && $subscription->fresh()?->status === Subscription::STATUS_ACTIVE) {
+            app(PaymentMailService::class)->sendSubscriptionReactivated($subscription->fresh());
+        }
+    }
+
+    /**
+     * What a paid invoice does to its subscription, by enrollment type.
+     */
+    private function applySuccessfulPayment(Invoice $invoice, ?Subscription $subscription): void
     {
         // When invoice status is Processing, do not update or start the subscription (invoice is not paid yet)
         if (
@@ -753,17 +770,6 @@ class SubscriptionService
     }
 
     /**
-     * Create invoice for a subscription billing cycle (enrollment / platform fee).
-     *
-     * Phase data is read directly from the subscription model.
-     * The subscription_phases table is kept in the database for historical records
-     * but is no longer read from or written to by this method.
-     *
-     * @param Subscription $subscription
-     * @param string       $type  'enrollment' | 'platform_fee'
-     * @return void
-     */
-    /**
      * Why this subscription cannot be billed right now, or null if it can.
      *
      * A borrower is also blocked when their partner is not Active — the borrower
@@ -824,15 +830,42 @@ class SubscriptionService
         return null;
     }
 
-    protected function createInvoiceForSubscription(Subscription $subscription): void
+    /**
+     * Raise the next bill of a cancelled subscription that is being resumed
+     * after its end date (BUG-069) - the same invoice the cron would raise, on
+     * the plan it was on. Null when there is nothing to bill.
+     */
+    public function raiseResumeInvoice(Subscription $subscription): ?Invoice
+    {
+        return $this->createInvoiceForSubscription($subscription, resuming: true);
+    }
+
+    /**
+     * Create invoice for a subscription billing cycle (enrollment / platform fee).
+     *
+     * Phase data is read directly from the subscription model.
+     * The subscription_phases table is kept in the database for historical records
+     * but is no longer read from or written to by this method.
+     *
+     * @param Subscription $subscription
+     * @param bool         $resuming  a cancelled subscription being resumed (BUG-069)
+     * @return Invoice|null the invoice raised, or null when none was
+     */
+    protected function createInvoiceForSubscription(Subscription $subscription, bool $resuming = false): ?Invoice
     {
         try {
-            DB::transaction(function () use ($subscription) {
+            return DB::transaction(function () use ($subscription, $resuming) {
 
                 $entity = $subscription->entity;
 
-                if (!$entity || $subscription->status !== Subscription::STATUS_ACTIVE) {
-                    return;
+                // The cron bills Active subscriptions only. Resuming a cancelled
+                // one raises its next bill too: paying it is what makes it Active
+                // again (BUG-069).
+                $billable = $subscription->status === Subscription::STATUS_ACTIVE
+                    || ($resuming && $subscription->status === Subscription::STATUS_CANCELLED);
+
+                if (!$entity || !$billable) {
+                    return null;
                 }
 
                 // Status guard per entity type.
@@ -850,7 +883,7 @@ class SubscriptionService
                         'reason' => $blockReason,
                     ]);
 
-                    return;
+                    return null;
                 }
 
                 // Safety net: a Borrower should never be in the recurring platform-fee
@@ -866,11 +899,11 @@ class SubscriptionService
                     Log::warning('Auto-completed a Borrower subscription stuck in platform_fee phase', [
                         'subscription_id' => $subscription->id,
                     ]);
-                    return;
+                    return null;
                 }
 
                 if (!$this->createInvoiceIfDue($subscription)) {
-                    return;
+                    return null;
                 }
 
                 $phase = $subscription->current_phase;
@@ -886,7 +919,7 @@ class SubscriptionService
                     $paidCount = (int) ($subscription->installments_paid ?? 0);
 
                     if ($totalCount && $paidCount >= $totalCount) {
-                        return;
+                        return null;
                     }
                 }
 
@@ -989,7 +1022,7 @@ class SubscriptionService
                         'amount' => $amount,
                         'expected_from' => $source,
                     ]);
-                    return;
+                    return null;
                 }
 
                 // Nothing is expired on the way in. Reaching this point means
@@ -1030,6 +1063,8 @@ class SubscriptionService
                         'error' => $e->getMessage(),
                     ]);
                 }
+
+                return $invoice;
             });
         } catch (\Exception $e) {
             Log::error('Failed to create invoice for subscription', [
@@ -1055,6 +1090,8 @@ class SubscriptionService
                 ]))->to($emails));
             }
         }
+
+        return null;
     }
 
     /**

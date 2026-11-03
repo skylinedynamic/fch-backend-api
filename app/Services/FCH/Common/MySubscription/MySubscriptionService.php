@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\MySubscription;
 
 use Exception;
 use App\Helpers\ApiResponse;
+use App\Services\FCH\Subscription\SubscriptionResumeService;
 use App\Http\Resources\FCH\Common\Payment\PaymentResource;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
@@ -345,6 +346,25 @@ class MySubscriptionService
             'stripe_card_info' => $partner->fresh()->stripe_card_info,
             'payment_provider' => null,
         ], __('partner.default_payment_method_removed'));
+    }
+
+    /**
+     * Resume the partner's own cancelled subscription (BUG-069). Only the
+     * partner's own login may, as for cancelling.
+     */
+    public function resumeSubscription()
+    {
+        $partner = $this->ownPartnerOrRefusal();
+        if ($partner instanceof JsonResponse) {
+            return $partner;
+        }
+
+        $subscription = Subscription::where('entity_id', $partner->id)
+            ->where('entity_type', Partner::class)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return app(SubscriptionResumeService::class)->resume($subscription);
     }
 
     /**

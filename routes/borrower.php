@@ -100,6 +100,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/update-default-payment-method', [BorrowerBillingController::class, 'updateDefaultPaymentMethod']);
             Route::post('/remove-default-payment-method', [BorrowerBillingController::class, 'removeDefaultPaymentMethod']);
             Route::post('/cancel-subscription', [BorrowerBillingController::class, 'cancelSubscription']);
+            Route::post('/resume-subscription', [BorrowerBillingController::class, 'resumeSubscription']);
 
             Route::group(
                 ['prefix' => 'myapplication',],
