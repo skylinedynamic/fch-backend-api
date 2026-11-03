@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\FundApplication;
 
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -13,25 +14,30 @@ use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
 /**
- * The host's team may edit any existing funding application - any partner's
- * borrower, at any status - from /fund-application/{id}. White-Label and
- * Certified partners keep the lock: past Approved (Final) they cannot edit.
+ * One rule for everyone - host, white-label partner, certified partner and
+ * borrower: a funding application is editable only while its status is in
+ * config `funding_application.statuses.editable`.
  *
- * The signature rule still applies to the host: a real change to an
- * application the borrower has signed puts it back to Draft and the borrower
- * signs again, and the portal asks before the edit (edit confirmation modal).
+ * Defect (decision 2026-11-03): the host's team could edit any application at
+ * any status, so the admin details page showed "Edit Funding Application" on a
+ * Closed (Completed), Funded or Denied application. This replaces the
+ * 2026-10-29 decision this test pinned before (HostEditsAnyFundingApplicationTest).
  *
- * Before, the host got 423 "This application can no longer be edited" on
- * Matched to Lender, Denied and every status after Approved (Final).
+ * The signature rule is unchanged: a real change to an application the
+ * borrower has signed sends it back to be signed again, and the portal asks
+ * before the edit (edit confirmation modal).
  */
-class HostEditsAnyFundingApplicationTest extends TestCase
+class HostEditsOnlyEditableFundingApplicationsTest extends TestCase
 {
-    use RefreshDatabase;
     use InteractsWithPortalUsers;
+    use RefreshDatabase;
 
     private Partner $host;
+
     private Partner $whiteLabel;
+
     private int $requestId;
+
     private int $applicationId;
 
     protected function setUp(): void
@@ -58,7 +64,7 @@ class HostEditsAnyFundingApplicationTest extends TestCase
             'borrower_id' => $borrower->id,
             'partner_id' => $this->whiteLabel->id,
             'funding_request_id' => $this->requestId,
-            'status' => FundingApplication::MATCHED_TO_LENDER,
+            'status' => FundingApplication::SUBMITTED,
             'monthly_revenue' => 42000,
             'business_checking_start_date' => '2020-01-01',
             'self_reported_personal_credit_score' => '700-749',
@@ -98,9 +104,53 @@ class HostEditsAnyFundingApplicationTest extends TestCase
         ];
     }
 
+    /** @return array<string, array{string}> */
+    public static function signedEditableStatuses(): array
+    {
+        return [
+            'Submitted' => [FundingApplication::SUBMITTED],
+            'Approved (Final)' => [FundingApplication::APPROVED_FINAL],
+        ];
+    }
+
     #[Test]
     #[DataProvider('lockedStatuses')]
-    public function the_host_edits_a_white_label_borrowers_application_at_any_status_and_the_borrower_signs_again(string $status): void
+    public function the_host_cannot_edit_an_application_past_the_editable_statuses(string $status): void
+    {
+        $this->setStatus($status);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->saveFinancial(['monthly_revenue' => 55000])->assertStatus(423)
+            ->assertJsonPath('message', __('application.funding_application_locked_staff', ['status' => $status]));
+
+        $application = FundingApplication::findOrFail($this->applicationId);
+        $this->assertEquals(42000, $application->monthly_revenue);
+        $this->assertSame($status, $application->status);
+        $this->assertNotEmpty($application->signature_data);
+        $this->assertTrue(ActivityLog::where('subject_id', $this->applicationId)
+            ->where('event', 'Funding Application Edit Blocked')->exists());
+    }
+
+    #[Test]
+    #[DataProvider('lockedStatuses')]
+    public function the_host_is_told_a_locked_application_cannot_be_edited(string $status): void
+    {
+        $this->setStatus($status);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->getJson("/api/v1/common/funding-application/funding-request?funding_request_id={$this->requestId}")
+            ->assertOk()
+            ->assertJsonPath('data.is_locked', true)
+            ->assertJsonPath('data.is_editable', false);
+
+        $this->getJson("/api/v1/common/request-application/funding-application/{$this->applicationId}")
+            ->assertOk()
+            ->assertJsonPath('data.is_editable', false);
+    }
+
+    #[Test]
+    #[DataProvider('signedEditableStatuses')]
+    public function the_host_edits_a_signed_application_at_an_editable_status_and_the_borrower_signs_again(string $status): void
     {
         $this->setStatus($status);
         $this->actingAsUser($this->makePartnerAdmin($this->host));
@@ -124,6 +174,15 @@ class HostEditsAnyFundingApplicationTest extends TestCase
     }
 
     #[Test]
+    public function host_staff_are_locked_out_too(): void
+    {
+        $this->setStatus(FundingApplication::FUNDED);
+        $this->actingAsUser($this->makeStaffUser($this->host));
+
+        $this->saveFinancial(['monthly_revenue' => 55000])->assertStatus(423);
+    }
+
+    #[Test]
     public function paging_through_without_a_change_keeps_the_status_and_the_signature(): void
     {
         $this->actingAsUser($this->makePartnerAdmin($this->host));
@@ -131,7 +190,7 @@ class HostEditsAnyFundingApplicationTest extends TestCase
         $this->saveFinancial()->assertOk();
 
         $application = FundingApplication::findOrFail($this->applicationId);
-        $this->assertSame(FundingApplication::MATCHED_TO_LENDER, $application->status);
+        $this->assertSame(FundingApplication::SUBMITTED, $application->status);
         $this->assertFalse((bool) $application->requires_resign);
         $this->assertNotEmpty($application->signature_data);
     }
@@ -201,8 +260,9 @@ class HostEditsAnyFundingApplicationTest extends TestCase
     }
 
     #[Test]
-    public function the_white_label_partner_itself_is_still_locked_out(): void
+    public function the_white_label_partner_is_locked_out_at_the_same_statuses(): void
     {
+        $this->setStatus(FundingApplication::MATCHED_TO_LENDER);
         $this->actingAsUser($this->makePartnerAdmin($this->whiteLabel));
 
         $this->saveFinancial(['monthly_revenue' => 55000])->assertStatus(423);

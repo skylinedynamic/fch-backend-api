@@ -62,7 +62,17 @@ return [
     'error_processing_payout' => 'Failed to process commission payout.',
 
     // Funding Application edit lock & re-signature
-    'funding_application_locked' => 'This application can no longer be edited because it is ":status". Contact your funding advisor if something needs to change.',
+    'funding_application_locked' => 'This funding application is ":status", so it can no longer be edited. Contact your funding advisor if something needs to change.',
+    // Lender Information on the funding application page (host only)
+    'lender_assigned' => 'Lender assigned successfully.',
+    'error_assigning_lender' => 'Failed to assign the lender.',
+    'lender_required_for_status' => 'Assign a lender before moving this application to ":status".',
+    'lender_locked' => 'The lender cannot be changed now that this application is ":status".',
+    'activity_lender_assigned_title' => 'Lender Assigned: :lenders',
+    'activity_lender_assigned_description' => 'Assigned Lender(s): :lenders',
+
+    // Host, white-label and certified partner users: they are the advisors.
+    'funding_application_locked_staff' => 'This funding application is ":status", so it can no longer be edited. Funding applications can only be edited while their status is one of the editable statuses.',
     'funding_application_requires_resign' => 'Your changes were saved, but they replaced information you had already signed for. Please review and sign the application again to put it back into review.',
     'funding_application_partner_edit_requires_resign' => 'Your changes were saved. Because the borrower had already signed this application, their signature has been cleared and they must sign again before it returns to review.',
 ];

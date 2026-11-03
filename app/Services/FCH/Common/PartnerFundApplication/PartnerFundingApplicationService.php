@@ -59,6 +59,15 @@ class PartnerFundingApplicationService
 
     public function getFundingInfo()
     {
+        // An application is read by its own id when the wizard has it: one
+        // converted from the embed form has no funding request to be found by.
+        $fundingApplicationId = request()->input('funding_application_id');
+        if ($fundingApplicationId) {
+            return FundingApplication::visibleTo(auth()->user())
+                ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
+                ->find($fundingApplicationId);
+        }
+
         $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
         $borrowerId = request()->input('borrower_id');
 
@@ -109,10 +118,11 @@ class PartnerFundingApplicationService
             $matchId = $data['id'] ?? null;
             
             $borrowerId = null;
+            $targeted = null;
             if ($matchId) {
-                $existing = FundingApplication::visibleTo(auth()->user())->find($matchId);
-                if ($existing) {
-                    $borrowerId = $existing->borrower_id;
+                $targeted = FundingApplication::visibleTo(auth()->user())->find($matchId);
+                if ($targeted) {
+                    $borrowerId = $targeted->borrower_id;
                 }
             } else if ($fundingReqId) {
                 $req = FundingRequest::visibleTo(auth()->user())->find($fundingReqId);
@@ -139,14 +149,24 @@ class PartnerFundingApplicationService
             $data['partner_id'] = Borrower::whereKey($borrowerId)->value('partner_id');
 
             if (empty($data['funding_request_id'])) {
-                $data['funding_request_id'] = request()->input('funding_request_id') 
-                    ?? request()->input('fundingRequestId') 
-                    ?? request()->input('id')
-                    ?? request()->route('id')
+                // Never request()->input('id'): that is the application's id,
+                // not a funding request's.
+                $data['funding_request_id'] = request()->input('funding_request_id')
+                    ?? request()->input('fundingRequestId')
                     ?? request()->route('fundingRequestId');
             }
 
-            if (empty($data['funding_request_id'])) {
+            // Saving an application that already exists keeps the funding
+            // request it has. One converted from the embed form has none, and
+            // must not be given the borrower's latest approved request.
+            if ($targeted && empty($data['funding_request_id'])) {
+                $data['funding_request_id'] = $targeted->funding_request_id;
+                if (empty($data['funding_sequence_id'])) {
+                    $data['funding_sequence_id'] = $targeted->funding_sequence_id;
+                }
+            }
+
+            if (!$targeted && empty($data['funding_request_id'])) {
                 $latestReq = FundingRequest::where('borrower_id', $borrowerId)
                     ->where('status', FundingRequest::STATUS_APPROVED)
                     ->latest()
@@ -230,7 +250,7 @@ class PartnerFundingApplicationService
 
             if (!$isNew && $existing) {
                 try {
-                    // With the editor: the host's team may edit at any status.
+                    // Locked past the editable statuses for every editor, the host included.
                     $decision = $this->editGuard->applyEditRules($existing, $data, $status, auth()->user());
                 } catch (FundingApplicationLockedException $e) {
                     $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_PARTNER);

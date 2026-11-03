@@ -124,6 +124,8 @@ class FundingApplication extends Model
         'signature_data' => 'array',
         'previous_signature_data' => 'array',
         'additional_funding_types' => 'array',
+        // Not fillable: only the host's Assign Lender writes these.
+        'lender_ids' => 'array',
         'requires_resign' => 'boolean',
 
         'is_business_info_saved' => 'boolean',
@@ -528,8 +530,7 @@ class FundingApplication extends Model
 
     /**
      * The host's own team - its admin and staff, not a borrower of the host and
-     * not a partner. It may edit any partner's borrower's application at any
-     * status; the status lock is for borrowers and partners.
+     * not a partner.
      */
     public static function isHostTeam(?User $user): bool
     {
@@ -540,23 +541,87 @@ class FundingApplication extends Model
     }
 
     /**
-     * Whether this user may change the application's data: the host's team
-     * always, everyone else while the status is still editable.
+     * Whether this user may change the application's data: while the status is
+     * in config `statuses.editable` - the same rule for everyone, the host's
+     * team included (decision 2026-11-03).
      */
     public function isEditableBy(?User $user): bool
     {
-        return self::isHostTeam($user) || $this->isEditable();
+        return $this->isEditable();
     }
 
     /**
-     * Whether a real change by this user costs the borrower's signature. The
-     * host editing past the lock is changing figures the borrower signed, so
-     * the borrower signs again then too.
+     * Whether a real change by this user costs the borrower's signature.
      */
     public function invalidatesSignatureOnEditBy(?User $user): bool
     {
-        return $this->invalidatesSignatureOnEdit()
-            || (self::isHostTeam($user) && $this->isLockedForEdit() && $this->hasBeenSubmitted());
+        return $this->invalidatesSignatureOnEdit();
+    }
+
+    /**
+     * The product categories its lenders are matched on: the funding request's
+     * funding type when it has one (the funding request page's list), else its
+     * own Preferred and Additional Funding Types (converted from a loan
+     * application).
+     *
+     * @return array<int, string>
+     */
+    public function lenderCategories(): array
+    {
+        if ($this->funding_request_id && $this->fundingRequest) {
+            return array_filter([$this->fundingRequest->funding_type]);
+        }
+
+        return array_values(array_filter([
+            $this->preferred_funding_type,
+            ...(array) ($this->additional_funding_types ?? []),
+        ]));
+    }
+
+    /**
+     * The lender(s) assigned: the funding request's when it has one - one
+     * assignment, shared with the funding request page - else its own.
+     *
+     * @return array<int, int>
+     */
+    public function assignedLenderIds(): array
+    {
+        $ids = $this->funding_request_id && $this->fundingRequest
+            ? $this->fundingRequest->lender_ids
+            : $this->lender_ids;
+
+        return array_values(array_map('intval', (array) ($ids ?? [])));
+    }
+
+    public function hasAssignedLender(): bool
+    {
+        return $this->assignedLenderIds() !== [];
+    }
+
+    /**
+     * Whether a status may only be set once a lender is assigned: every status
+     * outside the editable ones (config `statuses.editable`) - decision 2026-11-03.
+     */
+    public static function statusRequiresLender(?string $status): bool
+    {
+        return ! in_array(self::canonicalStatus($status), self::editableStatuses(), true);
+    }
+
+    /** The statuses that need a lender assigned before they can be set. */
+    public static function lenderRequiredStatuses(): array
+    {
+        return array_values(array_filter(self::STATUS, fn ($status) => self::statusRequiresLender($status)));
+    }
+
+    /**
+     * Whether the lender may be assigned or changed now. In an editable status,
+     * always (it is optional). Past them, the lender assigned is the lender: only
+     * an application that got there with none (before this rule) may be given
+     * one, once.
+     */
+    public function canAssignLender(): bool
+    {
+        return $this->isEditable() || ! $this->hasAssignedLender();
     }
 
     /**
@@ -627,7 +692,7 @@ class FundingApplication extends Model
      */
     public function editingState(?User $user = null): array
     {
-        // For the given user: the host's team is never locked out.
+        // Same status rule for every user, the host's team included.
         $isLocked = ! $this->isEditableBy($user);
 
         return [
@@ -644,10 +709,25 @@ class FundingApplication extends Model
             // one that was never submitted is just being filled in, so it is not.
             'edit_needs_confirmation' => ! $isLocked && $this->hasBeenSubmitted(),
             'can_start_new_funding_request' => $this->allowsNewFundingRequest(),
-            'locked_reason' => $isLocked
-                ? __('application.funding_application_locked', ['status' => $this->status])
-                : null,
+            'locked_reason' => $isLocked ? $this->lockedReasonFor($user) : null,
         ];
+    }
+
+    /**
+     * Why the application can't be edited, worded for who is asking: the
+     * borrower is pointed to their funding advisor; the host and the partners
+     * (white-label, certified) are the advisors, so they are just told so.
+     */
+    public function lockedReasonFor(?User $user): string
+    {
+        $isStaff = $user !== null
+            && $user->user_type !== User::BORROWER
+            && $user->entity_type !== Borrower::class;
+
+        return __(
+            $isStaff ? 'application.funding_application_locked_staff' : 'application.funding_application_locked',
+            ['status' => $this->status]
+        );
     }
 
     /**

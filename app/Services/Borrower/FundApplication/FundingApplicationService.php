@@ -64,6 +64,16 @@ class FundingApplicationService
 
     public function getFundingInfo()
     {
+        // An application is read by its own id when the wizard has it: one
+        // converted from the embed form has no funding request to be found by.
+        // Only the signed-in borrower's own.
+        $fundingApplicationId = request()->input('funding_application_id');
+        if ($fundingApplicationId) {
+            return FundingApplication::where('borrower_id', auth()->user()->entity_id)
+                ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
+                ->findOrFail($fundingApplicationId);
+        }
+
         $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
         $this->assertOwnFundingRequest($fundingRequestId);
 

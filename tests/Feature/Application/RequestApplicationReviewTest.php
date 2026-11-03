@@ -61,6 +61,17 @@ class RequestApplicationReviewTest extends TestCase
         $this->theirPreQualId = $this->preQualFor($theirBorrower->id, $this->otherPartner->id);
     }
 
+    /**
+     * A lender on the application: every status outside the editable ones needs
+     * one first (FundingApplicationLenderAssignmentTest).
+     */
+    private function assignLenderTo(int $applicationId): void
+    {
+        $lenderId = DB::table('lenders')->insertGetId(['name' => 'Fundbox Financing', 'status' => 'Active', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('funding_applications')->where('id', $applicationId)
+            ->update(['lender_ids' => json_encode([$lenderId]), 'assign_lender' => $lenderId]);
+    }
+
     private function applicationFor(int $borrowerId, int $partnerId): int
     {
         return DB::table('funding_applications')->insertGetId([
@@ -152,6 +163,7 @@ class RequestApplicationReviewTest extends TestCase
     #[Test]
     public function a_funded_date_is_the_day_in_the_closers_timezone(): void
     {
+        $this->assignLenderTo($this->myApplicationId);
         $this->actingAsUser($this->partnerAdmin);
         Carbon::setTestNow(Carbon::parse('2026-10-20 21:30:00', 'UTC'));
 
@@ -163,6 +175,20 @@ class RequestApplicationReviewTest extends TestCase
         Carbon::setTestNow();
 
         $this->assertStringStartsWith('2026-10-21', (string) DB::table('funding_applications')->where('id', $this->myApplicationId)->value('funded_date'));
+    }
+
+    /** The details page's Closed (Completed) summary shows when it was funded. */
+    #[Test]
+    public function the_details_carry_the_funded_date(): void
+    {
+        DB::table('funding_applications')->where('id', $this->myApplicationId)
+            ->update(['status' => FundingApplication::CLOSED_COMPLETED, 'total_funded_amount' => 50000, 'funded_date' => '2026-10-21']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson($this->url("funding-application/{$this->myApplicationId}"))
+            ->assertOk()
+            ->assertJsonPath('data.funded_date', '2026-10-21')
+            ->assertJsonPath('data.total_funded_amount', '50000.00');
     }
 
     /** A status change, and a note on its own, are written to the activity log. */
@@ -223,6 +249,7 @@ class RequestApplicationReviewTest extends TestCase
     #[Test]
     public function an_application_is_moved_to_each_new_status(): void
     {
+        $this->assignLenderTo($this->myApplicationId);
         $this->actingAsUser($this->partnerAdmin);
 
         foreach ([
@@ -266,6 +293,7 @@ class RequestApplicationReviewTest extends TestCase
     public function a_status_note_of_10000_characters_is_saved(): void
     {
         $this->assertSame('text', \Illuminate\Support\Facades\Schema::getColumnType('funding_applications', 'status_note'));
+        $this->assignLenderTo($this->myApplicationId);
         $this->actingAsUser($this->partnerAdmin);
         $note = str_repeat('a', 10000);
 
