@@ -19,6 +19,7 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
 use App\Rules\BusinessEin;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\SignatureRecorder;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
@@ -1052,6 +1053,13 @@ class EmbedFormService
             $fundingApplication = $borrowerId
                 ? $this->createFundingApplication($submission, (int) $borrowerId, $ssnDecrypted)
                 : null;
+
+            // Its first activity entry, in the same transaction: written only
+            // if the application itself is.
+            if ($fundingApplication) {
+                app(FundingApplicationAuditLogger::class)
+                    ->logCreatedFromEmbedForm($fundingApplication, $submission, (bool) $existingBorrower);
+            }
 
             $submission->update([
                 'status' => EmbedFormSubmission::STATUS_CONVERTED,

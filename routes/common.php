@@ -280,6 +280,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/{id}/audit-trail', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'index'])->whereNumber('id');
                 Route::get('funding-application/{id}/audit-trail/export', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'export'])->whereNumber('id');
                 Route::get('funding-application/{id}/audit-trail/{eventId}/file', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'file'])->whereNumber(['id', 'eventId']);
+                // Host's team only (AssignFundingApplicationLenderRequest).
+                Route::post('funding-application/{id}/assign-lender', [RequestApplicationController::class, 'assignFundingApplicationLender'])->whereNumber('id');
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);

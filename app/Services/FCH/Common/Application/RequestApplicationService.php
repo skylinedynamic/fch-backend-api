@@ -14,10 +14,12 @@ use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
 use App\Models\Common\AppConfiguration;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\Application\SignatureCertificateService;
+use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
@@ -391,18 +393,82 @@ class RequestApplicationService
     }
 
     /**
+     * Assign a lender to a funding application (host's team only - see
+     * AssignFundingApplicationLenderRequest). One with a funding request shares
+     * the request's lender, so it is assigned there, as on the funding request
+     * page; one without (converted from a loan application) keeps its own.
+     * At any status (decision 2026-11-03), as on the funding request page.
+     */
+    public function assignFundingApplicationLender(int $id, array $lenderIds)
+    {
+        $application = FundingApplication::with('borrower', 'fundingRequest')
+            ->reviewableBy(Auth::user())
+            ->whereKey($id)->first();
+
+        if ($application == null) {
+            return ApiResponse::notFound(__('application.funding_application_not_found'));
+        }
+
+        // Past the editable statuses the lender assigned is fixed.
+        if (! $application->canAssignLender()) {
+            return ApiResponse::error(__('application.lender_locked', ['status' => $application->status]), 422);
+        }
+
+        $lenderIds = array_values(array_map('intval', $lenderIds));
+
+        if ($application->funding_request_id && $application->fundingRequest) {
+            // The request's own assignment, logged on the request as its page does.
+            app(FundingRequestService::class)->assignLender([
+                'id' => $application->funding_request_id,
+                'lender_ids' => $lenderIds,
+            ]);
+            $application->load('fundingRequest');
+        } else {
+            $application->forceFill([
+                'lender_ids' => $lenderIds,
+                'assign_lender' => $lenderIds[0] ?? null,
+            ])->save();
+        }
+
+        $lenderNames = Lender::whereIn('id', $lenderIds)->pluck('name')->implode(', ') ?: 'None';
+        app(ActivityLogService::class)->logSystemEvent(
+            FundingApplication::class,
+            $application->id,
+            $application->partner_id,
+            $application->borrower_id,
+            __('application.activity_lender_assigned_title', ['lenders' => $lenderNames]),
+            __('application.activity_lender_assigned_description', ['lenders' => $lenderNames]),
+            'update',
+            ['lender_ids' => $lenderIds, 'is_internal' => true],
+            ActivityLog::VISIBILITY_INTERNAL
+        );
+
+        return ApiResponse::success(
+            new ApplicationFundingApplicationResource($application->fresh(['borrower', 'fundingRequest'])),
+            __('application.lender_assigned')
+        );
+    }
+
+    /**
      * Update Funding Application Status
      */
     public function fundingApplicationStatusUpdate(array $data)
     {
         $partnerId = $this->getAuthenticatedPartnerId();
 
-        $application = FundingApplication::with('borrower')
+        $application = FundingApplication::with('borrower', 'fundingRequest')
             ->reviewableBy(Auth::user())
             ->where('funding_applications.id', $data['funding_application_id'])->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        // Matched to Lender ... Closed (Completed) only once a lender is assigned.
+        if ($data['status'] !== $application->status
+            && FundingApplication::statusRequiresLender($data['status'])
+            && ! $application->hasAssignedLender()) {
+            return ApiResponse::error(__('application.lender_required_for_status', ['status' => $data['status']]), 422);
         }
 
         $oldStatus = $application->status;

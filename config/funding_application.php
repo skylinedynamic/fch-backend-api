@@ -129,6 +129,11 @@ return [
             FundingApplication::APPROVED_FINAL,
         ],
 
+        // The lender follows this list too (decision 2026-11-03): in these
+        // statuses it is optional and the host may change it; every other status
+        // needs one assigned before it is set, and from then on it is fixed.
+        // See FundingApplication::canAssignLender() / statusRequiresLender().
+
         // Editable statuses where nothing has been signed yet, so an edit costs
         // nothing. Every other editable status costs the signature on a change.
         'pre_signature' => [
