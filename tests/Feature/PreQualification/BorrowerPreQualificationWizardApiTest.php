@@ -98,6 +98,43 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
         $this->getJson('/api/v1/borrower/pre-qualification')->assertOk()->assertJsonPath('data.id', $id);
     }
 
+    /**
+     * Defect (BUG-167, CP-PREQ-10): the Funding Needs step was saved ("funding
+     * information updated successfully") but GET blanked those fields on
+     * purpose, so a client who left and came back found the step empty again.
+     * The draft resumes with what was saved in every step, Funding Needs too.
+     */
+    #[Test]
+    public function the_draft_resumes_with_its_saved_funding_needs(): void
+    {
+        $this->actingAsUser($this->me);
+        $id = $this->postJson('/api/v1/borrower/pre-qualification/personal-info', $this->personal())->assertOk()->json('data.id');
+
+        $this->postJson('/api/v1/borrower/pre-qualification/funding-info', [
+            'id' => $id,
+            'funding_requested_amount' => 16000,
+            'funding_urgency' => 'Within 30 days',
+            'purpose_of_funding' => 'Business Expansion',
+            'personal_credit_score' => 'Good (670-739)',
+            'estimated_business_credit_score' => 'Medium',
+            'existing_business_debt' => true,
+            'debt_balance' => 5000,
+            'notes' => 'Peak season stock',
+        ])->assertOk();
+
+        $this->getJson('/api/v1/borrower/pre-qualification')
+            ->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.funding_requested_amount', currencyFormat(16000))
+            ->assertJsonPath('data.funding_urgency', 'Within 30 days')
+            ->assertJsonPath('data.purpose_of_funding', 'Business Expansion')
+            ->assertJsonPath('data.personal_credit_score', 'Good (670-739)')
+            ->assertJsonPath('data.estimated_business_credit_score', 'Medium')
+            ->assertJsonPath('data.existing_business_debt', true)
+            ->assertJsonPath('data.debt_balance', currencyFormat(5000))
+            ->assertJsonPath('data.notes', 'Peak season stock');
+    }
+
     #[Test]
     public function opening_the_wizard_does_not_create_a_draft(): void
     {
@@ -223,6 +260,30 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
         $this->assertSame(PreQualificationRequest::PENDING, $draft->fresh()->status);
 
         // No longer On Hold, so a second submit finds nothing to submit.
+        $this->postJson('/api/v1/borrower/pre-qualification/submit', ['id' => $draft->id])->assertNotFound();
+    }
+
+    /**
+     * Defect (BUG-168, CP-PREQ-13): three submits of one draft at the same
+     * instant were all accepted (200) and each started its own underwriting
+     * run. Each submit read the draft as On Hold before any of them had saved
+     * it as Pending. Here a second submit claims the draft right after this
+     * one has read it: this one must then be refused, not run underwriting
+     * again.
+     */
+    #[Test]
+    public function a_draft_another_submit_claimed_meanwhile_is_not_submitted_again(): void
+    {
+        $draft = $this->draftFor($this->myBorrower());
+        $this->mock(PreQualificationAiService::class)->shouldNotReceive('evaluate');
+        $this->actingAsUser($this->me);
+
+        PreQualificationRequest::retrieved(function (PreQualificationRequest $read) use ($draft) {
+            if ($read->id === $draft->id) {
+                PreQualificationRequest::whereKey($draft->id)->update(['status' => PreQualificationRequest::PENDING]);
+            }
+        });
+
         $this->postJson('/api/v1/borrower/pre-qualification/submit', ['id' => $draft->id])->assertNotFound();
     }
 

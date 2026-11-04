@@ -105,6 +105,37 @@ class UnderwritingOutcomeStatusTest extends TestCase
         $this->assertSame(PreQualificationRequest::PENDING, $after->status);
     }
 
+    /**
+     * Defect (BUG-168, CP-PREQ-13): two runs of the same request overlapped -
+     * one failed and stored Failed, the other completed but worked on the copy
+     * it had loaded while the request was still Pending. Setting Pending on that
+     * copy changed nothing it could see, so nothing was saved and the request
+     * stayed Failed under a COMPLETED review. The outcome is decided from the
+     * status as stored now, not as it was when the run began.
+     */
+    #[Test]
+    public function a_completed_run_returns_the_stored_status_to_pending_though_its_copy_is_stale(): void
+    {
+        $application = $this->application();
+        $staleCopy = $application->fresh();
+        // Meanwhile the overlapping run failed.
+        PreQualificationRequest::whereKey($application->id)->update([
+            'status' => PreQualificationRequest::FAILED,
+            'gpt_status' => PreQualificationRequest::GPT_FAILED,
+        ]);
+
+        $this->mock(PreQualificationInternalAueService::class, function ($mock) {
+            $mock->shouldReceive('evaluate')->once()->andReturn([
+                'ok' => true, 'data' => self::COMPLETE, 'is_fallback' => false, 'model' => 'gpt-test', 'latency_ms' => 1, 'error' => null,
+            ]);
+        });
+        app(PreQualificationAiService::class)->evaluate($staleCopy);
+
+        $after = $application->fresh();
+        $this->assertSame(PreQualificationRequest::GPT_COMPLETED, $after->gpt_status);
+        $this->assertSame(PreQualificationRequest::PENDING, $after->status);
+    }
+
     public static function reviewerStatuses(): array
     {
         return [

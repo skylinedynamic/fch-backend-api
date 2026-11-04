@@ -211,12 +211,23 @@ class RequestApplicationService
                 $query->orderByStatusKey($sortOrder)->orderBy('id', 'desc');
             }
 
+            // An On Hold application has no amount of its own yet and shows its
+            // funding request's amount (BUG-136), so it sorts by that one too
+            // (BUG-153) - same fallback as requestedAmountOrRequest().
+            $sortByShownAmount = $sortField === 'requested_amount';
+
+            if ($sortByShownAmount) {
+                $query->orderByRaw(
+                    "COALESCE(funding_applications.requested_amount, (SELECT funding_requests.requested_amount FROM funding_requests WHERE funding_requests.id = funding_applications.funding_request_id)) {$sortOrder}"
+                );
+            }
+
             $query = QueryFilter::apply(
                 $query,
                 $sortField,
                 $sortOrder,
                 $advancedFilters,
-                $sortByStatusKey ? ['skip_sorting' => true] : []
+                ($sortByStatusKey || $sortByShownAmount) ? ['skip_sorting' => true] : []
             );
 
             // Equal values (two applications on the same day) keep one order

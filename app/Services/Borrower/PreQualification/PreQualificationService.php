@@ -40,11 +40,23 @@ class PreQualificationService
 
         // $zapierResponse = $this->sendToZapier($record);
 
-        $record->update([
-            'status' => PreQualificationRequest::PENDING,
-            'gpt_status' => PreQualificationRequest::GPT_PENDING,
-            'gpt_generated_at' => null,
-        ]);
+        // Claimed in one statement, only while still On Hold: submits sent at the
+        // same instant all read the draft as On Hold above, and each used to go on
+        // to start its own underwriting run (BUG-168). Only one claim succeeds.
+        $claimed = PreQualificationRequest::whereKey($record->id)
+            ->where('status', PreQualificationRequest::ON_HOLD)
+            ->update([
+                'status' => PreQualificationRequest::PENDING,
+                'gpt_status' => PreQualificationRequest::GPT_PENDING,
+                'gpt_generated_at' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($claimed === 0) {
+            throw new ModelNotFoundException(__('borrower.pre_qualification_request_not_found'));
+        }
+
+        $record->refresh();
 
         // The evaluation makes up to three OpenAI calls (roughly 1-2.5 minutes),
         // longer than the gateway in front of the API holds a request open. Run
@@ -111,9 +123,18 @@ class PreQualificationService
         // Same as submit: answer first, evaluate after the response is delivered.
         // Being reviewed again, so it is no longer Failed; the outcome of this
         // run sets it from here.
+        // Claimed only while still Failed, so two retries at once start one run
+        // (BUG-168).
+        $claimed = PreQualificationRequest::whereKey($record->id)
+            ->where('gpt_status', PreQualificationRequest::GPT_FAILED)
+            ->update(['gpt_status' => PreQualificationRequest::GPT_PENDING, 'gpt_generated_at' => null, 'updated_at' => now()]);
+
+        if ($claimed === 0) {
+            throw new ModelNotFoundException(__('borrower.pre_qualification_retry_not_available'));
+        }
+
+        $record->refresh();
         $record->applyUnderwritingOutcome(true);
-        $record->gpt_status = PreQualificationRequest::GPT_PENDING;
-        $record->gpt_generated_at = null;
         $record->save();
 
         $userId = Auth::id();
@@ -265,17 +286,10 @@ class PreQualificationService
             }
         }
 
-        // Funding Needs must never be populated with previous/saved data on GET.
-        // It must always start fresh and blank for the borrower.
-        $mergedData['funding_requested_amount'] = null;
-        $mergedData['funding_urgency'] = null;
-        $mergedData['purpose_of_funding'] = null;
-        $mergedData['purpose_note'] = null;
-        $mergedData['personal_credit_score'] = null;
-        $mergedData['estimated_business_credit_score'] = null;
-        $mergedData['existing_business_debt'] = false;
-        $mergedData['debt_balance'] = null;
-        $mergedData['notes'] = null;
+        // Funding Needs comes back as saved on this draft, like every other step,
+        // so a borrower who leaves and returns resumes where they were
+        // (BUG-167). Only the On Hold draft is read, so nothing from an earlier,
+        // submitted request is carried in; a new draft starts blank (prefill).
 
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;
