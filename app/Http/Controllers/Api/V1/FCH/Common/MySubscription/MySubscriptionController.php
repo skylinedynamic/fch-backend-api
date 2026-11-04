@@ -65,4 +65,16 @@ class MySubscriptionController extends Controller
             return ApiResponse::serverError($e->getMessage());
         }
     }
+
+    /**
+     * Resume the non-host partner's cancelled subscription (BUG-069).
+     */
+    public function resumeSubscription()
+    {
+        try {
+            return $this->mySubscriptionService->resumeSubscription();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage());
+        }
+    }
 }

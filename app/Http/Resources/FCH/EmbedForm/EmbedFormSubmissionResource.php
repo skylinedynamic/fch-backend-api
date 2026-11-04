@@ -230,6 +230,15 @@ class EmbedFormSubmissionResource extends JsonResource
                     'status' => $this->convertedBorrower->status,
                     'is_free_trail' => (bool) $this->convertedBorrower->is_free_trail,
                     'free_trail_end_date' => toDateOnly($this->convertedBorrower->free_trail_end_date),
+                    // BUG-058: converted onto an existing client, the details page
+                    // shows that client - not the submitted applicant - and their
+                    // real plan (the enrollment type of a paid client).
+                    'email' => $this->convertedBorrower->email,
+                    'phone' => $this->convertedBorrower->phone_number,
+                    'business_name' => $this->convertedBorrower->business_name,
+                    'enrollment_type' => $this->convertedBorrower->relationLoaded('latestSubscription')
+                        ? $this->convertedBorrower->latestSubscription?->enrollment_type
+                        : null,
                 ] : null;
             }),
 

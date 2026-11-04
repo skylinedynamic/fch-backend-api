@@ -9,6 +9,8 @@ use App\Mail\Payment\PaymentFailedMail;
 use App\Mail\Payment\PaymentRejectedMail;
 use App\Mail\Payment\PaymentSubmittedMail;
 use App\Mail\Payment\PaymentSuccessMail;
+use App\Mail\Subscription\SubscriptionReactivatedMail;
+use App\Models\Subscription\Subscription;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
@@ -194,6 +196,61 @@ class PaymentMailService
                 'mail' => 'AutoChargeStoppedMail',
                 'error' => $e->getMessage(),
             ]));
+        }
+    }
+
+    /**
+     * Tell everyone a cancelled subscription is active again (BUG-069): the
+     * subscriber by mail and bell, the host in the bell and, for a client, the
+     * client's partner in the bell - unless that partner is the host, who is
+     * told once. A failure is logged and swallowed: the subscription is already
+     * active by the time this runs.
+     */
+    public function sendSubscriptionReactivated(Subscription $subscription): void
+    {
+        $subscriber = $subscription->entity;
+
+        if (!$subscriber) {
+            return;
+        }
+
+        try {
+            $isClient = $subscriber instanceof Borrower;
+            $subscriberName = $isClient
+                ? personName($subscriber->first_name ?? null, $subscriber->middle_name ?? null, $subscriber->last_name ?? null)
+                : ($subscriber->company_name ?: $subscriber->full_name);
+            $sendingPartnerId = $this->resolveSendingPartnerId($subscriber);
+            $email = $subscriber->email ?? null;
+
+            $this->notifier()->send(
+                $isClient ? 'borrower.subscription.reactivated' : 'partner.subscription.reactivated',
+                $subscriber,
+                [],
+                mail: $email ? (new SubscriptionReactivatedMail([
+                    'user_name' => $subscriber->full_name ?? $subscriberName,
+                    'next_billing_date' => $subscription->subscription_end_date?->format('M j, Y'),
+                    'portal_url' => $this->resolveBillingUrl($subscriber, $sendingPartnerId),
+                ], $sendingPartnerId))->to($email) : null
+            );
+
+            $host = Partner::where('is_host', 1)->first();
+            $this->notifier()->send('host.subscription.reactivated', $host, [
+                'subscriber' => $subscriberName,
+                'id' => $subscription->id,
+            ]);
+
+            $clientsPartner = $isClient && $subscriber->partner_id ? Partner::find($subscriber->partner_id) : null;
+            if ($clientsPartner && !$clientsPartner->is_host) {
+                $this->notifier()->send('partner.client_subscription.reactivated', $clientsPartner, [
+                    'client' => $subscriberName,
+                    'id' => $subscription->id,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error(__('subscription.resume.notify_failed'), [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

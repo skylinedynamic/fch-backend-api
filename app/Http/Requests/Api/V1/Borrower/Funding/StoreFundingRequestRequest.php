@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Borrower\Funding;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Funding\FundingSequencing;
+use App\Models\FundingRequest\FundingRequest;
 
 class StoreFundingRequestRequest extends BaseApiRequest
 {
@@ -22,6 +24,9 @@ class StoreFundingRequestRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            // Set by "Update Application" on a rejected request: that request is
+            // resubmitted instead of a new one being created.
+            'funding_request_id' => 'nullable|integer',
             'funding_sequence_id' => 'required|exists:funding_sequencings,id',
             'funding_type' => 'nullable|string|max:255',
             'requested_amount' => 'required|numeric|min:0',
@@ -64,6 +69,10 @@ class StoreFundingRequestRequest extends BaseApiRequest
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
+            $this->validateRejectedRequest($validator);
+        });
+
+        $validator->after(function ($validator) {
             $amount = $this->input('requested_amount');
             $fundingId = $this->input('funding_sequence_id');
 
@@ -71,7 +80,7 @@ class StoreFundingRequestRequest extends BaseApiRequest
                 return;
             }
 
-            $funding = \App\Models\Funding\FundingSequencing::find($fundingId);
+            $funding = FundingSequencing::find($fundingId);
             if (!$funding || empty($funding->amount_range)) {
                 return;
             }
@@ -100,5 +109,29 @@ class StoreFundingRequestRequest extends BaseApiRequest
                 }
             }
         });
+    }
+
+    /**
+     * Only the borrower's own Rejected request, on the same funding option, can
+     * be resubmitted. Once resubmitted it is Pending, so sending it again (a
+     * double click, a second tab) is refused rather than changing it twice.
+     */
+    private function validateRejectedRequest($validator): void
+    {
+        $id = $this->input('funding_request_id');
+        if (!$id || $validator->errors()->has('funding_request_id')) {
+            return;
+        }
+
+        $borrowerId = $this->user()?->borrower?->id;
+        $fundingRequest = $borrowerId ? FundingRequest::where('borrower_id', $borrowerId)->find($id) : null;
+
+        if (!$fundingRequest) {
+            $validator->errors()->add('funding_request_id', __('funding_request.resubmit_not_found'));
+        } elseif ($fundingRequest->status !== FundingRequest::STATUS_REJECTED) {
+            $validator->errors()->add('funding_request_id', __('funding_request.resubmit_not_rejected'));
+        } elseif ((int) $fundingRequest->funding_sequence_id !== (int) $this->input('funding_sequence_id')) {
+            $validator->errors()->add('funding_request_id', __('funding_request.resubmit_other_option'));
+        }
     }
 }

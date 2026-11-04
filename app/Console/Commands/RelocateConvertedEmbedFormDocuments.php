@@ -16,6 +16,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 /**
  * One-off tidy-up for embedded form submissions converted before the
@@ -73,7 +74,7 @@ class RelocateConvertedEmbedFormDocuments extends Command
     public function handle(): int
     {
         $this->dryRun = (bool) $this->option('dry-run');
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         if ($this->dryRun) {
             $this->warn('Dry run: nothing will be changed.');
@@ -261,7 +262,7 @@ class RelocateConvertedEmbedFormDocuments extends Command
     {
         FundingApplicationDocument::query()
             ->where('path', 'like', self::OLD_ROOT . '/%')
-            ->where(fn ($q) => $q->where('disk', 'public')->orWhereNull('disk'))
+            ->where(fn ($q) => $q->whereIn('disk', [Disk::PUBLIC, Disk::UPLOADS])->orWhereNull('disk'))
             ->orderBy('id')
             ->each(function (FundingApplicationDocument $document) use ($disk) {
                 $old = $document->path;

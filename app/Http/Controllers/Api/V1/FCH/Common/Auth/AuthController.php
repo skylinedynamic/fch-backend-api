@@ -38,23 +38,25 @@ class AuthController extends Controller
 
     /**
      * Forget Password
+     *
+     * Every email gets the same answer (BUG-068). It used to be 400 "We can't
+     * find a user with that email address" for an unknown email, 403 for
+     * another portal's user, 200 for a known one - and "Please wait before
+     * retrying" only for a real account - so anyone could check which emails
+     * have an account, and on which portal. The link is still only sent to a
+     * user who can sign in on this portal.
      */
     public function forgot(ForgotPasswordRequest $request)
     {
         $user = User::where('email', $request->email)->first();
-        if ($user) {
-            if (!$this->portalIsolationService->isUserAllowedOnDomain($user, $this->portalIsolationService->resolveDomain($request))) {
-                return ApiResponse::error($this->portalIsolationService->getUnauthorizedMessage($user, $this->portalIsolationService->resolveDomain($request)), 403);
-            }
+        $domain = $this->portalIsolationService->resolveDomain($request);
+
+        if ($user && $this->portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
+            // Sent, throttled or anything else: the answer below is the same.
+            Password::sendResetLink($request->validated());
         }
 
-        $status = Password::sendResetLink($request->validated());
-
-        if ($status === Password::RESET_LINK_SENT) {
-            return ApiResponse::success(null, __($status));
-        }
-
-        return ApiResponse::error(__($status), 400);
+        return ApiResponse::success(null, __('auth.password_reset_link_maybe_sent'));
     }
 
     /**

@@ -22,7 +22,7 @@ The host owner, host staff and commission managers see the same as before.
 ## Testing
 - Both new tests failed before the change and pass after it.
 - `tests/Feature/{Commission,CommissionPayout,Dashboard}`: 85 passed.
-- Full fch-api suite: see below.
+- Full fch-api suite: 4317 tests, 0 failures, 2 skipped.
 
 ## Open items
 - A commission's page opened by a partner before the application closes now returns 404 (the same as any deal outside the viewer's scope).

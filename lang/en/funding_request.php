@@ -8,6 +8,7 @@ return [
     'error_retrieving_details' => 'Error retrieving funding request details.',
     'error_updating_status' => 'Error updating funding request status.',
     'reject_reason_required' => 'The rejection reason is required when status is Rejected.',
+    'reject_reason_max' => 'The rejection reason may not be greater than :max characters.',
 
     // Validation Messages
     'funding_sequence_id_required' => 'The funding sequence ID is required.',
@@ -34,10 +35,17 @@ return [
     'id_exists' => 'The selected ID does not exist.',
     'status_required' => 'The status field is required.',
     'status_in' => 'The status must be Pending, Approved, or Rejected.',
+    'status_changed_elsewhere' => 'This request is already ":status" - it was changed by someone else since you opened it. Reload to see the latest.',
+    'lender_inactive' => 'This lender is inactive and cannot be assigned.',
+
+    'resubmit_not_found' => 'Funding request not found.',
+    'resubmit_not_rejected' => 'Only a rejected funding request can be updated. This request has already been resubmitted.',
+    'resubmit_other_option' => 'This funding request belongs to a different funding option.',
 
     'logs' => [
         'dispatched_to_borrower' => 'FundingRequest #:id: Dispatched :mailable to borrower (:email)',
         'dispatched_to_partner' => 'FundingRequest #:id: Dispatched :mailable to partner (:email, Partner ID: :partner_id)',
+        'status_not_emailed' => 'FundingRequest #:id: No email for status ":status" - only Approved, Rejected and Cancelled are emailed (bell only).',
         'dispatched_to_host' => 'FundingRequest #:id: Dispatched PartnerFundingRequestApproved notification copy to Host (:email)',
     ],
 ];

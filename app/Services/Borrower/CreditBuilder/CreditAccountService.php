@@ -3,6 +3,7 @@
 namespace App\Services\Borrower\CreditBuilder;
 
 use App\Models\CreditBuilder\CreditAccount;
+use App\Models\CreditBuilder\CreditAccountApplication;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Lang;
@@ -76,11 +77,23 @@ class CreditAccountService
 
     /**
      * Handle application request/status update.
+     *
+     * BY DESIGN (BUG-028, R2-CP-CBA-01): the borrower may set any of these
+     * statuses from any other - N/A straight to Approved, or back again. The
+     * vendor approves the account outside the portal; this status is only the
+     * borrower's own note of where their application stands, so there is no
+     * Requested -> Processing -> Approved order to enforce. Not a defect - keep
+     * it unenforced (covered by BorrowerCreditBuilderApiTest::
+     * a_borrower_may_mark_any_status_from_any_other_by_design).
      */
     public function apply(int $id, ?string $status = null): JsonResponse
     {
         $borrowerId = auth()->user()->entity_id;
-        $allowedStatuses = ['Requested', 'Processing', 'Approved'];
+        $allowedStatuses = [
+            CreditAccountApplication::STATUS_REQUESTED,
+            CreditAccountApplication::STATUS_PROCESSING,
+            CreditAccountApplication::STATUS_APPROVED,
+        ];
 
         // An unknown account is a 404, not a foreign-key failure; so is one the
         // list would not offer this borrower - switched off by the host, or
@@ -90,7 +103,7 @@ class CreditAccountService
         // Fallback to first config status if none provided or invalid
         $finalStatus = (in_array($status, $allowedStatuses)) ? $status : $allowedStatuses[0];
 
-        $application = \App\Models\CreditBuilder\CreditAccountApplication::updateOrCreate(
+        $application = CreditAccountApplication::updateOrCreate(
             [
                 'borrower_id' => $borrowerId,
                 'credit_account_id' => $id,

@@ -87,6 +87,7 @@ class RoleController extends Controller
             'id' => $role->id,
             'name' => $role->name,
             'description' => $role->description,
+            'is_static' => (bool) $role->is_static,
             'permission' => $role->permissions->pluck('name','id')->unique()->toArray(),
             'users' => UserResource::collection(
                 $role->users->reject(function ($user) {
@@ -106,6 +107,13 @@ class RoleController extends Controller
     {
         if ((int) $role->partner_id !== (int) Auth::user()->partner_id) {
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
+        // A static (system) role - Admin, Developer - is read-only: stripping
+        // its permissions would pass to everyone holding it, so the only admin
+        // could lock itself out (R2 BUG-011).
+        if ($role->is_static) {
+            return ApiResponse::error(__('role_permission.role_static_cannot_update'), 403);
         }
 
         $updatedRole = $this->roleService->update($role, $request->validated());

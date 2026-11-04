@@ -157,6 +157,39 @@ class UpcomingBillingSortTest extends TestCase
     }
 
     /**
+     * BUG-049: a client whose next installment is the last one is billed the
+     * adjusted amount (6696.70 over 12: 558.06 a month, the last 558.04). The
+     * list shows, sorts on and totals what the cron will charge.
+     */
+    #[Test]
+    public function a_last_installment_shows_sorts_and_totals_at_its_adjusted_amount(): void
+    {
+        $lastOne = $this->clientOf($this->host, 'Last', 'One');
+        $lastOne->update([
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'installments_paid' => 11,
+            'total_subscription_amount' => 6696.70,
+            'subscription_amount_per_month' => 558.06,
+        ]);
+        $between = $this->clientOf($this->host, 'In', 'Between');
+        $between->update(['installment_type' => 1, 'subscription_amount_per_month' => 558.05]);
+        $admin = $this->makePartnerAdmin($this->host);
+        $this->actingAsUser($admin);
+
+        $response = $this->postJson('/api/v1/common/billing/fetch-upcoming', [
+            'page' => 1,
+            'per_page' => 10,
+            'sort_field' => 'upcoming_billing_amount',
+            'sort_order' => 'asc',
+        ])->assertOk();
+
+        $this->assertSame(['Last One', 'In Between'], array_column($response->json('data'), 'subscriber_name'));
+        $this->assertEquals([558.04, 558.05], array_column($response->json('data'), 'upcoming_billing_amount'));
+        $this->assertEquals(1116.09, $response->json('summary.scheduled_total'));
+    }
+
+    /**
      * BUG-012 (reopened): OUTSTANDING sorts on the unpaid invoices' total it
      * shows; a paid or deleted invoice is not owed and does not count.
      */

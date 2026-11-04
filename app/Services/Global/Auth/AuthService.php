@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 
 class AuthService
@@ -59,6 +60,20 @@ class AuthService
 
 
         if (!$user) {
+            RateLimiter::hit($key, $decayMinutes * 60);
+            $attempts = RateLimiter::attempts($key);
+            $remainingAttempts = max(0, $maxAttempts - $attempts);
+
+            return ApiResponse::loginError(__('auth.invalid_login'), 'password', $remainingAttempts, $maxAttempts);
+        }
+
+        // The password before anything about the account (BUG-067). Every check
+        // below answers with the account's state - inactive, suspended, free
+        // plan expired, the partner's name - which with a wrong password told
+        // an outsider that the email is registered. Without the password they
+        // get the same answer as for an unknown email; the owner, who has it,
+        // is still told why they cannot sign in.
+        if (!Hash::check((string) $authCredentials['password'], (string) $user->password)) {
             RateLimiter::hit($key, $decayMinutes * 60);
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);

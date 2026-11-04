@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\CMS;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\SafeUpload;
 
 class BlogRequest extends FormRequest
 {
@@ -36,14 +37,16 @@ class BlogRequest extends FormRequest
                 'sometimes', 
                 request()->hasFile('featured_image') ? 'image' : 'string',
                 request()->hasFile('featured_image') ? 'mimes:png,jpg,jpeg,svg,webp' : 'nullable',
-                'max:2048'
+                'max:2048',
+                SafeUpload::image(),
             ],
             'og_image' => [
                 'nullable', 
                 'sometimes', 
                 request()->hasFile('og_image') ? 'image' : 'string',
                 request()->hasFile('og_image') ? 'mimes:png,jpg,jpeg,svg,webp' : 'nullable',
-                'max:2048'
+                'max:2048',
+                SafeUpload::image(),
             ],
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string',

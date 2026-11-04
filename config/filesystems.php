@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\Files\Disk;
+
 return [
 
     /*
@@ -33,6 +35,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
+            // Signed URLs only (ProtectedFiles), at /private-files - never
+            // /storage, which is the public disk's own link.
+            'url' => env('BASE_API_URL') . '/private-files',
             'serve' => true,
             'throw' => false,
             'report' => false,
@@ -43,6 +48,16 @@ return [
             'root' => storage_path('app/public'),
             'url' => env('BASE_API_URL') . '/storage',
             'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Where the app keeps uploads (BUG-016). A path whose first folder is
+        // listed in config/files.php private_folders goes to that private disk;
+        // any other to `public`. url() gives a signed URL for a private file.
+        Disk::UPLOADS => [
+            'driver' => Disk::FOLDER_ROUTING_DRIVER,
+            'public_disk' => Disk::PUBLIC,
             'throw' => false,
             'report' => false,
         ],

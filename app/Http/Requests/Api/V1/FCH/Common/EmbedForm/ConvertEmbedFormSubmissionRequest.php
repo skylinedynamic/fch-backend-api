@@ -23,6 +23,9 @@ class ConvertEmbedFormSubmissionRequest extends BaseApiRequest
         return [
             'salesperson_id' => ['nullable', 'integer', 'exists:users,id'],
             'confirm_existing_borrower' => ['nullable', 'boolean'],
+            // Converting onto an existing borrower: also fill its blank profile
+            // fields from the submission. Only when the partner agreed (BUG-064).
+            'fill_profile_fields' => ['nullable', 'boolean'],
         ];
     }
 }

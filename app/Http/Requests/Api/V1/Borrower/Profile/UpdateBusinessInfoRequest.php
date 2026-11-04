@@ -2,12 +2,16 @@
 
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\DunsNumber;
+use App\Models\Borrower\Borrower;
+use App\Support\Profile\LockedFields;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateBusinessInfoRequest extends BaseApiRequest
 {
@@ -32,7 +36,9 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
     protected function prepareForValidation(): void
     {
         if ($this->has('business_ein')) {
-            $this->merge(['business_ein' => BusinessEin::normalize($this->input('business_ein'))]);
+            // canonical(), not normalize(): now the EIN is optional, letters
+            // stripped to nothing would pass as "no EIN" instead of failing.
+            $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);
         }
     }
 
@@ -40,7 +46,8 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
     {
         return [
             'business_name' => 'required|string|max:255',
-            'business_ein' => ['required', new BusinessEin()],
+            // Optional; once saved it is locked like the rest (BUG-054).
+            'business_ein' => ['nullable', new BusinessEin()],
             'business_phone' => ['nullable', 'string', new UsPhoneNumber()],
             'business_email' => 'required|email|max:255',
             'duns_number' => ['nullable', 'string', new DunsNumber()],
@@ -55,8 +62,29 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_entity_type_note' => 'required_if:business_entity_type,' . config('borrower.entity_type_other') . '|nullable|string|max:255',
             'business_industry_type' => 'required|string|max:255',
             'business_industry_type_note' => 'required_if:business_industry_type,' . config('borrower.industry_type_other') . '|nullable|string|max:255',
-            'business_start_date' => 'required|date',
+            'business_start_date' => ['required', 'date', new NotFutureDate()], // BUG-007
         ];
+    }
+
+    /**
+     * A saved, locked field may only come back unchanged: changing it is a
+     * Change Request for the host to approve (BUG-054). The portal makes these
+     * fields read-only; this is what holds when that is bypassed.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            // Read fresh: the lock is judged against what is stored now.
+            $borrower = Auth::user()?->entity()->first();
+            if (!$borrower instanceof Borrower) {
+                return;
+            }
+
+            $changed = LockedFields::changed($borrower->getAttributes(), $this->all(), Borrower::LOCKED_BUSINESS_FIELDS);
+            foreach ($changed as $field) {
+                $validator->errors()->add($field, __('borrower_validation.locked_field_change_request'));
+            }
+        });
     }
 
     /**

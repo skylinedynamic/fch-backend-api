@@ -3,12 +3,15 @@
 namespace App\Http\Resources\FCH\Partner\FundApplication;
 
 use App\Http\Resources\Borrower\FundApplication\CoBorrowerResource;
+use App\Http\Resources\Concerns\CarriesApplicationVersion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Log;
 
 class OwnershipResource extends JsonResource
 {
+    use CarriesApplicationVersion;
+
     /**
      * Transform the resource into an array.
      *
@@ -82,6 +85,8 @@ class OwnershipResource extends JsonResource
         }
 
         return [
+            // Sent back with the next save; see CarriesApplicationVersion.
+            'version' => $this->applicationVersion(),
             'id' => isset($this->borrower_id) ? $this->id : null,
             'first_name' => $firstName,
             'last_name' => $lastName,

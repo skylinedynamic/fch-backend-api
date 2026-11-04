@@ -9,6 +9,8 @@ use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class CreditAccountService
 {
@@ -75,7 +77,7 @@ class CreditAccountService
     public function create(array $data)
     {
         if (isset($data['image_url']) && $data['image_url'] instanceof \Illuminate\Http\UploadedFile) {
-            $upload = $this->uploadFile($data['image_url'], 'credit-accounts', 'public');
+            $upload = $this->uploadFile($data['image_url'], Folder::CREDIT_ACCOUNTS, Disk::UPLOADS);
             $data['image_url'] = $upload['path'];
         }
 
@@ -124,10 +126,10 @@ class CreditAccountService
         if (isset($data['image_url']) && $data['image_url'] instanceof \Illuminate\Http\UploadedFile) {
             // Delete old file if exists
             if ($account->image_url) {
-                $this->deleteFile($account->image_url, 'public');
+                $this->deleteFile($account->image_url, Disk::UPLOADS);
             }
 
-            $upload = $this->uploadFile($data['image_url'], 'credit-accounts', 'public');
+            $upload = $this->uploadFile($data['image_url'], Folder::CREDIT_ACCOUNTS, Disk::UPLOADS);
             $data['image_url'] = $upload['path'];
         }
 

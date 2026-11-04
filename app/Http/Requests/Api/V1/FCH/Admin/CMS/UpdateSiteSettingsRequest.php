@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\CMS;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\UsPhoneNumber;
+use App\Rules\SafeUpload;
 
 class UpdateSiteSettingsRequest extends BaseApiRequest
 {
@@ -31,16 +32,16 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'email' => ['required', 'email', 'max:255'],
             'map_iframe' => ['required', 'string', 'max:2000'],
             'site_slogan' => ['nullable', 'string', 'max:255'],
-            'header_logo' => ['nullable', 'sometimes'],
-            'footer_logo' => ['nullable', 'sometimes'],
-            'primary_logo' => ['nullable', 'sometimes'],
-            'secondary_logo' => ['nullable', 'sometimes'],
-            'favicon' => ['nullable', 'sometimes'],
-            'website_favicon' => ['nullable', 'sometimes'],
-            'partner_logo' => ['nullable', 'sometimes'],
-            'borrower_logo' => ['nullable', 'sometimes'],
-            'partner_favicon' => ['nullable', 'sometimes'],
-            'borrower_favicon' => ['nullable', 'sometimes'],
+            'header_logo' => ['nullable', 'sometimes', SafeUpload::image()],
+            'footer_logo' => ['nullable', 'sometimes', SafeUpload::image()],
+            'primary_logo' => ['nullable', 'sometimes', SafeUpload::image()],
+            'secondary_logo' => ['nullable', 'sometimes', SafeUpload::image()],
+            'favicon' => ['nullable', 'sometimes', SafeUpload::image()],
+            'website_favicon' => ['nullable', 'sometimes', SafeUpload::image()],
+            'partner_logo' => ['nullable', 'sometimes', SafeUpload::image()],
+            'borrower_logo' => ['nullable', 'sometimes', SafeUpload::image()],
+            'partner_favicon' => ['nullable', 'sometimes', SafeUpload::image()],
+            'borrower_favicon' => ['nullable', 'sometimes', SafeUpload::image()],
             'primary_color' => ['nullable', 'string', 'max:20'],
             'secondary_color' => ['nullable', 'string', 'max:20'],
             'social_links' => ['nullable'],

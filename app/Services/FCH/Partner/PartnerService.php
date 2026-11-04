@@ -34,6 +34,7 @@ use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
 use DateTimeInterface;
+use App\Support\Files\Disk;
 
 class PartnerService
 {
@@ -1154,7 +1155,7 @@ class PartnerService
 
             // Files go only once the records are gone, so a failed delete keeps them.
             foreach ($images as $image) {
-                $this->deleteFile($image, 'public');
+                $this->deleteFile($image, Disk::UPLOADS);
             }
 
             return ApiResponse::success([], __('partner.success.deleted'));

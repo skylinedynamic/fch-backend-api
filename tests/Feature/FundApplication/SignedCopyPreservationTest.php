@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+use App\Models\Audit\FundingApplicationAuditEvent;
 
 /**
  * Every signing keeps its own copy of the application exactly as signed, with
@@ -72,16 +73,16 @@ class SignedCopyPreservationTest extends TestCase
         $signature = $this->sign();
 
         $this->assertSame(1, $signature['application_version']);
-        Storage::disk('public')->assertExists($signature['signed_application_path']);
-        Storage::disk('public')->assertExists($signature['certificate_path']);
-        $this->assertSame($signature['sha256'], hash('sha256', Storage::disk('public')->get($signature['signed_application_path'])));
+        Storage::disk('uploads')->assertExists($signature['signed_application_path']);
+        Storage::disk('uploads')->assertExists($signature['certificate_path']);
+        $this->assertSame($signature['sha256'], hash('sha256', Storage::disk('uploads')->get($signature['signed_application_path'])));
     }
 
     #[Test]
     public function signing_again_after_an_edit_adds_a_version_and_leaves_the_first_alone(): void
     {
         $first = $this->sign();
-        $firstCopy = Storage::disk('public')->get($first['signed_application_path']);
+        $firstCopy = Storage::disk('uploads')->get($first['signed_application_path']);
 
         DB::table('funding_applications')->where('id', $this->application->id)->update(['business_name' => 'Pearl Black LLC']);
         $second = $this->sign();
@@ -92,8 +93,8 @@ class SignedCopyPreservationTest extends TestCase
         $this->assertNotSame($first['sha256'], $second['sha256']);
 
         // The first signed copy is exactly as it was.
-        $this->assertSame($firstCopy, Storage::disk('public')->get($first['signed_application_path']));
-        Storage::disk('public')->assertExists($first['certificate_path']);
+        $this->assertSame($firstCopy, Storage::disk('uploads')->get($first['signed_application_path']));
+        Storage::disk('uploads')->assertExists($first['certificate_path']);
     }
 
     #[Test]
@@ -105,5 +106,27 @@ class SignedCopyPreservationTest extends TestCase
         $this->assertSame('Ava Ortiz', $signature['borrower_name']);
         $this->assertSame('Pearl Black', $signature['business_name']);
         $this->assertSame(FundingApplication::PENDING, $signature['status_at_signing']);
+    }
+
+    /**
+     * The signed copies are kept in the audit folder, by their SHA-256, not in
+     * funding-applications/ - and the trail records each one there.
+     */
+    #[Test]
+    public function the_signed_copies_are_kept_in_the_audit_folder_by_their_hash(): void
+    {
+        $signature = $this->sign();
+
+        $this->assertSame("audit/files/{$signature['sha256']}.pdf", $signature['signed_application_path']);
+        $this->assertStringStartsWith('audit/files/', $signature['certificate_path']);
+        $this->assertSame($signature['sha256'], hash('sha256', Storage::disk('uploads')->get($signature['signed_application_path'])));
+        $this->assertSame([], Storage::disk('public')->allFiles('funding-applications'));
+        // BUG-016: private - nothing signed is on the public disk, so no /storage URL reaches it.
+        $this->assertNotSame('public', config('files.private_folders.audit'));
+        $this->assertSame([], Storage::disk('public')->allFiles('audit'));
+
+        $kept = FundingApplicationAuditEvent::where('funding_application_id', $this->application->id)
+            ->where('event', FundingApplicationAuditEvent::EVENT_SIGNED_COPY_KEPT)->pluck('file_path')->all();
+        $this->assertEqualsCanonicalizing([$signature['signed_application_path'], $signature['certificate_path']], $kept);
     }
 }

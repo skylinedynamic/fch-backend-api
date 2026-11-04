@@ -3,7 +3,10 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
+use App\Models\Borrower\Borrower;
 use App\Models\EmbedForm\EmbedFormSubmission;
+use App\Models\Partner\SubscriptionPlan;
+use App\Models\Subscription\Subscription;
 use App\Models\Partner\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -103,5 +106,87 @@ class EmbedFormSubmissionResourceTest extends TestCase
         $this->assertSame('Acme Lending', $data['partner']['company_name']);
         $this->assertSame(Partner::PARTNER_TYPE_WHITE_LABEL, $data['partner']['partner_type']);
         $this->assertFalse($data['partner']['is_host']);
+    }
+
+    /**
+     * BUG-058: a submission converted onto an existing client shows that
+     * client - their name, business, email, phone and real plan - not the
+     * submitted applicant's details or a hard-coded "Free Plan".
+     */
+    private function convertedOnto(Borrower $borrower): array
+    {
+        $submission = EmbedFormSubmission::create([
+            'submission_uid' => (string) Str::uuid(),
+            'partner_id' => $borrower->partner_id,
+            'first_name' => 'QA-TEST R2',
+            'last_name' => 'Host Embed Two',
+            'email' => 'embed-two@example.test',
+            'status' => EmbedFormSubmission::STATUS_CONVERTED,
+            'converted_borrower_id' => $borrower->id,
+        ]);
+
+        $submission = EmbedFormSubmission::with('convertedBorrower.latestSubscription')->findOrFail($submission->id);
+
+        return (new EmbedFormSubmissionResource($submission))->resolve(Request::create('/'));
+    }
+
+    private function client(array $attributes = []): Borrower
+    {
+        $partner = Partner::where('is_host', true)->first() ?? Partner::create([
+            'is_host' => true,
+            'status' => Partner::STATUS_ACTIVE,
+            'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
+            'company_name' => 'Host Co',
+            'full_name' => 'Host Co',
+            'email' => 'host@example.test',
+        ]);
+
+        return Borrower::create(array_merge([
+            'partner_id' => $partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'QA-TEST Owner',
+            'last_name' => 'Client Two',
+            'email' => 'client-two@example.test',
+            'phone_number' => '5551234567',
+            'business_name' => 'Client Two LLC',
+            'is_free_trail' => false,
+        ], $attributes));
+    }
+
+    #[Test]
+    public function the_converted_borrower_is_the_existing_clients_own_details(): void
+    {
+        $data = $this->convertedOnto($this->client())['converted_borrower'];
+
+        $this->assertSame('QA-TEST Owner Client Two', $data['full_name']);
+        $this->assertSame('client-two@example.test', $data['email']);
+        $this->assertSame('5551234567', $data['phone']);
+        $this->assertSame('Client Two LLC', $data['business_name']);
+    }
+
+    #[Test]
+    public function a_paid_clients_plan_is_its_enrollment_type(): void
+    {
+        $client = $this->client();
+        Subscription::create([
+            'entity_type' => Borrower::class,
+            'entity_id' => $client->id,
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+
+        $data = $this->convertedOnto($client)['converted_borrower'];
+
+        $this->assertFalse($data['is_free_trail']);
+        $this->assertSame(SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT, $data['enrollment_type']);
+    }
+
+    #[Test]
+    public function a_client_without_a_subscription_has_no_enrollment_type(): void
+    {
+        $data = $this->convertedOnto($this->client(['is_free_trail' => true]))['converted_borrower'];
+
+        $this->assertTrue($data['is_free_trail']);
+        $this->assertNull($data['enrollment_type']);
     }
 }

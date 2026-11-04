@@ -20,6 +20,8 @@ class UpdateFundingApplicationStatusRequest extends BaseApiRequest
             'status'                 => ['required', Rule::in(FundingApplication::STATUS)],
             'status_note'            => ['nullable', 'string', 'max:10000'],
             'funded_amount'          => ['nullable', 'numeric', 'min:0'],
+            // The status the page was showing - a change made from an older one is refused (R2 BUG-037).
+            'expected_status'        => ['nullable', 'string', 'max:255'],
         ];
     }
 

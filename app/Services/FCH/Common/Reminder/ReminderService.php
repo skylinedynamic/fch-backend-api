@@ -11,6 +11,9 @@ use App\Models\User\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class ReminderService
 {
@@ -384,10 +387,10 @@ class ReminderService
 
         $candidates = [
             public_path('storage/' . $relative),
-            \Illuminate\Support\Facades\Storage::disk('public')->path($relative),
+            Storage::disk(Disk::UPLOADS)->path($relative),
             storage_path('app/' . $relative),
             // Older records kept only the file name.
-            \Illuminate\Support\Facades\Storage::disk('public')->path('attachments/' . basename($relative)),
+            Storage::disk(Disk::UPLOADS)->path(Folder::ATTACHMENTS . '/' . basename($relative)),
         ];
 
         foreach ($candidates as $candidate) {

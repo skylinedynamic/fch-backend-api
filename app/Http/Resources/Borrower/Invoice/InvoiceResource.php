@@ -35,6 +35,8 @@ class InvoiceResource extends JsonResource
             'created_at' => toDateOnly($this->created_at),
             'status' => $this->status,
             'type' => $this->getFormattedType(),
+            // Paying it reactivates a cancelled subscription (BUG-069).
+            'reactivates_subscription' => $this->reactivatesSubscription(),
             'details' => $this->details,
         ];
     }

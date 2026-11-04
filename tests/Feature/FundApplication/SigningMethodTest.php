@@ -146,7 +146,7 @@ class SigningMethodTest extends TestCase
 
         $signature = FundingApplication::findOrFail($this->applicationId)->signature_data;
         $this->assertSame(1, $signature['application_version']);
-        Storage::disk('public')->assertExists($signature['signed_application_path']);
-        Storage::disk('public')->assertExists($signature['certificate_path']);
+        Storage::disk('uploads')->assertExists($signature['signed_application_path']);
+        Storage::disk('uploads')->assertExists($signature['certificate_path']);
     }
 }

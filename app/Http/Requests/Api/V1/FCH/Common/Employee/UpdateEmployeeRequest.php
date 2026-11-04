@@ -12,6 +12,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\SafeUpload;
 
 class UpdateEmployeeRequest extends BaseApiRequest
 {
@@ -42,7 +43,9 @@ class UpdateEmployeeRequest extends BaseApiRequest
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
-            'job_status'     => ['nullable', 'string', 'max:255'],
+            // One of the three statuses - a free string let "[object Object]" be
+            // stored, which the list showed and no filter matched (R2 BUG-029).
+            'job_status'     => ['nullable', 'string', Rule::in(Employee::STATUSES)],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'emergency_phone'   => ['nullable', 'string', new UsPhoneNumber()],
@@ -65,7 +68,7 @@ class UpdateEmployeeRequest extends BaseApiRequest
             'postal_code'    => ['nullable', 'string', new UsPostalCode()],
             'country'        => ['sometimes', 'required', 'string', 'max:255'],
             'country_code'   => ['nullable'],
-            'image'          => ['nullable'],
+            'image'          => ['nullable', SafeUpload::image()],
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
             'address'        => ['nullable', 'string', 'max:500'],
@@ -76,6 +79,7 @@ class UpdateEmployeeRequest extends BaseApiRequest
     {
         return [
             'first_name.required' => __('employee.first_name_required'),
+            'job_status.in' => __('employee.job_status_in'),
             'phone_number_1.unique' => __('employee.phone_unique'),
             'email.required' => __('employee.email_required'),
             'email.email' => __('employee.email_valid'),

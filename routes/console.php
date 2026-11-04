@@ -98,6 +98,16 @@ Schedule::command('subscriptions:process-all')
     ->onFailure($onFailure('subscriptions:process-all'))
     ->onSuccess($onSuccess('subscriptions:process-all'));
 
+// Card payments waiting on 3-D Secure (BUG-066): settles the ones whose payer
+// closed the tab mid-challenge, and cancels the ones left unfinished too long.
+// Frequent, because an authenticated charge must be recorded before the
+// auto-charge pass above could take the same invoice again.
+Schedule::command('payments:settle-card-authentications')
+    ->everyFiveMinutes()
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(10)
+    ->onFailure($onFailure('payments:settle-card-authentications'));
+
 
 Schedule::command('funding:application-reminders')
     ->dailyAt('14:00')
@@ -196,3 +206,12 @@ Schedule::command('backup:clean')
     ->onFailure($onFailure('backup:clean'))
     ->appendOutputTo($schedulerLogPath)
     ->onSuccess($onSuccess('backup:clean'));
+
+// The day's seal of the funding application audit trail, last thing in the day.
+Schedule::command('audit:seal')
+    ->dailyAt('23:55')
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('audit:seal'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('audit:seal'));
