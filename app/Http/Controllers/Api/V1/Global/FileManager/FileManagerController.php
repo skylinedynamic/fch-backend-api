@@ -20,6 +20,7 @@ use Illuminate\Routing\Controllers\Middleware;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Global\FileManager\FileManagerResource;
+use App\Support\Files\Folder;
 
 class FileManagerController extends Controller implements HasMiddleware
 {
@@ -64,10 +65,16 @@ class FileManagerController extends Controller implements HasMiddleware
      * every partner's borrower and staff folders. A non-host partner and its
      * staff work only on their own partner's borrowers (borrowers/{id}) and
      * staff (employees/{id}) - never another partner's, and never all of them
-     * at once (get_all). Other folder types are not checked here (yet).
+     * at once (get_all). A partner's private documents (partner-documents/{id},
+     * the Partner Documents tab) are the host team's only, as that tab is.
+     * Other folder types are not checked here (yet).
      */
     private static function partnerMayOpen($user, Request $request): bool
     {
+        if ($request->input('entity_type') === Folder::PARTNER_DOCUMENTS) {
+            return (bool) $user->partner?->is_host;
+        }
+
         $model = match ($request->input('entity_type')) {
             'borrowers' => Borrower::class,
             'employees' => Employee::class,

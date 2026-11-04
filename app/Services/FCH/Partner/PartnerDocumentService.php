@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Support\Files\StoredFileName;
 use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class PartnerDocumentService
 {
@@ -178,7 +179,7 @@ class PartnerDocumentService
         $rawFilename = basename($file instanceof \Illuminate\Http\UploadedFile ? $file->getClientOriginalName() : $file);
         $filename    = !empty($data['document_name']) ? $data['document_name'] : $rawFilename;
         $size = null;
-        $partnerPath = $this->normalizePath($partnerId, $file);
+        $partnerPath = $this->normalizePath($partnerId, $file, $data['entity_type'] ?? null);
         
         if (Storage::disk(Disk::UPLOADS)->exists($partnerPath)) {
              try {
@@ -199,7 +200,11 @@ class PartnerDocumentService
         // BUG-016: a filed document leaves partners/{id}/ (the partner's public
         // branding and pictures) for its own private folder.
         $uploads = Storage::disk(Disk::UPLOADS);
-        if ($uploads->exists($partnerPath)) {
+        if (str_starts_with($partnerPath, PartnerDocument::FOLDER . '/')) {
+            // Picked in the private documents folder: filed where it is, so
+            // the file manager still shows it there.
+            $dbPath = $partnerPath;
+        } elseif ($uploads->exists($partnerPath)) {
             $privatePath = PartnerDocument::FOLDER . "/{$partnerId}/" . StoredFileName::make($rawFilename);
             if ($uploads->move($partnerPath, $privatePath)) {
                 $dbPath = $privatePath;
@@ -255,13 +260,15 @@ class PartnerDocumentService
     /**
      * Normalize file path
      */
-    private function normalizePath(int $partnerId, $file): string
+    private function normalizePath(int $partnerId, $file, ?string $folder = null): string
     {
         if ($file instanceof UploadedFile) {
-            return "partners/{$partnerId}/documents/" . $file->getClientOriginalName();
+            return Folder::PARTNERS . "/{$partnerId}/documents/" . $file->getClientOriginalName();
         }
 
-        return "partners/{$partnerId}/" . ltrim($file, '/');
+        $folder = $folder === PartnerDocument::FOLDER ? PartnerDocument::FOLDER : Folder::PARTNERS;
+
+        return "{$folder}/{$partnerId}/" . ltrim($file, '/');
     }
 
     /**

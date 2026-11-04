@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 use Tests\TestCase;
 
 /**
@@ -332,6 +334,46 @@ class FileManagerApiTest extends TestCase
                 ->assertOk()->assertJsonPath('data.0.name', 'statement.pdf');
             $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'employees', 'entity_id' => $theirStaff->entity_id, 'path' => '/'])
                 ->assertOk()->assertJsonPath('data.0.name', 'w4.pdf');
+        }
+    }
+
+    /**
+     * The Partner Documents tab opens its file manager on the partner's
+     * private documents folder: a file is kept there (never on the public
+     * disk), listed from there, and opened through a signed link.
+     */
+    #[Test]
+    public function the_hosts_team_keeps_a_partners_documents_in_their_private_folder(): void
+    {
+        $host = Partner::where('is_host', true)->firstOrFail();
+        $this->actingAsUser($this->makePartnerAdmin($host));
+        $root = ['entity_type' => Folder::PARTNER_DOCUMENTS, 'entity_id' => $this->partner->id];
+
+        $this->postJson('/api/v1/filemanager/upload', $root + ['path' => '/', 'file' => UploadedFile::fake()->create('w9.pdf', 1)])->assertOk();
+
+        $kept = Storage::disk(Disk::UPLOADS)->files(Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}");
+        $this->assertCount(1, $kept);
+        Storage::disk(Disk::LOCAL)->assertExists($kept[0]);
+        Storage::disk(Disk::PUBLIC)->assertMissing($kept[0]);
+
+        $list = $this->postJson('/api/v1/filemanager/list', $root + ['path' => '/'])->assertOk();
+        $this->assertSame(basename($kept[0]), $list->json('data.0.name'));
+        $this->assertStringContainsString('/private-files/' . Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}/", $list->json('data.0.url'));
+        $this->assertStringContainsString('signature=', $list->json('data.0.url'));
+    }
+
+    /** Partner documents are the host team's, as the Documents tab is: no partner opens them, its own included. */
+    #[Test]
+    public function a_non_host_partner_cannot_open_any_partners_documents_folder(): void
+    {
+        Storage::disk(Disk::UPLOADS)->put(Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}/w9.pdf", 'pdf');
+
+        foreach ([$this->partner->id, $this->makeCertifiedPartner()->id] as $partnerId) {
+            $root = ['entity_type' => Folder::PARTNER_DOCUMENTS, 'entity_id' => $partnerId];
+
+            $this->postJson('/api/v1/filemanager/list', $root + ['path' => '/'])->assertForbidden();
+            $this->postJson('/api/v1/filemanager/upload', $root + ['path' => '/', 'file' => UploadedFile::fake()->create('x.pdf', 1)])->assertForbidden();
+            $this->postJson('/api/v1/filemanager/download', $root + ['path' => '/w9.pdf'])->assertForbidden();
         }
     }
 }
