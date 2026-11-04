@@ -65,6 +65,38 @@ class Borrower extends Model
     ];
 
     /**
+     * The columns the client-info form (partner / host portal) writes, which
+     * its version is taken over. Business financials, credit scores and the
+     * SSN have screens and processes of their own and are left out, so a save
+     * there does not make an open client-info form stale.
+     */
+    public const CLIENT_INFO_FIELDS = [
+        'first_name', 'middle_name', 'last_name', 'phone_number', 'email',
+        'country', 'country_code', 'state', 'city', 'postal_code', 'home_address', 'date_of_birth',
+        'business_name', 'business_ein', 'business_phone', 'business_address', 'business_city',
+        'business_country', 'business_country_code', 'business_state', 'business_postal_code',
+        'business_email', 'business_website', 'business_entity_type', 'business_entity_type_note',
+        'business_industry_type', 'business_industry_type_note', 'business_description',
+        'duns_number', 'state_file_number', 'business_start_date', 'status', 'assign_id', 'notes',
+    ];
+
+    /**
+     * Which copy of the client's details a client-info form is showing: a
+     * fingerprint of the stored CLIENT_INFO_FIELDS. The form sends it back as
+     * expected_version and a save from an older copy is refused, rather than
+     * putting back what another user changed meanwhile (R2 BUG-065).
+     */
+    public function clientInfoVersion(): string
+    {
+        $stored = [];
+        foreach (self::CLIENT_INFO_FIELDS as $field) {
+            $stored[$field] = $this->getRawOriginal($field);
+        }
+
+        return sha1(json_encode($stored));
+    }
+
+    /**
      * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.
      * Supports legacy plain string and new JSON {customer_id, name, card_no} format.
      */

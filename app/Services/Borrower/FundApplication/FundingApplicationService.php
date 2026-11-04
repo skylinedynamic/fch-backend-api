@@ -54,12 +54,25 @@ class FundingApplicationService
             return;
         }
 
-        $owned = FundingRequest::whereKey($fundingRequestId)
-            ->where('borrower_id', auth()->user()->entity_id)
+        $borrowerId = auth()->user()->entity_id;
+        $request = FundingRequest::whereKey($fundingRequestId)
+            ->where('borrower_id', $borrowerId)
+            ->first(['id', 'status']);
+
+        if (!$request) {
+            throw new ModelNotFoundException(__('borrower.funding_request_not_found'));
+        }
+
+        // An application is started only on an Approved request - the only one
+        // the portal offers "Process Application" for. A typed-in id of any
+        // other request opened a blank wizard (R2 BUG-027). An application
+        // already started stays reachable whatever the request's status now.
+        $started = FundingApplication::where('borrower_id', $borrowerId)
+            ->where('funding_request_id', $request->id)
             ->exists();
 
-        if (!$owned) {
-            throw new ModelNotFoundException(__('borrower.funding_request_not_found'));
+        if (!$started && $request->status !== FundingRequest::STATUS_APPROVED) {
+            throw new ModelNotFoundException(__('borrower.funding_request_not_approved'));
         }
     }
 
@@ -237,6 +250,9 @@ class FundingApplicationService
                     $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_BORROWER);
                     throw $e;
                 }
+
+                // Not from a tab showing an older copy (R2 BUG-033).
+                $this->editGuard->assertCurrent($existing, request()->input('expected_version'));
 
                 $data = $decision['data'];
                 $changedFields = $decision['changed_fields'];

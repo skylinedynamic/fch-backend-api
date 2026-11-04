@@ -239,6 +239,26 @@ class FundingApplicationPdfTest extends TestCase
         $this->assertStringContainsString('75%', $text);
     }
 
+    /**
+     * Defect: R2 BUG-056 - the Funding Request section printed "Use of Funds:
+     * ..., Other" but not the note saying what "Other" is, nor the timeframe
+     * and collateral the detail page shows.
+     */
+    #[Test]
+    public function the_purpose_note_timeframe_and_collateral_are_shown(): void
+    {
+        $text = strip_tags($this->pdfHtml($this->application($this->host, [
+            'purpose_of_funds' => 'Cash Flow, Other',
+            'purpose_note' => 'Fit-out of the second kitchen',
+            'timeframe_needed' => '1-2 Weeks',
+            'collateral_available' => 'Inventory, Real Estate',
+        ])));
+
+        foreach (['Purpose Note', 'Fit-out of the second kitchen', 'Timeframe Needed', '1-2 Weeks', 'Collateral Available', 'Inventory, Real Estate'] as $expected) {
+            $this->assertStringContainsString($expected, $text);
+        }
+    }
+
     #[Test]
     public function both_documents_carry_the_hosts_logo_as_a_watermark(): void
     {

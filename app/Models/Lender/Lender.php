@@ -38,6 +38,52 @@ class Lender extends Model
         'last_verified_date' => 'date',
     ];
 
+    /** Sent with every lender, so each screen can name it the same way. */
+    protected $appends = ['display_name'];
+
+    /**
+     * How a lender is shown: "Lender Name - Legal Name" (R2 BUG-008). Two
+     * lenders may share a name, never a legal name, so this tells them apart.
+     * A row from before the legal name was required shows its name alone.
+     */
+    public function displayName(): string
+    {
+        $name = trim((string) $this->name);
+        $legalName = trim((string) $this->legal_name);
+
+        if ($legalName === '') {
+            return $name;
+        }
+
+        return $name === '' ? $legalName : "{$name} - {$legalName}";
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->displayName();
+    }
+
+    /** A legal name as compared for uniqueness: case and spacing ignored. */
+    public static function normalizeLegalName(?string $legalName): string
+    {
+        return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', (string) $legalName)));
+    }
+
+    /** Whether another lender (deleted ones aside) already has this legal name. */
+    public static function legalNameTaken(?string $legalName, int|string|null $ignoreId = null): bool
+    {
+        $wanted = self::normalizeLegalName($legalName);
+        if ($wanted === '') {
+            return false;
+        }
+
+        return self::query()
+            ->when($ignoreId !== null, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->whereNotNull('legal_name')
+            ->pluck('legal_name')
+            ->contains(fn ($existing) => self::normalizeLegalName($existing) === $wanted);
+    }
+
     public function scopeSearch($query, $search)
     {
         if ($search) {

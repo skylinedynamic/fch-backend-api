@@ -11,9 +11,14 @@
 @section('content')
     <div style="padding-top: 20px;">
 
-        <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-            {!! $appointment->description !!}
-        </div>
+        @include('emails.appointment.partials.summary')
+
+        {{-- Only when there is one: an empty description left a blank block above the details. --}}
+        @if (filled(trim(strip_tags((string) $appointment->description))))
+            <div class="description-card" style="margin-bottom: 30px; text-align: left;">
+                {!! $appointment->description !!}
+            </div>
+        @endif
 
         <table class="detail-grid" cellspacing="0" cellpadding="0"
             style="width: 100%; margin-bottom: 30px; border-collapse: collapse;">
@@ -79,5 +84,7 @@
                 </td>
             </tr>
         </table>
+
+        @include('emails.appointment.partials.link')
     </div>
 @endsection

@@ -135,6 +135,7 @@ class FundingRequestResource extends JsonResource
     private static function noApplicationEditingState(): array
     {
         return [
+            'version' => null,
             'is_locked' => false,
             'is_editable' => true,
             'requires_resign' => false,

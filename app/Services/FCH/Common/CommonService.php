@@ -12,12 +12,15 @@ use Illuminate\Support\Facades\Auth;
 class CommonService
 {
     /**
-     * A partner's team (User::teamOf) as id, name, email and phone - the
-     * caller's own, or for the host, the partner it names.
+     * A partner's team (User::teamOf) as id, name, email, phone and
+     * is_inactive - the caller's own, or for the host, the partner it names.
      *
-     * The assign pickers ask for $activeOnly: inactive members are left out,
-     * except $keepIds (whoever is already assigned, so the field still shows
-     * them). List filters ask for everyone.
+     * A member is inactive when their login is not active, or when they are an
+     * employee set to Inactive or Suspended (R2 BUG-051 - that job status does
+     * not change the login's status). The assign pickers ask for $activeOnly:
+     * inactive members are left out, except $keepIds (whoever is already
+     * assigned, so the field still shows them, flagged). List filters ask for
+     * everyone.
      *
      * @param  int[]  $keepIds
      */
@@ -35,17 +38,29 @@ class CommonService
             return collect();
         }
 
-        $users = User::query()
-            ->teamOf($partner)
-            ->when($activeOnly, fn ($query) => $query->where(function ($query) use ($keepIds) {
-                $query->where('status', User::STATUS['active'])
-                    ->when($keepIds, fn ($query) => $query->orWhereIn('id', $keepIds));
-            }))
-            ->select('id', 'name', 'email', 'phone_number')
-            ->orderBy('name', 'asc')
-            ->get();
+        $inactiveEmployeeIds = Employee::where('partner_id', $partner->id)
+            ->whereIn('job_status', [Employee::STATUS_INACTIVE, Employee::STATUS_SUSPENDED])
+            ->pluck('id')
+            ->all();
 
-        return $users;
+        return User::query()
+            ->teamOf($partner)
+            ->select('id', 'name', 'email', 'phone_number', 'status', 'entity_type', 'entity_id')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn (User $member) => [
+                'id' => $member->id,
+                'name' => $member->name,
+                'email' => $member->email,
+                'phone_number' => $member->phone_number,
+                'is_inactive' => $member->status !== User::STATUS['active']
+                    || ($member->entity_type === Employee::class
+                        && in_array((int) $member->entity_id, $inactiveEmployeeIds, true)),
+            ])
+            ->filter(fn (array $member) => !$activeOnly
+                || !$member['is_inactive']
+                || in_array($member['id'], $keepIds, true))
+            ->values();
     }
 
     /**

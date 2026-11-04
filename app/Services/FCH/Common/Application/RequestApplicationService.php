@@ -28,6 +28,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -456,9 +457,19 @@ class RequestApplicationService
     {
         $partnerId = $this->getAuthenticatedPartnerId();
 
+        // One change at a time per application: the row is locked until this
+        // change is written, so a second request (a double-click, another tab)
+        // reads the status the first one left (R2 BUG-037).
+        return DB::transaction(fn () => $this->applyFundingApplicationStatus($data));
+    }
+
+    private function applyFundingApplicationStatus(array $data)
+    {
         $application = FundingApplication::with('borrower', 'fundingRequest')
             ->reviewableBy(Auth::user())
-            ->where('funding_applications.id', $data['funding_application_id'])->first();
+            ->where('funding_applications.id', $data['funding_application_id'])
+            ->lockForUpdate()
+            ->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
@@ -472,6 +483,26 @@ class RequestApplicationService
         }
 
         $oldStatus = $application->status;
+
+        // Chosen on a page that showed another status: someone moved the
+        // application on since it loaded. Refused rather than applied over that.
+        if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
+            return ApiResponse::error(
+                __('application.status_changed_elsewhere', ['status' => $oldStatus]),
+                409,
+                ['status' => $oldStatus]
+            );
+        }
+
+        // The exact change already applied - same status, same note - is a
+        // repeat (a double-click), not a second change to log.
+        $isRepeat = $oldStatus === $data['status']
+            && (!isset($data['status_note']) || $data['status_note'] === $application->status_note)
+            && ($data['status'] !== FundingApplication::CLOSED_COMPLETED
+                || (float) ($data['funded_amount'] ?? 0) === (float) $application->total_funded_amount);
+        if ($isRepeat) {
+            return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
+        }
 
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];

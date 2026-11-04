@@ -223,6 +223,55 @@ class RequestApplicationReviewTest extends TestCase
         $this->assertSame("Status note was updated.\nNote: Still waiting on bank statements", $logs[1]->description);
     }
 
+    /**
+     * Defect: R2 BUG-037 - a double-click on Update sent the status change
+     * twice and the Activity tab showed two identical "Status Changed" entries.
+     * The exact same change again (same status, same note) is a no-op.
+     */
+    #[Test]
+    public function the_same_status_change_sent_twice_is_logged_once(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $change = [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+            'status_note' => 'Docs in',
+        ];
+
+        $this->postJson($this->url('funding-application/status-update'), $change)->assertOk();
+        $this->postJson($this->url('funding-application/status-update'), $change)->assertOk();
+
+        $this->assertSame(1, DB::table('activity_log')
+            ->where('log_name', 'funding_application_status_update')
+            ->where('subject_id', $this->myApplicationId)
+            ->count());
+    }
+
+    /**
+     * R2 BUG-037 / BUG-058: a status chosen on a page that still shows an
+     * older status is refused (409), not applied over what someone else did.
+     */
+    #[Test]
+    public function a_status_change_from_a_page_showing_an_older_status_is_refused(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+            'expected_status' => FundingApplication::SUBMITTED,
+        ])->assertOk();
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::MISSING_DOCUMENTS,
+            'expected_status' => FundingApplication::SUBMITTED,
+        ])->assertStatus(409)
+            ->assertJsonPath('message', __('application.status_changed_elsewhere', ['status' => FundingApplication::UNDERWRITING_REVIEW]))
+            ->assertJsonPath('errors.status', FundingApplication::UNDERWRITING_REVIEW);
+
+        $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, FundingApplication::find($this->myApplicationId)->status);
+    }
+
     #[Test]
     public function a_partner_moves_its_own_applications_through_review(): void
     {
@@ -310,6 +359,29 @@ class RequestApplicationReviewTest extends TestCase
             'status' => FundingApplication::WITHDRAWN,
             'status_note' => $note . 'a',
         ])->assertStatus(422);
+    }
+
+    /**
+     * Status Notes is optional (decided 2026-11-01): a status is changed with no
+     * note, left out or empty. The admin form no longer marks it required.
+     */
+    #[Test]
+    public function a_status_is_changed_without_a_note(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+        ])->assertOk();
+        $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, FundingApplication::find($this->myApplicationId)->status);
+
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::WITHDRAWN,
+            'status_note' => '',
+        ])->assertOk()->assertJsonMissingValidationErrors('status_note');
+        $this->assertSame(FundingApplication::WITHDRAWN, FundingApplication::find($this->myApplicationId)->status);
     }
 
     /**

@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -241,6 +242,101 @@ class BorrowerFundingApplicationStepsTest extends TestCase
             'co_borrowers.0.home_phone' => __('embed_form.phone_invalid'),
         ]);
     }
+
+    /**
+     * Defect: R2 BUG-033 - the same application open in two tabs: tab A saved
+     * Timeframe "1 Month", then tab B (never reloaded) saved Collateral and
+     * silently put Timeframe back to "1-2 Weeks". Each save sends the whole
+     * step; a save from an older copy is now refused with 409.
+     */
+    #[Test]
+    public function a_save_from_an_older_copy_of_the_application_is_refused(): void
+    {
+        $this->travelTo('2026-10-21 10:00:00');
+        DB::table('funding_applications')->where('id', $this->myApplicationId)->update(['timeframe_needed' => '1-2 Weeks', 'updated_at' => now()]);
+        $this->actingAsUser($this->me);
+        $step = array_merge(self::steps()['funding request'][1], ['id' => $this->myApplicationId, 'collateral_available' => 'Inventory']);
+
+        // Both tabs open the wizard and get the same version.
+        $loaded = $this->getJson($this->url('funding-request') . "?funding_request_id={$this->myRequestId}")->assertOk()->json('data.version');
+        $this->assertSame('2026-10-21 10:00:00', $loaded);
+
+        // Tab A saves; the response carries the new version.
+        $this->travelTo('2026-10-21 10:01:00');
+        $newVersion = $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1 Month', 'expected_version' => $loaded])
+            ->assertOk()->json('data.version');
+        $this->assertSame('2026-10-21 10:01:00', $newVersion);
+
+        // Tab B saves from the copy it loaded: refused, nothing overwritten.
+        $this->travelTo('2026-10-21 10:02:00');
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1-2 Weeks', 'collateral_available' => 'Real Estate', 'expected_version' => $loaded])
+            ->assertStatus(409)
+            ->assertJsonPath('message', __('application.funding_application_changed'))
+            // Not a field error, so no `errors`: the partner wizard showed
+            // `errors.version` as "Please resolve validation errors".
+            ->assertJsonMissingPath('errors');
+        $saved = FundingApplication::find($this->myApplicationId);
+        $this->assertSame('1 Month', $saved->timeframe_needed);
+        $this->assertSame('Inventory', $saved->collateral_available);
+
+        // Tab A goes on with the version it was given; a client sending none is not checked.
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1 Month', 'collateral_available' => 'Real Estate', 'expected_version' => $newVersion])->assertOk();
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '3 Months'])->assertOk();
+    }
+
+    /**
+     * Defect: R2 BUG-027 - /fund-application/86 (an application id typed as a
+     * request id) opened a blank wizard for request 86, which had not been
+     * approved: an application can only be started on an Approved request. One
+     * already started stays reachable whatever the request's status now is.
+     */
+    #[Test]
+    public function an_application_is_started_only_on_an_approved_request(): void
+    {
+        $pendingId = $this->fundingRequestFor($this->me);
+        DB::table('funding_requests')->where('id', $pendingId)->update(['status' => FundingRequest::STATUS_PENDING]);
+        $approvedId = $this->fundingRequestFor($this->me);
+        $this->actingAsUser($this->me);
+
+        $this->getJson($this->url('business-info') . "?funding_request_id={$pendingId}")
+            ->assertNotFound()
+            ->assertJsonPath('message', __('borrower.funding_request_not_approved'));
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], ['funding_request_id' => $pendingId]))
+            ->assertNotFound();
+        $this->assertSame(0, FundingApplication::where('funding_request_id', $pendingId)->count());
+
+        $this->getJson($this->url('business-info') . "?funding_request_id={$approvedId}")->assertOk();
+
+        // My own application on a request that has since moved on still opens.
+        DB::table('funding_requests')->where('id', $this->myRequestId)->update(['status' => FundingRequest::STATUS_ACCEPTED]);
+        $this->getJson($this->url('business-info') . "?funding_request_id={$this->myRequestId}")->assertOk();
+    }
+
+    /**
+     * Defect: R2 BUG-032 - a Purpose Note of 256-500 characters answered 500
+     * "Failed to update funding request": the rule allows 500 but the column
+     * was a VARCHAR(255). SQLite does not enforce a VARCHAR length, so the
+     * column's type is pinned as well as the rule. Collateral Available had the
+     * same mismatch (500 allowed, 255 stored).
+     */
+    #[Test]
+    public function a_purpose_note_of_up_to_500_characters_is_kept_in_full(): void
+    {
+        $this->assertSame('text', Schema::getColumnType('funding_applications', 'purpose_note'));
+        $this->assertSame('text', Schema::getColumnType('funding_applications', 'collateral_available'));
+
+        $this->actingAsUser($this->me);
+        $payload = array_merge(self::steps()['funding request'][1], ['id' => $this->myApplicationId, 'purpose_of_funds' => 'Other']);
+
+        $this->postJson($this->url('funding-request'), $payload + ['purpose_note' => str_repeat('n', 500), 'collateral_available' => str_repeat('c', 500)])->assertOk();
+        $saved = FundingApplication::find($this->myApplicationId);
+        $this->assertSame(500, strlen($saved->purpose_note));
+        $this->assertSame(500, strlen($saved->collateral_available));
+
+        $this->postJson($this->url('funding-request'), $payload + ['purpose_note' => str_repeat('n', 501)])
+            ->assertStatus(422)->assertJsonValidationErrors(['purpose_note']);
+    }
+
 
     #[Test]
     public function a_co_borrowers_written_ssn_is_stored_as_its_nine_digits(): void

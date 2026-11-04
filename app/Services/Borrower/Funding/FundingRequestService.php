@@ -13,6 +13,7 @@ use App\Services\Borrower\Funding\FundingReadinessService;
 use App\Traits\PaginatesApi;
 use Exception;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
@@ -45,6 +46,8 @@ class FundingRequestService
         // Every submission is a new funding request. Earlier requests and
         // applications for the same funding option - pending, rejected, on hold,
         // in review or settled - neither block it nor are reused or changed.
+        // The one exception: "Update Application" on a rejected request sends
+        // its `funding_request_id`, and that request is resubmitted in place.
 
         $fundingOption = FundingSequencing::find($data['funding_sequence_id']);
         $lenderIds = [];
@@ -79,9 +82,39 @@ class FundingRequestService
         }
         $data['lender_ids'] = $finalLenderIds;
 
-        $fundingRequest = FundingRequest::create($data);
+        $rejectedRequestId = $data['funding_request_id'] ?? null;
+        unset($data['funding_request_id']);
+        $previousRejectReason = null;
 
-        if ($fundingRequest->wasRecentlyCreated) {
+        if ($rejectedRequestId) {
+            // "Update Application" on a rejected request resubmits that same
+            // request (back to Pending) instead of inserting a new one. The lock
+            // and re-check stop a double submit from resubmitting it twice.
+            $fundingRequest = DB::transaction(function () use ($rejectedRequestId, $borrower, $data, &$previousRejectReason) {
+                $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
+                    ->lockForUpdate()
+                    ->find($rejectedRequestId);
+
+                if (!$fundingRequest || $fundingRequest->status !== FundingRequest::STATUS_REJECTED) {
+                    throw new Exception(__('funding_request.resubmit_not_rejected'));
+                }
+
+                $previousRejectReason = $fundingRequest->reject_reason;
+                $fundingRequest->update(array_merge($data, [
+                    'reject_reason' => null,
+                    'approved_at' => null,
+                    'approved_by' => null,
+                ]));
+
+                return $fundingRequest;
+            });
+        } else {
+            $fundingRequest = FundingRequest::create($data);
+        }
+
+        $isResubmission = (bool) $rejectedRequestId;
+
+        if ($fundingRequest->wasRecentlyCreated || $isResubmission) {
             $hostPartner = Partner::where('is_host', 1)->first();
             $borrowerPartner = $borrower->partner;
             
@@ -129,7 +162,19 @@ class FundingRequestService
             }
         }
 
-        if ($fundingRequest->wasRecentlyCreated) {
+        if ($isResubmission) {
+            app(ActivityLogService::class)->logSystemEvent(
+                FundingRequest::class,
+                $fundingRequest->id,
+                $fundingRequest->partner_id,
+                $fundingRequest->borrower_id,
+                'Funding Request Resubmitted',
+                'Borrower updated and resubmitted a rejected funding request for '
+                    . ($fundingOption ? $fundingOption->name : 'funding sequence')
+                    . ($previousRejectReason ? '. Previous rejection reason: ' . $previousRejectReason : ''),
+                ActivityLog::LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE
+            );
+        } elseif ($fundingRequest->wasRecentlyCreated) {
             app(ActivityLogService::class)->logSystemEvent(
                 FundingRequest::class,
                 $fundingRequest->id,

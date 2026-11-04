@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Borrower\Document;
 
+use App\Exceptions\DocumentInUseException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\Document\UploadDocumentRequest;
@@ -63,6 +64,9 @@ class DocumentController extends Controller
                 return ApiResponse::notFound(__('borrower.document_not_found'));
             }
             return ApiResponse::success(null, __('borrower.document_deleted_successfully'));
+        } catch (DocumentInUseException $e) {
+            // An open request still needs it (R2 BUG-045) - say which.
+            return ApiResponse::error($e->getMessage(), 422, ['funding_request_ids' => $e->fundingRequestIds]);
         } catch (\Throwable $e) {
             return ApiResponse::error(__('borrower.document_delete_failed'));
         }
