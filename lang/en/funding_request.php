@@ -38,6 +38,10 @@ return [
     'status_changed_elsewhere' => 'This request is already ":status" - it was changed by someone else since you opened it. Reload to see the latest.',
     'lender_inactive' => 'This lender is inactive and cannot be assigned.',
 
+    'resubmit_not_found' => 'Funding request not found.',
+    'resubmit_not_rejected' => 'Only a rejected funding request can be updated. This request has already been resubmitted.',
+    'resubmit_other_option' => 'This funding request belongs to a different funding option.',
+
     'logs' => [
         'dispatched_to_borrower' => 'FundingRequest #:id: Dispatched :mailable to borrower (:email)',
         'dispatched_to_partner' => 'FundingRequest #:id: Dispatched :mailable to partner (:email, Partner ID: :partner_id)',
