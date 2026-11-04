@@ -34,6 +34,12 @@ class PartnerDocument extends Model
     public const FOLDER = Folder::PARTNER_DOCUMENTS;
 
     /**
+     * The folders a document is picked from in the file manager: the private
+     * documents folder (the Documents tab's) or the partner's older public one.
+     */
+    public const PICK_FOLDERS = [self::FOLDER, Folder::PARTNERS];
+
+    /**
      * Where a document's file is on the uploads disk: its own path once moved
      * to partner-documents/, else the partner's folder it was uploaded to.
      */
