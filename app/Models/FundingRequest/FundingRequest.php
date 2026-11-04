@@ -24,6 +24,17 @@ class FundingRequest extends Model
     const STATUS_ACCEPTED = 'Accepted';
     const STATUS_REJECTED = 'Rejected';
     const STATUS_CANCELED = 'Cancelled';
+
+    /**
+     * The statuses a change to is emailed (product decision 2026-11-04) - each
+     * time the request reaches one. Pending, In Progress and Accepted are told
+     * in the bell only.
+     */
+    const EMAILED_STATUSES = [self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_CANCELED];
+
+    /** The longest rejection note (the admin's Reason / Note counter shows the same). */
+    const REJECT_REASON_MAX_LENGTH = 10000;
+
     const APPLICATION_STATUS_NOT_STARTED = 'Not Started';
     // const STATUS_APPLICATION_STARTED = 'Funding Application Started';
     // const STATUS_APPLICATION_IN_PROGRESS = 'Funding Application In Progress';

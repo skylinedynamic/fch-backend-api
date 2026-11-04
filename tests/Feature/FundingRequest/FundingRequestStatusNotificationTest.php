@@ -12,10 +12,13 @@ use App\Models\User\User;
 use App\Notifications\DynamicNotification;
 use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Mailable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -159,10 +162,85 @@ class FundingRequestStatusNotificationTest extends TestCase
         $this->updateStatus(FundingRequest::STATUS_REJECTED);
 
         Mail::assertQueued(UnderwritingStatusUpdated::class, 2);
+        Mail::assertQueued(UnderwritingStatusUpdated::class, fn ($mail) => $mail->hasTo($this->borrowerUser->email)
+            && $mail->audience === UnderwritingStatusUpdated::AUDIENCE_BORROWER);
+        Mail::assertQueued(UnderwritingStatusUpdated::class, fn ($mail) => $mail->hasTo($this->partner->email)
+            && $mail->audience === UnderwritingStatusUpdated::AUDIENCE_PARTNER);
         Mail::assertNotQueued(PartnerFundingRequestApproved::class);
         Notification::assertSentTo($this->borrowerUser, DynamicNotification::class);
         Notification::assertSentTo($this->partnerUser, DynamicNotification::class);
         Notification::assertNotSentTo($this->hostAdmin, DynamicNotification::class);
+    }
+
+    public static function emailedStatuses(): array
+    {
+        return [
+            'Approved' => [FundingRequest::STATUS_APPROVED],
+            'Rejected' => [FundingRequest::STATUS_REJECTED],
+            'Cancelled' => [FundingRequest::STATUS_CANCELED],
+        ];
+    }
+
+    public static function statusesWithoutEmail(): array
+    {
+        return [
+            'Pending' => [FundingRequest::STATUS_PENDING],
+            'In Progress' => [FundingRequest::STATUS_IN_PROGRESS],
+            'Accepted' => [FundingRequest::STATUS_ACCEPTED],
+        ];
+    }
+
+    /** Product decision 2026-11-04: only a decision is emailed - Approved, Rejected, Cancelled. */
+    #[Test]
+    #[DataProvider('emailedStatuses')]
+    public function a_decision_is_emailed_to_the_borrower_and_the_partner(string $status): void
+    {
+        $this->updateStatus($status);
+
+        $this->assertCount(1, $this->queuedTo($this->borrowerUser->email));
+        $this->assertCount(1, $this->queuedTo($this->partner->email));
+    }
+
+    /** Every funding request email queued to this address. */
+    private function queuedTo(string $email): Collection
+    {
+        return collect([BorrowerFundingRequestApproved::class, PartnerFundingRequestApproved::class, UnderwritingStatusUpdated::class])
+            ->flatMap(fn (string $class) => Mail::queued($class, fn (Mailable $mail) => $mail->hasTo($email)));
+    }
+
+    /**
+     * Product decision 2026-11-04: Pending, In Progress and Accepted are not
+     * emailed. The bell still tells the borrower and the partner.
+     */
+    #[Test]
+    #[DataProvider('statusesWithoutEmail')]
+    public function a_step_that_is_not_a_decision_is_not_emailed(string $status): void
+    {
+        $this->startFrom($status === FundingRequest::STATUS_PENDING ? FundingRequest::STATUS_IN_PROGRESS : FundingRequest::STATUS_PENDING);
+
+        $this->updateStatus($status);
+
+        Mail::assertNothingOutgoing();
+        Notification::assertSentTo($this->borrowerUser, DynamicNotification::class);
+        Notification::assertSentTo($this->partnerUser, DynamicNotification::class);
+    }
+
+    #[Test]
+    public function every_decision_is_emailed_each_time_it_is_made(): void
+    {
+        $this->updateStatus(FundingRequest::STATUS_APPROVED);
+        $this->updateStatus(FundingRequest::STATUS_REJECTED);
+        $this->updateStatus(FundingRequest::STATUS_APPROVED);
+        $this->updateStatus(FundingRequest::STATUS_CANCELED);
+
+        Mail::assertQueued(BorrowerFundingRequestApproved::class, 2);
+        // Rejected and Cancelled, to the borrower and to the partner.
+        Mail::assertQueued(UnderwritingStatusUpdated::class, 4);
+    }
+
+    private function startFrom(string $status): void
+    {
+        DB::table('funding_requests')->where('id', $this->requestId)->update(['status' => $status]);
     }
 
     #[Test]

@@ -313,23 +313,30 @@ class FundingRequestService
                 'host_email'         => $hostEmail,
             ]);
 
-            // Bell + email per audience. The bell goes out even when there is no
-            // address to email; the email goes exactly where it always did.
+            // Bell + email per audience. The bell goes out on every change, even
+            // when there is no address to email; only a decision (Approved,
+            // Rejected, Cancelled) is emailed.
             $notifier = app(Notifier::class);
             $isApproved = $data['status'] === FundingRequest::STATUS_APPROVED;
             $notificationData = ['id' => $review->id, 'status' => $data['status']];
 
+            $sendsEmail = in_array($data['status'], FundingRequest::EMAILED_STATUSES, true);
+
+            if (!$sendsEmail) {
+                Log::info(__('funding_request.logs.status_not_emailed', ['id' => $review->id, 'status' => $data['status']]));
+            }
+
             // --- 1. BORROWER ---
-            if (!$borrowerEmail) {
+            if ($sendsEmail && !$borrowerEmail) {
                 Log::warning("FundingRequest #{$review->id}: Skipped borrower email - No valid email address found for borrower ID {$review->borrower_id}");
             }
 
             try {
-                $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData, mail: $borrowerEmail
+                $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData, mail: $sendsEmail && $borrowerEmail
                     ? ($isApproved ? new BorrowerFundingRequestApproved($review) : new UnderwritingStatusUpdated($review))->to($borrowerEmail)
                     : null);
 
-                if ($borrowerEmail) {
+                if ($sendsEmail && $borrowerEmail) {
                     Log::info(__('funding_request.logs.dispatched_to_borrower', [
                         'id' => $review->id,
                         'mailable' => $isApproved ? 'BorrowerFundingRequestApproved' : "UnderwritingStatusUpdated ({$data['status']})",
@@ -345,16 +352,16 @@ class FundingRequestService
 
             // --- 2. PARTNER (if non-host partner) ---
             if ($isNonHostPartner) {
-                if (!$partnerEmail) {
+                if ($sendsEmail && !$partnerEmail) {
                     Log::warning("FundingRequest #{$review->id}: Skipped partner email - Non-host partner ID {$partner->id} ({$partner->company_name}) has no email or contact_person_email configured.");
                 }
 
                 try {
-                    $notifier->send('partner.funding_request.status_changed', $partner, $notificationData, mail: $partnerEmail
-                        ? ($isApproved ? new PartnerFundingRequestApproved($review, $partner, false) : new UnderwritingStatusUpdated($review))->to($partnerEmail)
+                    $notifier->send('partner.funding_request.status_changed', $partner, $notificationData, mail: $sendsEmail && $partnerEmail
+                        ? ($isApproved ? new PartnerFundingRequestApproved($review, $partner, false) : new UnderwritingStatusUpdated($review, UnderwritingStatusUpdated::AUDIENCE_PARTNER))->to($partnerEmail)
                         : null);
 
-                    if ($partnerEmail) {
+                    if ($sendsEmail && $partnerEmail) {
                         Log::info(__('funding_request.logs.dispatched_to_partner', [
                             'id' => $review->id,
                             'mailable' => $isApproved ? 'PartnerFundingRequestApproved' : 'UnderwritingStatusUpdated',

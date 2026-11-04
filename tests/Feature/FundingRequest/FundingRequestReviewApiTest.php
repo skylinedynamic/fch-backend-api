@@ -211,6 +211,27 @@ class FundingRequestReviewApiTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors(['status']);
     }
 
+    /**
+     * Defect: the rejection note had no length limit - only the TEXT column's,
+     * past which the save failed as a server error. It takes up to 10,000
+     * characters, like a funding application's status note, and says so.
+     */
+    #[Test]
+    public function a_rejection_note_takes_up_to_10000_characters(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/funding-request/status-update', [
+            'id' => $this->myRequestId, 'status' => FundingRequest::STATUS_REJECTED, 'reject_reason' => str_repeat('a', 10001),
+        ])->assertStatus(422)->assertJsonPath('errors.reject_reason', __('funding_request.reject_reason_max', ['max' => 10000]));
+        $this->assertSame(FundingRequest::STATUS_PENDING, $this->statusOf($this->myRequestId));
+
+        $this->postJson('/api/v1/common/funding-request/status-update', [
+            'id' => $this->myRequestId, 'status' => FundingRequest::STATUS_REJECTED, 'reject_reason' => str_repeat('a', 10000),
+        ])->assertOk();
+        $this->assertSame(10000, strlen(DB::table('funding_requests')->where('id', $this->myRequestId)->value('reject_reason')));
+    }
+
     #[Test]
     public function a_partner_cannot_change_another_partners_request(): void
     {
