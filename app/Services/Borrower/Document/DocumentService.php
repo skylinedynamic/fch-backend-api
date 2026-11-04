@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class DocumentService
 {
@@ -103,15 +104,15 @@ class DocumentService
         $size = null;
         $borrowerPath = $this->normalizePath($borrowerId, $file);
 
-        if (Storage::disk('public')->exists($borrowerPath)) {
+        if (Storage::disk(Disk::UPLOADS)->exists($borrowerPath)) {
             try {
-                $size = $this->formatSize(Storage::disk('public')->size($borrowerPath));
+                $size = $this->formatSize(Storage::disk(Disk::UPLOADS)->size($borrowerPath));
             } catch (\Exception $e) {
                 // Ignore size error
             }
-        } elseif (Storage::disk('public')->exists(ltrim($file, '/'))) {
+        } elseif (Storage::disk(Disk::UPLOADS)->exists(ltrim($file, '/'))) {
             try {
-                $size = $this->formatSize(Storage::disk('public')->size(ltrim($file, '/')));
+                $size = $this->formatSize(Storage::disk(Disk::UPLOADS)->size(ltrim($file, '/')));
             } catch (\Exception $e) {
             }
         }

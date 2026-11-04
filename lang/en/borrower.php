@@ -119,6 +119,7 @@ return [
 
     'list_failed' => 'Failed to retrieve borrowers.',
     'not_found' => 'Borrower not found.',
+    'credit_report_not_found' => 'That credit report was not uploaded for this client. Please upload the iSoftPull report again.',
     'credit_profile_not_a_report' => 'This file is not a credit report. Please upload the iSoftPull credit report PDF.',
     'credit_profile_unreadable_pdf' => 'This PDF could not be read. Please upload the iSoftPull credit report PDF.',
     'funding_data_failed' => 'Failed to load funding data.',

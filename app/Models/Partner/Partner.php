@@ -25,6 +25,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
 use App\Models\Concerns\Archivable;
 use App\Support\Branding\PartnerDomain;
+use App\Support\Files\FileUrl;
 
 class Partner extends Model
 {
@@ -417,7 +418,7 @@ class Partner extends Model
      */
     public function getPartnerImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     public function leads(): HasMany

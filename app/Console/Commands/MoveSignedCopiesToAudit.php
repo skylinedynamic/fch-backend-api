@@ -7,6 +7,10 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use RuntimeException;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 /**
  * One-off: the copies signed before the audit folder held them move from
@@ -25,15 +29,15 @@ class MoveSignedCopiesToAudit extends Command
 
     protected $description = 'Move the signed application PDFs and certificates from funding-applications/ into the audit folder';
 
-    private const OLD_ROOT = 'funding-applications';
+    private const OLD_ROOT = Folder::OLD_FUNDING_APPLICATIONS;
     private const PATH_KEYS = ['signed_application_path', 'certificate_path'];
     private const COLUMNS = ['signature_data', 'previous_signature_data'];
 
     public function handle(FundingApplicationAuditTrail $trail): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $source = Storage::disk('public');
-        $audit = Storage::disk(config('audit.disk', 'public'));
+        $source = Storage::disk(Disk::PUBLIC);
+        $audit = Storage::disk(Disk::UPLOADS);
         $moved = $missing = 0;
         $done = [];
 
@@ -80,7 +84,7 @@ class MoveSignedCopiesToAudit extends Command
                         $contents = $source->get($path);
                         $copy = $trail->keepContents($contents, pathinfo($path, PATHINFO_EXTENSION));
                         if ($audit->get($copy['path']) !== $contents) {
-                            throw new \RuntimeException(__('audit.copy_mismatch'));
+                            throw new RuntimeException(__('audit.copy_mismatch'));
                         }
                     } catch (Throwable $e) {
                         $this->error(__('audit.move.failed', ['path' => $path, 'error' => $e->getMessage()]));
@@ -112,7 +116,7 @@ class MoveSignedCopiesToAudit extends Command
             if (in_array($left, $done, true)) {
                 continue;
             }
-            if (!str_contains($left, '/signed/')) {
+            if (!str_contains($left, '/' . Folder::SIGNED . '/')) {
                 $this->warn(__('audit.move.left', ['path' => $left]));
                 continue;
             }
@@ -125,7 +129,7 @@ class MoveSignedCopiesToAudit extends Command
                 $contents = $source->get($left);
                 $copy = $trail->keepContents($contents, pathinfo($left, PATHINFO_EXTENSION));
                 if ($audit->get($copy['path']) !== $contents) {
-                    throw new \RuntimeException(__('audit.copy_mismatch'));
+                    throw new RuntimeException(__('audit.copy_mismatch'));
                 }
                 $done[] = $left;
                 $moved++;
@@ -148,7 +152,7 @@ class MoveSignedCopiesToAudit extends Command
     }
 
     /** Remove funding-applications/ and the folders under it that hold no file any more. */
-    private function removeEmptyFolders(\Illuminate\Contracts\Filesystem\Filesystem $disk): void
+    private function removeEmptyFolders(Filesystem $disk): void
     {
         if (!$disk->exists(self::OLD_ROOT)) {
             return;

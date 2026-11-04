@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
+use App\Models\Partner\Partner;
 
 /**
  * audit:move-signed-copies - the copies signed before the audit folder held
@@ -70,7 +71,7 @@ class MoveSignedCopiesToAuditTest extends TestCase
 
         $this->assertSame(self::APP, $this->signature()['signed_application_path']);
         Storage::disk('public')->assertExists(self::APP);
-        $this->assertSame([], Storage::disk('public')->allFiles('audit'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('audit'));
     }
 
     #[Test]
@@ -83,7 +84,7 @@ class MoveSignedCopiesToAuditTest extends TestCase
         $this->assertSame("audit/files/{$appHash}.pdf", $signature['signed_application_path']);
         $this->assertSame('audit/files/' . hash('sha256', '%PDF certificate') . '.pdf', $signature['certificate_path']);
         $this->assertSame('audit/files/' . hash('sha256', '%PDF first signing') . '.pdf', $this->signature('previous_signature_data')['signed_application_path']);
-        $this->assertSame('%PDF signed application', Storage::disk('public')->get($signature['signed_application_path']));
+        $this->assertSame('%PDF signed application', Storage::disk('uploads')->get($signature['signed_application_path']));
         // Nothing else of the record changes.
         $this->assertSame($appHash, $signature['sha256']);
         $this->assertSame('2026-10-19T08:30:00+00:00', $signature['signed_at']);
@@ -95,7 +96,7 @@ class MoveSignedCopiesToAuditTest extends TestCase
     public function the_moved_copy_is_still_what_a_download_hands_out(): void
     {
         $this->artisan('audit:move-signed-copies')->assertSuccessful();
-        $this->actingAsUser($this->makePartnerAdmin(\App\Models\Partner\Partner::where('is_host', true)->firstOrFail()));
+        $this->actingAsUser($this->makePartnerAdmin(Partner::where('is_host', true)->firstOrFail()));
 
         $response = $this->post("/api/v1/common/request-application/funding-application/{$this->applicationId}/download-application")->assertOk();
 
@@ -137,7 +138,7 @@ class MoveSignedCopiesToAuditTest extends TestCase
 
         $this->artisan('audit:move-signed-copies')->assertSuccessful();
 
-        $this->assertSame('%PDF signed then edited', Storage::disk('public')->get('audit/files/' . hash('sha256', '%PDF signed then edited') . '.pdf'));
+        $this->assertSame('%PDF signed then edited', Storage::disk('uploads')->get('audit/files/' . hash('sha256', '%PDF signed then edited') . '.pdf'));
         $this->assertFalse(Storage::disk('public')->exists('funding-applications'));
     }
 

@@ -5,6 +5,7 @@ namespace App\Rules;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 /**
  * A profile picture chosen from the file manager, sent as a path inside the
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class StoredProfilePicture implements ValidationRule
 {
-    private const DISK = 'public';
+    private const DISK = Disk::UPLOADS;
 
     public function __construct(private readonly ?string $folder) {}
 

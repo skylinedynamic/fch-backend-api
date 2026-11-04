@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use App\Models\Audit\FundingApplicationAuditEvent;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use App\Services\Audit\FundingApplicationAuditTrail;
+use App\Support\Files\Disk;
 
 /**
  * The day's seal of the audit trail: for each application, its event count
@@ -36,8 +38,8 @@ class SealAuditTrail extends Command
             ])->values()->all(),
         ];
 
-        $path = trim(config('audit.folder', 'audit'), '/') . '/seals/' . now('UTC')->format('Y-m-d') . '.json';
-        Storage::disk(config('audit.disk', 'public'))->put($path, json_encode($seal, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $path = FundingApplicationAuditTrail::SEALS_FOLDER . '/' . now('UTC')->format('Y-m-d') . '.json';
+        Storage::disk(Disk::UPLOADS)->put($path, json_encode($seal, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $this->info(__('audit.seal.written', ['count' => count($seal['applications']), 'path' => $path]));
 

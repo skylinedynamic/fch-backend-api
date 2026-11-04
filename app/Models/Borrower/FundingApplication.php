@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Concerns\HasPersonName;
+use App\Models\Audit\FundingApplicationAuditEvent;
 
 class FundingApplication extends Model
 {
@@ -908,6 +909,6 @@ class FundingApplication extends Model
     /** This application's audit trail, oldest first. */
     public function auditEvents()
     {
-        return $this->hasMany(\App\Models\Audit\FundingApplicationAuditEvent::class, 'funding_application_id')->orderBy('id');
+        return $this->hasMany(FundingApplicationAuditEvent::class, 'funding_application_id')->orderBy('id');
     }
 }

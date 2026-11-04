@@ -45,7 +45,8 @@ class PartnerDocumentAdminApiTest extends TestCase
         $this->app->usePublicPath($this->publicRoot);
         $dir = public_path("storage/partners/{$this->partner->id}");
         File::ensureDirectoryExists($dir);
-        File::put($dir . '/w9.pdf', '%PDF-1.4 w9');
+        // download() reads the uploads disk (BUG-016), where the document is kept.
+        Storage::disk('uploads')->put("partners/{$this->partner->id}/w9.pdf", '%PDF-1.4 w9');
         // Something worth stealing just outside public/, where a climbing path lands.
         File::put($this->publicRoot . '/../fch-secret-' . basename($this->publicRoot), 'APP_KEY=secret');
     }

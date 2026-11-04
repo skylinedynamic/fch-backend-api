@@ -5,6 +5,8 @@ namespace App\Services\FCH\Admin\CMS;
 use App\Models\CMS\SeoSetting;
 use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class SeoService
 {
@@ -87,7 +89,7 @@ class SeoService
     {
         if (isset($data['og_image'])) {
             if ($data['og_image'] instanceof \Illuminate\Http\UploadedFile) {
-                $path = $data['og_image']->store('seo-settings', 'public');
+                $path = $data['og_image']->store(Folder::SEO_SETTINGS, Disk::UPLOADS);
                 $data['og_image'] = $path;
             } elseif (is_string($data['og_image'])) {
                 $data['og_image'] = $this->normalizePath($data['og_image']);
@@ -102,9 +104,9 @@ class SeoService
         if (isset($data['og_image'])) {
             if ($data['og_image'] instanceof \Illuminate\Http\UploadedFile) {
                 if ($setting->og_image && !str_contains($setting->og_image, 'http')) {
-                    Storage::disk('public')->delete($setting->og_image);
+                    Storage::disk(Disk::UPLOADS)->delete($setting->og_image);
                 }
-                $path = $data['og_image']->store('seo-settings', 'public');
+                $path = $data['og_image']->store(Folder::SEO_SETTINGS, Disk::UPLOADS);
                 $data['og_image'] = $path;
             } elseif (is_string($data['og_image'])) {
                 $data['og_image'] = $this->normalizePath($data['og_image']);

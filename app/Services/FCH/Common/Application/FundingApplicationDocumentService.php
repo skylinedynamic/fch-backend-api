@@ -19,6 +19,7 @@ use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Models\Common\AppConfiguration;
 use Illuminate\Support\Carbon;
 use App\Helpers\ApiResponse;
+use App\Support\Files\Disk;
 
 class FundingApplicationDocumentService
 {
@@ -158,7 +159,7 @@ class FundingApplicationDocumentService
         }
 
         // In the audit folder; a copy signed before it moved there, on the public disk.
-        foreach (array_unique([config('audit.disk', 'public'), 'public']) as $disk) {
+        foreach ([Disk::UPLOADS, Disk::PUBLIC] as $disk) {
             if (Storage::disk($disk)->exists($path)) {
                 return Storage::disk($disk)->get($path);
             }
@@ -461,7 +462,7 @@ class FundingApplicationDocumentService
         int $boxHeight = 60
     ): array {
         $paths = $logoKey && $logoKey !== 'null' ? [
-            \Illuminate\Support\Facades\Storage::disk('public')->path(ltrim($logoKey, '/')),
+            Storage::disk(Disk::UPLOADS)->path(ltrim($logoKey, '/')),
             public_path('storage/' . ltrim($logoKey, '/')),
             public_path(ltrim($logoKey, '/')),
         ] : [];

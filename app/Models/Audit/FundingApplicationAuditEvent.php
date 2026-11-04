@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
+use App\Models\Borrower\Borrower;
 
 /**
  * One event in a funding application's audit trail. Append-only: written
@@ -97,7 +98,7 @@ class FundingApplicationAuditEvent extends Model
      */
     public function scopeVisibleTo(Builder $query, ?User $user): Builder
     {
-        if (!$user || $user->entity_type === \App\Models\Borrower\Borrower::class || $user->user_type === User::BORROWER) {
+        if (!$user || $user->entity_type === Borrower::class || $user->user_type === User::BORROWER) {
             return $query->whereRaw('1 = 0');
         }
 

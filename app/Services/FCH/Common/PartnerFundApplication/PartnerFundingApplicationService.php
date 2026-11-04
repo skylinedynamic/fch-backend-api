@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Mail\Partner\FundingApplicationSubmittedMail as PartnerFundingApplicationSubmittedMail;
+use App\Support\Files\Disk;
 class PartnerFundingApplicationService
 {
     public function __construct(
@@ -424,8 +425,8 @@ class PartnerFundingApplicationService
         $documents = BorrowerDocument::where('borrower_id', $borrowerId)->get();
         $baseDestinationDir = "funding-application/{$borrowerId}/FA-{$fundingApplicationId}";
 
-        if (!Storage::disk('public')->exists($baseDestinationDir)) {
-            Storage::disk('public')->makeDirectory($baseDestinationDir);
+        if (!Storage::disk(Disk::UPLOADS)->exists($baseDestinationDir)) {
+            Storage::disk(Disk::UPLOADS)->makeDirectory($baseDestinationDir);
         }
 
         foreach ($documents as $document) {
@@ -435,14 +436,14 @@ class PartnerFundingApplicationService
                 continue;
             }
 
-            $sourcePath = "borrowers/{$borrowerId}/{$rawFilePath}";
+            $sourcePath = BorrowerDocument::storagePathFor($borrowerId, $rawFilePath);
 
-            if (Storage::disk('public')->exists($sourcePath)) {
+            if (Storage::disk(Disk::UPLOADS)->exists($sourcePath)) {
                 // Copy only the file to base folder, no subdirectories
                 $fileName = basename($rawFilePath);
                 $destinationPath = "{$baseDestinationDir}/{$fileName}";
 
-                Storage::disk('public')->copy($sourcePath, $destinationPath);
+                Storage::disk(Disk::UPLOADS)->copy($sourcePath, $destinationPath);
 
                 FundingApplicationDocument::create([
                     'funding_application_id' => $fundingApplicationId,
@@ -450,11 +451,11 @@ class PartnerFundingApplicationService
                     'borrower_doc_type_id' => $document->document_type_id ?? null,
                     'name' => $document->file_name ?? basename($rawFilePath),
                     'path' => $destinationPath,
-                    'disk' => 'public',
+                    'disk' => Disk::UPLOADS,
                     'original_name' => $document->file_name ?? basename($rawFilePath),
                     'extension' => pathinfo($sourcePath, PATHINFO_EXTENSION),
-                    'mime' => Storage::disk('public')->mimeType($sourcePath),
-                    'size' => Storage::disk('public')->size($sourcePath),
+                    'mime' => Storage::disk(Disk::UPLOADS)->mimeType($sourcePath),
+                    'size' => Storage::disk(Disk::UPLOADS)->size($sourcePath),
                 ]);
             }
         }
@@ -479,7 +480,7 @@ class PartnerFundingApplicationService
         foreach ($data['files'] as $index => $file) {
             try {
                 if ($file instanceof \Illuminate\Http\UploadedFile) {
-                    $path = $file->store($destinationDir, 'public');
+                    $path = $file->store($destinationDir, Disk::UPLOADS);
                     $name = $file->getClientOriginalName();
                     $originalName = $file->getClientOriginalName();
                     $extension = $file->getClientOriginalExtension();
@@ -489,7 +490,7 @@ class PartnerFundingApplicationService
                     // It's a string path
                     $sourcePath = $this->normalizePath($borrowerId, $file);
 
-                    if (!Storage::disk('public')->exists($sourcePath)) {
+                    if (!Storage::disk(Disk::UPLOADS)->exists($sourcePath)) {
                         throw new \Exception("File does not exist: {$sourcePath}");
                     }
 
@@ -497,18 +498,18 @@ class PartnerFundingApplicationService
                     $destinationPath = "{$destinationDir}/{$fileName}";
 
                     // Ensure destination directory exists
-                    if (!Storage::disk('public')->exists($destinationDir)) {
-                        Storage::disk('public')->makeDirectory($destinationDir);
+                    if (!Storage::disk(Disk::UPLOADS)->exists($destinationDir)) {
+                        Storage::disk(Disk::UPLOADS)->makeDirectory($destinationDir);
                     }
 
-                    Storage::disk('public')->copy($sourcePath, $destinationPath);
+                    Storage::disk(Disk::UPLOADS)->copy($sourcePath, $destinationPath);
 
                     $path = $destinationPath;
                     $name = $fileName;
                     $originalName = $fileName;
                     $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
-                    $mime = Storage::disk('public')->mimeType($sourcePath);
-                    $size = Storage::disk('public')->size($sourcePath);
+                    $mime = Storage::disk(Disk::UPLOADS)->mimeType($sourcePath);
+                    $size = Storage::disk(Disk::UPLOADS)->size($sourcePath);
                 }
 
                 $documents[] = FundingApplicationDocument::create([
@@ -517,7 +518,7 @@ class PartnerFundingApplicationService
                     'borrower_doc_type_id' => $data['document_type_id'],
                     'name' => $name,
                     'path' => $path,
-                    'disk' => 'public',
+                    'disk' => Disk::UPLOADS,
                     'original_name' => $originalName,
                     'extension' => $extension,
                     'mime' => $mime,
@@ -575,8 +576,8 @@ class PartnerFundingApplicationService
             ->firstOrFail();
 
         // Delete from storage
-        if (Storage::disk('public')->exists($document->path)) {
-            Storage::disk('public')->delete($document->path);
+        if (Storage::disk(Disk::UPLOADS)->exists($document->path)) {
+            Storage::disk(Disk::UPLOADS)->delete($document->path);
         }
 
         // Delete record

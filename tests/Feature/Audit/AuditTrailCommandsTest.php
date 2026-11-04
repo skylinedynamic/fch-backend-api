@@ -76,7 +76,7 @@ class AuditTrailCommandsTest extends TestCase
 
         $this->artisan('audit:seal')->assertSuccessful();
 
-        $seal = json_decode(Storage::disk('public')->get('audit/seals/' . now('UTC')->format('Y-m-d') . '.json'), true);
+        $seal = json_decode(Storage::disk('uploads')->get('audit/seals/' . now('UTC')->format('Y-m-d') . '.json'), true);
         $this->assertSame([[
             'funding_application_id' => $this->applicationId,
             'events' => 2,

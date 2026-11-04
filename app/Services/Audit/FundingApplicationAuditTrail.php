@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use RuntimeException;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 /**
  * Writes and checks the funding application audit trail.
@@ -26,6 +29,13 @@ use Throwable;
 class FundingApplicationAuditTrail
 {
     public const MAX_PER_PAGE = 100;
+
+    /** The audit folder on the uploads disk: private (config/files.php private_folders). */
+    public const FOLDER = Folder::AUDIT;
+    /** Kept files, one per content hash: files/{sha256}.{ext}. */
+    public const FILES_FOLDER = self::FOLDER . '/files';
+    /** The daily seals: seals/{Y-m-d}.json. */
+    public const SEALS_FOLDER = self::FOLDER . '/seals';
 
     /** The columns a hash covers, in this order. */
     private const HASHED = [
@@ -192,7 +202,7 @@ class FundingApplicationAuditTrail
     public function fingerprint(?string $disk, ?string $path): ?string
     {
         try {
-            $source = Storage::disk($disk ?: 'public');
+            $source = Storage::disk($disk ?: Disk::UPLOADS);
             if (!$path || !$source->exists($path)) {
                 return null;
             }
@@ -224,11 +234,11 @@ class FundingApplicationAuditTrail
     {
         $hash = hash('sha256', $contents);
         $extension = strtolower((string) $extension);
-        $kept = trim(config('audit.folder', 'audit'), '/') . "/files/{$hash}" . ($extension !== '' ? ".{$extension}" : '');
+        $kept = self::FILES_FOLDER . "/{$hash}" . ($extension !== '' ? ".{$extension}" : '');
 
-        $audit = Storage::disk(config('audit.disk', 'public'));
+        $audit = Storage::disk(Disk::UPLOADS);
         if (!$audit->exists($kept) && !$audit->put($kept, $contents)) {
-            throw new \RuntimeException(__('audit.write_failed', ['path' => $kept]));
+            throw new RuntimeException(__('audit.write_failed', ['path' => $kept]));
         }
 
         return ['hash' => $hash, 'path' => $kept];
@@ -246,10 +256,10 @@ class FundingApplicationAuditTrail
             return null;
         }
 
-        $disk = Storage::disk(config('audit.disk', 'public'));
+        $disk = Storage::disk(Disk::UPLOADS);
         $candidates = array_filter([
             $event->file_path,
-            $event->file_hash ? trim(config('audit.folder', 'audit'), '/') . "/files/{$event->file_hash}.pdf" : null,
+            $event->file_hash ? self::FILES_FOLDER . "/{$event->file_hash}.pdf" : null,
         ]);
 
         foreach ($candidates as $path) {

@@ -15,6 +15,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Models\Borrower\FundingApplication;
+use App\Models\User\User;
+use App\Support\Files\Disk;
 
 /**
  * A funding application's audit trail: the host reads every application's,
@@ -108,14 +111,14 @@ class FundingApplicationAuditTrailController extends Controller
 
         $name = $event->context['name'] ?? basename($path);
 
-        return Storage::disk(config('audit.disk', 'public'))->download($path, $name);
+        return Storage::disk(Disk::UPLOADS)->download($path, $name);
     }
 
     private function readable(int $id): bool
     {
         // A partner reads its own applications' trail only; the host reads every one.
-        if (Auth::user()?->user_type !== \App\Models\User\User::ADMIN
-            && !\App\Models\Borrower\FundingApplication::withTrashed()->reviewableBy(Auth::user())->whereKey($id)->exists()) {
+        if (Auth::user()?->user_type !== User::ADMIN
+            && !FundingApplication::withTrashed()->reviewableBy(Auth::user())->whereKey($id)->exists()) {
             return false;
         }
 

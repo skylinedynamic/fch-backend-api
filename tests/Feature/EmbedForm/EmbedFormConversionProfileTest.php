@@ -301,8 +301,8 @@ class EmbedFormConversionProfileTest extends TestCase
         $this->assertSame(\App\Services\FCH\Common\Application\SignatureRecorder::METHOD_EMBEDDED_FORM, $signature['signing_method']);
         $this->assertSame('198.51.100.23', $signature['ip_address']);
         $this->assertSame(1, $signature['application_version']);
-        Storage::disk('public')->assertExists($signature['signed_application_path']);
-        Storage::disk('public')->assertExists($signature['certificate_path']);
+        Storage::disk('uploads')->assertExists($signature['signed_application_path']);
+        Storage::disk('uploads')->assertExists($signature['certificate_path']);
     }
 
     #[Test]

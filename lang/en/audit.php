@@ -98,6 +98,7 @@ return [
         'dry_run' => 'Dry run: nothing will be deleted.',
         'would_delete' => 'Would delete :path',
         'deleted' => 'Deleted :path',
-        'done' => ':count download copy file(s) :verb.',
+        'done' => ':count download copy file(s) deleted.',
+        'would_be_done' => ':count download copy file(s) would be deleted.',
     ],
 ];

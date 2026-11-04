@@ -74,7 +74,7 @@ class EmbedFormConversionDocumentsTest extends TestCase
     private function attachment(string $originalName, string $contents = 'file'): EmbedFormAttachment
     {
         $path = "embed_forms/{$this->partner->id}/{$this->submission->id}/" . Str::uuid() . '.' . pathinfo($originalName, PATHINFO_EXTENSION);
-        Storage::disk('public')->put($path, $contents);
+        Storage::disk('uploads')->put($path, $contents);
 
         return EmbedFormAttachment::create([
             'submission_id' => $this->submission->id,
@@ -107,7 +107,7 @@ class EmbedFormConversionDocumentsTest extends TestCase
         $document = FundingApplicationDocument::where('funding_application_id', $applicationId)->sole();
         $this->assertStringStartsWith("funding-application/{$this->borrower->id}/FA-{$applicationId}/", $document->path);
         $this->assertStringEndsWith('.pdf', $document->path);
-        $this->assertSame('statement', Storage::disk('public')->get($document->path));
+        $this->assertSame('statement', Storage::disk('uploads')->get($document->path));
         $this->assertSame('bank-statement.pdf', $document->original_name);
     }
 
@@ -120,12 +120,12 @@ class EmbedFormConversionDocumentsTest extends TestCase
 
         $this->convert();
 
-        Storage::disk('public')->assertMissing($original);
-        $this->assertSame([], Storage::disk('public')->allFiles("embed_forms/{$this->partner->id}/{$this->submission->id}"));
-        $this->assertCount(1, Storage::disk('public')->allFiles('funding-application'));
-        $this->assertCount(1, Storage::disk('public')->allFiles('borrowers'));
+        Storage::disk('uploads')->assertMissing($original);
+        $this->assertSame([], Storage::disk('uploads')->allFiles("embed_forms/{$this->partner->id}/{$this->submission->id}"));
+        $this->assertCount(1, Storage::disk('uploads')->allFiles('funding-application'));
+        $this->assertCount(1, Storage::disk('uploads')->allFiles('borrowers'));
         // Nowhere else: the audit trail records a document by its hash, without a copy.
-        $this->assertCount(2, Storage::disk('public')->allFiles());
+        $this->assertCount(2, Storage::disk('uploads')->allFiles());
     }
 
     // -- Clients > Details > Documents ------------------------------------
@@ -143,7 +143,7 @@ class EmbedFormConversionDocumentsTest extends TestCase
         $stored = $document->getRawOriginal('file_path');
         // Stored as the file name, in borrowers/{id}/ - as an upload from the Documents tab is.
         $this->assertStringNotContainsString('/', $stored);
-        $this->assertSame('statement', Storage::disk('public')->get("borrowers/{$this->borrower->id}/{$stored}"));
+        $this->assertSame('statement', Storage::disk('uploads')->get("borrowers/{$this->borrower->id}/{$stored}"));
         $this->assertSame('bank-statement.pdf', $document->file_name);
         $this->assertSame($type->id, $document->document_type_id);
         $this->assertSame($applicationId, (int) $document->application_id);
@@ -189,9 +189,9 @@ class EmbedFormConversionDocumentsTest extends TestCase
             // expected
         }
 
-        Storage::disk('public')->assertExists($original);
-        $this->assertSame([], Storage::disk('public')->allFiles('funding-application'));
-        $this->assertSame([], Storage::disk('public')->allFiles('borrowers'));
+        Storage::disk('uploads')->assertExists($original);
+        $this->assertSame([], Storage::disk('uploads')->allFiles('funding-application'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('borrowers'));
         $this->assertSame(0, BorrowerDocument::count());
     }
 
@@ -204,7 +204,7 @@ class EmbedFormConversionDocumentsTest extends TestCase
 
         $document = FundingApplicationDocument::where('funding_application_id', $applicationId)->sole();
         $this->assertSame($document->path, $attachment->fresh()->file_path);
-        Storage::disk('public')->assertExists($attachment->fresh()->file_path);
+        Storage::disk('uploads')->assertExists($attachment->fresh()->file_path);
     }
 
     #[Test]
@@ -216,15 +216,15 @@ class EmbedFormConversionDocumentsTest extends TestCase
         $applicationId = $this->convert();
 
         $this->assertSame(2, FundingApplicationDocument::where('funding_application_id', $applicationId)->count());
-        $this->assertCount(2, Storage::disk('public')->allFiles("funding-application/{$this->borrower->id}/FA-{$applicationId}"));
-        $this->assertSame([], Storage::disk('public')->allFiles('embed_forms'));
+        $this->assertCount(2, Storage::disk('uploads')->allFiles("funding-application/{$this->borrower->id}/FA-{$applicationId}"));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('embed_forms'));
     }
 
     #[Test]
     public function a_file_missing_on_disk_is_skipped_without_failing_the_conversion(): void
     {
         $missing = $this->attachment('gone.pdf');
-        Storage::disk('public')->delete($missing->file_path);
+        Storage::disk('uploads')->delete($missing->file_path);
         $this->attachment('kept.pdf');
 
         $applicationId = $this->convert();
@@ -248,9 +248,9 @@ class EmbedFormConversionDocumentsTest extends TestCase
             // expected
         }
 
-        Storage::disk('public')->assertExists($original);
+        Storage::disk('uploads')->assertExists($original);
         $this->assertSame($original, EmbedFormAttachment::sole()->file_path);
-        $this->assertSame([], Storage::disk('public')->allFiles('funding-application'));
-        $this->assertSame([], Storage::disk('public')->allFiles('borrowers'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('funding-application'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('borrowers'));
     }
 }

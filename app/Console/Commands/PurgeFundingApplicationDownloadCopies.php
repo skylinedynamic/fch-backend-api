@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 /**
  * Delete the download copies the old audit history kept: one per download,
@@ -21,26 +23,27 @@ class PurgeFundingApplicationDownloadCopies extends Command
 
     public function handle(): int
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::PUBLIC);
         $dryRun = (bool) $this->option('dry-run');
 
         if ($dryRun) {
             $this->warn(__('audit.purge.dry_run'));
         }
 
+        $oldStorage = Folder::OLD_STORAGE . '/' . Folder::OLD_FUNDING_APPLICATIONS;
         $folders = array_merge(
             array_values(array_filter(
-                array_map(fn ($dir) => "{$dir}/downloads", $disk->directories('funding-applications')),
+                array_map(fn ($dir) => $dir . '/' . Folder::DOWNLOADS, $disk->directories(Folder::OLD_FUNDING_APPLICATIONS)),
                 fn ($dir) => $disk->exists($dir)
             )),
-            $disk->exists('storage/funding-applications') ? ['storage/funding-applications'] : []
+            $disk->exists($oldStorage) ? [$oldStorage] : []
         );
 
         $count = 0;
         foreach ($folders as $folder) {
             foreach ($disk->allFiles($folder) as $file) {
                 // Belt and braces: a signed copy is never a download copy.
-                if (str_contains($file, '/signed/')) {
+                if (str_contains($file, '/' . Folder::SIGNED . '/')) {
                     continue;
                 }
                 $count++;
@@ -55,11 +58,11 @@ class PurgeFundingApplicationDownloadCopies extends Command
             }
         }
 
-        if (!$dryRun && $disk->exists('storage') && $disk->allFiles('storage') === []) {
-            $disk->deleteDirectory('storage');
+        if (!$dryRun && $disk->exists(Folder::OLD_STORAGE) && $disk->allFiles(Folder::OLD_STORAGE) === []) {
+            $disk->deleteDirectory(Folder::OLD_STORAGE);
         }
 
-        $this->info(__('audit.purge.done', ['count' => $count, 'verb' => $dryRun ? 'would be deleted' : 'deleted']));
+        $this->info(__($dryRun ? 'audit.purge.would_be_done' : 'audit.purge.done', ['count' => $count]));
 
         return self::SUCCESS;
     }

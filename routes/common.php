@@ -65,6 +65,7 @@ use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController;
 
 
 
@@ -277,9 +278,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
                 // The application's audit trail (replaces audit-history / download-history).
-                Route::get('funding-application/{id}/audit-trail', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'index'])->whereNumber('id');
-                Route::get('funding-application/{id}/audit-trail/export', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'export'])->whereNumber('id');
-                Route::get('funding-application/{id}/audit-trail/{eventId}/file', [\App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController::class, 'file'])->whereNumber(['id', 'eventId']);
+                Route::get('funding-application/{id}/audit-trail', [FundingApplicationAuditTrailController::class, 'index'])->whereNumber('id');
+                Route::get('funding-application/{id}/audit-trail/export', [FundingApplicationAuditTrailController::class, 'export'])->whereNumber('id');
+                Route::get('funding-application/{id}/audit-trail/{eventId}/file', [FundingApplicationAuditTrailController::class, 'file'])->whereNumber(['id', 'eventId']);
                 // Host's team only (AssignFundingApplicationLenderRequest).
                 Route::post('funding-application/{id}/assign-lender', [RequestApplicationController::class, 'assignFundingApplicationLender'])->whereNumber('id');
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);

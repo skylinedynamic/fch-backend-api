@@ -39,6 +39,8 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Mail\EmbedForm\NewSubmissionMail;
 use Throwable;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 
 class EmbedFormService
@@ -793,7 +795,7 @@ class EmbedFormService
     ): void {
         $directory = "embed_forms/{$submission->partner_id}/{$submission->id}";
         $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs($directory, $filename, 'public');
+        $path = $file->storeAs($directory, $filename, Disk::UPLOADS);
 
         EmbedFormAttachment::create([
             'submission_id' => $submission->id,
@@ -982,7 +984,7 @@ class EmbedFormService
 
         // The uploaded files, once the rows are gone.
         foreach ($submissions as $submission) {
-            Storage::disk('public')->deleteDirectory("embed_forms/{$submission->partner_id}/{$submission->id}");
+            Storage::disk(Disk::UPLOADS)->deleteDirectory(Folder::EMBED_FORMS . "/{$submission->partner_id}/{$submission->id}");
         }
 
         return $submissions->count();
@@ -1532,7 +1534,7 @@ class EmbedFormService
         FundingApplication $application,
         int $borrowerId
     ): void {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         foreach ($submission->attachments as $attachment) {
             if (!$attachment->file_path || !$disk->exists($attachment->file_path)) {
@@ -1562,7 +1564,7 @@ class EmbedFormService
                 'borrower_doc_type_id' => $attachment->borrower_doc_type_id,
                 'name' => $attachment->original_name,
                 'path' => $destination,
-                'disk' => 'public',
+                'disk' => Disk::UPLOADS,
                 'original_name' => $attachment->original_name,
                 'extension' => $extension ?: null,
                 'mime' => $attachment->mime_type,
@@ -1573,7 +1575,7 @@ class EmbedFormService
                 $destination, $attachment->original_name, $attachment->borrower_doc_type_id, $application->id, $borrowerId
             );
             $this->movedDocuments[array_key_last($this->movedDocuments)]['client']
-                = "borrowers/{$borrowerId}/" . $document->getRawOriginal('file_path');
+                = $document->storagePath();
         }
     }
 
@@ -1594,7 +1596,7 @@ class EmbedFormService
         int $applicationId,
         int $borrowerId
     ): BorrowerDocument {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
         $extension = pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($source, PATHINFO_EXTENSION);
         $fileName = Str::uuid() . ($extension ? '.' . $extension : '');
         $path = "borrowers/{$borrowerId}/{$fileName}";
@@ -1637,7 +1639,7 @@ class EmbedFormService
      */
     protected function deleteMovedOriginals(EmbedFormSubmission $submission): void
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         foreach ($this->movedDocuments as $moved) {
             if (!$disk->delete($moved['from'])) {
@@ -1659,7 +1661,7 @@ class EmbedFormService
     /** After a rollback: the copies belong to an application that does not exist. */
     protected function deleteMovedCopies(): void
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         foreach ($this->movedDocuments as $moved) {
             $disk->delete(array_filter([$moved['to'], $moved['client'] ?? null]));
@@ -1695,7 +1697,7 @@ class EmbedFormService
             return ApiResponse::forbidden(__('embed_form.unauthorized_attachment'));
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
         if (!$disk->exists($attachment->file_path)) {
             return ApiResponse::notFound(__('embed_form.file_not_exists'));
         }

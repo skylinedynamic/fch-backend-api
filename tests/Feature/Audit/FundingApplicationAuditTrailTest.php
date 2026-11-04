@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
+use Illuminate\Support\Collection;
+use LogicException;
 
 /**
  * Funding application audit trail: every change to an application's data is
@@ -95,7 +97,7 @@ class FundingApplicationAuditTrailTest extends TestCase
         ]);
     }
 
-    private function events(?string $event = null): \Illuminate\Support\Collection
+    private function events(?string $event = null): Collection
     {
         return FundingApplicationAuditEvent::where('funding_application_id', $this->application->id)
             ->when($event, fn ($q) => $q->where('event', $event))
@@ -201,7 +203,7 @@ class FundingApplicationAuditTrailTest extends TestCase
         $hash = hash('sha256', '%PDF bank statement');
         $this->assertSame($hash, $added->file_hash);
         $this->assertNull($added->file_path);
-        $this->assertSame([], Storage::disk('public')->allFiles('audit'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('audit'));
 
         // Removed the way the services do it: the file first, then the record.
         Storage::disk('public')->delete('funding-application/1/FA-1/bank.pdf');
@@ -210,7 +212,7 @@ class FundingApplicationAuditTrailTest extends TestCase
         $removed = $this->events(FundingApplicationAuditEvent::EVENT_DOCUMENT_REMOVED)->sole();
         $this->assertSame($hash, $removed->file_hash);
         $this->assertNull($removed->file_path);
-        $this->assertSame([], Storage::disk('public')->allFiles('audit'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('audit'));
     }
 
     #[Test]
@@ -381,13 +383,13 @@ class FundingApplicationAuditTrailTest extends TestCase
         try {
             $event->update(['actor_name' => 'X']);
             $this->fail('An audit event was updated.');
-        } catch (\LogicException) {
+        } catch (LogicException) {
         }
 
         try {
             $event->delete();
             $this->fail('An audit event was deleted.');
-        } catch (\LogicException) {
+        } catch (LogicException) {
         }
 
         $this->assertSame('Pat Partner', $event->fresh()->actor_name);
@@ -554,7 +556,7 @@ class FundingApplicationAuditTrailTest extends TestCase
         ]);
         $event = $this->events(FundingApplicationAuditEvent::EVENT_DOCUMENT_ADDED)->sole();
         // Even when a file with that hash sits in the audit folder.
-        Storage::disk('public')->put("audit/files/{$event->file_hash}.pdf", '%PDF tax return');
+        Storage::disk('uploads')->put("audit/files/{$event->file_hash}.pdf", '%PDF tax return');
 
         $row = collect($this->getJson($this->trailUrl())->assertOk()->json('data'))->firstWhere('id', $event->id);
         $this->assertSame($event->file_hash, $row['file']['sha256']);
@@ -570,7 +572,7 @@ class FundingApplicationAuditTrailTest extends TestCase
     public function an_imported_events_file_hands_out_from_the_audit_folder_by_its_hash(): void
     {
         $hash = hash('sha256', '%PDF signed long ago');
-        Storage::disk('public')->put("audit/files/{$hash}.pdf", '%PDF signed long ago');
+        Storage::disk('uploads')->put("audit/files/{$hash}.pdf", '%PDF signed long ago');
         $event = app(FundingApplicationAuditTrail::class)->append([
             'funding_application_id' => $this->application->id,
             'partner_id' => $this->partner->id,

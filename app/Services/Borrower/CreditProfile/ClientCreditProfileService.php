@@ -9,6 +9,9 @@ use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\StoragePath;
+use Throwable;
+use App\Support\Files\Disk;
 
 /**
  * Removing a client's credit profile outright: the parsed report, its
@@ -54,7 +57,7 @@ class ClientCreditProfileService
         // After the commit: a file that will not go away must not bring the
         // rows back.
         if ($reportPath !== null) {
-            Storage::disk('public')->delete($reportPath);
+            Storage::disk(Disk::UPLOADS)->delete($reportPath);
         }
 
         // The client's portal re-reads its profile on the next request.
@@ -105,7 +108,7 @@ class ClientCreditProfileService
                 $description,
                 ActivityLog::VISIBILITY_INTERNAL
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error(__('borrower.logs.credit_profile_activity_failed'), [
                 'borrower_id' => $borrower->id,
                 'log_type' => $logType,
@@ -114,13 +117,9 @@ class ClientCreditProfileService
         }
     }
 
-    /** The report's path on the public disk, from the URL it was saved under. */
+    /** The report's path on the uploads disk, from the URL it was saved under. */
     private function storedPath(?string $pdfUrl): ?string
     {
-        if (!$pdfUrl || !str_contains($pdfUrl, '/storage/')) {
-            return null;
-        }
-
-        return substr($pdfUrl, strpos($pdfUrl, '/storage/') + strlen('/storage/'));
+        return StoragePath::fromUrl($pdfUrl);
     }
 }

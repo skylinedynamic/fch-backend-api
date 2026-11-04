@@ -7,20 +7,18 @@
 |
 | Every change to a funding application's data is an append-only,
 | hash-chained event (App\Models\Audit\FundingApplicationAuditEvent). The
-| files an event concerns are kept under `folder` on `disk`, named by their
-| sha256, so a file is kept once and its name cannot be guessed.
+| files an event concerns are kept in the audit/ folder of the uploads disk
+| (FundingApplicationAuditTrail::FOLDER), named by their sha256, so a file is
+| kept once and its name cannot be guessed.
 |
-| The disk is `public` for now (decided 2026-11-03). Files are only ever
-| handed out through the audit API, never linked to directly; moving them to
-| a private disk or S3 (Object Lock) later is a change of AUDIT_DISK alone.
+| Where that folder is stored is config/files.php's, like every private
+| folder (BUG-016): AUDIT_DISK, else FILES_PRIVATE_DISK, `local` by default -
+| never reachable by a /storage URL. Files are only handed out through the
+| audit API, after its access check.
 |
 */
 
 return [
-    'disk' => env('AUDIT_DISK', 'public'),
-
-    'folder' => env('AUDIT_FOLDER', 'audit'),
-
     // The most rows one page of the trail returns.
     'max_per_page' => 100,
     'default_per_page' => 25,

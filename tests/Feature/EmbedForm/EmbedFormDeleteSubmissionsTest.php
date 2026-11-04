@@ -62,7 +62,7 @@ class EmbedFormDeleteSubmissionsTest extends TestCase
         $second = $this->submission(['status' => EmbedFormSubmission::STATUS_REJECTED]);
         $kept = $this->submission();
         $path = "embed_forms/{$this->partner->id}/{$first->id}/statement.pdf";
-        Storage::disk('public')->put($path, 'statement');
+        Storage::disk('uploads')->put($path, 'statement');
         EmbedFormAttachment::create([
             'submission_id' => $first->id,
             'partner_id' => $this->partner->id,
@@ -79,7 +79,7 @@ class EmbedFormDeleteSubmissionsTest extends TestCase
         $this->assertSame([$kept->id], EmbedFormSubmission::pluck('id')->all());
         $this->assertSame(0, EmbedFormAttachment::count());
         $this->assertSame(0, EmbedFormCoBorrower::count());
-        Storage::disk('public')->assertMissing($path);
+        Storage::disk('uploads')->assertMissing($path);
     }
 
     #[Test]

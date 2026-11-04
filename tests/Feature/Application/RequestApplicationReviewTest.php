@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
+use App\Models\Audit\FundingApplicationAuditEvent;
+use App\Services\Audit\FundingApplicationAuditTrail;
 
 /**
  * The partner portal's Intake & Review: /common/request-application/* - the
@@ -361,14 +363,14 @@ class RequestApplicationReviewTest extends TestCase
     #[Test]
     public function a_kept_file_is_fetched_only_for_my_own_application(): void
     {
-        $theirs = app(\App\Services\Audit\FundingApplicationAuditTrail::class)->append([
+        $theirs = app(FundingApplicationAuditTrail::class)->append([
             'funding_application_id' => $this->theirApplicationId,
             'partner_id' => DB::table('funding_applications')->where('id', $this->theirApplicationId)->value('partner_id'),
-            'event' => \App\Models\Audit\FundingApplicationAuditEvent::EVENT_DOCUMENT_ADDED,
+            'event' => FundingApplicationAuditEvent::EVENT_DOCUMENT_ADDED,
             'file_hash' => str_repeat('a', 64),
             'file_path' => 'audit/files/theirs.pdf',
         ]);
-        Storage::disk('public')->put('audit/files/theirs.pdf', '%PDF theirs');
+        Storage::disk('uploads')->put('audit/files/theirs.pdf', '%PDF theirs');
         $this->actingAsUser($this->partnerAdmin);
 
         foreach ([$this->myApplicationId, $this->theirApplicationId] as $applicationId) {

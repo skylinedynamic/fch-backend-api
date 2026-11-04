@@ -24,6 +24,15 @@ use Spatie\Health\Checks\Checks\EnvironmentCheck;
 use Spatie\Health\Checks\Checks\PingCheck;
 use Spatie\Health\Checks\Checks\ScheduleCheck;
 use App\HealthChecks\SchedulerRanCheck;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\FundingApplicationCoBorrower;
+use App\Models\Borrower\FundingApplicationDocument;
+use App\Observers\Audit\FundingApplicationAuditObserver;
+use App\Observers\Audit\FundingApplicationCoBorrowerAuditObserver;
+use App\Observers\Audit\FundingApplicationDocumentAuditObserver;
+use App\Support\Files\UploadsFilesystem;
+use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -44,6 +53,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // BUG-016: the `uploads` disk keeps a private folder's files on the private disk.
+        Storage::extend(Disk::FOLDER_ROUTING_DRIVER, fn ($app, array $config) => UploadsFilesystem::make($config));
+
         if (app()->isProduction()) {
             URL::forceScheme('https');
         }
@@ -51,9 +63,9 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading(!app()->isProduction());
 
         // The funding application audit trail: records changes, never alters them.
-        \App\Models\Borrower\FundingApplication::observe(\App\Observers\Audit\FundingApplicationAuditObserver::class);
-        \App\Models\Borrower\FundingApplicationDocument::observe(\App\Observers\Audit\FundingApplicationDocumentAuditObserver::class);
-        \App\Models\Borrower\FundingApplicationCoBorrower::observe(\App\Observers\Audit\FundingApplicationCoBorrowerAuditObserver::class);
+        FundingApplication::observe(FundingApplicationAuditObserver::class);
+        FundingApplicationDocument::observe(FundingApplicationDocumentAuditObserver::class);
+        FundingApplicationCoBorrower::observe(FundingApplicationCoBorrowerAuditObserver::class);
 
         // A contains-search that matches the text as typed: % and _ are not
         // wildcards (BUG-002). Reached from Eloquent builders too.

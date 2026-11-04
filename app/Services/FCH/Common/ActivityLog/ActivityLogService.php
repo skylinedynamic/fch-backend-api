@@ -29,6 +29,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use App\Support\Files\StoredFileName;
+use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class ActivityLogService
 {
@@ -129,8 +133,9 @@ class ActivityLogService
             foreach ($attachments as $file) {
                 if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
                     $originalName = $file->getClientOriginalName();
-                    $fileName = time() . '_' . str_replace(' ', '_', $originalName);
-                    $path = $file->storeAs('attachments', $fileName, 'public');
+                    // Name first, then the time; same name at once gets _1, _2 (locked).
+                    $path = StoredFileName::store($file, Storage::disk(Disk::UPLOADS), Folder::ATTACHMENTS);
+                    $fileName = basename((string) $path);
 
                     $attachmentNames[] = $originalName;
                     $attachmentFiles[] = [
@@ -849,7 +854,7 @@ class ActivityLogService
             foreach ($data['attachments'] as $file) {
                 if ($file instanceof \Illuminate\Http\UploadedFile) {
                     $hasAttachmentChanges = true;
-                    $path = $file->store('attachments', 'public');
+                    $path = $file->store(Folder::ATTACHMENTS, Disk::UPLOADS);
                     $newAttachmentFiles[] = [
                         'name' => $file->getClientOriginalName(),
                         'path' => 'storage/' . $path,
@@ -1336,10 +1341,11 @@ class ActivityLogService
                 $fileName = $document->file_name ?? basename($rawPath);
 
                 $possiblePaths = [
+                    Storage::disk(Disk::UPLOADS)->path(BorrowerDocument::storagePathFor($document->borrower_id, $rawPath)),
                     public_path('storage/borrowers/' . $document->borrower_id . '/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('borrowers/' . $document->borrower_id . '/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::BORROWERS . '/' . $document->borrower_id . '/' . $rawPath),
                     public_path('storage/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::BORROWERS . '/' . $document->borrower_id . '/' . Folder::DOCUMENTS . '/' . $rawPath),
                 ];
             } else {
                 $document = PartnerDocument::withTrashed()->find($documentId);
@@ -1351,10 +1357,11 @@ class ActivityLogService
                 $fileName = $document->document_name ?? basename($rawPath);
 
                 $possiblePaths = [
+                    Storage::disk(Disk::UPLOADS)->path(PartnerDocument::storagePathFor($document->partner_id, $rawPath)),
                     public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('partners/' . $document->partner_id . '/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::PARTNERS . '/' . $document->partner_id . '/' . $rawPath),
                     public_path('storage/partners/' . $document->partner_id . '/documents/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('partners/' . $document->partner_id . '/documents/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::PARTNERS . '/' . $document->partner_id . '/' . Folder::DOCUMENTS . '/' . $rawPath),
                 ];
             }
 
@@ -1374,7 +1381,7 @@ class ActivityLogService
         if (!file_exists($absolutePath)) {
             // check storage/app/public too if it's a storage link
             $cleanPath = ltrim(str_replace('storage/', '', $file['path']), '/');
-            $storagePath = \Illuminate\Support\Facades\Storage::disk('public')->path($cleanPath);
+            $storagePath = Storage::disk(Disk::UPLOADS)->path($cleanPath);
             if (file_exists($storagePath)) {
                 return response()->download($storagePath);
             }

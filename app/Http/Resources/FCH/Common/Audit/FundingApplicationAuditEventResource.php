@@ -5,6 +5,7 @@ namespace App\Http\Resources\FCH\Common\Audit;
 use App\Support\Audit\AuditLabels;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Services\Audit\FundingApplicationAuditTrail;
 
 /** One event of a funding application's audit trail. Times are UTC (ISO 8601). */
 class FundingApplicationAuditEventResource extends JsonResource
@@ -28,7 +29,7 @@ class FundingApplicationAuditEventResource extends JsonResource
             'file' => $this->file_hash ? [
                 'sha256' => $this->file_hash,
                 // Only an event whose file is in the audit folder can hand it out.
-                'downloadable' => app(\App\Services\Audit\FundingApplicationAuditTrail::class)->storedFile($this->resource) !== null,
+                'downloadable' => app(FundingApplicationAuditTrail::class)->storedFile($this->resource) !== null,
                 'label' => isset($this->context['file_type']) ? AuditLabels::file($this->context['file_type']) : null,
             ] : null,
             'is_legacy' => (bool) $this->is_legacy,

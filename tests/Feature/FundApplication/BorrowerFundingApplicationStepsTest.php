@@ -360,7 +360,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         $this->copyPassportKeys(storage_path(), $storage);
         $this->app->useStoragePath($storage);
         $relative = "funding-application/{$this->me->entity_id}/FA-{$this->myApplicationId}/statement-" . uniqid() . '.pdf';
-        \Illuminate\Support\Facades\Storage::disk('public')->put($relative, '%PDF-1.4 test');
+        Storage::disk('uploads')->put($relative, '%PDF-1.4 test');
         $documentId = DB::table('funding_application_documents')->insertGetId([
             'funding_application_id' => $this->myApplicationId,
             'borrower_id' => $this->me->entity_id,

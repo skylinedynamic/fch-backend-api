@@ -93,7 +93,7 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
      */
     private function convertedTheOldWay(string $name, string $contents = 'file'): array
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('uploads');
         $original = "embed_forms/{$this->partnerId}/{$this->submission->id}/" . Str::uuid() . '.pdf';
         $copy = "funding_applications/{$this->borrowerId}/{$this->applicationId}/" . Str::uuid() . '.pdf';
         $disk->put($original, $contents);
@@ -139,9 +139,9 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
 
         $path = $document->fresh()->path;
         $this->assertSame($this->newFolder() . '/' . basename($old), $path);
-        $this->assertSame('statement', Storage::disk('public')->get($path));
-        Storage::disk('public')->assertMissing($old);
-        $this->assertSame([], Storage::disk('public')->allFiles('funding_applications'));
+        $this->assertSame('statement', Storage::disk('uploads')->get($path));
+        Storage::disk('uploads')->assertMissing($old);
+        $this->assertSame([], Storage::disk('uploads')->allFiles('funding_applications'));
     }
 
     #[Test]
@@ -152,14 +152,14 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
 
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
-        Storage::disk('public')->assertMissing($original);
+        Storage::disk('uploads')->assertMissing($original);
         $this->assertSame($document->fresh()->path, $attachment->fresh()->file_path);
-        $this->assertSame([], Storage::disk('public')->allFiles('embed_forms'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('embed_forms'));
         // Once on the application, once in the client's documents.
-        $this->assertCount(1, Storage::disk('public')->allFiles('funding-application'));
-        $this->assertCount(1, Storage::disk('public')->allFiles('borrowers'));
+        $this->assertCount(1, Storage::disk('uploads')->allFiles('funding-application'));
+        $this->assertCount(1, Storage::disk('uploads')->allFiles('borrowers'));
         // Nowhere else: the audit trail records a document by its hash, without a copy.
-        $this->assertCount(2, Storage::disk('public')->allFiles());
+        $this->assertCount(2, Storage::disk('uploads')->allFiles());
     }
 
     #[Test]
@@ -168,12 +168,12 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
         // Deleted from the application since: the embed form file is the only
         // one left, so it stays where it is.
         [$attachment, $document] = $this->convertedTheOldWay('statement.pdf');
-        Storage::disk('public')->delete($document->path);
+        Storage::disk('uploads')->delete($document->path);
         $document->delete();
 
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
-        Storage::disk('public')->assertExists($attachment->file_path);
+        Storage::disk('uploads')->assertExists($attachment->file_path);
         $this->assertSame($attachment->file_path, $attachment->fresh()->file_path);
     }
 
@@ -186,20 +186,20 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
         $this->assertNotSame($first->fresh()->file_path, $second->fresh()->file_path);
-        $this->assertSame('aaa', Storage::disk('public')->get($first->fresh()->file_path));
-        $this->assertSame('bbbb', Storage::disk('public')->get($second->fresh()->file_path));
-        $this->assertSame([], Storage::disk('public')->allFiles('embed_forms'));
+        $this->assertSame('aaa', Storage::disk('uploads')->get($first->fresh()->file_path));
+        $this->assertSame('bbbb', Storage::disk('uploads')->get($second->fresh()->file_path));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('embed_forms'));
     }
 
     #[Test]
     public function a_dry_run_changes_nothing(): void
     {
         [$attachment, $document] = $this->convertedTheOldWay('statement.pdf');
-        $files = Storage::disk('public')->allFiles();
+        $files = Storage::disk('uploads')->allFiles();
 
         $this->artisan('embed-form:relocate-converted-documents', ['--dry-run' => true])->assertSuccessful();
 
-        $this->assertSame($files, Storage::disk('public')->allFiles());
+        $this->assertSame($files, Storage::disk('uploads')->allFiles());
         $this->assertSame($document->path, $document->fresh()->path);
         $this->assertSame($attachment->file_path, $attachment->fresh()->file_path);
         $this->assertSame(0, BorrowerDocument::withTrashed()->count());
@@ -210,11 +210,11 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
     {
         $this->convertedTheOldWay('statement.pdf');
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
-        $files = Storage::disk('public')->allFiles();
+        $files = Storage::disk('uploads')->allFiles();
 
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
-        $this->assertSame($files, Storage::disk('public')->allFiles());
+        $this->assertSame($files, Storage::disk('uploads')->allFiles());
         $this->assertSame(1, BorrowerDocument::count());
     }
 
@@ -232,7 +232,7 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
         $document = BorrowerDocument::where('borrower_id', $this->borrowerId)->sole();
         $stored = $document->getRawOriginal('file_path');
         $this->assertStringNotContainsString('/', $stored);
-        $this->assertSame('statement', Storage::disk('public')->get("borrowers/{$this->borrowerId}/{$stored}"));
+        $this->assertSame('statement', Storage::disk('uploads')->get("borrowers/{$this->borrowerId}/{$stored}"));
         $this->assertSame('statement.pdf', $document->file_name);
         $this->assertSame($type->id, $document->document_type_id);
         $this->assertSame($this->applicationId, (int) $document->application_id);
@@ -243,7 +243,7 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
     public function an_application_document_that_did_not_come_from_the_form_is_not_added(): void
     {
         // Uploaded to the application by the borrower or partner later.
-        Storage::disk('public')->put($this->newFolder() . '/later.pdf', 'later');
+        Storage::disk('uploads')->put($this->newFolder() . '/later.pdf', 'later');
         FundingApplicationDocument::create([
             'funding_application_id' => $this->applicationId,
             'borrower_id' => $this->borrowerId,
@@ -257,7 +257,7 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
         $this->assertSame(0, BorrowerDocument::count());
-        $this->assertSame([], Storage::disk('public')->allFiles('borrowers'));
+        $this->assertSame([], Storage::disk('uploads')->allFiles('borrowers'));
     }
 
     #[Test]
@@ -412,13 +412,13 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
     public function a_copy_missing_on_disk_is_reported_and_its_row_left_alone(): void
     {
         [$attachment, $document] = $this->convertedTheOldWay('statement.pdf');
-        Storage::disk('public')->delete($document->path);
+        Storage::disk('uploads')->delete($document->path);
 
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
         $this->assertSame($document->path, $document->fresh()->path);
         // Its copy is gone, so the embed form file is the only one: kept.
-        Storage::disk('public')->assertExists($attachment->file_path);
+        Storage::disk('uploads')->assertExists($attachment->file_path);
     }
 
     #[Test]
@@ -426,7 +426,7 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
     {
         $this->submission->update(['status' => 'new', 'converted_funding_application_id' => null]);
         $path = "embed_forms/{$this->partnerId}/{$this->submission->id}/x.pdf";
-        Storage::disk('public')->put($path, 'x');
+        Storage::disk('uploads')->put($path, 'x');
         EmbedFormAttachment::create([
             'submission_id' => $this->submission->id,
             'partner_id' => $this->partnerId,
@@ -437,6 +437,6 @@ class RelocateConvertedDocumentsCommandTest extends TestCase
 
         $this->artisan('embed-form:relocate-converted-documents')->assertSuccessful();
 
-        Storage::disk('public')->assertExists($path);
+        Storage::disk('uploads')->assertExists($path);
     }
 }

@@ -11,6 +11,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
+use App\Models\Resource\ResourceProvider;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The host team's resource library editor (/admin/resources/*): what the
@@ -41,6 +43,31 @@ class ResourceAdminApiTest extends TestCase
             'file' => 'resources/guide.pdf',
             'providers' => [['name' => 'Acme', 'link' => 'https://acme.example.org', 'is_recommended' => true]],
         ], $overrides);
+    }
+
+    /**
+     * BUG-016: resources/ is private, but a provider's logo is shown to
+     * everyone. A logo picked from resources/ is kept as a public copy in
+     * resource-providers/, so it keeps showing.
+     */
+    #[Test]
+    public function a_providers_logo_picked_from_the_private_resources_folder_is_kept_publicly(): void
+    {
+        Storage::disk('uploads')->put('resources/godaddy.png', 'png');
+        $this->actingAsUser($this->admin);
+
+        $id = $this->postJson('/api/v1/admin/resources', $this->resource([
+            'providers' => [['name' => 'GoDaddy', 'link' => 'https://godaddy.example.org', 'logo' => 'resources/godaddy.png']],
+        ]))->assertCreated()->json('data.id');
+
+        $logo = ResourceProvider::where('resource_id', $id)->value('logo');
+        $this->assertMatchesRegularExpression('#^resource-providers/godaddy_[0-9a-f]{8}\.png$#', $logo);
+        $this->assertSame('png', Storage::disk('public')->get($logo));
+        $this->assertSame(encodeUrl(asset('storage/' . $logo)), ResourceProvider::where('resource_id', $id)->first()->full_logo_url);
+
+        // Saving again keeps the same public copy.
+        $this->postJson("/api/v1/admin/resources/{$id}", ['providers' => [['name' => 'GoDaddy', 'logo' => $logo]]])->assertOk();
+        $this->assertSame($logo, ResourceProvider::where('resource_id', $id)->value('logo'));
     }
 
     #[Test]

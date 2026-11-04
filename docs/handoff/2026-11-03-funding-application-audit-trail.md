@@ -40,7 +40,7 @@ The admin "Audit History" (`download_histories`) recorded only downloads:
 - **Who, from where:** actor id, name and type, IP and user agent on every event.
 - **A failure to record never fails the change:** it is logged.
 
-**Audit folder:** disk and folder come from `config/audit.php` (`AUDIT_DISK`, default `public`, as decided for now). Files are never linked to directly. They are only served by the API, behind the same access check as the trail.
+**Audit folder:** `audit/` on the `uploads` disk, private since 2026-11-04 (`config/files.php` `private_folders.audit`, `AUDIT_DISK`; see the handoff `2026-11-04-private-files-foundation-and-audit.md`). Files are never linked to directly. They are only served by the API, behind the same access check as the trail.
 
 **API** (partner-portal routes, `FundingApplicationAuditTrailController`)
 - `GET common/request-application/funding-application/{id}/audit-trail`:
@@ -98,7 +98,7 @@ The admin "Audit History" (`download_histories`) recorded only downloads:
   - `EmbedFormConversionDocumentsTest`, `RelocateConvertedDocumentsCommandTest`: these counted every file on the disk, so they now exclude the audit copy and check it is kept exactly once.
   - Two tests that eager-loaded `downloadHistories`.
 - The new tests failed first (missing classes, schedule).
-- Full suite (`php artisan test`, final run, after the PDF export, the document-hash-only change and the lang/constant cleanup): 4618 passed, 2 skipped, 0 failed.
+- Full suite (`php artisan test`, final run, after the PDF export, the document-hash-only change and the lang/constant cleanup): 4618 passed, 2 skipped, 0 failed. After the merge with `bugfix/embed-form-application-edit` and dropping commission: 4710 passed, 2 skipped, 0 failed.
 - Documents by hash only (failed first): "a document is recorded by its hash and no copy is kept", "the same file added twice has the same hash", "a document's event has no file to download". The file-access tests now use a kept signed copy. The two embed-form tests count no audit copy.
 - PDF export, in `FundingApplicationAuditTrailTest` (4, failed first): it downloads as `application/pdf` under `audit-trail-application-{id}.pdf`; the view lists the event, its field change and the actor; an unknown format gives 422; another partner gets 404. A sample rendered from local application 61 was checked by eye.
 - Also new: `tests/Feature/Audit/MoveSignedCopiesToAuditTest.php` (8), and in `SignedCopyPreservationTest`, "the signed copies are kept in the audit folder by their hash". In `FundingApplicationAuditTrailTest`, "an imported event's file hands out from the audit folder by its hash".

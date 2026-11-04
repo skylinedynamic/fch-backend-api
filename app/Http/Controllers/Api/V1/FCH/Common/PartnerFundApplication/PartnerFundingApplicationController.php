@@ -36,6 +36,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Mail\Borrower\DraftApplicationSentMail;
+use App\Support\Files\StoragePath;
+use App\Support\Files\Disk;
 
 class PartnerFundingApplicationController extends Controller   
 {
@@ -510,15 +512,15 @@ class PartnerFundingApplicationController extends Controller
             $urlPath = $document->path ?: $document->url;
 
             if (!$urlPath) {
-                return ApiResponse::notFound('File path not found.');
+                return ApiResponse::notFound(__('files.path_not_found'));
             }
 
-            $relativePath = $urlPath;
-            if (str_contains($relativePath, '/storage/')) {
-                $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
+            $relativePath = StoragePath::fromUrl($urlPath);
+            if (!$relativePath) {
+                return ApiResponse::notFound(__('files.path_not_found'));
             }
 
-            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
+            $filePath = Storage::disk(Disk::UPLOADS)->path($relativePath);
 
             if (!file_exists($filePath)) {
                 return ApiResponse::notFound('File not found on server.');

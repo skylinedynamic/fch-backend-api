@@ -22,6 +22,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use App\Models\Concerns\Archivable;
 use App\Models\Concerns\HasEncryptedSsn;
 use App\Models\Concerns\HasPersonName;
+use App\Support\Files\FileUrl;
 
 
 class Borrower extends Model
@@ -564,7 +565,7 @@ class Borrower extends Model
 
     public function getImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     public function getYearsInBusinessAttribute()
