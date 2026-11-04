@@ -141,6 +141,7 @@ class LenderMatchService
             $matchedLenders[] = [
                 'id' => $visibility->lender->id,
                 'name' => $visibility->lender->name,
+                'legal_name' => $visibility->lender->legal_name,
                 'phone' => $visibility->lender->contact_phone,
                 'email' => $visibility->lender->contact_email,
                 'product_category' => $category->name,

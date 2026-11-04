@@ -197,10 +197,29 @@ class LenderMatchServiceTest extends TestCase
         );
     }
 
-    private function lenderIn(string $category, string $name, array $requirements = []): int
+    /**
+     * Defect: the funding application's Lender Information could only show a
+     * lender's name - the match had no legal name - so it could not show
+     * "Lender Name - Legal Name" (R2 BUG-008).
+     */
+    #[Test]
+    public function each_match_carries_the_lenders_legal_name(): void
+    {
+        $this->lenderIn('Term Loan', 'LendingClub', [], 'LendingClub Bank, N.A.');
+        $this->lenderIn('Term Loan', 'OnDeck');
+
+        $byName = collect($this->matcher->match($this->borrower, ['Term Loan']))->keyBy('name');
+
+        $this->assertSame('LendingClub Bank, N.A.', $byName['LendingClub']['legal_name']);
+        // A lender from before the legal name was required has none.
+        $this->assertNull($byName['OnDeck']['legal_name']);
+    }
+
+    private function lenderIn(string $category, string $name, array $requirements = [], ?string $legalName = null): int
     {
         $lenderId = DB::table('lenders')->insertGetId([
             'name' => $name,
+            'legal_name' => $legalName,
             'contact_phone' => '(888) 555-0102',
             'status' => 'Active',
             'created_at' => now(),
