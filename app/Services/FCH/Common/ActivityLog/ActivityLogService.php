@@ -33,6 +33,7 @@ use App\Support\Files\StoredFileName;
 use Illuminate\Support\Facades\Storage;
 use App\Support\Files\Disk;
 use App\Support\Files\Folder;
+use App\Services\FCH\Common\ActivityLog\ActivityEmailSender;
 
 class ActivityLogService
 {
@@ -289,7 +290,7 @@ class ActivityLogService
 
             // Handle Email Sending if log_type is email
             if ($logType === ActivityLog::TYPE_EMAIL) {
-                $this->sendEmail($data, $attachmentNames, $attachments);
+                $this->sendEmail($data, $attachmentNames, $attachments, $targetPartnerId);
             }
 
             DB::commit();
@@ -622,8 +623,12 @@ class ActivityLogService
         );
     }
 
-    private function sendEmail(array $data, array $attachmentNames, array $attachments): void
+    private function sendEmail(array $data, array $attachmentNames, array $attachments, ?int $recordPartnerId = null): void
     {
+        // The host sends with the client's partner's mail settings, or its own
+        // (send_from); anyone else's mail chooses as before (null).
+        $sendingPartnerId = app(ActivityEmailSender::class)->partnerIdFor(Auth::user(), $data['send_from'] ?? null, $recordPartnerId);
+
         $recipients = $data['to_emails'] ?? [];
         if (is_string($recipients)) {
             $decoded = json_decode($recipients, true);
@@ -631,7 +636,7 @@ class ActivityLogService
         }
 
         $emailData = [
-            'subject' => $data['subject'] ?? 'New Email from Activity Log',
+            'subject' => $data['subject'] ?? __('activity_log.mail.default_subject'),
             'body' => $data['description'] ?? '',
         ];
 
@@ -642,7 +647,7 @@ class ActivityLogService
 
             try {
                 app(Notifier::class)->send('activity_log.email',
-                    mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->to($recipient));
+                    mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->setMailPartnerId($sendingPartnerId)->to($recipient));
             } catch (\Throwable $e) {
                 Log::error('ActivityLog: Failed to send email to recipient', [
                     'recipient' => $recipient,

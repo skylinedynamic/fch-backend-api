@@ -508,7 +508,7 @@ class BorrowerActivityLogService
         }
 
         $emailData = [
-            'subject' => $data['subject'] ?? 'New Email from Activity Log',
+            'subject' => $data['subject'] ?? __('activity_log.mail.default_subject'),
             'body' => $data['description'] ?? '',
         ];
 

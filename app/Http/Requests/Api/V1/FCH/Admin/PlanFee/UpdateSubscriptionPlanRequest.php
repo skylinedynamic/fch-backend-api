@@ -16,6 +16,9 @@ class UpdateSubscriptionPlanRequest extends BaseApiRequest
     /** decimal(10, 2): the largest amount the columns hold. */
     private const MAX_AMOUNT = 99999999.99;
 
+    /** decimal(10, 2): an amount is kept to the cent (BUG-076 - 10.555 used to go through). */
+    private const AMOUNT_DECIMALS = 'decimal:0,2';
+
     /** Only the host's team changes plan prices - refused before any value is checked. */
     public function authorize(): bool
     {
@@ -31,10 +34,10 @@ class UpdateSubscriptionPlanRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'total_amount' => ['required', 'numeric', 'gt:0', 'max:' . self::MAX_AMOUNT],
+            'total_amount' => ['required', 'numeric', self::AMOUNT_DECIMALS, 'gt:0', 'max:' . self::MAX_AMOUNT],
             // Only Partner Enrollment plans have a platform fee; when one is sent it
             // is filled in and above 0.
-            'platform_fee' => ['sometimes', 'required', 'numeric', 'gt:0', 'max:' . self::MAX_AMOUNT],
+            'platform_fee' => ['sometimes', 'required', 'numeric', self::AMOUNT_DECIMALS, 'gt:0', 'max:' . self::MAX_AMOUNT],
             'total_installment_count_upto' => ['nullable', 'integer', 'min:1'],
             'total_seat_count' => ['nullable', 'integer', 'min:0'],
             'include_existing_subscription' => ['nullable', 'boolean'],
@@ -48,10 +51,12 @@ class UpdateSubscriptionPlanRequest extends BaseApiRequest
         return [
             'total_amount.required' => __('plan_fee.total_amount_required'),
             'total_amount.numeric' => __('plan_fee.total_amount_numeric'),
+            'total_amount.decimal' => __('plan_fee.total_amount_decimals'),
             'total_amount.gt' => __('plan_fee.total_amount_gt'),
             'total_amount.max' => __('plan_fee.total_amount_max', $max),
             'platform_fee.numeric' => __('plan_fee.platform_fee_numeric'),
             'platform_fee.required' => __('plan_fee.platform_fee_required'),
+            'platform_fee.decimal' => __('plan_fee.platform_fee_decimals'),
             'platform_fee.gt' => __('plan_fee.platform_fee_gt'),
             'platform_fee.max' => __('plan_fee.platform_fee_max', $max),
             'total_installment_count_upto.integer' => __('plan_fee.installments_integer'),

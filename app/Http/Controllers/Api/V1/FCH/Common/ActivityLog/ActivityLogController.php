@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\ActivityLog;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\FetchActivityLogsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\FetchEmailSenderRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogTaskStatusRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogVisibilityRequest;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
+use App\Services\FCH\Common\ActivityLog\ActivityEmailSender;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +42,21 @@ class ActivityLogController extends Controller
     /**
      * Show single activity log detail
      */
+    /**
+     * New Email, for the host: the partner's and the host's sending address,
+     * and which is picked first (ActivityEmailSender). Only the host chooses.
+     */
+    public function emailSender(FetchEmailSenderRequest $request, ActivityEmailSender $sender)
+    {
+        if (!ActivityEmailSender::isHost($request->user())) {
+            return ApiResponse::forbidden(__('activity_log.email_sender_host_only'));
+        }
+
+        $partnerId = $request->validated('partner_id');
+
+        return ApiResponse::success($sender->optionsFor($partnerId ? (int) $partnerId : null), __('activity_log.email_sender'));
+    }
+
     public function show($id)
     {
         try {

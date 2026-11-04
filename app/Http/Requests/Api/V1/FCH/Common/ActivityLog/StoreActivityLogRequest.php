@@ -96,6 +96,9 @@ class StoreActivityLogRequest extends BaseApiRequest
             ],
             'category'      => ['nullable', 'string', 'max:255'],
 
+            // New Email, for the host: whose mail settings it goes out with.
+            'send_from'     => ['nullable', Rule::in(ActivityLog::EMAIL_SENDERS)],
+
             // "Want to Assign" on a Task
             ...$this->taskAssignmentRules(),
 
@@ -167,6 +170,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             'subject.max'            => 'The summary may not be greater than 200 characters.',
             'description.required'   => __('activity_log.description_required'),
             'attachments.*.file'     => __('activity_log.attachment_file'),
+            'send_from.in'           => __('activity_log.send_from_invalid'),
             'remind_at.required_if'  => 'A reminder time is required when setting a reminder.',
         ];
     }

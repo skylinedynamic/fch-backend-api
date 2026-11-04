@@ -378,6 +378,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('fetch-all-activities', [ActivityLogController::class, 'index']);
                 Route::post('attachments/download', [ActivityLogController::class, 'downloadAttachment']);
                 Route::get('/', [ActivityLogController::class, 'index']);
+                // Who New Email goes out from; before /{id}, which would take it.
+                Route::get('email-sender', [ActivityLogController::class, 'emailSender']);
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
                 Route::post('/', [ActivityLogController::class, 'store']);
                 Route::match(['patch', 'post'], '/{id}/visibility', [ActivityLogController::class, 'updateVisibility']);

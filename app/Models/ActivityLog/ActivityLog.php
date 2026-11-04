@@ -92,6 +92,14 @@ class ActivityLog extends Activity
 
     const TYPE_ACTIVITY = 'activity';
 
+    /**
+     * Whose mail settings a host's New Email goes out with: the partner the
+     * record belongs to (the default) or the host's own (ActivityEmailSender).
+     */
+    const EMAIL_SENDER_PARTNER = 'partner';
+    const EMAIL_SENDER_HOST = 'host';
+    const EMAIL_SENDERS = [self::EMAIL_SENDER_PARTNER, self::EMAIL_SENDER_HOST];
+
     // New Log Types
     const LOG_TYPE_EMAIL_UPDATE = 'email_update';
 
