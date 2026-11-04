@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\Funding;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Funding\LenderVisibility;
+use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
 use Carbon\Carbon;
 use Exception;
@@ -55,8 +56,11 @@ class LenderMatchService
             return [];
         }
 
+        // An inactive lender is not offered: not matched, so not in the
+        // Assign list or the lender filter built from it (R2 BUG-020).
         $visibilities = LenderVisibility::with('lender')
             ->where('lender_product_category_id', $category->id)
+            ->whereHas('lender', fn ($q) => $q->where('status', Lender::STATUS_ACTIVE))
             ->get()
             ->unique('lender_id');
 
@@ -141,6 +145,8 @@ class LenderMatchService
             $matchedLenders[] = [
                 'id' => $visibility->lender->id,
                 'name' => $visibility->lender->name,
+                // "Lender Name - Legal Name": what the screens show (R2 BUG-008).
+                'display_name' => $visibility->lender->displayName(),
                 'phone' => $visibility->lender->contact_phone,
                 'email' => $visibility->lender->contact_email,
                 'product_category' => $category->name,

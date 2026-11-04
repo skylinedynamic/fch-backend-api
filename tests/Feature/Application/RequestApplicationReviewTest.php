@@ -376,6 +376,8 @@ class RequestApplicationReviewTest extends TestCase
         ])->assertOk();
         $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, FundingApplication::find($this->myApplicationId)->status);
 
+        // Withdrawn is past the editable statuses, so it needs a lender first.
+        $this->assignLenderTo($this->myApplicationId);
         $this->postJson($this->url('funding-application/status-update'), [
             'funding_application_id' => $this->myApplicationId,
             'status' => FundingApplication::WITHDRAWN,
