@@ -1504,28 +1504,6 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Preferred Funding Type <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select select2" name="preferred_funding_type"
-                                id="preferred_funding_type" data-req data-placeholder="Select funding type...">
-                                <option value=""></option>
-                                @foreach($options['funding_types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
-                            {{-- The same list as Preferred; the script disables the
-                            preferred type whenever it changes. --}}
-                            <select class="form-select select2" name="additional_funding_types[]"
-                                id="additional_funding_types" multiple data-placeholder="Select any others...">
-                                @foreach($options['funding_types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Purpose of Funds <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="purpose_of_funds" id="purpose_of_funds" data-req
@@ -1533,6 +1511,17 @@
                                 <option value=""></option>
                                 @foreach($options['purposes_of_funds'] as $purpose)
                                     <option value="{{ $purpose }}">{{ $purpose }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small mb-1">Preferred Funding Type <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select select2" name="preferred_funding_type"
+                                id="preferred_funding_type" data-req data-placeholder="Select funding type...">
+                                <option value=""></option>
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -1551,6 +1540,17 @@
                                     class="text-danger">*</span></label>
                             <textarea class="form-control" name="purpose_note" id="purpose_note" rows="2"
                                 maxlength="500" placeholder="Describe what the funds will be used for"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
+                            {{-- The same list as Preferred; the script marks the preferred
+                            type "Selected as Preferred" (disabled) - see refreshAdditionalFundingTypes. --}}
+                            <select class="form-select select2" name="additional_funding_types[]"
+                                id="additional_funding_types" multiple data-placeholder="Select any others...">
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Collateral Available</label>
@@ -1886,6 +1886,7 @@
         $(document).ready(function () {
             populateCountries();
             initSelect2();
+            refreshAdditionalFundingTypes();
             initDatePickers();
 
             document.getElementById('timezone').value =
@@ -2790,9 +2791,9 @@
 
         /**
          * The additional funding types are the same list as the preferred one.
-         * The preferred type is listed with an "Selected as Preferred" badge and
-         * disabled, so it cannot be picked twice
-         * (the API refuses it too); what was already chosen stays chosen.
+         * The type chosen as Preferred is listed "Selected as Preferred" and
+         * disabled, so it is not picked twice (the API refuses it too); what was
+         * already chosen otherwise stays chosen.
          */
         function refreshAdditionalFundingTypes() {
             const preferred = document.getElementById('preferred_funding_type').value;
@@ -2812,6 +2813,10 @@
         }
 
         $(document).on('change', '#preferred_funding_type', refreshAdditionalFundingTypes);
+        // A Preferred type can be in place without a change (the browser restores
+        // it, or it was chosen before this step showed), so mark the list again
+        // every time it opens - and once when the page is set up.
+        $(document).on('select2:opening', '#additional_funding_types', refreshAdditionalFundingTypes);
 
         $(document).on('change', '#purpose_of_funds', function () {
             const isOther = this.value === PURPOSE_OTHER;
