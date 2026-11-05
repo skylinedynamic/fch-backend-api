@@ -6,20 +6,18 @@ use App\Http\Requests\Api\V1\Borrower\PreQualification\FundingInfoRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\Support\CreatesFundingTypes;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
 /**
- * Request 2026-11-05: the borrower portal's Pre-Qualification > Purpose of
- * Funding is a lender product category (GET /common/funding-types) - an Active
- * one, as the funding application's funding types are - so the pre-
- * qualification's purpose is the category lenders are matched on.
+ * Request 2026-11-05 (final): the borrower portal's Pre-Qualification >
+ * Purpose of Funding is the purpose, as it was - the purposes list (Business
+ * Expansion, Payroll, ...), not the lender product categories - and the API
+ * takes it as before.
  */
 #[CoversClass(FundingInfoRequest::class)]
 class BorrowerPreQualificationPurposeTest extends TestCase
 {
-    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
     use RefreshDatabase;
 
@@ -27,30 +25,27 @@ class BorrowerPreQualificationPurposeTest extends TestCase
     {
         parent::setUp();
 
-        $this->createFundingTypes(['Term Loan', 'Business Line of Credit', 'Other']);
         $this->actingAsUser($this->makeBorrowerUser($this->makeCertifiedPartner()));
     }
 
     #[Test]
-    public function an_active_category_is_saved_as_the_purpose(): void
+    public function a_purpose_from_the_list_is_saved_as_it_was(): void
     {
-        $this->save(['purpose_of_funding' => 'Business Line of Credit'])
-            ->assertOk()
-            ->assertJsonPath('data.purpose_of_funding', 'Business Line of Credit');
-    }
-
-    #[Test]
-    public function a_purpose_that_is_not_an_active_category_is_refused(): void
-    {
-        foreach (['Working Capital', 'Line of Credit', 'business line of credit'] as $purpose) {
+        foreach (['Business Expansion', 'Furniture, Fixtures & Equipment (FF&E)', 'Working Capital'] as $purpose) {
             $this->save(['purpose_of_funding' => $purpose])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['purpose_of_funding' => __('borrower_validation.purpose_of_funding_invalid')]);
+                ->assertOk()
+                ->assertJsonPath('data.purpose_of_funding', $purpose);
         }
     }
 
     #[Test]
-    public function the_other_category_still_needs_its_note(): void
+    public function a_purpose_is_still_required(): void
+    {
+        $this->save(['purpose_of_funding' => ''])->assertUnprocessable()->assertJsonValidationErrors('purpose_of_funding');
+    }
+
+    #[Test]
+    public function other_still_needs_its_note(): void
     {
         $this->save(['purpose_of_funding' => 'Other'])->assertUnprocessable()->assertJsonValidationErrors('purpose_note');
         $this->save(['purpose_of_funding' => 'Other', 'purpose_note' => 'Trade show booth'])->assertOk();

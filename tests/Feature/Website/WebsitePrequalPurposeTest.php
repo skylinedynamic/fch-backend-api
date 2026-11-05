@@ -9,21 +9,20 @@ use App\Models\Common\AppConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\Support\CreatesFundingTypes;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
 /**
- * Request 2026-11-05: the public website's Pre-Qualification > Purpose of
- * Funding offers the lender product categories (GET /common/funding-types), so
- * the API takes only an Active category - as the borrower portal's pre-
- * qualification does.
+ * Request 2026-11-05 (final): Purpose of Funding is the purpose, as it was - the
+ * public website's pre-qualification form offers its own purposes (Working
+ * Capital, Equipment, Expansion, ...), not the lender product categories, and
+ * the API takes them as before.
  */
 #[CoversClass(StorePreQualificationRequest::class)]
 class WebsitePrequalPurposeTest extends TestCase
 {
-    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
     use RefreshDatabase;
 
@@ -35,27 +34,36 @@ class WebsitePrequalPurposeTest extends TestCase
         $host = $this->makeHostPartner();
         AppConfiguration::create(['partner_id' => $host->id, 'module' => AppConfiguration::MODULE_BRANDING, 'key' => 'site_name', 'value' => 'Host']);
         $this->withoutMiddleware(VerifyRecaptcha::class);
-        $this->createFundingTypes(['Term Loan', 'Equipment Financing']);
+    }
+
+    /** @return array<string, array{string}> the website form's purposes */
+    public static function websitePurposes(): array
+    {
+        return [
+            'Working Capital' => ['Working Capital'],
+            'Equipment' => ['Equipment'],
+            'Expansion' => ['Expansion'],
+            'Real Estate' => ['Real Estate'],
+            'Debt Refinance / Consolidation' => ['Debt Refinance / Consolidation'],
+            'Business Acquisition' => ['Business Acquisition'],
+            'Startup Funding' => ['Startup Funding'],
+            'Other' => ['Other'],
+        ];
     }
 
     #[Test]
-    public function an_active_category_is_saved_as_the_purpose(): void
+    #[DataProvider('websitePurposes')]
+    public function each_website_purpose_is_saved_as_it_was(string $purpose): void
     {
-        $this->submit('Equipment Financing')->assertOk();
+        $this->submit($purpose)->assertOk();
 
-        $this->assertSame('Equipment Financing', PreQualificationRequest::latest('id')->value('purpose_of_funding'));
+        $this->assertSame($purpose, PreQualificationRequest::latest('id')->value('purpose_of_funding'));
     }
 
     #[Test]
-    public function a_purpose_that_is_not_an_active_category_is_refused(): void
+    public function a_purpose_is_still_required(): void
     {
-        foreach (['Equipment', 'Working Capital', 'equipment financing'] as $purpose) {
-            $this->submit($purpose)
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['purpose_of_funding' => __('lead.purpose_of_funding_invalid')]);
-        }
-
-        $this->assertSame(0, PreQualificationRequest::count());
+        $this->submit('')->assertUnprocessable()->assertJsonValidationErrors('purpose_of_funding');
     }
 
     private function submit(string $purpose)
