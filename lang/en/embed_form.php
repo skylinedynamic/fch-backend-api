@@ -62,6 +62,7 @@ return [
     'ssn_format' => 'SSN must be 9 digits, in the format XXX-XX-XXXX.',
     'currency_invalid' => 'Select the currency of the requested amount: USD, EUR or GBP.',
     'additional_funding_type_invalid' => 'Select additional funding types from the list, each once.',
+    'preferred_funding_type_invalid' => 'Select the preferred funding type from the list.',
     'additional_funding_type_preferred' => 'The preferred funding type cannot also be an additional funding type.',
     'honeypot_triggered' => 'Submission rejected.',
     'phone_required' => 'A phone number is required.',

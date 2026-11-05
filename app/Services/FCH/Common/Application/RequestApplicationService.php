@@ -25,6 +25,7 @@ use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Funding\FundingTypeName;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -83,8 +84,18 @@ class RequestApplicationService
             $query->whereRaw('DATE(COALESCE(updated_at, created_at)) <= ?', [$filters['end_date']]);
         }
 
+        // A funding type from the common list (GET /common/funding-types) finds
+        // the pre-qualifications whose purpose has the same meaningful words:
+        // "Equipment Financing" finds "Equipment" (FundingTypeName).
         if(isset($filters['funding_type']) && !empty($filters['funding_type'])) {
-            $query->where('purpose_of_funding', $filters['funding_type']);
+            $purposes = PreQualificationRequest::query()
+                ->whereNotNull('purpose_of_funding')
+                ->distinct()
+                ->pluck('purpose_of_funding')
+                ->filter(fn ($purpose) => FundingTypeName::same($purpose, $filters['funding_type']))
+                ->values()
+                ->all();
+            $query->whereIn('purpose_of_funding', $purposes);
         }
 
         // Apply Search

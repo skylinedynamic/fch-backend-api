@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Borrower\PreQualification;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\PreQualificationRequest;
+use App\Rules\KnownFundingType;
 use Illuminate\Validation\Rule;
 
 class FundingInfoRequest extends BaseApiRequest
@@ -27,7 +28,9 @@ class FundingInfoRequest extends BaseApiRequest
             'id' => ['nullable','exists:pre_qualification_requests,id'],
             'funding_requested_amount' => ['required','numeric','gt:0','max:9999999999999'],
             'funding_urgency' => ['required','string','max:255'],
-            'purpose_of_funding' => ['required','string','max:255'],
+            // A lender product category (GET /common/funding-types), as the
+            // funding application's funding types are (request 2026-11-05).
+            'purpose_of_funding' => ['required','string','max:255', new KnownFundingType('borrower_validation.purpose_of_funding_invalid')],
             'purpose_note' => ['required_if:purpose_of_funding,' . PreQualificationRequest::PURPOSE_OF_FUNDING_OPTIONS['Other'],'nullable','string','max:255'],
             // Only the wizard's bands: the AUE derives min/max from these keys.
             'personal_credit_score' => ['required','string','max:255', Rule::in(array_keys(config('prequalification_aue.personal_credit_bands', [])))],

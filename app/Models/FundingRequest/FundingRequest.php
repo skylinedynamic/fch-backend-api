@@ -146,7 +146,33 @@ class FundingRequest extends Model
      */
     public function getMatchedLendersAttribute()
     {
+        // The same list as its application's page: the application's Preferred
+        // + Additional Funding Types (request 2026-11-05). With no application,
+        // the request's own funding type.
+        $application = $this->fundingApplication;
+        if ($application) {
+            $application->setRelation('fundingRequest', $this);
+
+            return app(LenderMatchService::class)->match($this->borrower, $application->lenderCategories());
+        }
+
         return app(LenderMatchService::class)->match($this->borrower, [$this->funding_type]);
+    }
+
+    /**
+     * Whether the lender may be assigned or changed now: its funding
+     * application's rule (FundingApplication::canAssignLender) when it has one -
+     * past the editable statuses the lender is fixed, from either page.
+     */
+    public function canAssignLender(): bool
+    {
+        $application = $this->fundingApplication;
+        if (! $application) {
+            return true;
+        }
+        $application->setRelation('fundingRequest', $this);
+
+        return $application->canAssignLender();
     }
 
     public function getLenderNamesAttribute()

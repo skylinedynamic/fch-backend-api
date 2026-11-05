@@ -4,9 +4,12 @@ namespace App\Services\FCH\Common\Funding;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Funding\LenderVisibility;
+use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
+use App\Support\Funding\FundingTypeName;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * The lenders that fund a borrower's requested product categories, scored
@@ -21,8 +24,11 @@ use Exception;
 class LenderMatchService
 {
     /**
-     * @param  array<int, string|null>  $categoryNames  product category names, e.g. ["Term Loan"]
-     * @return array<int, array<string, mixed>> best match first; a lender in several categories once, at its best
+     * @param  array<int, string|null>  $categoryNames  product category names, the preferred one first,
+     *                                                   e.g. ["Term Loan", "Business Line of Credit"]
+     * @return array<int, array<string, mixed>> the highest match % first; on an equal %, a lender of the
+     *                                          preferred (first) category first. A lender in several
+     *                                          categories is listed once, at its best.
      */
     public function match(?Borrower $borrower, array $categoryNames): array
     {
@@ -31,9 +37,13 @@ class LenderMatchService
             return [];
         }
 
+        $preferredKey = $this->categoryKey($categoryNames[0]);
         $matched = [];
-        foreach ($categoryNames as $categoryName) {
-            foreach ($this->matchCategory($borrower, $categoryName) as $lender) {
+        $inPreferred = [];
+        foreach ($this->categoriesFor($categoryNames) as $category) {
+            $isPreferred = $this->categoryKey($category->name) === $preferredKey;
+            foreach ($this->matchCategory($borrower, $category) as $lender) {
+                $inPreferred[$lender['id']] = ($inPreferred[$lender['id']] ?? false) || $isPreferred;
                 $best = $matched[$lender['id']] ?? null;
                 if (! $best || $lender['score'] > $best['score']) {
                     $matched[$lender['id']] = $lender;
@@ -42,19 +52,37 @@ class LenderMatchService
         }
 
         $matched = array_values($matched);
-        usort($matched, fn ($a, $b) => $b['score'] <=> $a['score']);
+        usort($matched, fn ($a, $b) => [$b['score'], $inPreferred[$b['id']]] <=> [$a['score'], $inPreferred[$a['id']]]);
 
         return $matched;
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function matchCategory(Borrower $borrower, string $categoryName): array
+    /**
+     * The lender product categories (Lenders > Product Categories) for funding
+     * type names. An older name is worded differently from the categories, so a
+     * name matches a category with the same words (FundingTypeName):
+     * "Refinance / Debt Consolidation" is "Debt Consolidation / Refinance".
+     *
+     * @param  array<int, string>  $names
+     * @return Collection<int, LenderProductCategory>
+     */
+    private function categoriesFor(array $names): Collection
     {
-        $category = LenderProductCategory::where('name', $categoryName)->first();
-        if (! $category) {
-            return [];
-        }
+        $wanted = array_filter(array_map(fn (string $name) => $this->categoryKey($name), $names));
 
+        return LenderProductCategory::all()
+            ->filter(fn (LenderProductCategory $category) => in_array($this->categoryKey($category->name), $wanted, true))
+            ->values();
+    }
+
+    private function categoryKey(string $name): string
+    {
+        return FundingTypeName::key($name);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function matchCategory(Borrower $borrower, LenderProductCategory $category): array
+    {
         $visibilities = LenderVisibility::with('lender')
             ->where('lender_product_category_id', $category->id)
             ->get()
@@ -89,7 +117,8 @@ class LenderMatchService
         $borrowerDeposits = (float) $borrower->average_monthly_deposits;
 
         foreach ($visibilities as $visibility) {
-            if (! $visibility->lender) {
+            // Only an Active lender is offered (an Inactive one cannot be assigned either).
+            if (! $visibility->lender || $visibility->lender->status !== Lender::STATUS_ACTIVE) {
                 continue;
             }
 

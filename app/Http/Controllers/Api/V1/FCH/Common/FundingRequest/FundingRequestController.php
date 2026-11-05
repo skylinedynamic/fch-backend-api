@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\FCH\Common\FundingRequest\GetFundingRequestByIdRequ
 use App\Http\Requests\Api\V1\FCH\Common\FundingRequest\UpdateFundingRequestStatusRequest;
 use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Helpers\ApiResponse;
+use App\Models\Lender\Lender;
 use Illuminate\Http\JsonResponse;
 
 class FundingRequestController extends Controller
@@ -68,7 +69,9 @@ class FundingRequestController extends Controller
         $request->validate([
             'id' => 'required|exists:funding_requests,id',
             'lender_ids' => 'nullable|array',
-            'lender_ids.*' => 'integer|exists:lenders,id',
+            'lender_ids.*' => ['integer', Lender::assignableRule()],
+        ], [
+            'lender_ids.*.exists' => __('application.lender_not_active'),
         ]);
 
         try {

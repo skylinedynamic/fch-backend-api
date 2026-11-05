@@ -43,6 +43,7 @@ return [
     'last_verified_date_date' => 'The last verified date must be a valid date.',
 
     'category_fetched' => 'Category fetched successfully',
+    'category_fetch_failed' => 'Failed to load the funding types.',
     'category_created' => 'Category created successfully',
     'category_updated' => 'Category updated successfully',
     'category_deleted' => 'Category deleted successfully',

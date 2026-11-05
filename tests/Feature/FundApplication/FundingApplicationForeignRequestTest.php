@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -25,6 +26,7 @@ use Tests\TestCase;
 class FundingApplicationForeignRequestTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
 
     private Partner $partner;
@@ -33,6 +35,7 @@ class FundingApplicationForeignRequestTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         $this->partner = $this->makeHostPartner();
         $michael = $this->makeBorrower($this->partner, ['first_name' => 'Michael', 'last_name' => 'Chen']);

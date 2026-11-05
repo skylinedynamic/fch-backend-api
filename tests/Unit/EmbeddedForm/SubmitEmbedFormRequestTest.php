@@ -367,57 +367,9 @@ class SubmitEmbedFormRequestTest extends TestCase
         }
     }
 
-    // -- Funding request: additional funding types ----------------------------
-
-    private function fundingTypeRules(): array
-    {
-        return array_intersect_key(
-            $this->stepRules('fundingRequestRules'),
-            array_flip(['preferred_funding_type', 'additional_funding_types', 'additional_funding_types.*'])
-        );
-    }
-
-    #[Test]
-    public function additional_funding_types_are_optional(): void
-    {
-        $this->assertFalse($this->fails($this->fundingTypeRules(), ['preferred_funding_type' => 'Term Loan']));
-        $this->assertFalse($this->fails($this->fundingTypeRules(), ['preferred_funding_type' => 'Term Loan', 'additional_funding_types' => []]));
-    }
-
-    #[Test]
-    public function several_other_funding_types_can_be_chosen(): void
-    {
-        [$preferred, $second, $third] = config('funding_application.options.funding_types');
-
-        $this->assertFalse($this->fails($this->fundingTypeRules(), [
-            'preferred_funding_type' => $preferred,
-            'additional_funding_types' => [$second, $third],
-        ]));
-    }
-
-    #[Test]
-    public function the_preferred_type_cannot_also_be_an_additional_one(): void
-    {
-        [$preferred, $second] = config('funding_application.options.funding_types');
-
-        $this->assertTrue($this->fails($this->fundingTypeRules(), [
-            'preferred_funding_type' => $preferred,
-            'additional_funding_types' => [$second, $preferred],
-        ]));
-    }
-
-    #[Test]
-    public function an_additional_type_must_come_from_the_list_and_appear_once(): void
-    {
-        [$preferred, $second] = config('funding_application.options.funding_types');
-
-        $this->assertTrue($this->fails($this->fundingTypeRules(), [
-            'preferred_funding_type' => $preferred,
-            'additional_funding_types' => ['Something Else'],
-        ]));
-        $this->assertTrue($this->fails($this->fundingTypeRules(), [
-            'preferred_funding_type' => $preferred,
-            'additional_funding_types' => [$second, $second],
-        ]));
-    }
+    // -- Funding request: preferred and additional funding types ---------------
+    // Both are Active lender product categories, so their checks read the
+    // database: optional additional types, several at once, never the preferred
+    // one again, each once, only from the list - all in
+    // Integration/Funding/KnownFundingTypeTest::the_embed_form_takes_funding_types_from_the_list.
 }

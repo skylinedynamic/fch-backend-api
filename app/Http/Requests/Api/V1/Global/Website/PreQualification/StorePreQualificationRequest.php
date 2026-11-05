@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Global\Website\PreQualification;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\KnownFundingType;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPhoneNumber;
 
@@ -43,7 +44,9 @@ class StorePreQualificationRequest extends BaseApiRequest
             // Step 3: Funding Requirements
             'funding_requested_amount' => ['required', 'numeric'],
             'funding_urgency' => ['required', 'string', 'max:255'],
-            'purpose_of_funding' => ['required', 'string', 'max:255'],
+            // A lender product category (GET /common/funding-types), as the
+            // website form offers and the borrower portal's pre-qualification takes.
+            'purpose_of_funding' => ['required', 'string', 'max:255', new KnownFundingType('lead.purpose_of_funding_invalid')],
             'personal_credit_score' => ['required', 'string', 'max:255'],
             'estimated_business_credit_score' => ['required', 'string', 'max:255'],
             'existing_business_debt' => ['required', 'boolean'],

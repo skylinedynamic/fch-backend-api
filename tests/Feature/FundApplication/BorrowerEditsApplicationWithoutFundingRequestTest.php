@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -32,6 +33,7 @@ class BorrowerEditsApplicationWithoutFundingRequestTest extends TestCase
 {
     use InteractsWithPortalUsers;
     use RefreshDatabase;
+    use CreatesFundingTypes;
 
     private Partner $partner;
 
@@ -42,6 +44,7 @@ class BorrowerEditsApplicationWithoutFundingRequestTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         Storage::fake('public');
         Mail::fake();

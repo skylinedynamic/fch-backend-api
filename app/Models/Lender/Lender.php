@@ -7,6 +7,8 @@ use App\Models\Lender\LenderProductCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 class Lender extends Model
 {
@@ -60,6 +62,12 @@ class Lender extends Model
             });
         }
         return $query;
+    }
+
+    /** Validation: an id of a lender that can be assigned - Active and not deleted. */
+    public static function assignableRule(): Exists
+    {
+        return Rule::exists('lenders', 'id')->where('status', self::STATUS_ACTIVE)->whereNull('deleted_at');
     }
 
     public function visibilities()

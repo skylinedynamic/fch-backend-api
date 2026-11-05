@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -36,6 +37,7 @@ use Tests\TestCase;
 class PartnerFundingApplicationStepsTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
 
     private Partner $host;
@@ -50,6 +52,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         Storage::fake('public');
         $this->host = $this->makeHostPartner();

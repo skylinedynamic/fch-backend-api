@@ -1062,6 +1062,30 @@
                 display: none !important;
             }
         }
+
+        /* An option's badge in a select2 list - the preferred funding type in
+           Additional Funding Types, listed but not selectable: "Selected as Preferred". */
+        .select2-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .select2-option__badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            line-height: 1.4;
+            color: var(--brand-primary);
+            background: rgba(var(--bs-primary-rgb), 0.12);
+            border: 1px solid rgba(var(--bs-primary-rgb), 0.25);
+        }
+
+        .select2-results__option--disabled {
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -1492,8 +1516,8 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
-                            {{-- Every funding type except the preferred one, which the
-                            script takes out whenever the preferred type changes. --}}
+                            {{-- The same list as Preferred; the script disables the
+                            preferred type whenever it changes. --}}
                             <select class="form-select select2" name="additional_funding_types[]"
                                 id="additional_funding_types" multiple data-placeholder="Select any others...">
                                 @foreach($options['funding_types'] as $type)
@@ -2111,7 +2135,15 @@
                     placeholder: $(this).data('placeholder') || '',
                     allowClear: !$(this).is('[data-req]'),
                     // Several picks in a row without reopening the list.
-                    closeOnSelect: !$(this).prop('multiple')
+                    closeOnSelect: !$(this).prop('multiple'),
+                    // An option with data-badge shows it beside its text.
+                    templateResult: function (item) {
+                        const badge = item.element && item.element.dataset ? item.element.dataset.badge : '';
+                        if (!badge) return item.text;
+                        return $('<span class="select2-option">')
+                            .append($('<span>').text(item.text))
+                            .append($('<span class="select2-option__badge">').text(badge).attr('title', 'Already selected as the Preferred Funding Type'));
+                    }
                 });
             });
 
@@ -2757,9 +2789,10 @@
         });
 
         /**
-         * The additional funding types are every type but the preferred one.
-         * The list is rebuilt rather than an option hidden, so the preferred type
-         * cannot be picked twice; what was already chosen stays chosen.
+         * The additional funding types are the same list as the preferred one.
+         * The preferred type is listed with an "Selected as Preferred" badge and
+         * disabled, so it cannot be picked twice
+         * (the API refuses it too); what was already chosen stays chosen.
          */
         function refreshAdditionalFundingTypes() {
             const preferred = document.getElementById('preferred_funding_type').value;
@@ -2767,8 +2800,13 @@
             const chosen = ($additional.val() || []).filter(type => type !== preferred);
 
             $additional.empty();
-            FUNDING_TYPES.filter(type => type !== preferred).forEach(type => {
-                $additional.append(new Option(type, type, false, chosen.includes(type)));
+            FUNDING_TYPES.forEach(type => {
+                const option = new Option(type, type, false, chosen.includes(type));
+                if (type === preferred) {
+                    option.disabled = true;
+                    option.dataset.badge = 'Selected as Preferred';
+                }
+                $additional.append(option);
             });
             $additional.trigger('change.select2');
         }

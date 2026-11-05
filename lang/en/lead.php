@@ -82,6 +82,7 @@ return [
     'funding_requested_amount_numeric' => 'Funding Requested Amount must be a number.',
     'funding_urgency_required' => 'Funding Urgency is required.',
     'purpose_of_funding_required' => 'Purpose of Funding is required.',
+    'purpose_of_funding_invalid' => 'Select the Purpose of Funding from the list.',
     'personal_credit_score_required' => 'Personal Credit Score is required.',
     'estimated_business_credit_score_required' => 'Estimated Business Credit Score is required.',
     'existing_business_debt_required' => 'Existing Business Debt field is required.',

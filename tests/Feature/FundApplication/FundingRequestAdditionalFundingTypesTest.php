@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -20,11 +21,18 @@ use Tests\TestCase;
 class FundingRequestAdditionalFundingTypesTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
 
     private int $partnerId;
     private int $borrowerId;
     private int $fundingRequestId;
     private int $applicationId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->createFundingTypes();
+    }
 
     public static function portals(): array
     {
@@ -109,7 +117,7 @@ class FundingRequestAdditionalFundingTypesTest extends TestCase
             'purpose_of_funds' => 'Working Capital',
             'approved_funding' => 'Term Loan',
             'preferred_funding_type' => 'Term Loan',
-            'additional_funding_types' => ['SBA Loan', 'Line of Credit'],
+            'additional_funding_types' => ['SBA Financing', 'Business Line of Credit'],
         ], $overrides);
     }
 
@@ -121,13 +129,13 @@ class FundingRequestAdditionalFundingTypesTest extends TestCase
 
         $this->postJson($url, $this->payload())
             ->assertOk()
-            ->assertJsonPath('data.additional_funding_types', ['SBA Loan', 'Line of Credit']);
+            ->assertJsonPath('data.additional_funding_types', ['SBA Financing', 'Business Line of Credit']);
 
-        $this->assertSame(['SBA Loan', 'Line of Credit'], FundingApplication::findOrFail($this->applicationId)->additional_funding_types);
+        $this->assertSame(['SBA Financing', 'Business Line of Credit'], FundingApplication::findOrFail($this->applicationId)->additional_funding_types);
 
         $this->getJson("{$url}?id={$this->applicationId}&funding_request_id={$this->fundingRequestId}")
             ->assertOk()
-            ->assertJsonPath('data.additional_funding_types', ['SBA Loan', 'Line of Credit']);
+            ->assertJsonPath('data.additional_funding_types', ['SBA Financing', 'Business Line of Credit']);
     }
 
     #[Test]
@@ -148,7 +156,7 @@ class FundingRequestAdditionalFundingTypesTest extends TestCase
     {
         $this->signIn($userType);
 
-        $this->postJson($url, $this->payload(['additional_funding_types' => ['SBA Loan', 'Term Loan']]))
+        $this->postJson($url, $this->payload(['additional_funding_types' => ['SBA Financing', 'Term Loan']]))
             ->assertStatus(422);
     }
 
@@ -159,6 +167,6 @@ class FundingRequestAdditionalFundingTypesTest extends TestCase
         $this->signIn($userType);
 
         $this->postJson($url, $this->payload(['additional_funding_types' => ['Something Else']]))->assertStatus(422);
-        $this->postJson($url, $this->payload(['additional_funding_types' => ['SBA Loan', 'SBA Loan']]))->assertStatus(422);
+        $this->postJson($url, $this->payload(['additional_funding_types' => ['SBA Financing', 'SBA Financing']]))->assertStatus(422);
     }
 }

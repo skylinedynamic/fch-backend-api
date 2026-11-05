@@ -179,6 +179,9 @@ class FundingRequestService
         // the application's lifecycle key, not from a list of status names.
         $review->fundingApplication?->append(['status_key', 'is_editable']);
 
+        // Lender Information offers Assign only while the lender may change.
+        $review->setAttribute('can_assign_lender', $review->canAssignLender());
+
         // When each status was reached, so the tracker keeps the dates of the
         // steps in between once the request is decided (BUG-070).
         $review->setAttribute('status_dates', $this->statusDates($review));
@@ -424,6 +427,11 @@ class FundingRequestService
 
         if (!$review) {
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
+        }
+
+        // Past its application's editable statuses the lender assigned is fixed.
+        if (! $review->canAssignLender()) {
+            return ApiResponse::error(__('application.lender_locked', ['status' => $review->fundingApplication->status]), 422);
         }
 
         $review->lender_ids = $data['lender_ids'] ?? [];
