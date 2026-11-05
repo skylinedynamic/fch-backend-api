@@ -112,6 +112,8 @@ class BorrowerPersonalDetailsResource extends JsonResource
 
             // Agreement
             'has_sign' => (bool) $this->signedAgreement()->exists(),
+            // Whether the host still asks them to sign (false: excused).
+            'agreement_required' => $this->agreement_required !== false,
         ];
     }
 }
