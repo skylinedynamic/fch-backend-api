@@ -1163,7 +1163,8 @@ class BorrowerService
                     'rejection_reason' => $doc->rejection_reason ?? '',
                     'size' => $doc->file_size ?: '0 KB',
                     'status' => $doc->status ?: BorrowerDocument::STATUS_UPLOADED,
-                    'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
+                    // The viewer's day (X-Timezone), not the UTC one (BUG-154).
+                    'date' => toTimezone($doc->created_at) ?? 'N/A',
                     'document_url' => $doc->file_path,
                     'url' => $doc->file_path,
                     'download_url' => url("api/v1/common/borrowers-documents/download/{$doc->id}"),
