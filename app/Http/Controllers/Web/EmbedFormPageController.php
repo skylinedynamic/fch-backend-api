@@ -6,7 +6,6 @@ use App\Models\Borrower\BorrowerDocType;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
-use App\Services\Global\General\FundingPurposeService;
 use App\Services\Global\General\LenderProductCategoryService;
 use App\Services\FCH\Common\Scoring\CreditScoreService;
 use App\Models\EmbedForm\EmbedFormConfig;
@@ -77,11 +76,10 @@ class EmbedFormPageController extends Controller
 
             // The funding application's own dropdowns and document buckets, so
             // the public form asks for exactly what the portal's wizard does.
-            // Funding types and purposes: the same services as
-            // GET /api/v1/common/funding-types and /common/funding-purposes.
+            // Funding types: the same service as GET /api/v1/common/funding-types.
+            // Purpose of Funds comes straight from the config, as before.
             'options' => array_merge(config('funding_application.options'), [
                 'funding_types' => app(LenderProductCategoryService::class)->fundingTypeNames(),
-                'purposes_of_funds' => app(FundingPurposeService::class)->purposes(),
             ]),
             // Code => symbol; the first is preselected.
             'currencies' => config('funding_application.embed_form.currencies'),

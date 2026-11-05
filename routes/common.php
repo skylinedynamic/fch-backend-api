@@ -58,7 +58,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
-use App\Http\Controllers\Api\V1\Global\General\FundingPurposeController;
 use App\Http\Controllers\Api\V1\Global\General\LenderProductCategoryController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
@@ -144,11 +143,6 @@ Route::prefix('v1')->group(function () {
     // the same service): the Active lender product categories. Public
     // reference data, like locations.
     Route::get('common/funding-types', [LenderProductCategoryController::class, 'index']);
-
-    // Purpose of Funds - the funding application's one list (config
-    // funding_application.options.purposes_of_funds) for every portal's wizard;
-    // the embed form reads the same config. Public reference data.
-    Route::get('common/funding-purposes', [FundingPurposeController::class, 'index']);
 
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
 
