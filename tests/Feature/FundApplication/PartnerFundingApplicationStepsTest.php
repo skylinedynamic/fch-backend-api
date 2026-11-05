@@ -155,6 +155,34 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->assertTrue((bool) $application->is_partner_prepared);
     }
 
+    /** BUG-158: prefilled with the full SSN on file, never its last four digits. */
+    #[Test]
+    public function the_ownership_step_prefills_the_full_ssn_on_file_not_its_last_four(): void
+    {
+        $borrowerId = DB::table('funding_applications')->where('id', $this->myApplicationId)->value('borrower_id');
+        $borrower = \App\Models\Borrower\Borrower::findOrFail($borrowerId);
+        $borrower->ssn = '123-45-6789';
+        $borrower->save();
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson($this->url('ownership-info') . '?funding_request_id=' . $this->myRequestId)
+            ->assertOk()
+            ->assertJsonPath('data.ssn', '123456789');
+    }
+
+    #[Test]
+    public function a_profile_holding_only_the_last_four_prefills_no_ssn(): void
+    {
+        $borrowerId = DB::table('funding_applications')->where('id', $this->myApplicationId)->value('borrower_id');
+        DB::table('borrowers')->where('id', $borrowerId)
+            ->update(['ssn_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString('6789')]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson($this->url('ownership-info') . '?funding_request_id=' . $this->myRequestId)
+            ->assertOk()
+            ->assertJsonPath('data.ssn', null);
+    }
+
     #[Test]
     public function a_partner_saves_a_written_ssn_as_its_nine_digits(): void
     {
