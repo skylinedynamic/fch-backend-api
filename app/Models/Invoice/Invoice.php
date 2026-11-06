@@ -93,6 +93,26 @@ class Invoice extends Model
     ];
 
     /**
+     * What a partner pays the host: its own plan, its staff seats and the
+     * borrower fee for each client it activates. A commission payout is money
+     * going the other way.
+     */
+    const PARTNER_BILL_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+        self::INVOICE_TYPE_BORROWER_FEE,
+    ];
+
+    /**
+     * Still owed: never paid, or paid by a manual method whose approval is
+     * pending (a Processing payment has not reached the receiver yet).
+     */
+    const OPEN_STATUSES = [self::STATUS_UNPAID, self::STATUS_PROCESSING];
+
+    /**
      * The invoice types that ARE this subscription's own billing cycle.
      *
      * Billing raises no new invoice while one of these is unpaid, so the list

@@ -95,18 +95,19 @@ class MySubscriptionService
 
         $latestInvoice = $latestInvoiceQuery->orderBy('id', 'desc')->first();
 
-        // Recent Payments related to partner's subscription
+        // Recent Payments: what the partner paid the host - its plan, its staff
+        // seats and the borrower fee for each client it activated
+        // (Invoice::PARTNER_BILL_TYPES). A commission paid TO the partner is not
+        // one of its payments. An untyped invoice predates the type column and
+        // is a plan charge.
         $recentPaymentsQuery = Payment::with(['invoice', 'partner', 'borrower', 'entity'])
             ->where('entity_id', $partner->id)
-            ->where('entity_type', Partner::class);
-
-        if ($subscription) {
-            $recentPaymentsQuery->where(function ($q) use ($subscription) {
-                $q->whereHas('invoice', function ($inv) use ($subscription) {
-                    $inv->where('subscription_id', $subscription->id);
-                })->orWhereNull('invoice_id');
+            ->where('entity_type', Partner::class)
+            ->whereHas('invoice', function ($invoice) {
+                $invoice->where(function ($type) {
+                    $type->whereIn('type', Invoice::PARTNER_BILL_TYPES)->orWhereNull('type');
+                });
             });
-        }
 
         $recentPayments = $recentPaymentsQuery->orderBy('id', 'desc')->limit(10)->get();
 
