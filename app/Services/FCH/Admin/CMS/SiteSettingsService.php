@@ -7,6 +7,8 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class SiteSettingsService
 {
@@ -99,7 +101,7 @@ class SiteSettingsService
                 } elseif (in_array($key, self::IMAGE_KEYS, true) && $value instanceof UploadedFile) {
                     $existing = AppConfiguration::get($key, null, AppConfiguration::MODULE_WEBSITE, $partnerId);
                     if ($existing) {
-                        $this->deleteFile($existing, 'public');
+                        $this->deleteFile($existing, Disk::UPLOADS);
                     }
 
                     $prefix = match ($key) {
@@ -109,7 +111,7 @@ class SiteSettingsService
                         default => $key,
                     };
                     $filename = time() . "_{$prefix}_" . $value->getClientOriginalName();
-                    $upload = $this->uploadFile($value, 'site-settings', 'public', $filename);
+                    $upload = $this->uploadFile($value, Folder::SITE_SETTINGS, Disk::UPLOADS, $filename);
                     AppConfiguration::set($key, $upload['path'], AppConfiguration::MODULE_WEBSITE, $partnerId);
                 } else {
                     AppConfiguration::set($key, $value, AppConfiguration::MODULE_WEBSITE, $partnerId);

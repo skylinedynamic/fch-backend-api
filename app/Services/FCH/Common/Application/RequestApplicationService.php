@@ -8,7 +8,6 @@ use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResourc
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
 use App\Models\ActivityLog\ActivityLog;
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Borrower\FundingApplication;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Borrower\PreQualificationRequest;
@@ -30,6 +29,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -359,7 +359,7 @@ class RequestApplicationService
     {
         $authUser = Auth::user();
 
-        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
+        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'fundingSequence', 'fundingRequest')
             ->reviewableBy($authUser)
             ->where('funding_applications.id', $id)->first();
 
@@ -368,47 +368,6 @@ class RequestApplicationService
         }
         //return ApiResponse::success($application);
         return ApiResponse::success(new ApplicationFundingApplicationResource($application));
-    }
-
-    /**
-     * Get Funding Application Audit History
-     */
-    public function getAuditHistory($id, array $filters)
-    {
-        if (!FundingApplication::reviewableBy(Auth::user())->whereKey($id)->exists()) {
-            return ApiResponse::error(__('application.funding_application_not_found'));
-        }
-
-        $perPage = $filters['per_page'] ?? 10;
-        if ($perPage == -1 || $perPage == 'All') {
-            $items = DownloadHistory::where('funding_application_id', $id)->get();
-            $perPage = $items->count() > 0 ? $items->count() : 10;
-        }
-        $perPage = isset($filters['per_page']) && is_numeric($filters['per_page']) ? max(1, (int) $filters['per_page']) : (is_numeric($perPage) ? max(1, (int) $perPage) : 1000000);
-        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
-
-        $query = DownloadHistory::with('user:id,name,email,user_type')
-            ->where('funding_application_id', $id);
-
-        if (!empty($filters['search'])) {
-            $query->search($filters['search'], $filters['timezone'] ?? null);
-        }
-
-        if (!empty($filters['sort_by'])) {
-            $sortField = $filters['sort_by'];
-            $sortDir = (!empty($filters['sort_dir']) && strtolower($filters['sort_dir']) === 'asc') ? 'asc' : 'desc';
-            $query->orderBy($sortField, $sortDir);
-        } else {
-            $query->orderBy('downloaded_at', 'desc');
-        }
-
-        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
-        return $this->respondWithPaginationResource(
-            $paginator,
-            \App\Http\Resources\FCH\Common\Application\DownloadHistoryResource::class,
-            __('application.audit_history_retrieved')
-        );
     }
 
     /**
@@ -509,9 +468,19 @@ class RequestApplicationService
     {
         $partnerId = $this->getAuthenticatedPartnerId();
 
+        // One change at a time per application: the row is locked until this
+        // change is written, so a second request (a double-click, another tab)
+        // reads the status the first one left (R2 BUG-037).
+        return DB::transaction(fn () => $this->applyFundingApplicationStatus($data));
+    }
+
+    private function applyFundingApplicationStatus(array $data)
+    {
         $application = FundingApplication::with('borrower', 'fundingRequest')
             ->reviewableBy(Auth::user())
-            ->where('funding_applications.id', $data['funding_application_id'])->first();
+            ->where('funding_applications.id', $data['funding_application_id'])
+            ->lockForUpdate()
+            ->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
@@ -525,6 +494,26 @@ class RequestApplicationService
         }
 
         $oldStatus = $application->status;
+
+        // Chosen on a page that showed another status: someone moved the
+        // application on since it loaded. Refused rather than applied over that.
+        if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
+            return ApiResponse::error(
+                __('application.status_changed_elsewhere', ['status' => $oldStatus]),
+                409,
+                ['status' => $oldStatus]
+            );
+        }
+
+        // The exact change already applied - same status, same note - is a
+        // repeat (a double-click), not a second change to log.
+        $isRepeat = $oldStatus === $data['status']
+            && (!isset($data['status_note']) || $data['status_note'] === $application->status_note)
+            && ($data['status'] !== FundingApplication::CLOSED_COMPLETED
+                || (float) ($data['funded_amount'] ?? 0) === (float) $application->total_funded_amount);
+        if ($isRepeat) {
+            return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
+        }
 
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];

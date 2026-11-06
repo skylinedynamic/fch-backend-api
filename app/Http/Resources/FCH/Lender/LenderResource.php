@@ -18,6 +18,7 @@ class LenderResource extends JsonResource
             'id'                          => $this->id,
             'name'                        => $this->name,
             'legal_name'                  => $this->legal_name,
+            'display_name'                => $this->displayName(),
             'product_categories'          => $this->product_categories,
             'contact_name'                => $this->contact_name,
             'contact_title'               => $this->contact_title,

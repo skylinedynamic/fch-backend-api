@@ -125,27 +125,6 @@ class RequestApplicationController extends Controller
     }
 
     /**
-     * Get Funding Application Audit History (Paginated)
-     */
-    public function getAuditHistory($id, Request $request): JsonResponse
-    {
-        try {
-            $filters = [
-                'per_page'      => $request->input('per_page', 10),
-                'page'          => $request->input('page', 1),
-                'search'        => $request->input('search'),
-                'sort_by'       => $request->input('sort_by'),
-                'sort_dir'      => $request->input('sort_dir'),
-                'timezone'      => $request->header('X-Timezone') ?? config('app.timezone'),
-            ];
-            return $this->requestApplicationService->getAuditHistory($id, $filters);
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Audit History Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return ApiResponse::serverError(__('application.error_retrieving_audit_history'));
-        }
-    }
-
-    /**
      * Download Funding Application PDF
      */
     public function downloadApplication(Request $request, $id)
@@ -193,18 +172,6 @@ class RequestApplicationController extends Controller
             return $this->documentService->downloadZip($id, $request->input('password'));
         } catch (\Exception $e) {
             return ApiResponse::serverError('An error occurred while generating the ZIP file.');
-        }
-    }
-
-    /**
-     * Download File from Audit History
-     */
-    public function downloadFromHistory($historyId)
-    {
-        try {
-            return $this->documentService->downloadFromHistory($historyId);
-        } catch (\Exception $e) {
-            return ApiResponse::serverError('An error occurred while downloading the document: ' . $e->getMessage());
         }
     }
 

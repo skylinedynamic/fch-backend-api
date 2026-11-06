@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Borrower\FundApplication;
 
 use App\Exceptions\FundingApplicationLockedException;
+use App\Exceptions\StaleRecordException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
@@ -34,6 +35,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\StoragePath;
+use App\Support\Files\Disk;
 
 class FundingApplicationController extends Controller   
 {
@@ -85,6 +88,9 @@ class FundingApplicationController extends Controller
                 __('borrower.business_info_updated_successfully')
             );
 
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -137,6 +143,9 @@ class FundingApplicationController extends Controller
                 new OwnershipResource($ownershipInfo),
                 __('borrower.ownership_info_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -189,6 +198,9 @@ class FundingApplicationController extends Controller
                 new FinancialResource($financialInfo),
                 __('borrower.financial_info_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -239,6 +251,9 @@ class FundingApplicationController extends Controller
                 new FundingRequestResource($fundingRequest),
                 __('borrower.funding_request_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -284,6 +299,9 @@ class FundingApplicationController extends Controller
                 new DisclosuresAndConsentResource($disclosuresAndConsent),
                 __('borrower.disclosures_and_consent_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -329,6 +347,9 @@ class FundingApplicationController extends Controller
                 new FederalComplianceResource($federalCompliance),
                 __('borrower.federal_compliance_disclosures_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -373,7 +394,7 @@ class FundingApplicationController extends Controller
     public function signatureImage(SignatureImageRequest $request)
     {
         try {
-            $contents = \Illuminate\Support\Facades\Storage::disk('public')->get($request->storagePath());
+            $contents = Storage::disk(Disk::UPLOADS)->get($request->storagePath());
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents);
 
             // Every browser shows PNG and JPEG. Anything else (WEBP, AVIF, GIF,
@@ -499,6 +520,9 @@ class FundingApplicationController extends Controller
                 new AttestationAndAuthorizationResource($attestationAndAuthorization),
                 __('borrower.attestation_and_authorization_updated_successfully')
             );
+        } catch (StaleRecordException $e) {
+            // Saved from an older copy of the application (R2 BUG-033).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (FundingApplicationLockedException $e) {
             // The application has moved past the borrower's and partner's reach.
             // 423, not 500: the request itself was fine, this application just
@@ -587,15 +611,15 @@ class FundingApplicationController extends Controller
             $urlPath = $document->path ?: $document->url;
 
             if (!$urlPath) {
-                return ApiResponse::notFound('File path not found.');
+                return ApiResponse::notFound(__('files.path_not_found'));
             }
 
-            $relativePath = $urlPath;
-            if (str_contains($relativePath, '/storage/')) {
-                $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
+            $relativePath = StoragePath::fromUrl($urlPath);
+            if (!$relativePath) {
+                return ApiResponse::notFound(__('files.path_not_found'));
             }
 
-            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
+            $filePath = Storage::disk(Disk::UPLOADS)->path($relativePath);
 
             if (!file_exists($filePath)) {
                 return ApiResponse::notFound('File not found on server.');

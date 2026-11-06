@@ -5,12 +5,15 @@ namespace App\Services\Global\FileManager;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use App\Support\Files\StoredFileName;
+use App\Support\Files\Disk;
+use Exception;
 
 class FileManagerService
 {
     private function getDisk()
     {
-        return Storage::disk('public');
+        return Storage::disk(Disk::UPLOADS);
     }
 
     private function getFullPath($path)
@@ -116,27 +119,21 @@ class FileManagerService
 
             $fullPath = $this->getFullPath($completePath);
 
-            // Clean filename and append timestamp
-            $originalName = $file->getClientOriginalName();
-            $extension = pathinfo($originalName, PATHINFO_EXTENSION);
-            $basename = pathinfo($originalName, PATHINFO_FILENAME);
-
-            // Sanitize: allow only alphanumeric, dashes, and underscores
-            $safeName = preg_replace('/[^A-Za-z0-9\-\_]/', '_', $basename);
-            $filename = time() . '_' . $safeName . '.' . $extension;
 
             // Ensure directory exists - defensive check
             if ($fullPath !== '' && !$disk->exists($fullPath)) {
                 $disk->makeDirectory($fullPath);
             }
 
-            // Store using putFileAs
-            $pathResult = $disk->putFileAs($fullPath, $file, $filename);
+            // Its own name first, then the time; a name already taken gets _1,
+            // _2 - picked and written under a lock, so two at once both stay.
+            $pathResult = StoredFileName::store($file, $disk, $fullPath);
 
             if (!$pathResult) {
-                Log::error("File storage failed for disk 'public' and path: {$fullPath}/{$filename}. Check permissions and disk space.");
-                throw new \Exception('Failed to store the uploaded file on the server.', 500);
+                Log::error(__('files.store_failed_log', ['path' => $fullPath . '/' . $file->getClientOriginalName()]));
+                throw new Exception(__('files.store_failed'), 500);
             }
+            $filename = basename($pathResult);
 
             return [
                 'name' => $filename,

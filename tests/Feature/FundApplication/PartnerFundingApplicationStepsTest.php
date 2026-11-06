@@ -177,6 +177,23 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->assertSame('234567890', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
     }
 
+    /** Defect: R2 BUG-033, on the partner's form too: a save from an older copy is refused. */
+    #[Test]
+    public function a_partners_save_from_an_older_copy_is_refused(): void
+    {
+        $this->travelTo('2026-10-21 10:00:00');
+        DB::table('funding_applications')->where('id', $this->myApplicationId)->update(['updated_at' => now()]);
+        $this->actingAsUser($this->partnerAdmin);
+        $step = array_merge(self::steps()['funding request'][1], ['id' => $this->myApplicationId, 'funding_request_id' => $this->myRequestId]);
+
+        $this->travelTo('2026-10-21 10:01:00');
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1 Month', 'expected_version' => '2026-10-21 10:00:00'])->assertOk();
+
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1-2 Weeks', 'expected_version' => '2026-10-21 10:00:00'])
+            ->assertStatus(409);
+        $this->assertSame('1 Month', FundingApplication::find($this->myApplicationId)->timeframe_needed);
+    }
+
     /** Defect: BUG-108, on the partner's form too. */
     #[Test]
     public function a_partner_cannot_save_more_than_100_percent_ownership(): void
@@ -212,6 +229,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
             'co_borrowers.0.mobile_phone' => __('embed_form.phone_invalid'),
         ]);
     }
+
 
     /**
      * The document step opens the borrower's file folder (borrowers/{id}). The

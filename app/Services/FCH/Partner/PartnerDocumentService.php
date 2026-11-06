@@ -7,6 +7,9 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\StoredFileName;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class PartnerDocumentService
 {
@@ -115,11 +118,11 @@ class PartnerDocumentService
     //         // Uploaded file
     //         if ($fileEntry instanceof UploadedFile) {
     //             // delete old partner-stored file if it exists
-    //             if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
-    //                 $this->deleteFile($document->file_path, 'public');
+    //             if ($document->file_path && Storage::disk('uploads')->exists($document->file_path)) {
+    //                 $this->deleteFile($document->file_path, 'uploads');
     //             }
 
-    //             $upload = $this->uploadFile($fileEntry, "partners/{$document->partner_id}/documents", 'public');
+    //             $upload = $this->uploadFile($fileEntry, "partners/{$document->partner_id}/documents", 'uploads');
     //             $document->file_path = $upload['path'];
     //             $document->size = $this->formatSize($fileEntry->getSize());
     //             $document->document_name = basename($upload['path']);
@@ -129,12 +132,12 @@ class PartnerDocumentService
     //             $destPath = "partners/{$document->partner_id}/documents/{$basename}";
 
     //             // Attempt to copy original into partner folder if exists
-    //             if (Storage::disk('public')->exists($original)) {
+    //             if (Storage::disk('uploads')->exists($original)) {
     //                 try {
-    //                     Storage::disk('public')->copy($original, $destPath);
+    //                     Storage::disk('uploads')->copy($original, $destPath);
     //                     $document->file_path = $destPath;
     //                     try {
-    //                         $document->size = $this->formatSize(Storage::disk('public')->size($destPath));
+    //                         $document->size = $this->formatSize(Storage::disk('uploads')->size($destPath));
     //                     } catch (\Exception $e) {
     //                         Log::warning('Unable to determine size for copied file', ['path' => $destPath]);
     //                     }
@@ -176,23 +179,37 @@ class PartnerDocumentService
         $rawFilename = basename($file instanceof \Illuminate\Http\UploadedFile ? $file->getClientOriginalName() : $file);
         $filename    = !empty($data['document_name']) ? $data['document_name'] : $rawFilename;
         $size = null;
-        $partnerPath = $this->normalizePath($partnerId, $file);
+        $partnerPath = $this->normalizePath($partnerId, $file, $data['entity_type'] ?? null);
         
-        if (Storage::disk('public')->exists($partnerPath)) {
+        if (Storage::disk(Disk::UPLOADS)->exists($partnerPath)) {
              try {
-                $size = $this->formatSize(Storage::disk('public')->size($partnerPath));
+                $size = $this->formatSize(Storage::disk(Disk::UPLOADS)->size($partnerPath));
              } catch (\Exception $e) {
                 // Ignore size error
              }
         } 
-        elseif (Storage::disk('public')->exists(ltrim($file, '/'))) {
+        elseif (Storage::disk(Disk::UPLOADS)->exists(ltrim($file, '/'))) {
              try {
-                $size = $this->formatSize(Storage::disk('public')->size(ltrim($file, '/')));
+                $size = $this->formatSize(Storage::disk(Disk::UPLOADS)->size(ltrim($file, '/')));
              } catch (\Exception $e) {
              }
         }
 
         $dbPath = str_replace("partners/{$partnerId}/", "", $partnerPath);
+
+        // BUG-016: a filed document leaves partners/{id}/ (the partner's public
+        // branding and pictures) for its own private folder.
+        $uploads = Storage::disk(Disk::UPLOADS);
+        if (str_starts_with($partnerPath, PartnerDocument::FOLDER . '/')) {
+            // Picked in the private documents folder: filed where it is, so
+            // the file manager still shows it there.
+            $dbPath = $partnerPath;
+        } elseif ($uploads->exists($partnerPath)) {
+            $privatePath = PartnerDocument::FOLDER . "/{$partnerId}/" . StoredFileName::make($rawFilename);
+            if ($uploads->move($partnerPath, $privatePath)) {
+                $dbPath = $privatePath;
+            }
+        }
 
         $createData = [
             'partner_id'    => $partnerId,
@@ -216,7 +233,7 @@ class PartnerDocumentService
             $docName = $document->document_name;
 
             if ($document->getRawOriginal('file_path')) {
-                $this->deleteFile($document->getRawOriginal('file_path'), 'public');
+                $this->deleteFile($document->getRawOriginal('file_path'), Disk::UPLOADS);
             }
             
             $deleted = $document->delete();
@@ -243,13 +260,15 @@ class PartnerDocumentService
     /**
      * Normalize file path
      */
-    private function normalizePath(int $partnerId, $file): string
+    private function normalizePath(int $partnerId, $file, ?string $folder = null): string
     {
         if ($file instanceof UploadedFile) {
-            return "partners/{$partnerId}/documents/" . $file->getClientOriginalName();
+            return Folder::PARTNERS . "/{$partnerId}/documents/" . $file->getClientOriginalName();
         }
 
-        return "partners/{$partnerId}/" . ltrim($file, '/');
+        $folder = $folder === PartnerDocument::FOLDER ? PartnerDocument::FOLDER : Folder::PARTNERS;
+
+        return "{$folder}/{$partnerId}/" . ltrim($file, '/');
     }
 
     /**

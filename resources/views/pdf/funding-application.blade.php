@@ -70,6 +70,9 @@
     'Funding Type' => $application->funding_type ?: $application->preferred_funding_type,
     'Additional Funding Types' => !empty($additionalTypes) ? implode(', ', $additionalTypes) : null,
     'Use of Funds' => $application->use_of_funds ?: $application->purpose_of_funds,
+    'Purpose Note' => $application->purpose_note,
+    'Timeframe Needed' => $application->timeframe_needed,
+    'Collateral Available' => $application->collateral_available,
     'Funding Request Status' => optional($application->fundingRequest)->status ?: $application->status,
 ]])
 

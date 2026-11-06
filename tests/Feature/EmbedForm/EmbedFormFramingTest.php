@@ -72,10 +72,17 @@ class EmbedFormFramingTest extends TestCase
     {
         $sources = $this->frameAncestors($this->page(['https://www.partner-one.com/apply', 'http://partner-two.com']));
 
+        // R2 BUG-035: a domain typed with http:// is allowed over https as well.
         $this->assertSame(
-            'https://partner-one.com https://www.partner-one.com http://partner-two.com http://www.partner-two.com',
+            'https://partner-one.com https://www.partner-one.com https://partner-two.com https://www.partner-two.com http://partner-two.com http://www.partner-two.com',
             $sources
         );
+    }
+
+    #[Test]
+    public function a_stored_bare_host_is_allowed_over_https_only(): void
+    {
+        $this->assertSame('https://x.com https://www.x.com', $this->frameAncestors($this->page(['x.com'])));
     }
 
     #[Test]

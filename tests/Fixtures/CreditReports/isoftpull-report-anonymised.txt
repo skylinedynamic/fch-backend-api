@@ -1,0 +1,175 @@
+Credit Report Summary
+ 5	555
+Inquiries:	5
+Collections:	5
+Public Records:	5
+55/55/55	-/-/-
+ALL REVOLVING
+LINE OF
+CREDIT
+OPEN INSTALLMENTMORTGAGEAUTO
+STUDENT
+LOANS
+UNKNOWN CUSTOM
+ALL ACCOUNTS ANALYSIS
+ACCOUNTS 5 5 - - -	- - - - -
+OPEN
+ACCOUNTS
+5 5 - - -	- - - - -
+CLOSED
+ACCOUNTS
+5 5 - - -	- - - - -
+NEWEST OPEN
+DATE
+55/55/5555 55/55/5555 - - -	- - - - -
+OLDEST OPEN
+DATE
+55/55/5555 55/55/5555 - - -	- - - - -
+OPEN ACCOUNTS ANALYSIS
+MONTHLY
+PAYMENTS
+$555 $555 - - -	- - - - -
+BALANCE $5,555 $5,555 - - -	- - - - -
+CREDIT LIMIT $55,555 $55,555 - -	- -	-
+AVAILABLE
+CREDIT
+$55,555 $55,555 - -	- -	-
+UTILIZATION
+RATIO
+55.55% 55.55% - -	- -	-
+Personal Information
+Name: X X
+Date Of Birth:
+55/55/5555
+SSN: 555555555 Email: X5@X.X	Phone: 5555555555
+Credit Score
+Score Model: FICO 8	Score: 712
+Reason Codes: X OF X ACCOUNTS X X X
+LACK OF RECENT INSTALLMENT LOAN INFORMATION
+TOO MANY ACCOUNTS WITH BALANCES
+RATIO OF BALANCE TO LIMIT ON X REVOLVING OR OTHER REV ACCTS
+TOO HIGH
+Address History
+CURRENT
+Street: 5555 X X X
+555X
+City: X State: XX Zip: 55555
+Date Reported: 55/55/5555
+PREVIOUS
+Street: 5555 X X X X X-555
+City: XState: XX Zip: 55555
+Date Reported: 55/55/5555
+PREVIOUS
+Street: 5555 X X
+X
+City: X State: XX Zip: 55555
+Date Reported: 55/55/5555
+Trade Accounts
+NO SORT SELECTED
+Company: X X - X X
+Date Reported: 55/55/5555
+Account Status: OPEN
+Account Rating: X ACCOUNT X X
+Account Number: 5555555555555555
+Account Type: CREDIT X
+Portfolio Type: REVOLVING (PAYMENT X X ON X
+OUTSTANDING BALANCE)
+Remarks: CREDIT X, AMOUNT X X/X X X CREDIT LIMIT
+Payment Frequency: MONTHLY (DUE X
+X)
+Responsibility: X ACCOUNT
+Date Of Opening: 55/55/5555
+Terms: X/X
+Last Payment Date: 55/55/5555
+Balance: $5
+High Credit: $5555
+Credit Limit: $5555
+Monthly Payment Amount: $55
+Actual Payment Amount: $555
+Past Due: X/X
+Months Reviewed: 55
+55/55/55 Day Delinquencies: X/X
+Max Delinquency Date: X/X
+
+5 5 5 5 5 5 5 5 X 5 5 5
+5 X X 5 X X 5 5
+X 5 5 X X X X 5 5 5 5 5
+5 5 5 5 5 5 5 5 5 5 5 5
+5 5 5 5 5 5 5 5 5 5 5 5
+5 5 5 5 5 5 5 5 X X X X
+5 5 5 5 5 5 5 5 5 5 5 5
+5 5 5 5 5 X
+Payment History Start Date: 55/55/5555
+Company: X X X X
+Date Reported: 55/55/5555
+Account Status: OPEN
+Account Rating: X ACCOUNT X X
+Account Number: 5555555555555555
+Account Type: CREDIT X
+Portfolio Type: REVOLVING (PAYMENT X X ON X
+OUTSTANDING BALANCE)
+Remarks: CREDIT X, AMOUNT X X/X X X CREDIT LIMIT
+Payment History Start Date: 55/55/5555
+Payment Frequency: MONTHLY (DUE X
+X)
+Responsibility: X ACCOUNT
+Date Of Opening: 55/55/5555
+Terms: X/X
+Last Payment Date: 55/55/5555
+Balance: $5
+High Credit: $5555
+Credit Limit: $5555
+Monthly Payment Amount: X/X
+Past Due: X/X
+Months Reviewed: 55
+55/55/55 Day Delinquencies: X/X
+Max Delinquency Date: X/X
+Company: X OF X
+Date Reported: 55/55/5555
+Account Status: OPEN
+Account Rating: X ACCOUNT X X
+Account Number: 5555555555555555
+Account Type: CREDIT X
+Portfolio Type: REVOLVING (PAYMENT X X ON X
+OUTSTANDING BALANCE)
+Remarks: CREDIT X, AMOUNT X X/X X X CREDIT LIMIT
+Payment History Start Date: 55/55/5555
+Payment Frequency: MONTHLY (DUE X
+X)
+Responsibility: X ACCOUNT
+Date Of Opening: 55/55/5555
+Terms: X/X
+Last Payment Date: 55/55/5555
+Balance: $5555
+High Credit: $5555
+Credit Limit: $5555
+Monthly Payment Amount: $55
+Past Due: X/X
+Months Reviewed: 55
+55/55/55 Day Delinquencies: X/X
+Max Delinquency Date: X/X
+Company: X X
+Date Reported: 55/55/5555
+Account Status: OPEN
+Account Rating: X ACCOUNT X X
+Account Number: -5555555555555555
+Account Type: CREDIT X
+Portfolio Type: REVOLVING (PAYMENT X X ON X
+OUTSTANDING BALANCE)
+Remarks: CREDIT X, AMOUNT X X/X X X CREDIT LIMIT
+Payment History Start Date: 55/55/5555
+Payment Frequency: MONTHLY (DUE X
+X)
+Responsibility: X ACCOUNT
+Date Of Opening: 55/55/5555
+Terms: X/X
+Last Payment Date: X/X
+Balance: $555
+High Credit: $555
+Credit Limit: $5555
+Monthly Payment Amount: $55
+Past Due: X/X
+Months Reviewed: 55
+55/55/55 Day Delinquencies: X/X
+Max Delinquency Date: X/X
+5555 X X X, X X, X, X 55555	555-555-5555 X@X.X

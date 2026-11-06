@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Global\FileManager;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\SafeUpload;
 
 class UploadFileRequest extends BaseApiRequest
 {
@@ -14,7 +15,7 @@ class UploadFileRequest extends BaseApiRequest
     public function rules(): array
     {
         $rules = [
-            'file' => ['required', 'file'],
+            'file' => ['required', 'file', SafeUpload::document()],
             'path' => ['required', 'string'],
             'entity_type' => ['required', 'string'],
         ];

@@ -3,8 +3,10 @@
 namespace App\Services\FCH\Admin\Resource;
 
 use App\Models\Resource\Resource;
+use App\Models\Resource\ResourceProvider;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
+use App\Support\Files\Disk;
 
 class ResourceService
 {
@@ -97,13 +99,13 @@ class ResourceService
     private function uploadFile(UploadedFile $file): string
     {
         // Store directly in resources folder
-        return $file->store("resources", 'public');
+        return $file->store("resources", Disk::UPLOADS);
     }
 
     private function deleteFile(string $path): void
     {
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+        if (Storage::disk(Disk::UPLOADS)->exists($path)) {
+            Storage::disk(Disk::UPLOADS)->delete($path);
         }
     }
 
@@ -118,7 +120,7 @@ class ResourceService
                 'name' => $providerData['name'] ?? '',
                 'desc' => $providerData['desc'] ?? '',
                 'desc_list' => $providerData['desc_list'] ?? [],
-                'logo' => $providerData['logo'] ?? '',
+                'logo' => ResourceProvider::publicLogoPath($providerData['logo'] ?? '') ?? '',
                 'is_recommended' => filter_var($providerData['is_recommended'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'btn_label' => $providerData['btn_label'] ?? '',
                 'link' => $providerData['link'] ?? '',

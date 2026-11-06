@@ -5,6 +5,7 @@ namespace App\Http\Resources\FCH\EmbedForm;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 /** @mixin \App\Models\EmbedForm\EmbedFormAttachment */
 class EmbedFormAttachmentResource extends JsonResource
@@ -25,7 +26,7 @@ class EmbedFormAttachmentResource extends JsonResource
             'document_type' => $this->docType?->name ?? $this->field_name,
             'original_name' => $this->original_name,
             'file_path' => $this->file_path,
-            'file_url' => $this->file_path ? Storage::disk('public')->url($this->file_path) : null,
+            'file_url' => $this->file_path ? Storage::disk(Disk::UPLOADS)->url($this->file_path) : null,
             'file_size' => $this->file_size,
             'mime_type' => $this->mime_type,
             'download_url' => url("api/v1/common/embed-forms/attachments/{$this->id}/download"),

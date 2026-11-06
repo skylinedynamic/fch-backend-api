@@ -4,6 +4,7 @@ namespace Tests\Integration\Funding;
 
 use App\Models\Borrower\Borrower;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lender\Lender;
 use App\Services\FCH\Common\Funding\LenderMatchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -292,6 +293,19 @@ class LenderMatchServiceTest extends TestCase
         $this->lenderIn('Term Loan', 'Fundbox');
 
         $this->assertSame(['Fundbox'], array_column($this->matcher->match($this->borrower, ['Term Loan']), 'name'));
+    }
+
+    /** R2 BUG-008: each match carries "Lender Name - Legal Name", as the screens show it. */
+    #[Test]
+    public function each_match_carries_the_lenders_display_name(): void
+    {
+        $id = $this->lenderIn('Term Loan', 'Kabbage');
+        DB::table('lenders')->where('id', $id)->update(['legal_name' => 'Kabbage Funding LLC']);
+
+        [$match] = $this->matcher->match($this->borrower, ['Term Loan']);
+
+        $this->assertSame(Lender::findOrFail($id)->displayName(), $match['display_name']);
+        $this->assertSame('Kabbage - Kabbage Funding LLC', $match['display_name']);
     }
 
     private function lenderIn(string $category, string $name, array $requirements = [], ?string $legalName = null): int

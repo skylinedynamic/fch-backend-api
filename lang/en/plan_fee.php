@@ -4,11 +4,13 @@
 return [
     'total_amount_required' => 'Enter the total amount.',
     'total_amount_numeric' => 'The total amount must be a number.',
+    'total_amount_decimals' => 'The total amount can have at most 2 decimal places.',
     'total_amount_gt' => 'The total amount must be greater than 0.',
     'total_amount_max' => 'The total amount cannot be more than :max.',
 
     'platform_fee_numeric' => 'The platform fee must be a number.',
     'platform_fee_required' => 'Enter the platform fee.',
+    'platform_fee_decimals' => 'The platform fee can have at most 2 decimal places.',
     'platform_fee_gt' => 'The platform fee must be greater than 0.',
     'platform_fee_max' => 'The platform fee cannot be more than :max.',
 

@@ -14,6 +14,10 @@ use App\Models\Employee\Employee;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
+use App\Contracts\Payment\AuthenticatesCardPayments;
+use App\Services\GlobalPayment\Drivers\StripePaymentDriver;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
+use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\CardException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,6 +54,11 @@ class UnifiedPaymentService
      * Process a one-time payment against an invoice via the unified gateway driver.
      * Amount, currency, description, and payee details are derived from the invoice.
      *
+     * A card whose bank asks for 3-D Secure (BUG-066) does not fail here: the
+     * attempt is kept as a PENDING payment and the result carries
+     * `requires_action` and the `client_secret` the browser needs to run the
+     * bank's challenge. confirmAuthenticatedPayment() settles it afterwards.
+     *
      * @param array $data ['invoice_id' => int, 'payment_method_id' => string, 'payment_token' => string]
      * @return array
      * @throws Exception
@@ -57,23 +66,13 @@ class UnifiedPaymentService
     public function processPayment(array $data): array
     {
         $invoice = Invoice::findOrFail($data['invoice_id']);
-        $user = auth()->user();
         $subscription = $invoice->subscription;
 
         if ($invoice->status !== Invoice::STATUS_UNPAID) {
             throw new Exception(__('payment.only_unpaid_can_be_paid'));
         }
 
-        $isAuthorized = false;
-        if ($invoice->entity_type === $user->entity_type && (int) $invoice->entity_id === (int) $user->entity_id) {
-            $isAuthorized = true;
-        } elseif (in_array($invoice->entity_type, [User::class, Employee::class]) && (int) $invoice->partner_id === (int) $user->partner_id) {
-            $isAuthorized = true;
-        }
-
-        if (!$isAuthorized) {
-            throw new Exception(__('payment.unauthorized_payment_attempt'));
-        }
+        $this->assertMayPay($invoice);
 
         if ($invoice->type != Invoice::INVOICE_TYPE_BORROWER_FEE && $subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
             throw new Exception(__('payment.unauthorized_payment_attempt'));
@@ -97,6 +96,17 @@ class UnifiedPaymentService
         $bankDetailId = $data['bank_detail_id'] ?? (is_array($tokenPayload) ? ($tokenPayload['bank_detail_id'] ?? null) : null);
         $bankDetail = $bankDetailId ? PaymentMethodBankDetail::find($bankDetailId) : null;
 
+        $checkout = [
+            'partner_id' => $partnerId,
+            'borrower_id' => $borrowerId,
+            'provider_name' => $providerName,
+            'partner_provider' => $partnerProvider,
+            'is_manual' => $isManual,
+            'is_stripe' => $isStripe,
+            'bank_detail' => $bankDetail,
+            'payment_type' => $data['payment_type'] ?? null,
+        ];
+
         // The gateway call deliberately runs OUTSIDE any transaction.
         //
         // A charge is not undone by a rollback. Holding a transaction open across
@@ -106,15 +116,10 @@ class UnifiedPaymentService
         // Unpaid, so the next cron pass charged them again.
         //
         // So the order is: take the money, then record it in the shortest
-        // transaction that will hold the records, then do everything that can fail
-        // on its own afterwards.
+        // transaction that will hold the records (completeCharge), then do
+        // everything that can fail on its own afterwards.
         $gatewayResult = [];
-
-        // Tracked explicitly rather than inferred from DB::transactionLevel(),
-        // which reports any transaction at all - including one a caller opened
-        // around this method. Rolling that back would discard work this method
-        // never owned.
-        $transactionOpened = false;
+        $driver = null;
 
         try {
             // 1. Charge the payment gateway (or handle manual processing)
@@ -146,6 +151,16 @@ class UnifiedPaymentService
                     ],
                 ];
             } else {
+                // A bank challenge left unfinished on this invoice is settled
+                // before a new card is charged: cancelled if it is still waiting,
+                // or - if the payer did complete it, in another tab - recorded,
+                // which pays the invoice and stops this second charge.
+                $this->supersedeAwaitingAuthentications($invoice);
+
+                if ($invoice->refresh()->status !== Invoice::STATUS_UNPAID) {
+                    throw new Exception(__('payment.only_unpaid_can_be_paid'));
+                }
+
                 $driver = $this->gatewayManager->driverFor($partnerProvider);
                 try {
                     $gatewayResult = $driver->charge([
@@ -168,18 +183,14 @@ class UnifiedPaymentService
 
             if (empty($gatewayResult['success'])) {
                 // A card the issuer wants authenticated (3-D Secure, typically an
-                // OTP) is not a declined card. Reporting it as a generic failure
-                // tells the payer nothing they can act on, and leaves no trace of
-                // why it happened - the same dead end as an error that names a
-                // token and says nothing about the setting behind it.
-                //
-                // The full 3-D Secure flow is not built: it needs the browser to
-                // confirm with `client_secret` and a webhook to catch a payer who
-                // closes the tab midway. US-issued cards rarely trigger it, so
-                // this names the situation rather than handling it - and if the
-                // log below starts appearing, that is the signal to build it.
+                // OTP) is not a declined card. A gateway that can finish the
+                // challenge in the browser gets it handed back there (BUG-066).
                 if (!empty($gatewayResult['requires_action'])) {
-                    Log::warning('[UnifiedPayment] Card needs bank authentication (3-D Secure), which is not supported', [
+                    if ($driver instanceof AuthenticatesCardPayments && !empty($gatewayResult['client_secret'])) {
+                        return $this->awaitAuthentication($invoice, $checkout, $gatewayResult);
+                    }
+
+                    Log::warning('[UnifiedPayment] Card needs bank authentication (3-D Secure), which this gateway cannot finish', [
                         'invoice_id' => $invoice->id,
                         'transaction_id' => $gatewayResult['transaction_id'] ?? null,
                         'provider' => $providerName,
@@ -195,37 +206,123 @@ class UnifiedPaymentService
 
                 throw new Exception($message);
             }
+        } catch (Exception $e) {
+            Log::error(__('payment.log_unified_error', ['error' => $e->getMessage()]), ['data' => $data]);
+            throw $e;
+        }
 
+        return $this->completeCharge($invoice, $checkout, $gatewayResult);
+    }
+
+    /**
+     * Record a charge the gateway has accepted: the payment row, the invoice,
+     * the payer's saved card, the subscription, the platform fee and the mail.
+     *
+     * Used straight after a charge, and again when a 3-D Secure charge comes
+     * back authenticated - then `$pending` is the PENDING row kept for it, which
+     * is settled in place rather than duplicated.
+     *
+     * @param array $checkout who pays whom, through what - see processPayment()
+     */
+    protected function completeCharge(Invoice $invoice, array $checkout, array $gatewayResult, ?Payment $pending = null): array
+    {
+        $subscription = $invoice->subscription;
+        $isManual = (bool) $checkout['is_manual'];
+        $isStripe = (bool) $checkout['is_stripe'];
+        $providerName = $checkout['provider_name'];
+        $partnerProvider = $checkout['partner_provider'];
+        $partnerId = $checkout['partner_id'];
+        $borrowerId = $checkout['borrower_id'];
+        $bankDetail = $checkout['bank_detail'];
+
+        // Tracked explicitly rather than inferred from DB::transactionLevel(),
+        // which reports any transaction at all - including one a caller opened
+        // around this method. Rolling that back would discard work this method
+        // never owned.
+        $transactionOpened = false;
+
+        try {
             // The money has moved. From here the only work is recording it, so the
             // transaction spans the records and nothing else - no gateway calls,
             // no mail.
             DB::beginTransaction();
             $transactionOpened = true;
 
+            if ($pending) {
+                // The confirm endpoint and the settle command can reach the same
+                // payment at once; whoever locks it first records it.
+                $locked = Payment::whereKey($pending->id)->lockForUpdate()->first();
+
+                if (!$locked || !$locked->isAwaitingAuthentication()) {
+                    DB::rollBack();
+                    $transactionOpened = false;
+
+                    return $this->authenticationResult($locked ?? $pending);
+                }
+
+                $current = Invoice::whereKey($invoice->id)->lockForUpdate()->first();
+
+                if (!$current || $current->status !== Invoice::STATUS_UNPAID) {
+                    // The bank took the money, but the invoice was settled some
+                    // other way in the meantime. Record what was taken - it is
+                    // real - and have it refunded; do not pay the invoice twice.
+                    $locked->update([
+                        'status' => Payment::STATUS_SUCCEEDED,
+                        'details' => $this->settledDetails($locked, $gatewayResult, ['duplicate_charge' => true]),
+                        'transaction_date' => now(),
+                    ]);
+
+                    DB::commit();
+                    $transactionOpened = false;
+
+                    Log::critical('[UnifiedPayment] Authenticated charge arrived for an invoice that is no longer unpaid - refund it', [
+                        'invoice_id' => $invoice->id,
+                        'payment_id' => $locked->id,
+                        'transaction_id' => $locked->transaction_id,
+                    ]);
+
+                    return $this->authenticationResult($locked->fresh());
+                }
+
+                $invoice = $current;
+            }
+
             $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
             $invoiceStatus = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
-            $paymentType = $data['payment_type'] ?? ($isStripe ? PaymentProvider::TYPE_CARD : ($providerName ?? __('payment.bank_transfer')));
+            $paymentType = $checkout['payment_type'] ?? ($isStripe ? PaymentProvider::TYPE_CARD : ($providerName ?? __('payment.bank_transfer')));
 
             $isPartnerPaying = (bool) ($invoice->is_partner_paying || in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]));
 
-            // 2. Create local payment ledger entry
-            $payment = $this->paymentRecord->createRecord([
-                'partner_id' => $partnerId,
-                'borrower_id' => $borrowerId,
-                'invoice_id' => $invoice->id,
-                'entity_type' => $invoice->entity_type,
-                'entity_id' => $invoice->entity_id,
-                'transaction_id' => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
-                'amount' => $invoice->payment_amount,
-                'currency' => strtoupper($invoice->currency ?? 'USD'),
-                'payment_from' => $providerName ?? __('payment.default_provider'),
-                'payment_type' => $paymentType,
-                'is_partner_paying' => $isPartnerPaying,
-                'is_manual' => $isManual,
-                'status' => $paymentStatus,
-                'is_environment' => Payment::environmentOf($partnerProvider),
-                'details' => $gatewayResult['raw'] ?? [],
-            ]);
+            // 2. Create local payment ledger entry - or settle the one kept while
+            //    the payer authenticated.
+            if ($pending) {
+                $locked->update([
+                    'status' => $paymentStatus,
+                    'payment_type' => $paymentType,
+                    'is_partner_paying' => $isPartnerPaying,
+                    'details' => $this->settledDetails($locked, $gatewayResult),
+                    'transaction_date' => now(),
+                ]);
+                $payment = $locked;
+            } else {
+                $payment = $this->paymentRecord->createRecord([
+                    'partner_id' => $partnerId,
+                    'borrower_id' => $borrowerId,
+                    'invoice_id' => $invoice->id,
+                    'entity_type' => $invoice->entity_type,
+                    'entity_id' => $invoice->entity_id,
+                    'transaction_id' => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
+                    'amount' => $invoice->payment_amount,
+                    'currency' => strtoupper($invoice->currency ?? 'USD'),
+                    'payment_from' => $providerName ?? __('payment.default_provider'),
+                    'payment_type' => $paymentType,
+                    'is_partner_paying' => $isPartnerPaying,
+                    'is_manual' => $isManual,
+                    'status' => $paymentStatus,
+                    'is_environment' => Payment::environmentOf($partnerProvider),
+                    'details' => $gatewayResult['raw'] ?? [],
+                ]);
+            }
 
             // Save default_payment_method and stripe_customer_id on first payment / when card details are missing
             $payer = $invoice->entity;
@@ -366,9 +463,279 @@ class UnifiedPaymentService
                 ]);
             }
 
-            Log::error(__('payment.log_unified_error', ['error' => $e->getMessage()]), ['data' => $data]);
+            Log::error(__('payment.log_unified_error', ['error' => $e->getMessage()]), [
+                'invoice_id' => $invoice->id,
+                'payment_id' => $pending?->id,
+            ]);
             throw $e;
         }
+    }
+
+    /**
+     * Only the payer of an invoice - or, for an invoice billed to a partner's
+     * own user or employee, that partner's staff - may pay it or finish paying it.
+     *
+     * @throws Exception
+     */
+    protected function assertMayPay(Invoice $invoice): void
+    {
+        $user = auth()->user();
+
+        $isPayer = $user
+            && $invoice->entity_type === $user->entity_type
+            && (int) $invoice->entity_id === (int) $user->entity_id;
+
+        $isPartnerStaff = $user
+            && in_array($invoice->entity_type, [User::class, Employee::class])
+            && (int) $invoice->partner_id === (int) $user->partner_id;
+
+        if (!$isPayer && !$isPartnerStaff) {
+            throw new Exception(__('payment.unauthorized_payment_attempt'));
+        }
+    }
+
+    // ── 3-D Secure (BUG-066) ────────────────────────────────────────────────
+
+    /**
+     * Keep a charge the issuer wants authenticated as a PENDING payment, and hand
+     * the browser what it needs to run the bank's challenge.
+     *
+     * The client secret goes back to the payer only; it is not stored. The row
+     * remembers which gateway account made the charge, so it is read back from
+     * that same account whatever the partner's settings say by then.
+     */
+    protected function awaitAuthentication(Invoice $invoice, array $checkout, array $gatewayResult): array
+    {
+        $partnerProvider = $checkout['partner_provider'];
+
+        $payment = $this->paymentRecord->createRecord([
+            'partner_id' => $checkout['partner_id'],
+            'borrower_id' => $checkout['borrower_id'],
+            'invoice_id' => $invoice->id,
+            'entity_type' => $invoice->entity_type,
+            'entity_id' => $invoice->entity_id,
+            'transaction_id' => $gatewayResult['transaction_id'],
+            'amount' => $invoice->payment_amount,
+            'currency' => strtoupper($invoice->currency ?? 'USD'),
+            'payment_from' => $checkout['provider_name'] ?? __('payment.default_provider'),
+            'payment_type' => PaymentProvider::TYPE_CARD,
+            'status' => Payment::STATUS_PENDING,
+            'is_environment' => Payment::environmentOf($partnerProvider),
+            'details' => [
+                Payment::DETAIL_FAILURE_SOURCE => Payment::FAILURE_SOURCE_CHECKOUT,
+                Payment::DETAIL_AWAITING => Payment::AWAITING_AUTHENTICATION,
+                Payment::DETAIL_GATEWAY_ACCOUNT => $partnerProvider->id,
+                'gateway_status' => $gatewayResult['status'] ?? null,
+            ],
+        ]);
+
+        Log::info('[UnifiedPayment] Card needs bank authentication (3-D Secure); handed to the browser', [
+            'invoice_id' => $invoice->id,
+            'payment_id' => $payment->id,
+            'transaction_id' => $payment->transaction_id,
+        ]);
+
+        return [
+            'success' => false,
+            'requires_action' => true,
+            'payment_id' => $payment->id,
+            'transaction_id' => $payment->transaction_id,
+            'client_secret' => $gatewayResult['client_secret'],
+            'status' => Payment::STATUS_PENDING,
+        ];
+    }
+
+    /**
+     * The payer finished (or abandoned) the bank's challenge in the browser:
+     * find out from the gateway how it ended, and settle the payment.
+     *
+     * Safe to call again - a payment already settled is reported as it stands,
+     * without asking the gateway.
+     *
+     * @return array ['payment_id', 'transaction_id', 'status' => succeeded|pending]
+     * @throws Exception when the payment cannot be confirmed by this user, or failed
+     */
+    public function confirmAuthenticatedPayment(int $paymentId): array
+    {
+        $payment = Payment::with('invoice')->find($paymentId);
+
+        if (!$payment || !$payment->invoice) {
+            throw new Exception(__('payment.not_found'));
+        }
+
+        $this->assertMayPay($payment->invoice);
+
+        if ($payment->isAwaitingAuthentication()) {
+            $result = $this->settleAwaitingAuthentication($payment);
+        } elseif ($this->wasAwaitingAuthentication($payment)) {
+            $result = $this->authenticationResult($payment);
+        } else {
+            throw new Exception(__('payment.not_awaiting_authentication'));
+        }
+
+        if ($result['status'] === Payment::STATUS_FAILED) {
+            throw new Exception($result['message'] ?: __('payment.authentication_failed'));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Read an authentication-pending payment back from its gateway and settle it.
+     *
+     *  - authenticated        recorded as SUCCEEDED, the invoice is paid
+     *  - refused by the bank  FAILED, with the gateway's reason
+     *  - still waiting        left PENDING - or, with a $cancelReason, the charge
+     *                         is cancelled at the gateway and the payment FAILED
+     *
+     * A charge still processing at the gateway (no longer waiting on the payer)
+     * is never cancelled; it is left for a later pass.
+     */
+    public function settleAwaitingAuthentication(Payment $payment, ?string $cancelReason = null): array
+    {
+        if (!$payment->isAwaitingAuthentication()) {
+            return $this->authenticationResult($payment);
+        }
+
+        $account = PartnerPaymentProvider::with('provider')->find($payment->details[Payment::DETAIL_GATEWAY_ACCOUNT] ?? null);
+        $driver = $account ? $this->gatewayManager->driverFor($account) : null;
+
+        if (!$driver instanceof AuthenticatesCardPayments) {
+            throw new Exception(__('payment.authentication_gateway_missing'));
+        }
+
+        $intent = $driver->retrievePayment($payment->transaction_id);
+
+        if (empty($intent['success']) && !empty($intent['requires_action']) && $cancelReason !== null) {
+            $intent = $this->cancelAuthentication($driver, $payment);
+
+            if (empty($intent['success'])) {
+                return $this->failAwaitingAuthentication($payment, $cancelReason, $intent);
+            }
+        }
+
+        if (!empty($intent['success'])) {
+            // Read on its own, not through a relation loaded for a whole batch:
+            // recording the payment walks the invoice's own relations.
+            $invoice = Invoice::findOrFail($payment->invoice_id);
+
+            return $this->completeCharge($invoice, [
+                'partner_id' => $payment->partner_id,
+                'borrower_id' => $payment->borrower_id,
+                'provider_name' => $account->provider?->name ?? $payment->payment_from,
+                'partner_provider' => $account,
+                'is_manual' => false,
+                'is_stripe' => true,
+                'bank_detail' => null,
+                'payment_type' => PaymentProvider::TYPE_CARD,
+            ], $intent, $payment);
+        }
+
+        if (!empty($intent['requires_action']) || !empty($intent['processing'])) {
+            return $this->authenticationResult($payment);
+        }
+
+        // A failed challenge reads, in Stripe's words, like a message to a
+        // developer; the payer gets a plain one and the original is kept. A
+        // decline after a passed challenge keeps the bank's reason - those are
+        // written for cardholders ("Your card has insufficient funds.").
+        $reason = ($intent['error_code'] ?? null) === StripePaymentDriver::ERROR_AUTHENTICATION_FAILED || empty($intent['error'])
+            ? __('payment.authentication_failed')
+            : $intent['error'];
+
+        return $this->failAwaitingAuthentication($payment, $reason, $intent);
+    }
+
+    /**
+     * Settle every bank challenge still open on the invoice before a new charge,
+     * cancelling the ones still waiting.
+     */
+    protected function supersedeAwaitingAuthentications(Invoice $invoice): void
+    {
+        $open = Payment::awaitingAuthentication()->where('invoice_id', $invoice->id)->get();
+
+        foreach ($open as $payment) {
+            $this->settleAwaitingAuthentication($payment, __('payment.authentication_superseded'));
+        }
+    }
+
+    /**
+     * Cancel a charge waiting on authentication. The payer may have completed
+     * the challenge a moment earlier, in which case the gateway refuses to
+     * cancel it: then it is read again and reported as it now stands.
+     */
+    protected function cancelAuthentication(AuthenticatesCardPayments $driver, Payment $payment): array
+    {
+        try {
+            return $driver->cancelPayment($payment->transaction_id);
+        } catch (ApiErrorException $e) {
+            Log::warning('[UnifiedPayment] Could not cancel a charge awaiting authentication; reading it again', [
+                'payment_id' => $payment->id,
+                'transaction_id' => $payment->transaction_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $driver->retrievePayment($payment->transaction_id);
+        }
+    }
+
+    protected function failAwaitingAuthentication(Payment $payment, string $reason, array $intent): array
+    {
+        return DB::transaction(function () use ($payment, $reason, $intent) {
+            $locked = Payment::whereKey($payment->id)->lockForUpdate()->first();
+
+            if (!$locked->isAwaitingAuthentication()) {
+                return $this->authenticationResult($locked);
+            }
+
+            $locked->update([
+                'status' => Payment::STATUS_FAILED,
+                'details' => $this->settledDetails($locked, [], array_filter([
+                    'error' => $reason,
+                    'gateway_error' => ($intent['error'] ?? null) !== $reason ? ($intent['error'] ?? null) : null,
+                    'code' => $intent['error_code'] ?? null,
+                    'gateway_status' => $intent['status'] ?? null,
+                ], fn ($value) => $value !== null)),
+            ]);
+
+            return $this->authenticationResult($locked);
+        });
+    }
+
+    /**
+     * Details for a payment leaving the authentication wait: what the gateway
+     * says now, still marked as a checkout payment from that gateway account,
+     * without the waiting flag.
+     */
+    protected function settledDetails(Payment $payment, array $gatewayResult, array $extra = []): array
+    {
+        $details = $payment->details ?? [];
+
+        $kept = array_intersect_key($details, array_flip([
+            Payment::DETAIL_FAILURE_SOURCE,
+            Payment::DETAIL_GATEWAY_ACCOUNT,
+        ]));
+
+        return array_merge($gatewayResult['raw'] ?? [], $kept, $extra);
+    }
+
+    /** A payment that went through the authentication wait and has left it. */
+    protected function wasAwaitingAuthentication(Payment $payment): bool
+    {
+        return in_array($payment->status, [Payment::STATUS_SUCCEEDED, Payment::STATUS_FAILED], true)
+            && ($payment->details[Payment::DETAIL_FAILURE_SOURCE] ?? null) === Payment::FAILURE_SOURCE_CHECKOUT
+            && isset($payment->details[Payment::DETAIL_GATEWAY_ACCOUNT]);
+    }
+
+    protected function authenticationResult(Payment $payment): array
+    {
+        return [
+            'success' => $payment->status === Payment::STATUS_SUCCEEDED,
+            'payment_id' => $payment->id,
+            'transaction_id' => $payment->transaction_id,
+            'status' => $payment->status,
+            'message' => $payment->status === Payment::STATUS_FAILED ? ($payment->details['error'] ?? null) : null,
+        ];
     }
 
     /**

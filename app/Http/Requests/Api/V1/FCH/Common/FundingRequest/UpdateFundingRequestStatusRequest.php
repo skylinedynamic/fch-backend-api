@@ -30,7 +30,10 @@ class UpdateFundingRequestStatusRequest extends BaseApiRequest
                     FundingRequest::STATUS_CANCELED,
                 ])
             ],
-            'reject_reason' => ['nullable', 'string', 'required_if:status,' . FundingRequest::STATUS_REJECTED],
+            // Up to 10,000 characters, like a funding application's status note.
+            'reject_reason' => ['nullable', 'string', 'required_if:status,' . FundingRequest::STATUS_REJECTED, 'max:' . FundingRequest::REJECT_REASON_MAX_LENGTH],
+            // The status the page was showing - a decision made from an older one is refused (R2 BUG-048).
+            'expected_status' => ['nullable', 'string', 'max:255'],
         ];
     }
     
@@ -43,6 +46,7 @@ class UpdateFundingRequestStatusRequest extends BaseApiRequest
             'status.required' => __('funding_request.status_required'),
             'status.in' => __('funding_request.status_in'),
             'reject_reason.required_if' => __('funding_request.reject_reason_required'),
+            'reject_reason.max' => __('funding_request.reject_reason_max', ['max' => FundingRequest::REJECT_REASON_MAX_LENGTH]),
         ];
     }
 }

@@ -150,7 +150,6 @@ class FundingApplicationResource extends JsonResource
             'conversion_rate' => $this->conversion_rate,
 
 
-            'download_histories' => $this->whenLoaded('downloadHistories'),
             'signature_data' => (function () use ($signatureDates) {
                 $data = is_string($this->signature_data) ? json_decode($this->signature_data, true) : $this->signature_data;
 

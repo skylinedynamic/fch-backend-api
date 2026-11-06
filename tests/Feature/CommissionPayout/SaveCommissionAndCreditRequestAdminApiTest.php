@@ -72,6 +72,28 @@ class SaveCommissionAndCreditRequestAdminApiTest extends TestCase
         $this->assertSame(Commission::STATUS_DRAFT, $commission->commission_status);
     }
 
+    /**
+     * R2 BUG-036: the Success Fee is 1-100%. QA saw "must be at least 1" for
+     * 101 because the browser emptied the field; sent as typed, each end of
+     * the range is named for what it is, and a refused value changes nothing.
+     */
+    #[Test]
+    public function the_success_fee_is_refused_outside_1_to_100_with_the_matching_message(): void
+    {
+        $application = $this->application();
+        $this->actingAsUser($this->reviewer);
+        $payload = ['funding_application_id' => $application->id, 'admin_commission' => 100];
+
+        $this->postJson('/api/v1/admin/funding-application/save-commission', $payload + ['total_commission' => 7.5])->assertOk();
+
+        $this->postJson('/api/v1/admin/funding-application/save-commission', $payload + ['total_commission' => 0])
+            ->assertStatus(422)->assertJsonValidationErrors(['total_commission' => __('application.total_commission_min')]);
+        $this->postJson('/api/v1/admin/funding-application/save-commission', $payload + ['total_commission' => 101])
+            ->assertStatus(422)->assertJsonValidationErrors(['total_commission' => __('application.total_commission_max')]);
+
+        $this->assertEquals(7.5, Commission::where('funding_application_id', $application->id)->sole()->total_commission);
+    }
+
     #[Test]
     public function with_no_partner_share_the_host_keeps_it_all_and_a_resave_replaces_it(): void
     {

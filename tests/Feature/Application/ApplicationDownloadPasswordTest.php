@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Application;
 
-use App\Models\Borrower\DownloadHistory;
+use App\Models\Audit\FundingApplicationAuditEvent;
 use App\Models\Borrower\FundingApplication;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -58,31 +58,11 @@ class ApplicationDownloadPasswordTest extends TestCase
     {
         $this->post($this->url('download-application'), ['password' => 'Secret#2026'])->assertOk();
 
-        $history = DownloadHistory::where('funding_application_id', $this->applicationId)->latest('id')->firstOrFail();
-        $this->assertSame('downloaded_with_password', $history->action);
-        $this->assertArrayNotHasKey('password', (array) $history->details);
-        $this->assertStringNotContainsString('Secret#2026', json_encode($history->getAttributes()));
-    }
-
-    #[Test]
-    public function the_passwords_already_stored_are_removed(): void
-    {
-        $old = DownloadHistory::create([
-            'funding_application_id' => $this->applicationId,
-            'file_type' => 'zip',
-            'action' => 'downloaded_with_password',
-            'sha256_hash' => str_repeat('a', 64),
-            'downloaded_at' => now(),
-            'details' => ['password' => 'Old#Secret', 'file_path' => 'funding-applications/1/downloads/x.zip'],
-        ]);
-        $migration = require database_path('migrations/2026_10_25_000000_remove_passwords_from_download_histories.php');
-
-        $migration->up();
-        $migration->up(); // run twice: nothing left to remove the second time
-
-        $details = $old->fresh()->details;
-        $this->assertArrayNotHasKey('password', $details);
-        $this->assertSame('funding-applications/1/downloads/x.zip', $details['file_path']);
+        $event = FundingApplicationAuditEvent::where('funding_application_id', $this->applicationId)
+            ->where('event', FundingApplicationAuditEvent::EVENT_DOWNLOADED)->latest('id')->firstOrFail();
+        $this->assertTrue($event->context['password_protected']);
+        $this->assertArrayNotHasKey('password', (array) $event->context);
+        $this->assertStringNotContainsString('Secret#2026', json_encode($event->getAttributes()));
     }
 
     #[Test]
@@ -92,7 +72,7 @@ class ApplicationDownloadPasswordTest extends TestCase
             $this->getJson($this->url($what) . '?password=Secret%232026')->assertStatus(422);
         }
 
-        $this->assertSame(0, DownloadHistory::where('funding_application_id', $this->applicationId)->count());
+        $this->assertSame(0, FundingApplicationAuditEvent::where('funding_application_id', $this->applicationId)->where('event', FundingApplicationAuditEvent::EVENT_DOWNLOADED)->count());
     }
 
     #[Test]

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\EmbedForm;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
+use App\Exceptions\EmbedFormSubmissionConvertedException;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\ConvertEmbedFormSubmissionRequest;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\DeleteEmbedFormSubmissionsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\FetchEmbedFormSubmissionsRequest;
 use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormConfigRequest;
@@ -76,7 +78,6 @@ class EmbedFormController extends Controller
             'public_key' => null,
             'form_title' => null,
             'allowed_domains' => [],
-            'notification_email' => null,
             'is_active' => false,
             'embed_snippet' => null,
             'direct_url' => null,
@@ -147,7 +148,9 @@ class EmbedFormController extends Controller
         $filters = $request->only(['search', 'status', 'date_from', 'date_to', 'per_page']);
 
         // Build query manually for host to see all
-        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner');
+        // BUG-058: with the client each converted one belongs to, so the list
+        // can name that client's real plan.
+        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower.latestSubscription');
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
         }
@@ -229,7 +232,7 @@ class EmbedFormController extends Controller
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
-        $submission = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower', 'convertedFundingApplication', 'salesRepUser')->find($id);
+        $submission = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower.latestSubscription', 'convertedFundingApplication', 'salesRepUser')->find($id);
 
         if (!$submission) {
             return ApiResponse::notFound(__('embed_form.submission_not_found'));
@@ -289,6 +292,30 @@ class EmbedFormController extends Controller
      * The submission the signed-in partner may convert, or the response that
      * refuses it (not found, another partner's, already converted, rejected).
      */
+    /**
+     * Delete the applications ticked in the list - the user's own partner's,
+     * or any for the host. A converted application is kept: the whole
+     * selection is refused and those applications named.
+     */
+    public function deleteSubmissions(DeleteEmbedFormSubmissionsRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $isHost = (bool) ($user?->is_host || $user?->partner?->is_host);
+        $partnerId = $isHost ? null : ($user?->partner_id ?? $user?->entity_id);
+
+        try {
+            $deleted = $this->embedFormService->deleteSubmissions($request->validated()['ids'], $partnerId);
+        } catch (EmbedFormSubmissionConvertedException $e) {
+            return ApiResponse::error($e->getMessage(), 422, ['converted' => $e->converted]);
+        }
+
+        if ($deleted === 0) {
+            return ApiResponse::notFound(__('embed_form.submission_not_found'));
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], __('embed_form.submissions_deleted'));
+    }
+
     private function convertibleSubmission(int $id): EmbedFormSubmission|JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;

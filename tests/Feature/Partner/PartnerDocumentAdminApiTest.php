@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 use Tests\TestCase;
 
 /**
@@ -45,7 +47,8 @@ class PartnerDocumentAdminApiTest extends TestCase
         $this->app->usePublicPath($this->publicRoot);
         $dir = public_path("storage/partners/{$this->partner->id}");
         File::ensureDirectoryExists($dir);
-        File::put($dir . '/w9.pdf', '%PDF-1.4 w9');
+        // download() reads the uploads disk (BUG-016), where the document is kept.
+        Storage::disk('uploads')->put("partners/{$this->partner->id}/w9.pdf", '%PDF-1.4 w9');
         // Something worth stealing just outside public/, where a climbing path lands.
         File::put($this->publicRoot . '/../fch-secret-' . basename($this->publicRoot), 'APP_KEY=secret');
     }
@@ -145,5 +148,44 @@ class PartnerDocumentAdminApiTest extends TestCase
         $this->actingAsUser($this->admin);
 
         $this->get("/api/v1/admin/partners/documents/download/{$id}")->assertNotFound();
+    }
+
+    /**
+     * The Documents tab's file manager works in the partner's private
+     * documents folder: a file picked there is filed where it is, not moved,
+     * so the file manager still shows it.
+     */
+    #[Test]
+    public function a_document_picked_in_the_private_documents_folder_is_filed_where_it_is(): void
+    {
+        $path = Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}/w9_1793820555.pdf";
+        Storage::disk(Disk::UPLOADS)->put($path, '%PDF-1.4 w9');
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/partners/documents', [
+            'partner_id' => $this->partner->id,
+            'entity_type' => Folder::PARTNER_DOCUMENTS,
+            'file_path' => ['/w9_1793820555.pdf'],
+        ])->assertCreated();
+
+        $document = PartnerDocument::where('partner_id', $this->partner->id)->firstOrFail();
+        $this->assertSame($path, $document->getRawOriginal('file_path'));
+        Storage::disk(Disk::UPLOADS)->assertExists($path);
+        $this->assertSame(['w9_1793820555.pdf'], array_map('basename', Storage::disk(Disk::UPLOADS)->files(Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}")));
+        $this->get("/api/v1/admin/partners/documents/download/{$document->id}")->assertOk()->assertDownload('w9_1793820555.pdf');
+    }
+
+    #[Test]
+    public function documents_are_picked_only_from_the_partners_own_folders(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/partners/documents', ['partner_id' => $this->partner->id, 'entity_type' => Folder::BORROWERS, 'file_path' => ['w9.pdf']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['entity_type' => __('partner.validation.document_file.folder')]);
+        $this->postJson('/api/v1/admin/partners/documents', ['partner_id' => $this->partner->id, 'entity_type' => Folder::PARTNER_DOCUMENTS, 'file_path' => ['../../2/w9.pdf']])
+            ->assertUnprocessable();
+
+        $this->assertSame(0, PartnerDocument::count());
     }
 }

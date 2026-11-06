@@ -25,4 +25,16 @@ return [
         'installment'         => 'Installment',
         'seat_fee'            => 'Seat Fee',
     ],
+
+    // Resuming a cancelled subscription (BUG-069).
+    'resume' => [
+        'not_cancelled'    => 'Only a cancelled subscription can be resumed.',
+        'not_found'        => 'No subscription was found to resume.',
+        'nothing_to_bill'  => 'This subscription cannot be resumed from here. Please contact support.',
+        'active'           => 'Your subscription is active again.',
+        'payment_required' => 'Pay the invoice to reactivate your subscription.',
+        'resumed_log'      => 'Subscription resumed',
+        'notify_failed'    => 'Could not send the subscription reactivated notice',
+        'mail_subject'     => 'Your subscription is active again - :site',
+    ],
 ];

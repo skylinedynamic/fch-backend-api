@@ -15,6 +15,7 @@ use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Support\EmbedForm\EmbedFormLogo;
 use App\Rules\UsPostalCode;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class EmbedFormPageController extends Controller
 {
@@ -179,7 +180,7 @@ class EmbedFormPageController extends Controller
     private function publicUrl(string $path): string
     {
         $path = ltrim($path, '/');
-        $url = Storage::disk('public')->url($path);
+        $url = Storage::disk(Disk::UPLOADS)->url($path);
 
         // BASE_API_URL unset leaves the disk's base as the bare string
         // `/storage`, so the disk hands back a host-less address. A relative src
@@ -209,7 +210,7 @@ class EmbedFormPageController extends Controller
         $favicon = $branding['favicon'] ?? null;
 
         return $favicon
-            ? encodeUrl(Storage::disk('public')->url($favicon))
+            ? encodeUrl(Storage::disk(Disk::UPLOADS)->url($favicon))
             : null;
     }
 }

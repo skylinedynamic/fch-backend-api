@@ -430,4 +430,10 @@ return [
     // Funding request
     'approved_funding_string' => 'Approved funding must be text.',
     'approved_funding_max' => 'Approved funding cannot exceed 255 characters.',
+    // A saved, locked profile field (BUG-054)
+    'locked_field_change_request' => 'This field is locked once saved. Submit a change request to update it.',
+    // Client Business Financials bounds (BUG-006)
+    'amount_min' => 'Enter an amount of 0 or more.',
+    'amount_max' => 'Enter an amount no greater than :max.',
+    'profit_margin_between' => 'Enter a profit margin between :min% and :max%.',
 ];

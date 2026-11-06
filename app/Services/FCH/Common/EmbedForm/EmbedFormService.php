@@ -2,14 +2,17 @@
 
 namespace App\Services\FCH\Common\EmbedForm;
 
+use App\Support\EmbedForm\AllowedDomain;
 use App\Helpers\ApiResponse;
 use App\Models\User\User;
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
+use App\Exceptions\EmbedFormSubmissionConvertedException;
 use App\Mail\EmbedForm\EmbedFormConverted;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormConfig;
@@ -19,6 +22,7 @@ use App\Rules\BusinessEin;
 use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\SignatureRecorder;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Support\EmbedForm\EmbedFormLocation;
@@ -35,6 +39,8 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Mail\EmbedForm\NewSubmissionMail;
 use Throwable;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 
 class EmbedFormService
@@ -46,6 +52,15 @@ class EmbedFormService
     /** What converting a submission will do - see conversionPreview(). */
     public const CONVERSION_MODE_NEW = 'new_borrower';
     public const CONVERSION_MODE_EXISTING = 'existing_borrower';
+
+    /** The client's Activity entry when a conversion fills its blank profile fields. */
+    public const PROFILE_FILLED_EVENT = 'Profile Filled From Application';
+
+    /** Profile fields that make up one address; filled together or not at all. */
+    private const ADDRESS_GROUPS = [
+        ['home_address', 'city', 'state', 'postal_code'],
+        ['business_address', 'business_city', 'business_state', 'business_postal_code'],
+    ];
 
     /**
      * Uploads copied into the funding application during the conversion under
@@ -107,9 +122,11 @@ class EmbedFormService
     }
 
     /**
-     * What the partner is shown before agreeing to reuse an existing borrower.
+     * What the partner is shown before agreeing to reuse an existing borrower,
+     * including which of its blank profile fields the submission would fill
+     * if they agree to that too (BUG-064).
      */
-    public function existingBorrowerSummary(Borrower $borrower): array
+    public function existingBorrowerSummary(Borrower $borrower, ?EmbedFormSubmission $submission = null): array
     {
         return [
             'id' => $borrower->id,
@@ -122,7 +139,55 @@ class EmbedFormService
             'partner_name' => $borrower->partner?->company_name ?: $borrower->partner?->full_name,
             'funding_applications_count' => FundingApplication::query()->where('borrower_id', $borrower->id)->count(),
             'created_at' => $borrower->created_at?->toIso8601String(),
+            'fields_to_fill' => $submission ? $this->profileFieldsToFill($borrower, $submission) : [],
         ];
+    }
+
+    /**
+     * The blank profile fields a submission would fill on an existing borrower,
+     * as {field, label, value} for the Convert dialog. An SSN or EIN shows only
+     * its last four.
+     *
+     * @return list<array{field: string, label: string, value: string}>
+     */
+    public function profileFieldsToFill(Borrower $borrower, EmbedFormSubmission $submission): array
+    {
+        $fields = [];
+        foreach ($this->blankProfileFields($borrower, $this->submissionProfile($submission)) as $field => $value) {
+            $fields[] = [
+                'field' => $field,
+                'label' => ActivityLog::fieldLabel($field),
+                'value' => $this->displayValue($field, (string) $value),
+            ];
+        }
+
+        return $fields;
+    }
+
+    private function displayValue(string $field, string $value): string
+    {
+        $digits = preg_replace('/\D/', '', $value);
+
+        return match ($field) {
+            'ssn' => '***-**-' . substr($digits, -4),
+            'business_ein' => '**-***' . substr($digits, -4),
+            default => $value,
+        };
+    }
+
+    /** The borrower profile a submission describes, its SSN decrypted. */
+    private function submissionProfile(EmbedFormSubmission $submission): array
+    {
+        $ssn = null;
+        if ($submission->ssn_encrypted) {
+            try {
+                $ssn = Crypt::decryptString($submission->ssn_encrypted);
+            } catch (Throwable $e) {
+                $ssn = null;
+            }
+        }
+
+        return $this->borrowerProfileFrom($submission, $ssn);
     }
 
     /**
@@ -167,7 +232,7 @@ class EmbedFormService
         $existingBorrower = $this->convertibleBorrower($submission);
 
         return $existingBorrower
-            ? ['mode' => self::CONVERSION_MODE_EXISTING, 'existing_borrower' => $this->existingBorrowerSummary($existingBorrower)]
+            ? ['mode' => self::CONVERSION_MODE_EXISTING, 'existing_borrower' => $this->existingBorrowerSummary($existingBorrower, $submission)]
             : ['mode' => self::CONVERSION_MODE_NEW, 'existing_borrower' => null];
     }
 
@@ -264,9 +329,12 @@ class EmbedFormService
             if (!$host) {
                 continue;
             }
-            $scheme = preg_match('#^http://#i', trim((string) $domain)) ? 'http' : 'https';
-            $sources[] = "{$scheme}://{$host}";
-            $sources[] = "{$scheme}://www.{$host}";
+            // Always https; an entry typed with http:// allows http as well (R2 BUG-035).
+            $schemes = AllowedDomain::allowsHttp((string) $domain) ? ['https', 'http'] : ['https'];
+            foreach ($schemes as $scheme) {
+                $sources[] = "{$scheme}://{$host}";
+                $sources[] = "{$scheme}://www.{$host}";
+            }
         }
 
         return $sources ? implode(' ', array_values(array_unique($sources))) : null;
@@ -342,7 +410,6 @@ class EmbedFormService
             'partner_id' => $partnerId,
             'public_key' => EmbedFormConfig::generatePublicKey(),
             'form_title' => 'Business Funding Application',
-            'notification_email' => null,
             'is_active' => true,
         ]);
     }
@@ -356,7 +423,6 @@ class EmbedFormService
         $config->update(array_filter([
             'form_title' => $data['form_title'] ?? null,
             'allowed_domains' => $data['allowed_domains'] ?? null,
-            'notification_email' => $data['notification_email'] ?? null,
             'is_active' => $data['is_active'] ?? null,
         ], fn($v) => !is_null($v)));
 
@@ -729,7 +795,7 @@ class EmbedFormService
     ): void {
         $directory = "embed_forms/{$submission->partner_id}/{$submission->id}";
         $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs($directory, $filename, 'public');
+        $path = $file->storeAs($directory, $filename, Disk::UPLOADS);
 
         EmbedFormAttachment::create([
             'submission_id' => $submission->id,
@@ -840,7 +906,7 @@ class EmbedFormService
      */
     public function getSubmissions(int $partnerId, array $filters = []): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'convertedBorrower', 'salesRepUser')
+        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'convertedBorrower.latestSubscription', 'salesRepUser')
             ->where('partner_id', $partnerId);
 
         if (!empty($filters['search'])) {
@@ -880,7 +946,48 @@ class EmbedFormService
     public function updateStatus(EmbedFormSubmission $submission, string $status): EmbedFormSubmission
     {
         $submission->update(['status' => $status]);
-        return $submission->fresh(['attachments.docType', 'coBorrowers', 'convertedBorrower']);
+        return $submission->fresh(['attachments.docType', 'coBorrowers', 'convertedBorrower.latestSubscription']);
+    }
+
+    /**
+     * Delete applications, with their attachments, co-borrowers and files.
+     * Limited to one partner's applications when $partnerId is given (null:
+     * the host, any partner's). A converted application is the record behind
+     * a client and a funding application, so a selection that includes one is
+     * refused whole and nothing is deleted.
+     *
+     * @param  list<int>  $ids
+     * @return int how many were deleted
+     */
+    public function deleteSubmissions(array $ids, ?int $partnerId): int
+    {
+        $submissions = EmbedFormSubmission::query()
+            ->whereKey($ids)
+            ->when($partnerId !== null, fn ($query) => $query->where('partner_id', $partnerId))
+            ->get();
+
+        $converted = $submissions->where('status', EmbedFormSubmission::STATUS_CONVERTED);
+        if ($converted->isNotEmpty()) {
+            throw new EmbedFormSubmissionConvertedException(
+                __('embed_form.converted_cannot_delete'),
+                $converted->map(fn (EmbedFormSubmission $s) => [
+                    'id' => $s->id,
+                    'name' => trim("{$s->first_name} {$s->last_name}"),
+                ])->values()->all(),
+            );
+        }
+
+        DB::transaction(function () use ($submissions) {
+            // Attachments and co-borrowers go with the row (cascade).
+            EmbedFormSubmission::whereKey($submissions->modelKeys())->delete();
+        });
+
+        // The uploaded files, once the rows are gone.
+        foreach ($submissions as $submission) {
+            Storage::disk(Disk::UPLOADS)->deleteDirectory(Folder::EMBED_FORMS . "/{$submission->partner_id}/{$submission->id}");
+        }
+
+        return $submissions->count();
     }
 
     /**
@@ -900,7 +1007,7 @@ class EmbedFormService
 
             // Nothing is created until the partner has seen who this is.
             if ($existingBorrower && !filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower, $submission));
             }
 
             $borrowerService = app(BorrowerService::class);
@@ -928,9 +1035,12 @@ class EmbedFormService
 
             if ($existingBorrower) {
                 // The borrower already exists: only the funding application is
-                // new. Their profile is filled where it is blank - what they or
-                // the partner already entered is never overwritten.
-                $this->fillBlankProfileFields($existingBorrower, $profile);
+                // new. Their blank profile fields are filled only when the
+                // partner, shown the list, agreed to it (BUG-064) - and what
+                // they or the partner already entered is never overwritten.
+                if (filter_var($data['fill_profile_fields'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                    $this->fillBlankProfileFields($existingBorrower, $profile);
+                }
                 $borrower = $existingBorrower;
                 $borrowerId = $existingBorrower->id;
             } else {
@@ -1072,9 +1182,22 @@ class EmbedFormService
     {
         $blanks = $this->blankProfileFields($borrower, $profile);
 
-        if ($blanks !== []) {
-            $borrower->forceFill($blanks)->save();
+        if ($blanks === []) {
+            return;
         }
+
+        $borrower->forceFill($blanks)->save();
+
+        // On the client's Activity: which fields, never their values (BUG-064).
+        app(ActivityLogService::class)->logSystemEvent(
+            Borrower::class,
+            $borrower->id,
+            $borrower->partner_id,
+            $borrower->id,
+            self::PROFILE_FILLED_EVENT,
+            "Filled from an embedded form application, with the partner's consent: "
+                . implode(', ', array_map(fn (string $field) => ActivityLog::fieldLabel($field), array_keys($blanks))) . '.',
+        );
     }
 
     /**
@@ -1122,6 +1245,15 @@ class EmbedFormService
             $partialSsn = $field === 'ssn' && strlen((string) $this->ssnDigits($current)) !== 9;
             if ($current === null || $current === '' || $partialSsn || ($field === 'fico_score' && (int) $current === 0)) {
                 $blanks[$field] = $value;
+            }
+        }
+
+        // An address is filled whole or not at all: half the client's address
+        // and half the submission's is no address (BUG-064, Texas + Miami).
+        foreach (self::ADDRESS_GROUPS as $group) {
+            $onFile = array_filter($group, fn (string $field) => !in_array($borrower->getAttribute($field), [null, ''], true));
+            if ($onFile !== []) {
+                $blanks = array_diff_key($blanks, array_flip($group));
             }
         }
 
@@ -1402,7 +1534,7 @@ class EmbedFormService
         FundingApplication $application,
         int $borrowerId
     ): void {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         foreach ($submission->attachments as $attachment) {
             if (!$attachment->file_path || !$disk->exists($attachment->file_path)) {
@@ -1432,7 +1564,7 @@ class EmbedFormService
                 'borrower_doc_type_id' => $attachment->borrower_doc_type_id,
                 'name' => $attachment->original_name,
                 'path' => $destination,
-                'disk' => 'public',
+                'disk' => Disk::UPLOADS,
                 'original_name' => $attachment->original_name,
                 'extension' => $extension ?: null,
                 'mime' => $attachment->mime_type,
@@ -1443,7 +1575,7 @@ class EmbedFormService
                 $destination, $attachment->original_name, $attachment->borrower_doc_type_id, $application->id, $borrowerId
             );
             $this->movedDocuments[array_key_last($this->movedDocuments)]['client']
-                = "borrowers/{$borrowerId}/" . $document->getRawOriginal('file_path');
+                = $document->storagePath();
         }
     }
 
@@ -1464,7 +1596,7 @@ class EmbedFormService
         int $applicationId,
         int $borrowerId
     ): BorrowerDocument {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
         $extension = pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($source, PATHINFO_EXTENSION);
         $fileName = Str::uuid() . ($extension ? '.' . $extension : '');
         $path = "borrowers/{$borrowerId}/{$fileName}";
@@ -1507,7 +1639,7 @@ class EmbedFormService
      */
     protected function deleteMovedOriginals(EmbedFormSubmission $submission): void
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         foreach ($this->movedDocuments as $moved) {
             if (!$disk->delete($moved['from'])) {
@@ -1529,7 +1661,7 @@ class EmbedFormService
     /** After a rollback: the copies belong to an application that does not exist. */
     protected function deleteMovedCopies(): void
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         foreach ($this->movedDocuments as $moved) {
             $disk->delete(array_filter([$moved['to'], $moved['client'] ?? null]));
@@ -1565,7 +1697,7 @@ class EmbedFormService
             return ApiResponse::forbidden(__('embed_form.unauthorized_attachment'));
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
         if (!$disk->exists($attachment->file_path)) {
             return ApiResponse::notFound(__('embed_form.file_not_exists'));
         }

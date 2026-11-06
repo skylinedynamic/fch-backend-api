@@ -5,6 +5,7 @@ namespace App\Http\Resources\FCH\Borrower;
 use App\Rules\Ssn;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\Files\FileUrl;
 
 class BorrowerCreditProfileResource extends JsonResource
 {
@@ -93,7 +94,7 @@ class BorrowerCreditProfileResource extends JsonResource
                     'industry' => $inq->industry,
                 ];
             })->toArray(),
-            'pdf_url' => $this->pdf_url,
+            'pdf_url' => FileUrl::for($this->pdf_url),
             'document_id' => $this->document_id,
         ];
     }

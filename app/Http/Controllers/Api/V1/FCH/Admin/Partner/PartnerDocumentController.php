@@ -7,11 +7,13 @@ use App\Services\FCH\Partner\PartnerDocumentService;
 use App\Http\Resources\FCH\Partner\PartnerDocumentResource;
 use App\Helpers\ApiResponse;
 use App\Models\Partner\PartnerDocument;
+use App\Support\Files\StoragePath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerDocumentRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerDocumentRequest;
+use App\Support\Files\Disk;
 
 class PartnerDocumentController extends Controller
 {
@@ -151,28 +153,17 @@ class PartnerDocumentController extends Controller
             return ApiResponse::notFound('Document not found');
         }
 
-        $urlPath = parse_url($document->file_path, PHP_URL_PATH);
-        $relativePath = ltrim($urlPath, '/'); 
-        $filePath = realpath(public_path($relativePath));
-        $storageRoot = realpath(public_path('storage'));
+        // The file on the uploads disk (private once moved, BUG-016). A stored
+        // path that climbs out (../) gives no path, so nothing else is served.
+        $raw = $document->getRawOriginal('file_path');
+        $relativePath = $raw ? StoragePath::fromUrl(PartnerDocument::storagePathFor($document->partner_id, $raw)) : null;
+        $disk = Storage::disk(Disk::UPLOADS);
 
-        // Only a file inside public/storage is served: a stored path that
-        // climbs out of it (../) must not reach anything else on the server.
-        if (!$filePath || !$storageRoot || !str_starts_with($filePath, $storageRoot . DIRECTORY_SEPARATOR) || !is_file($filePath)) {
+        if (!$relativePath || !$disk->exists($relativePath)) {
             return ApiResponse::notFound('File not found on server');
         }
 
-        // Get MIME type
-        $mimeType = mime_content_type($filePath);
-
-        return response()->download(
-            $filePath,
-            $document->document_name,
-            [
-                'Content-Type' => $mimeType,
-                'Content-Disposition' => 'attachment; filename="' . $document->document_name . '"',
-            ]
-        );
+        return $disk->download($relativePath, $document->document_name);
     }
 
     /**

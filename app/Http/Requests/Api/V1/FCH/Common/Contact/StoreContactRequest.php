@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\SafeUpload;
 
 class StoreContactRequest extends BaseApiRequest
 {
@@ -47,7 +48,7 @@ class StoreContactRequest extends BaseApiRequest
             'zip_code' => ['nullable', 'string', new UsPostalCode()],
             'website' => ['nullable'],
             'notes' => ['nullable', 'string'],
-            'image' => ['nullable'],
+            'image' => ['nullable', SafeUpload::image()],
             'address' => ['nullable', 'string', 'max:500'],
             'is_referral_partner' => ['nullable', 'boolean'],
         ];

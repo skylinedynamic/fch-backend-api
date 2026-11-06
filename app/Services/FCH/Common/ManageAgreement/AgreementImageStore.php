@@ -5,6 +5,8 @@ namespace App\Services\FCH\Common\ManageAgreement;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 /**
  * Keeps the images inside agreement HTML/JSON (logo, signature) on disk
@@ -90,13 +92,16 @@ class AgreementImageStore
         );
     }
 
+    /** The images' folder: private, on the disk config/files.php lists it under. */
+    public const FOLDER = Folder::AGREEMENT_IMAGES;
+
     private function disk(): Filesystem
     {
-        return Storage::disk(config('agreement.image_disk'));
+        return Storage::disk(Disk::UPLOADS);
     }
 
     private function path(string $name): string
     {
-        return config('agreement.image_directory') . '/' . $name;
+        return self::FOLDER . '/' . $name;
     }
 }

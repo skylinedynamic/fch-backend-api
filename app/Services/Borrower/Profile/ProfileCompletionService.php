@@ -160,13 +160,18 @@ class ProfileCompletionService
         ];
     }
 
-    private function checkBusiness($borrower): array
+    /**
+     * The Business Details section: complete, and which fields are missing.
+     * Also the rule for the Capital Access pre-flight "Business Information"
+     * item (BUG-043), so the two never disagree.
+     */
+    public function checkBusiness($borrower): array
     {
         $missing = [];
 
         $fields = [
             'business_name' => $borrower->business_name,
-            'business_ein' => $borrower->business_ein,
+            // The EIN is optional (BUG-054): a profile is complete without it.
             // 'business_phone' => $borrower->business_phone,
             // Required by the Business Details form (UpdateBusinessInfoRequest).
             'business_email' => $borrower->business_email,

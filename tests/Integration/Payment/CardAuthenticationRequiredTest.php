@@ -22,18 +22,13 @@ use Tests\TestCase;
  * A card whose bank wants the holder to authenticate.
  *
  * Stripe answers `requires_action` when the issuer demands 3-D Secure - usually
- * an OTP. The card is fine; the charge is simply waiting on a step this
- * application does not implement.
+ * an OTP. The card is fine; the charge is waiting on the cardholder.
  *
- * That full flow is not built, deliberately: it needs the browser to confirm with
- * `client_secret` and a webhook to catch a payer who closes the tab midway, and
- * US-issued cards rarely trigger it. What is built is the ability to TELL. The
- * code used to fold this into a generic "Payment charge failed via Stripe",
- * leaving the payer with nothing to act on and no trace of the cause - the same
- * dead end as an error naming a token while the real fault lay in a setting.
- *
- * So these pin the naming, not the handling. If the warning they describe starts
- * appearing in production logs, that is the evidence for building the real flow.
+ * At checkout ("Pay Now") the challenge is now finished in the browser
+ * (BUG-066): the attempt is kept PENDING and the client secret handed back -
+ * see tests/Feature/Payment/CardAuthenticationCheckoutTest for the whole flow.
+ * Unattended (the auto-charge cron) nobody is there to authenticate, so that
+ * path still names the failure rather than retrying it as a decline.
  */
 #[CoversClass(UnifiedPaymentService::class)]
 class CardAuthenticationRequiredTest extends TestCase
@@ -135,20 +130,19 @@ class CardAuthenticationRequiredTest extends TestCase
     }
 
     /**
-     * The point of the whole change: the payer is told what to do about it.
+     * The browser is handed the challenge instead of an error (BUG-066): the
+     * card is fine, it only needs the cardholder.
      */
     #[Test]
-    public function the_payer_is_told_the_card_needs_bank_verification(): void
+    public function the_payer_is_handed_the_bank_verification(): void
     {
         $this->stripeAsksForAuthentication();
 
-        try {
-            $this->pay($this->invoice());
-            $this->fail('an unauthenticated charge was reported as a success');
-        } catch (Exception $e) {
-            $this->assertStringContainsString('verification from your bank', $e->getMessage());
-            $this->assertStringNotContainsString('Payment charge failed', $e->getMessage());
-        }
+        $result = $this->pay($this->invoice());
+
+        $this->assertTrue($result['requires_action']);
+        $this->assertFalse($result['success'], 'an unauthenticated charge is not a success');
+        $this->assertSame('pi_needs_3ds_secret', $result['client_secret']);
     }
 
     /**
@@ -173,23 +167,22 @@ class CardAuthenticationRequiredTest extends TestCase
     }
 
     /**
-     * Nothing may be recorded: the money has not moved, whatever the reason.
+     * The money has not moved: the invoice stays Unpaid, and the only record is
+     * the attempt itself, PENDING until the bank answers.
      */
     #[Test]
-    public function an_unauthenticated_charge_records_nothing(): void
+    public function an_unauthenticated_charge_is_only_held_as_pending(): void
     {
         $this->stripeAsksForAuthentication();
 
         $invoice = $this->invoice();
 
-        try {
-            $this->pay($invoice);
-        } catch (Exception) {
-            // expected
-        }
+        $this->pay($invoice);
 
         $this->assertSame(Invoice::STATUS_UNPAID, $invoice->fresh()->status);
-        $this->assertSame(0, Payment::count());
+        $this->assertSame(1, Payment::count());
+        $this->assertTrue(Payment::first()->isAwaitingAuthentication());
+        $this->assertSame(0, Payment::where('status', Payment::STATUS_SUCCEEDED)->count());
     }
 
     /**

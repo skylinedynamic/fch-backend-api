@@ -83,8 +83,11 @@ class LenderMatchService
     /** @return array<int, array<string, mixed>> */
     private function matchCategory(Borrower $borrower, LenderProductCategory $category): array
     {
+        // An inactive lender is not offered: not matched, so not in the
+        // Assign list or the lender filter built from it (R2 BUG-020).
         $visibilities = LenderVisibility::with('lender')
             ->where('lender_product_category_id', $category->id)
+            ->whereHas('lender', fn ($q) => $q->where('status', Lender::STATUS_ACTIVE))
             ->get()
             ->unique('lender_id');
 
@@ -171,6 +174,8 @@ class LenderMatchService
                 'id' => $visibility->lender->id,
                 'name' => $visibility->lender->name,
                 'legal_name' => $visibility->lender->legal_name,
+                // "Lender Name - Legal Name": what the screens show (R2 BUG-008).
+                'display_name' => $visibility->lender->displayName(),
                 'phone' => $visibility->lender->contact_phone,
                 'email' => $visibility->lender->contact_email,
                 'product_category' => $category->name,

@@ -366,8 +366,19 @@ class BillingService
      */
     private function billingAmountSql(): string
     {
+        // Installment: the last one takes up the monthly rounding, as
+        // Subscription::nextInstallmentAmount() works it out (BUG-049).
         return "CASE
-            WHEN subscriptions.current_phase = ? THEN COALESCE(subscriptions.subscription_amount_per_month, 0)
+            WHEN subscriptions.current_phase = ? THEN CASE
+                WHEN subscriptions.installment_type = 1
+                    AND subscriptions.installment_count > 0
+                    AND subscriptions.installments_paid = subscriptions.installment_count - 1
+                    AND subscriptions.total_subscription_amount IS NOT NULL
+                    AND subscriptions.subscription_amount_per_month IS NOT NULL
+                    AND subscriptions.total_subscription_amount - subscriptions.subscription_amount_per_month * (subscriptions.installment_count - 1) > 0
+                THEN subscriptions.total_subscription_amount - subscriptions.subscription_amount_per_month * (subscriptions.installment_count - 1)
+                ELSE COALESCE(subscriptions.subscription_amount_per_month, 0)
+            END
             WHEN subscriptions.current_phase = ? THEN COALESCE(subscriptions.monthly_platform_fee, 0)
             WHEN subscriptions.current_phase = ? THEN COALESCE(subscriptions.per_seat_amount, 0)
             WHEN subscriptions.current_phase = ? THEN 0
@@ -418,6 +429,15 @@ class BillingService
                 'subscriptions.monthly_platform_fee',
                 'subscriptions.per_seat_amount',
                 'subscriptions.payable_amount',
+                // Decides whether a row is scheduled and overdue below. It was
+                // missing, so every row was skipped and scheduled_total and
+                // overdue_count were always 0.
+                'subscriptions.subscription_end_date',
+                // What nextInstallmentAmount() needs for the adjusted last one.
+                'subscriptions.installment_type',
+                'subscriptions.installment_count',
+                'subscriptions.installments_paid',
+                'subscriptions.total_subscription_amount',
             ]);
 
         $scheduledTotal = 0.0;
@@ -447,7 +467,7 @@ class BillingService
             }
 
             $scheduledTotal += match ($row->current_phase) {
-                Subscription::PHASE_INSTALLMENT => (float) ($row->subscription_amount_per_month ?: 0),
+                Subscription::PHASE_INSTALLMENT => (float) ($row->nextInstallmentAmount() ?: 0),
                 Subscription::PHASE_PLATFORM_FEE => (float) ($row->monthly_platform_fee ?: 0),
                 Subscription::PHASE_USER_SEAT => (float) ($row->per_seat_amount ?: 0),
                 Subscription::PHASE_COMPLETED => 0.0,

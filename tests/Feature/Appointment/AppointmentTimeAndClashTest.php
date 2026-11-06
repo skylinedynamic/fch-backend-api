@@ -143,6 +143,56 @@ class AppointmentTimeAndClashTest extends TestCase
         $this->assertStringContainsString('"start_time":"02:00"', $response->getContent());
     }
 
+    /**
+     * Defect: R2 BUG-073 - the appointment form's live check sent the client's
+     * record id as `assigned_for`. That id is not a user (422 "Assigned user
+     * does not exist."), or it is someone else's, so the client's clash only
+     * showed after Confirm. The form now sends the client's user id, as Save does.
+     */
+    #[Test]
+    public function the_availability_check_finds_the_clients_clash_by_their_user_id(): void
+    {
+        $colleague = $this->makePartnerAdmin($this->client->partner);
+        $this->existing('2026-10-27 09:00:00', $colleague, $this->client);
+
+        $this->postJson('/api/v1/common/appointments/check-availability', [
+            'assigned_for' => $this->client->id,
+            'appointment_date' => '2026-10-27 09:00:00',
+            'timezone' => 'UTC',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.available', false)
+            ->assertJsonPath('data.assignee_conflicts.0.start_time', '09:00')
+            ->assertJsonPath('data.scheduler_conflicts', []);
+    }
+
+    /**
+     * R2 BUG-073 - a check that names the client by their record instead
+     * (entity_type + entity_id, no assigned_for) is resolved to the same user.
+     */
+    #[Test]
+    public function the_availability_check_resolves_a_client_named_by_record_to_their_user(): void
+    {
+        // Ids that cannot be mistaken for one another.
+        $this->makeBorrowerUser($this->client->partner);
+        $this->makeBorrowerUser($this->client->partner);
+        $client = $this->makeBorrowerUser($this->client->partner, [], ['name' => 'Grace Hopper']);
+        $this->assertNotSame($client->id, $client->entity_id);
+
+        $colleague = $this->makePartnerAdmin($this->client->partner);
+        $this->existing('2026-10-27 09:00:00', $colleague, $client);
+
+        $this->postJson('/api/v1/common/appointments/check-availability', [
+            'entity_type' => 'borrower',
+            'entity_id' => $client->entity_id,
+            'appointment_date' => '2026-10-27 09:00:00',
+            'timezone' => 'UTC',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.available', false)
+            ->assertJsonPath('data.assignee_conflicts.0.start_time', '09:00');
+    }
+
     #[Test]
     public function the_email_shows_the_time_in_the_zone_it_was_booked_in(): void
     {
@@ -217,6 +267,21 @@ class AppointmentTimeAndClashTest extends TestCase
         $this->assertSame(1, Appointment::count());
     }
 
+    /**
+     * Defect: R2 BUG-073 - booking the client again into a slot the two of
+     * them already share answered "You already have an appointment...",
+     * which reads as if only the booker were busy. Both are named.
+     */
+    #[Test]
+    public function a_clash_the_booker_and_the_attendee_share_names_them_both(): void
+    {
+        $this->existing('2026-10-27 09:00:00', $this->owner, $this->client);
+
+        $this->book('2026-10-27 09:00:00')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['appointment_date' => __('appointment.time_taken_by_both', ['name' => 'Ada Lovelace', 'from' => '9:00 AM', 'to' => '9:30 AM'])]);
+    }
+
     #[Test]
     public function an_overlap_with_the_bookers_own_appointment_is_refused(): void
     {
@@ -242,9 +307,10 @@ class AppointmentTimeAndClashTest extends TestCase
         // 09:00 UTC is 15:00 in Dhaka.
         $this->existing('2026-10-27 09:00:00', $this->owner, $this->client);
 
+        // The booker and the client share that appointment (R2 BUG-073).
         $this->book('2026-10-27 15:10:00', 'Asia/Dhaka')
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['appointment_date' => __('appointment.time_taken_by_you', ['from' => '3:00 PM', 'to' => '3:30 PM'])]);
+            ->assertJsonValidationErrors(['appointment_date' => __('appointment.time_taken_by_both', ['name' => 'Ada Lovelace', 'from' => '3:00 PM', 'to' => '3:30 PM'])]);
     }
 
     #[Test]

@@ -107,6 +107,56 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
         $this->assertSame(0, PreQualificationRequest::count());
     }
 
+    /**
+     * Defect: R2 BUG-026 - the borrower left the wizard after saving Funding
+     * Needs and came back to an empty step 3: the GET blanked every Funding
+     * Needs field even though the in-progress draft held them.
+     */
+    #[Test]
+    public function the_draft_comes_back_with_its_saved_funding_needs(): void
+    {
+        $this->actingAsUser($this->me);
+        $this->postJson('/api/v1/borrower/pre-qualification/personal-info', $this->personal())->assertOk();
+        $this->postJson('/api/v1/borrower/pre-qualification/business-info', $this->business())->assertOk();
+        $this->postJson('/api/v1/borrower/pre-qualification/funding-info', [
+            'funding_requested_amount' => 75000,
+            'funding_urgency' => 'Within 30 days',
+            'purpose_of_funding' => 'Other',
+            'purpose_note' => 'Second oven',
+            'personal_credit_score' => 'Good (670-739)',
+            'estimated_business_credit_score' => '60-79',
+            'existing_business_debt' => true,
+            'debt_balance' => 5000,
+            'notes' => 'Call after 5pm',
+        ])->assertOk();
+
+        $this->getJson('/api/v1/borrower/pre-qualification')
+            ->assertOk()
+            ->assertJsonPath('data.funding_requested_amount', '$75,000.00')
+            ->assertJsonPath('data.funding_urgency', 'Within 30 days')
+            ->assertJsonPath('data.purpose_of_funding', 'Other')
+            ->assertJsonPath('data.purpose_note', 'Second oven')
+            ->assertJsonPath('data.personal_credit_score', 'Good (670-739)')
+            ->assertJsonPath('data.estimated_business_credit_score', '60-79')
+            ->assertJsonPath('data.existing_business_debt', true)
+            ->assertJsonPath('data.debt_balance', '$5,000.00')
+            ->assertJsonPath('data.notes', 'Call after 5pm');
+    }
+
+    /** A new application never starts from a submitted one's Funding Needs. */
+    #[Test]
+    public function a_new_application_starts_with_blank_funding_needs(): void
+    {
+        $this->draftFor($this->myBorrower(), PreQualificationRequest::PENDING, ['funding_requested_amount' => 75000, 'funding_urgency' => 'ASAP']);
+        $this->actingAsUser($this->me);
+
+        $this->getJson('/api/v1/borrower/pre-qualification')
+            ->assertOk()
+            ->assertJsonPath('data.id', null)
+            ->assertJsonPath('data.funding_requested_amount', null)
+            ->assertJsonPath('data.funding_urgency', null);
+    }
+
     #[Test]
     public function a_step_is_validated(): void
     {

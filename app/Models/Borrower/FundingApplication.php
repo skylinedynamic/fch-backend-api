@@ -2,7 +2,6 @@
 
 namespace App\Models\Borrower;
 
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Commission\Commission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
@@ -12,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Concerns\HasPersonName;
+use App\Models\Audit\FundingApplicationAuditEvent;
 
 class FundingApplication extends Model
 {
@@ -683,6 +683,18 @@ class FundingApplication extends Model
     }
 
     /**
+     * Which copy of the application a page is showing: its last-saved time.
+     * A wizard step sends it back as `expected_version`, and a save from an
+     * older copy is refused rather than overwriting a newer one (R2 BUG-033).
+     * A save that changes nothing does not touch updated_at, so paging through
+     * the wizard does not move it on.
+     */
+    public function version(): ?string
+    {
+        return $this->updated_at?->format('Y-m-d H:i:s');
+    }
+
+    /**
      * Everything a portal needs to decide what to show: whether the form is
      * open, what an edit will cost, and whether the borrower may start over.
      *
@@ -698,6 +710,8 @@ class FundingApplication extends Model
         $isLocked = ! $this->isEditableBy($user);
 
         return [
+            // The copy the page is showing, sent back with the next save (R2 BUG-033).
+            'version' => $this->version(),
             'status_key' => self::statusKey($this->status),
             'is_locked' => $isLocked,
             'is_editable' => ! $isLocked,
@@ -914,8 +928,9 @@ class FundingApplication extends Model
     }
 
 
-    public function downloadHistories()
+    /** This application's audit trail, oldest first. */
+    public function auditEvents()
     {
-        return $this->hasMany(DownloadHistory::class, 'funding_application_id')->orderBy('created_at', 'desc');
+        return $this->hasMany(FundingApplicationAuditEvent::class, 'funding_application_id')->orderBy('id');
     }
 }
