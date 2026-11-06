@@ -294,6 +294,22 @@ class PaymentService
             $query->leftJoin('invoices', 'payments.invoice_id', '=', 'invoices.id')
                 ->orderBy('invoices.invoice_id', $sortOrder);
             $skipSorting = true;
+        } elseif ($sortField === 'name') {
+            // The NAME column (BUG-179): the payer's name as PaymentResource shows
+            // it - the partner's full name, the borrower's first + last name, or
+            // the host user a commission was paid to.
+            $query->leftJoin('partners as name_partner', function ($join) {
+                $join->on('payments.partner_id', '=', 'name_partner.id')
+                    ->where('payments.entity_type', Partner::class);
+            })->leftJoin('borrowers as name_borrower', function ($join) {
+                $join->on('payments.borrower_id', '=', 'name_borrower.id')
+                    ->where('payments.entity_type', Borrower::class);
+            })->leftJoin('users as name_user', function ($join) {
+                $join->on('payments.entity_id', '=', 'name_user.id')
+                    ->where('payments.entity_type', User::class);
+            })->orderBy(DB::raw("COALESCE(name_partner.full_name, CONCAT(name_borrower.first_name, ' ', name_borrower.last_name), name_user.name)"), $sortOrder === 'asc' ? 'asc' : 'desc')
+                ->orderBy('payments.id', 'desc');
+            $skipSorting = true;
         } elseif ($sortField === 'partner_name') {
             $query->leftJoin('partners', 'payments.partner_id', '=', 'partners.id')
                 ->orderBy('partners.full_name', $sortOrder);
