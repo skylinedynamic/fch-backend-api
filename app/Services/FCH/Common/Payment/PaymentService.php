@@ -522,6 +522,7 @@ class PaymentService
                 'status' => Payment::STATUS_SUCCEEDED,
                 'transaction_date' => $now,
                 'details' => $existingDetails,
+                'approved_by' => $authUser->id,
             ]);
 
             $invoice = $payment->invoice;
@@ -530,10 +531,14 @@ class PaymentService
 
             // Update invoice status to Paid and set paid_at to now
             if ($invoice) {
+                // Who paid it (the one who submitted the manual payment) and
+                // who approved it (BUG-202).
                 $invoice->update([
                     'status' => Invoice::STATUS_PAID,
                     // payment_date is a DATE column - store the calendar date.
                     'payment_date' => today(),
+                    'paid_by' => $payment->paid_by,
+                    'approved_by' => $authUser->id,
                 ]);
 
                 // Auto charge partner host fee upon approval of manual borrower payment
@@ -653,9 +658,12 @@ class PaymentService
             $existingDetails['rejected_by'] = $userName;
             $existingDetails['rejected_by_id'] = $authUser->id;
 
+            // The rejecter goes on the payment only; the invoice is simply
+            // Unpaid again (BUG-202).
             $payment->update([
                 'status' => Payment::STATUS_REJECTED,
                 'details' => $existingDetails,
+                'rejected_by' => $authUser->id,
             ]);
 
             $invoice = $payment->invoice;

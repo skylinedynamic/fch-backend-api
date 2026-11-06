@@ -250,6 +250,9 @@ class Payment extends Model
             'details' => $data['details'] ?? null,
             'transaction_date' => $data['transaction_date'] ?? now(),
             'created_by' => $data['created_by'] ?? auth()->id(),
+            // The user who chose to pay - never inferred from whoever is signed
+            // in, which for an automatic charge is someone else (BUG-202).
+            'paid_by' => $data['paid_by'] ?? null,
         ]);
     }
 
