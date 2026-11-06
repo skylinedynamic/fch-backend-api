@@ -81,6 +81,17 @@ class Invoice extends Model
     const INVOICE_TYPE_USER_SEAT = 'user_seat';
     const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
 
+    /** Every invoice type, in the order the Invoices Type filter offers them. */
+    const INVOICE_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_BORROWER_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+        self::INVOICE_TYPE_COMMISSION_PAYOUT,
+    ];
+
     /**
      * The invoice types that ARE this subscription's own billing cycle.
      *
