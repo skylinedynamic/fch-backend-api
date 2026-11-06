@@ -305,22 +305,9 @@ return [
         // The one purpose that reveals the free-text note field.
         'purpose_other' => 'Other',
 
-        'funding_types' => [
-            'Term Loan',
-            'Line of Credit',
-            'Equipment Financing',
-            'SBA Loan',
-            'Merchant Cash Advance',
-            'Hard Money / Bridge Loan',
-            'Commercial Real Estate Loan',
-            'Construction Loan',
-            'Asset-Based Lending (AR / Inventory)',
-            'Invoice Factoring',
-            'Revenue-Based Financing',
-            'Unsecured Business Credit',
-            'Business Acquisition Financing',
-            'Refinance / Debt Consolidation',
-        ],
+        // Preferred / Additional Funding Types are not listed here: they are the
+        // Active lender product categories (LenderProductCategory::fundingTypeNames()),
+        // the categories lenders are matched on.
 
         'timeframes' => [
             'Immediately',

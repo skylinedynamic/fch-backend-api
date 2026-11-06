@@ -112,10 +112,20 @@ class FundingApplicationLenderRulesTest extends TestCase
         $this->assertSame([], $this->application()->lenderCategories());
     }
 
+    /** Request 2026-11-05: its own types first, with a funding request too. */
     #[Test]
-    public function an_application_with_a_request_is_matched_on_the_requests_type(): void
+    public function an_application_with_a_request_is_matched_on_its_own_types(): void
     {
-        $application = $this->application(['funding_request_id' => 3, 'preferred_funding_type' => 'Term Loan']);
+        $application = $this->application(['funding_request_id' => 3, 'preferred_funding_type' => 'Term Loan', 'additional_funding_types' => ['Business Line of Credit']]);
+        $application->setRelation('fundingRequest', (new FundingRequest)->forceFill(['funding_type' => 'Equipment Financing']));
+
+        $this->assertSame(['Term Loan', 'Business Line of Credit'], $application->lenderCategories());
+    }
+
+    #[Test]
+    public function an_application_with_a_request_and_no_types_of_its_own_is_matched_on_the_requests_type(): void
+    {
+        $application = $this->application(['funding_request_id' => 3]);
         $application->setRelation('fundingRequest', (new FundingRequest)->forceFill(['funding_type' => 'Equipment Financing']));
 
         $this->assertSame(['Equipment Financing'], $application->lenderCategories());

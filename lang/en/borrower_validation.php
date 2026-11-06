@@ -340,6 +340,7 @@ return [
     'preferred_funding_type_string' => 'Preferred funding type must be a string',
     'preferred_funding_type_max' => 'Preferred funding type cannot exceed 255 characters',
     'additional_funding_type_invalid' => 'Select additional funding types from the list, each once.',
+    'preferred_funding_type_invalid' => 'Select the preferred funding type from the list.',
     'additional_funding_type_preferred' => 'The preferred funding type cannot also be an additional funding type.',
     'timeframe_needed_string' => 'Timeframe needed must be a string',
     'timeframe_needed_max' => 'Timeframe needed cannot exceed 255 characters',

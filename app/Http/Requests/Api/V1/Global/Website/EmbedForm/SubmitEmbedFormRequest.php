@@ -10,6 +10,7 @@ use App\Helpers\ApiResponse;
 use App\Rules\EmbedFormApplicantEmail;
 use App\Rules\UsPhoneNumber;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
+use App\Rules\KnownFundingType;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
@@ -336,13 +337,14 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'requested_amount' => array_merge(['required'], $this->amountRules('requested_amount')),
             'purpose_of_funds' => ['required', 'string', 'max:500'],
             'purpose_note' => ['nullable', 'string', 'max:500'],
-            'preferred_funding_type' => ['required', 'string', 'max:255'],
+            // An Active lender product category, as offered (Lenders > Product Categories).
+            'preferred_funding_type' => ['required', 'string', 'max:255', new KnownFundingType('embed_form.preferred_funding_type_invalid')],
             // The others the applicant would also consider - never the preferred one again.
             'additional_funding_types' => ['nullable', 'array'],
             'additional_funding_types.*' => [
                 'string',
                 'distinct',
-                Rule::in(config('funding_application.options.funding_types', [])),
+                new KnownFundingType('embed_form.additional_funding_type_invalid'),
                 'different:preferred_funding_type',
             ],
             'currency' => ['required', 'string', Rule::in(array_keys(config('funding_application.embed_form.currencies', [])))],
@@ -539,7 +541,6 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'requested_amount.required' => __('embed_form.requested_amount_required'),
             'currency.required' => __('embed_form.currency_invalid'),
             'currency.in' => __('embed_form.currency_invalid'),
-            'additional_funding_types.*.in' => __('embed_form.additional_funding_type_invalid'),
             'additional_funding_types.*.distinct' => __('embed_form.additional_funding_type_invalid'),
             'additional_funding_types.*.different' => __('embed_form.additional_funding_type_preferred'),
             'credit_pull_authorization.accepted' => __('embed_form.credit_pull_required'),

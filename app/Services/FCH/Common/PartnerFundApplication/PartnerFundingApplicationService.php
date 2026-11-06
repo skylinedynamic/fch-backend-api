@@ -41,6 +41,12 @@ class PartnerFundingApplicationService
      */
     private function preparationStatus(array $data, $existing = null): string
     {
+        // Draft is never undone by a step save: one converted from the embed
+        // form is Draft without the explanation (SCRUM-434 S434-BUG-04).
+        if ($existing && $existing->status === FundingApplication::DRAFT) {
+            return FundingApplication::DRAFT;
+        }
+
         $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation'])
             || ($existing && $existing->federal_compliance_disclosures_explanation !== null);
 

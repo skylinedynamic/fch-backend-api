@@ -559,23 +559,25 @@ class FundingApplication extends Model
     }
 
     /**
-     * The product categories its lenders are matched on: the funding request's
-     * funding type when it has one (the funding request page's list), else its
-     * own Preferred and Additional Funding Types (converted from a loan
-     * application).
+     * The product categories its lenders are matched on: its own Preferred and
+     * Additional Funding Types (lender product categories) - with a funding
+     * request or without (request 2026-11-05). Only an application with none of
+     * its own falls back to its funding request's funding type.
      *
      * @return array<int, string>
      */
     public function lenderCategories(): array
     {
-        if ($this->funding_request_id && $this->fundingRequest) {
-            return array_filter([$this->fundingRequest->funding_type]);
-        }
-
-        return array_values(array_filter([
+        $own = array_values(array_filter([
             $this->preferred_funding_type,
             ...(array) ($this->additional_funding_types ?? []),
         ]));
+
+        if ($own === [] && $this->funding_request_id && $this->fundingRequest) {
+            return array_values(array_filter([$this->fundingRequest->funding_type]));
+        }
+
+        return $own;
     }
 
     /**
@@ -721,7 +723,13 @@ class FundingApplication extends Model
             // at some point, whatever status it sits at now - On Hold and Draft
             // included. The portal asks before letting an edit through on these;
             // one that was never submitted is just being filled in, so it is not.
-            'edit_needs_confirmation' => ! $isLocked && $this->hasBeenSubmitted(),
+            // A Draft converted from the embed form carries the borrower's
+            // consent signature but was never submitted (SCRUM-434 S434-BUG-04).
+            'edit_needs_confirmation' => ! $isLocked && (
+                $this->invalidatesSignatureOnEditBy($user)
+                || (bool) $this->requires_resign
+                || ! empty($this->previous_signature_data)
+            ),
             'can_start_new_funding_request' => $this->allowsNewFundingRequest(),
             'locked_reason' => $isLocked ? $this->lockedReasonFor($user) : null,
         ];
