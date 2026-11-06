@@ -69,6 +69,11 @@ class PaymentService
             $query->where('payments.payment_from', $filters['payment_from']);
         }
 
+        // Environment: 1 = Production, 0 = Sandbox. Not !empty() - Sandbox is 0.
+        if (isset($filters['is_environment']) && $filters['is_environment'] !== '') {
+            $query->where('payments.is_environment', filter_var($filters['is_environment'], FILTER_VALIDATE_BOOLEAN));
+        }
+
         // Type (BUG-169), as the DEBIT/CREDIT column shows it to a borrower
         // (Payment::getTransactionTypeForUser): a refund or a payout is a Credit,
         // every other payment a Debit.

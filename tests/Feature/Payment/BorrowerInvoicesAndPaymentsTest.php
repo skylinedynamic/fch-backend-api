@@ -204,6 +204,18 @@ class BorrowerInvoicesAndPaymentsTest extends TestCase
         $this->assertSame([$stripe->id, $square->id], $this->myPaymentIds(['payment_from' => null]));
     }
 
+    /** Environment was sent but ignored - "Production" still listed sandbox payments. */
+    #[Test]
+    public function the_payment_list_filters_by_environment(): void
+    {
+        $live = $this->myPayment(['payment_from' => 'Stripe', 'is_environment' => true]);
+        $sandbox = $this->myPayment(['payment_from' => 'Stripe', 'is_environment' => false]);
+
+        $this->assertSame([$live->id], $this->myPaymentIds(['is_environment' => 1]));
+        $this->assertSame([$sandbox->id], $this->myPaymentIds(['is_environment' => 0]));
+        $this->assertSame([$live->id, $sandbox->id], $this->myPaymentIds(['is_environment' => null]));
+    }
+
     /**
      * BUG-169: Type was sent but ignored. For a borrower a refund or a payout is
      * a Credit and every other payment a Debit - the same rule the DEBIT/CREDIT
