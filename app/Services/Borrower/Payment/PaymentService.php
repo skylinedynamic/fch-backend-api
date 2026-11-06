@@ -64,6 +64,26 @@ class PaymentService
             $query->where('payments.invoice_id', $filters['invoice_id']);
         }
 
+        // Method (BUG-169).
+        if (!empty($filters['payment_from'])) {
+            $query->where('payments.payment_from', $filters['payment_from']);
+        }
+
+        // Type (BUG-169), as the DEBIT/CREDIT column shows it to a borrower
+        // (Payment::getTransactionTypeForUser): a refund or a payout is a Credit,
+        // every other payment a Debit.
+        // Null-safe: a payment with no status or type is a Debit, and a plain
+        // NOT (... = ...) would drop it.
+        if (!empty($filters['transaction_type'])) {
+            if ($filters['transaction_type'] === Payment::TRANSACTION_TYPE_CREDIT) {
+                $query->where(fn ($q) => $q->where('payments.status', Payment::STATUS_REFUNDED)
+                    ->orWhere('payments.payment_type', Payment::TYPE_PAYOUT));
+            } else {
+                $query->where(fn ($q) => $q->whereNull('payments.status')->orWhere('payments.status', '!=', Payment::STATUS_REFUNDED))
+                    ->where(fn ($q) => $q->whereNull('payments.payment_type')->orWhere('payments.payment_type', '!=', Payment::TYPE_PAYOUT));
+            }
+        }
+
         // Global search
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
         $search = !empty($globalSearch) ? trim((string) $globalSearch) : null;
