@@ -11,6 +11,8 @@ use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use App\Models\Invoice\Invoice;
+use App\Models\Appointment\Appointment;
+use App\Models\SupportTicket\SupportTicket;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
@@ -1191,28 +1193,7 @@ class PartnerService
 
     public function getPartnerProfileStats(int $id)
     {
-        $partnerClass = addslashes(\App\Models\Partner\Partner::class);
-
-        $stats = DB::table('partners as p')
-            ->select(
-                'p.id',
-                DB::raw("(SELECT COUNT(DISTINCT id) FROM appointments WHERE (entity_type = '{$partnerClass}' AND entity_id = p.id) OR scheduled_by IN (SELECT id FROM users WHERE partner_id = p.id) OR assigned_for IN (SELECT id FROM users WHERE partner_id = p.id)) AS total_meetings"),
-                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = p.id) AS total_clients'),
-                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = p.id) AS total_invoice'),
-                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = p.id) AS total_tickets'),
-                DB::raw("(SELECT COALESCE(
-                    (SELECT enrollment_type
-                    FROM subscriptions
-                    WHERE entity_id = p.id AND entity_type = '{$partnerClass}'
-                    ORDER BY id DESC
-                    LIMIT 1),
-                    'N/A'
-                    )) AS enrollment_type")
-            )
-            ->where('p.id', $id)
-            ->first();
-
-        if (!$stats) {
+        if (!Partner::whereKey($id)->exists()) {
             return (object) [
                 'id' => $id,
                 'total_meetings' => 0,
@@ -1223,7 +1204,28 @@ class PartnerService
             ];
         }
 
-        return $stats;
+        // Eloquent counts, not raw sub-selects: a deleted (soft-deleted) client,
+        // invoice, ticket or meeting is not counted (BUG-173), so each card
+        // matches the partner's tabs.
+        $partnerUserIds = User::where('partner_id', $id)->select('id');
+
+        return (object) [
+            'id' => $id,
+            // The partner's own meetings, and those its users scheduled or are assigned to.
+            'total_meetings' => Appointment::where(fn ($q) => $q
+                ->where(fn ($own) => $own->where('entity_type', Partner::class)->where('entity_id', $id))
+                ->orWhereIn('scheduled_by', $partnerUserIds)
+                ->orWhereIn('assigned_for', $partnerUserIds))
+                ->count(),
+            // Archived clients leave the working list (Clients menu, "Active Only").
+            'total_clients' => Borrower::where('partner_id', $id)->notArchived()->count(),
+            'total_invoice' => Invoice::where('partner_id', $id)->count(),
+            'total_tickets' => SupportTicket::where('partner_id', $id)->count(),
+            // Latest subscription row, as before (not a count, unchanged here).
+            'enrollment_type' => Subscription::withTrashed()
+                ->where('entity_type', Partner::class)->where('entity_id', $id)
+                ->orderByDesc('id')->value('enrollment_type') ?? 'N/A',
+        ];
     }
 
     /**
