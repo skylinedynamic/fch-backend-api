@@ -67,6 +67,9 @@ class EmailChangeService
         $user->forceFill([
             'pending_email' => $newEmail,
             'pending_email_requested_at' => now(),
+            // The user's open sessions reload their user on the next request,
+            // so Profile shows a change someone else started (BUG-204).
+            'is_refresh' => true,
         ])->save();
 
         // Two emails, sent back to back. A rate-limited mail account ("550 Too
@@ -144,7 +147,10 @@ class EmailChangeService
             return;
         }
 
-        $user->forceFill(['pending_email' => null, 'pending_email_requested_at' => null])->save();
+        // is_refresh: an open session of the user - who may not be the one
+        // cancelling (the host, or the old mailbox's link) - reloads its user,
+        // so Profile stops showing the withdrawn change (BUG-204).
+        $user->forceFill(['pending_email' => null, 'pending_email_requested_at' => null, 'is_refresh' => true])->save();
     }
 
     /**

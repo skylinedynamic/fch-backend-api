@@ -629,6 +629,31 @@ class PartnerAdminApiTest extends TestCase
             ->assertJsonPath('data.0.is_deletable', false);
     }
 
+    /**
+     * BUG-205: archiving (or deleting) the host left it untouched but answered
+     * "Partner(s) archived successfully.". A selection that includes the host
+     * is now refused with a message, and nothing in it is changed.
+     */
+    #[Test]
+    public function archiving_or_deleting_the_host_is_refused_with_a_message_not_reported_as_done(): void
+    {
+        $this->actingAsUser($this->grant($this->hostAdmin, ['update partners']));
+        $partner = $this->makeCertifiedPartner();
+
+        foreach (['archive', 'multiple-delete'] as $action) {
+            foreach ([[$this->host->id], [$this->host->id, $partner->id]] as $ids) {
+                $this->postJson("/api/v1/admin/partners/{$action}", ['ids' => $ids])
+                    ->assertStatus(422)
+                    ->assertJsonPath('status', false)
+                    ->assertJsonPath('message', __('partner.error.host_protected'));
+            }
+        }
+
+        $this->assertNull($this->host->fresh()->archived_at);
+        $this->assertNull($partner->fresh()->archived_at, 'nothing in a refused selection is archived');
+        $this->assertNotNull(Partner::find($partner->id), 'nor deleted');
+    }
+
     #[Test]
     public function archiving_needs_the_update_partners_permission(): void
     {

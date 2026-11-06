@@ -163,6 +163,7 @@ return [
         'not_found' => 'Partner not found.',
         'list_failed' => 'Failed to retrieve partners.',
         'archive_failed' => 'Could not archive the selected partner(s). Please try again.',
+        'host_protected' => 'The host company cannot be archived or deleted. Unselect it and try again.',
         'unarchive_failed' => 'Could not restore the selected partner(s). Please try again.',
         'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
         'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',

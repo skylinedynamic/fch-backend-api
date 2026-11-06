@@ -12,10 +12,13 @@ use App\Models\User\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Log;
+use App\Services\Global\Account\EmailChangeService;
 use App\Services\Global\Notification\Mail\GenericNotificationMail;
 
 class AuthProfileService
 {
+    public function __construct(protected EmailChangeService $emailChange) {}
+
     /**
      * Update user password
      */
@@ -79,6 +82,14 @@ class AuthProfileService
      */
     public function updateProfile(User $user, array $data): JsonResponse
     {
+        // A new sign-in email is not saved here: it waits for confirmation from
+        // the link sent to it, and the old address is told (BUG-204), as on the
+        // borrower portal. Checked before anything is written, so a taken
+        // email fails the whole save.
+        $newEmail = $this->emailChange->takeFrom($data, $user, $user->email);
+        // Saving the current email again withdraws a pending change.
+        $withdraw = !$newEmail && $user->pending_email !== null;
+
         $firstName = $data['first_name'] ?? '';
         $lastName = $data['last_name'] ?? '';
         $fullName = trim("{$firstName} {$lastName}");
@@ -106,7 +117,15 @@ class AuthProfileService
             }
         }
 
-        return ApiResponse::success($user->fresh(), __('profile.profile_update_success'));
+        if ($newEmail) {
+            $this->emailChange->request($user, $newEmail);
+            $message = __('email_change.requested', ['email' => $newEmail]);
+        } elseif ($withdraw) {
+            $this->emailChange->cancel($user);
+            $message = __('email_change.cancelled');
+        }
+
+        return ApiResponse::success($user->fresh(), $message ?? __('profile.profile_update_success'));
     }
     /**
      * Update user profile picture

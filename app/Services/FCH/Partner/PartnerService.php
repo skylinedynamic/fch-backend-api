@@ -1068,6 +1068,12 @@ class PartnerService
      */
     public function archive(array $ids)
     {
+        // The host is refused, not quietly skipped: skipping it still answered
+        // "archived successfully" (BUG-205).
+        if ($this->selectsHost($ids)) {
+            return ApiResponse::error(__('partner.error.host_protected'), 422);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -1126,7 +1132,12 @@ class PartnerService
 
     public function delete(array $ids)
     {
-        // The host is the platform itself - never deleted from a list of partners.
+        // The host is the platform itself - never deleted from a list of
+        // partners. Refused with a message rather than skipped (BUG-205).
+        if ($this->selectsHost($ids)) {
+            return ApiResponse::error(__('partner.error.host_protected'), 422);
+        }
+
         $partners = Partner::whereIn('id', $ids)->where('is_host', false)->get();
 
         // A partner with a paid invoice (or borrowers/users still under it) is
@@ -1166,6 +1177,12 @@ class PartnerService
             Log::error('Partner deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
             return ApiResponse::error(__('partner.error.delete_failed'), 400);
         }
+    }
+
+    /** Whether a selection of partner ids includes the host company. */
+    private function selectsHost(array $ids): bool
+    {
+        return Partner::whereIn('id', $ids)->where('is_host', true)->exists();
     }
 
     /**

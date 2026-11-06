@@ -63,6 +63,8 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            // A sign-in email change waiting for confirmation, for Profile (BUG-204).
+            'pending_email' => $this->pending_email,
             'partner_id' => $this->partner_id,
             'phone_number' => $this->phone_number,
             'user_type' => $this->user_type,
