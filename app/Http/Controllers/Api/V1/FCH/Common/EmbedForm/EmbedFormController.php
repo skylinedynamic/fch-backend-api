@@ -195,7 +195,20 @@ class EmbedFormController extends Controller
             // The column shows requested_amount, which is where submissions have
             // stored the amount since the funding-application rewrite; the
             // legacy column only holds it for older ones.
-            $query->orderByRaw('COALESCE(requested_amount, desired_funding_amount) ' . ($request->input('sort_order') === 'asc' ? 'asc' : 'desc'));
+            //
+            // Amounts in different currencies are not compared by face value
+            // (BUG-191, decision D6): they are grouped by currency in the form's
+            // order (USD, EUR, GBP) - an amount with no currency is in the form's
+            // default - and sorted by amount within each group.
+            $currencies = array_keys(config('funding_application.embed_form.currencies'));
+            $query->orderByRaw(
+                'CASE COALESCE(currency, ?) ' . implode(' ', array_fill(0, count($currencies), 'WHEN ? THEN ?')) . ' ELSE ? END',
+                [
+                    $currencies[0],
+                    ...collect($currencies)->flatMap(fn ($code, $position) => [$code, $position])->all(),
+                    count($currencies),
+                ]
+            )->orderByRaw('COALESCE(requested_amount, desired_funding_amount) ' . ($request->input('sort_order') === 'asc' ? 'asc' : 'desc'));
         } elseif (in_array($sortField, self::SORTABLE_SUBMISSION_FIELDS, true)) {
             $query->orderBy($sortField, $request->input('sort_order') === 'asc' ? 'asc' : 'desc');
             if ($sortField === 'first_name') {

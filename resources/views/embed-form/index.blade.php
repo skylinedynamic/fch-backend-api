@@ -2320,6 +2320,19 @@
 
         let stepCheckPending = false;
 
+        /*
+         * BUG-190: pressing Back / Continue / Submit used to take the focus off
+         * the field first. Leaving a field with a bad value draws its message,
+         * which pushed the buttons down before the mouse was released - so the
+         * click never happened, and only that one field's error showed until a
+         * second click. Keeping the focus where it is until the click lands
+         * lets the step check run and flag every field at once.
+         */
+        ['btnPrev', 'btnNext', 'btnSubmit'].forEach(id => {
+            const button = document.getElementById(id);
+            if (button) button.addEventListener('mousedown', e => e.preventDefault());
+        });
+
         async function navigateStep(dir) {
             if (dir === 1) {
                 if (stepCheckPending) return;
