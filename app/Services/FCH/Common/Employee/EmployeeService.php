@@ -273,8 +273,11 @@ class EmployeeService
             DB::commit();
             Log::info('Employee created successfully', ['employee_id' => $employee->id]);
 
-            // 📧 Send welcome mail if user account was created
-            if ($user) {
+            // 📧 The one welcome mail for a new login (BUG-196). A paid seat's
+            // user stays inactive until the seat is paid; activation sends its
+            // own welcome with a new password (SubscriptionService::
+            // handleUserSeatPayment), as the Users screen does.
+            if ($user && !$isPaid) {
                 $this->sendAccountCreatedMail($user, $partner, $plainPassword);
             }
 

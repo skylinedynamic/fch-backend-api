@@ -417,8 +417,7 @@ class UserService
 
             // 📧 Send update notification if the password was changed
             if ($passwordUpdated) {
-                $partner = $user->partner ?: Partner::where('is_host', 1)->first();
-                $this->sendCreatedMail($user, $partner, $plainPassword, __('common.password_updated_subject'));
+                $this->sendPasswordChangedMail($user, $plainPassword);
             }
 
             if ($newEmail) {
@@ -508,6 +507,30 @@ class UserService
         }
 
         return $results;
+    }
+
+    /**
+     * An administrator changed this login's password (Users > Change Account
+     * Password). The new password stays in the email, but the email and the
+     * bell say it was changed - not the new-account welcome (BUG-200).
+     */
+    public function sendPasswordChangedMail(User $user, string $plainPassword): void
+    {
+        try {
+            app(Notifier::class)->send('user.account.login_updated', $user,
+                mail: (new UserCreateNotificationMail([
+                    'subject' => __('common.password_updated_subject'),
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'partner_id' => $user->partner_id,
+                    'is_password_change' => true,
+                ]))->to($user->email));
+        } catch (Throwable $e) {
+            Log::error('📧 Password changed mail failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function sendCreatedMail($user, $businessInfo, string $plainPassword, ?string $subject = null): void

@@ -60,6 +60,8 @@ class UserCreateNotificationMail extends Mailable implements SendsImmediately
             with: [
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
+                // An administrator changed an existing login's password (BUG-200).
+                'isPasswordChange' => !empty($this->mailData['is_password_change']),
                 'loginUrl' => $loginUrl,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],

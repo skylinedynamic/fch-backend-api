@@ -91,8 +91,9 @@ class PaymentService
         $authUser = Auth::user();
         $query = Payment::query()
             ->with([
-                'partner:id,full_name',
-                'borrower:id,first_name,last_name',
+                // company_name / business_name feed the COMPANY column (BUG-195).
+                'partner:id,full_name,company_name',
+                'borrower:id,first_name,last_name,business_name',
                 'invoice:id,invoice_id,type',
                 'entity'
             ])
