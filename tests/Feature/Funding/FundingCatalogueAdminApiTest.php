@@ -211,6 +211,51 @@ class FundingCatalogueAdminApiTest extends TestCase
      * one, so two lenders on one number could be made and then neither could
      * be edited. A phone number is not unique - lenders share support lines.
      */
+    /**
+     * Defect: BUG-175 - Website took any text ("not a url") on create and edit,
+     * while email and phone formats were checked.
+     */
+    #[Test]
+    public function a_lender_website_must_be_a_valid_url(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categories = [$this->productCategory()];
+
+        $this->postJson('/api/v1/admin/lenders', $this->lender(['product_categories' => $categories, 'website' => 'not a url']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.website', 'The website must be a valid URL.');
+
+        $id = $this->postJson('/api/v1/admin/lenders', $this->lender(['product_categories' => $categories, 'website' => 'https://acme.example.org']))
+            ->assertCreated()->json('data.id');
+
+        $this->putJson("/api/v1/admin/lenders/{$id}", $this->lender(['product_categories' => $categories, 'website' => 'not a url']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.website', 'The website must be a valid URL.');
+
+        $this->assertSame('https://acme.example.org', Lender::find($id)->website);
+    }
+
+    #[Test]
+    public function a_lender_website_typed_without_https_is_saved_with_it(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categories = [$this->productCategory()];
+
+        $id = $this->postJson('/api/v1/admin/lenders', $this->lender(['product_categories' => $categories, 'website' => 'www.acme.example.org']))
+            ->assertCreated()->json('data.id');
+
+        $this->assertSame('https://www.acme.example.org', Lender::find($id)->website);
+    }
+
+    #[Test]
+    public function a_lender_website_may_be_left_empty(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders', $this->lender(['product_categories' => [$this->productCategory()], 'website' => '']))
+            ->assertCreated();
+    }
+
     #[Test]
     public function lenders_can_share_a_phone_number_and_still_be_edited(): void
     {

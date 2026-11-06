@@ -75,12 +75,13 @@ class RequestApplicationService
             $query->where('status', $filters['status']);
         }
 
+        // The DATE column shows created_at, so the date filter and sort use it too (BUG-174).
         if(isset($filters['start_date']) && !empty($filters['start_date'])) {
-            $query->whereRaw('DATE(COALESCE(updated_at, created_at)) >= ?', [$filters['start_date']]);
+            $query->whereDate('created_at', '>=', $filters['start_date']);
         }
 
         if(isset($filters['end_date']) && !empty($filters['end_date'])) {
-            $query->whereRaw('DATE(COALESCE(updated_at, created_at)) <= ?', [$filters['end_date']]);
+            $query->whereDate('created_at', '<=', $filters['end_date']);
         }
 
         if(isset($filters['funding_type']) && !empty($filters['funding_type'])) {
@@ -94,9 +95,9 @@ class RequestApplicationService
         }
 
         // Apply Sorting & Advanced Filters using QueryFilter if available, or manual simple sorting
-        // Most recently updated first by default, so an older draft that is
-        // submitted or edited today shows at the top rather than by its old id.
-        $sortField = $filters['sort_field'] ?? 'updated_at';
+        // Newest first by default, by the date the DATE column shows (created_at,
+        // BUG-174) - not the last update, which moved a row whose status changed.
+        $sortField = $filters['sort_field'] ?? 'created_at';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $advancedFilters = $filters['filters'] ?? [];
 
@@ -105,18 +106,10 @@ class RequestApplicationService
             $sortField = 'purpose_of_funding';
         }elseif($sortField == 'requested_amount') {
             $sortField = 'funding_requested_amount';
-        }elseif($sortField == 'date' || $sortField == 'id') {
-            $sortField = 'updated_at';
+        }elseif($sortField == 'date' || $sortField == 'id' || $sortField == 'updated_at') {
+            $sortField = 'created_at';
         }elseif($sortField == 'full_name') {
             $sortField = 'first_name';
-        }
-
-
-        // updated_at is nullable, so fall back to created_at rather than letting a
-        // row with no updated_at sink to the end of the list.
-        $sortByUpdatedAt = $sortField == 'updated_at';
-        if ($sortByUpdatedAt) {
-            $query->orderByRaw("COALESCE(updated_at, created_at) {$sortOrder}");
         }
 
         $query = QueryFilter::apply(
@@ -125,7 +118,6 @@ class RequestApplicationService
             $sortOrder,
             $advancedFilters,
              [
-                'skip_sorting' => $sortByUpdatedAt,
                 'aliases' => [
                     'purpose_of_funding' => 'funding_type',
                     'funding_requested_amount' => 'requested_amount',
@@ -133,7 +125,7 @@ class RequestApplicationService
                     'first_name' => 'full_name',
                 ],
             ]
-        )->orderBy('id', 'desc');
+        )->orderBy('id', $sortField == 'created_at' ? $sortOrder : 'desc');
 
         // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;

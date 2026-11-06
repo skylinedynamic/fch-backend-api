@@ -307,6 +307,27 @@ class BorrowerPreQualificationWizardApiTest extends TestCase
         $this->assertSame(PreQualificationRequest::GPT_FAILED, $draft->fresh()->gpt_status);
     }
 
+    /**
+     * Defect (BUG-168): two retries at once each started a run. Here another
+     * retry claims the failed run right after this one has read it, so this
+     * one is refused and runs nothing.
+     */
+    #[Test]
+    public function a_retry_another_retry_claimed_meanwhile_does_not_run_again(): void
+    {
+        $failed = $this->draftFor($this->myBorrower(), PreQualificationRequest::PENDING, ['gpt_status' => PreQualificationRequest::GPT_FAILED]);
+        $this->mock(PreQualificationAiService::class)->shouldNotReceive('evaluate');
+        $this->actingAsUser($this->me);
+
+        PreQualificationRequest::retrieved(function (PreQualificationRequest $read) use ($failed) {
+            if ($read->id === $failed->id) {
+                PreQualificationRequest::whereKey($failed->id)->update(['gpt_status' => PreQualificationRequest::GPT_PENDING]);
+            }
+        });
+
+        $this->postJson('/api/v1/borrower/pre-qualification/retry-underwriting', ['id' => $failed->id])->assertNotFound();
+    }
+
     #[Test]
     public function only_a_failed_underwriting_can_be_retried(): void
     {

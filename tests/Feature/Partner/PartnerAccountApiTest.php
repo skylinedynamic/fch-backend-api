@@ -138,7 +138,8 @@ class PartnerAccountApiTest extends TestCase
 
         $this->postJson('/api/v1/common/departments/fetch-departments')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson("/api/v1/common/departments/{$theirs->id}")->assertStatus(400);
-        $this->deleteJson("/api/v1/common/departments/{$theirs->id}")->assertStatus(400);
+        // 404 since BUG-183 (was a generic 400): another partner's department is not found.
+        $this->deleteJson("/api/v1/common/departments/{$theirs->id}")->assertStatus(404);
         $this->assertNotNull($theirs->fresh());
     }
 
