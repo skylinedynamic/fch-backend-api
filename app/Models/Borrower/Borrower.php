@@ -58,6 +58,7 @@ class Borrower extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
         'partner_payment_for_me' => 'boolean',
+        'agreement_required' => 'boolean',
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',
         'credit_profile_updated' => 'boolean',

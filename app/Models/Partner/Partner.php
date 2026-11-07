@@ -48,6 +48,7 @@ class Partner extends Model
     protected $fillable = [
         'is_host',
         'has_sign',
+        'agreement_required',
         'full_name',
         'company_name',
         'email',
@@ -90,6 +91,7 @@ class Partner extends Model
         'is_host' => 'boolean',
         'archived_at' => 'datetime',
         'has_sign' => 'boolean',
+        'agreement_required' => 'boolean',
         'active_custom_url' => 'boolean',
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',

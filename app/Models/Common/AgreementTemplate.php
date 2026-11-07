@@ -14,6 +14,11 @@ class AgreementTemplate extends Model
 {
     use HasFactory;
 
+    /** The host's agreement every non-host partner signs. */
+    public const SLUG_PARTNER = 'partner';
+    /** A partner's own agreement their clients (borrowers) sign. */
+    public const SLUG_BORROWER = 'borrower';
+
     protected $fillable = [
         'partner_id',
         'slug',

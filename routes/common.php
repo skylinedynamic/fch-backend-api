@@ -580,6 +580,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
                 Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
                 Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
+                Route::get('/required/{userId}', [AgreementSignController::class, 'requirement'])->whereNumber('userId');
+                Route::post('/required/{userId}', [AgreementSignController::class, 'setRequired'])->whereNumber('userId');
             });
 
             // 📚 Resources
