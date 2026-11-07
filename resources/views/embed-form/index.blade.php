@@ -1830,6 +1830,69 @@
         const API_BASE = '{{ $apiBase }}';
         const PUBLIC_KEY = '{{ $publicKey }}';
 
+        /* ─────────────────────── Page around the iframe ───────────────────── */
+        // When this form is shown in an iframe (the website's /apply page, a
+        // partner's site) the page around it cannot see how tall the form is,
+        // and scrolling inside an iframe sized to its content moves nothing.
+        // So the form tells that page its height and where to scroll. Only
+        // layout numbers are sent - never a field value - and only to the
+        // framing page's own origin, never '*'. Opened directly, nothing runs.
+        const PARENT_ORIGIN = (() => {
+            if (window.parent === window || !document.referrer) return null;
+            try { return new URL(document.referrer).origin; } catch (e) { return null; }
+        })();
+
+        function postToParent(message) {
+            if (!PARENT_ORIGIN) return false;
+            window.parent.postMessage({ source: 'fch-embed-form', ...message }, PARENT_ORIGIN);
+            return true;
+        }
+
+        // The body has min-height: 100vh, which inside an iframe is the iframe's
+        // own height - measuring the document would never let it shrink. Measure
+        // the content instead, plus any open dropdown or calendar hanging below it.
+        function formHeight() {
+            const bottoms = [document.querySelector('body > .container')]
+                .concat([...document.querySelectorAll('.select2-container--open .select2-dropdown, .flatpickr-calendar.open')])
+                .filter(Boolean)
+                .map(el => el.getBoundingClientRect().bottom + window.scrollY);
+            return Math.ceil(Math.max(0, ...bottoms) + 40);
+        }
+
+        let lastHeight = 0;
+        function reportHeight() {
+            const height = formHeight();
+            if (height !== lastHeight) {
+                lastHeight = height;
+                postToParent({ type: 'resize', height });
+            }
+        }
+
+        /** Scroll to a point in the form: the framing page when framed, else this window. */
+        function scrollFormTo(top) {
+            if (!postToParent({ type: 'scroll', top: Math.max(0, Math.round(top)) })) {
+                window.scrollTo({ top, behavior: 'smooth' });
+            }
+        }
+
+        /** Bring a field into view, centred where the framing page can show it. */
+        function scrollFormToElement(el) {
+            if (!PARENT_ORIGIN) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            const rect = el.getBoundingClientRect();
+            scrollFormTo(rect.top + window.scrollY - 120);
+        }
+
+        if (PARENT_ORIGIN) {
+            new ResizeObserver(reportHeight).observe(document.querySelector('body > .container'));
+            document.addEventListener('DOMContentLoaded', reportHeight);
+            window.addEventListener('load', reportHeight);
+            // Dropdowns and calendars open outside the observed layout.
+            ['click', 'keyup', 'focusin'].forEach(evt => document.addEventListener(evt, () => setTimeout(reportHeight, 50)));
+        }
+
         // Country / state / city data, and the document buckets, both rendered from
         // the same server-side source the portal's own application uses.
         const LOCATIONS = @json($locations);
@@ -1871,7 +1934,7 @@
             // hidden and stays that way until something is switched to Yes.
             syncComplianceExplanation();
 
-            showStep(1);
+            showStep(1, false);
         });
 
         /**
@@ -2290,7 +2353,7 @@
 
         /* ──────────────────────────── Navigation ─────────────────────────── */
 
-        function showStep(step) {
+        function showStep(step, scroll = true) {
             document.querySelectorAll('.tab-step').forEach(tab => tab.classList.remove('active'));
             document.getElementById(`tab-${step}`)?.classList.add('active');
 
@@ -2315,7 +2378,7 @@
                 renderReviewSummary();
             }
 
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (scroll) scrollFormTo(0);
         }
 
         let stepCheckPending = false;
@@ -2408,7 +2471,7 @@
             });
 
             if (first) {
-                errorAnchor(first).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollFormToElement(errorAnchor(first));
             }
 
             if (unplaced.length || !first) {
@@ -2651,7 +2714,7 @@
             });
 
             if (firstInvalid) {
-                errorAnchor(firstInvalid).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollFormToElement(errorAnchor(firstInvalid));
                 if (firstInvalid.matches('input:not([type="hidden"]):not([type="checkbox"]), textarea')) {
                     firstInvalid.focus({ preventScroll: true });
                 }
@@ -3183,7 +3246,7 @@
                     if (json.data?.submission_uid) {
                         document.getElementById('successRefBadge').textContent = 'Reference ID: ' + json.data.submission_uid;
                     }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    scrollFormTo(0);
                 } else {
                     showSubmitErrors(json);
                 }

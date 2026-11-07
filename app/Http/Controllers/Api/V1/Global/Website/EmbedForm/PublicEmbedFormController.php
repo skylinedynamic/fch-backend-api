@@ -60,6 +60,19 @@ class PublicEmbedFormController extends Controller
     }
 
     /**
+     * The host's application form, for the marketing site's /apply page.
+     * GET /api/v1/website/embed-form
+     */
+    public function hostForm(): JsonResponse
+    {
+        $details = $this->embedFormService->hostFormDetails();
+
+        return $details
+            ? ApiResponse::success($details)
+            : ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'));
+    }
+
+    /**
      * Validate one page of the form server-side when Continue is pressed.
      * POST /api/v1/embed/validate-step/{key}/{step}
      *
