@@ -4,7 +4,10 @@ namespace App\Services\Global\Website\CMS;
 
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
+use App\Rules\EmbedFormSnippet;
+use App\Support\EmbedForm\EmbedSnippet;
 use App\Traits\UploadsFiles;
+use Illuminate\Support\Facades\Validator;
 
 class WebsiteSiteSettingsService
 {
@@ -71,7 +74,26 @@ class WebsiteSiteSettingsService
             }
         }
 
+        // The /apply page renders the embed code pasted in CMS > Site Settings.
+        $data[EmbedSnippet::SETTING_KEY] = $this->servableApplyFormCode($hostRows[EmbedSnippet::SETTING_KEY] ?? null);
+
         return $data;
+    }
+
+    /**
+     * The pasted embed code, only while it still passes the same check as on
+     * save (EmbedFormSnippet: one iframe on the host's current form, at most
+     * its embed.js). A value written past that rule, or left behind by a
+     * regenerated key, is not served - the website then shows no form rather
+     * than HTML nobody checked.
+     */
+    private function servableApplyFormCode(mixed $code): ?string
+    {
+        if (!is_string($code) || trim($code) === '') {
+            return null;
+        }
+
+        return Validator::make(['code' => $code], ['code' => [new EmbedFormSnippet]])->passes() ? $code : null;
     }
 
     private function buildImageUrl(string $key, ?string $value): ?string

@@ -11,6 +11,7 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use App\Support\EmbedForm\EmbedFormDisplay;
 use App\Support\EmbedForm\EmbedFormLogo;
 use App\Rules\UsPostalCode;
 use Illuminate\Support\Facades\Storage;
@@ -59,8 +60,13 @@ class EmbedFormPageController extends Controller
         $logoUrl = $this->resolveLogoUrl($logoBranding, $partner);
         $faviconUrl = $this->resolveFaviconUrl($branding);
 
-        // Theme colors
-        $primaryColor = $branding['primary_color'] ?? '#0d6efd';
+        // Header, footer, background, frame and primary colour, from the embed
+        // code's link.
+        $display = EmbedFormDisplay::fromRequest($request);
+
+        // Theme colors. The embed code's own primary colour, when it has one,
+        // matches the form to the site around it.
+        $primaryColor = $display->primaryColor() ?? $branding['primary_color'] ?? '#0d6efd';
         $secondaryColor = $branding['secondary_color'] ?? '#198754';
 
         $response = response()->view('embed-form.index', [
@@ -71,6 +77,7 @@ class EmbedFormPageController extends Controller
             'primaryColor' => $primaryColor,
             'secondaryColor' => $secondaryColor,
             'publicKey' => $key,
+            'display' => $display,
             'apiBase' => config('app.url') . '/api',
 
             // The funding application's own dropdowns and document buckets, so

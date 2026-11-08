@@ -85,6 +85,70 @@ class EmbedFormParentBridgeTest extends TestCase
     }
 
     #[Test]
+    public function the_framing_page_can_introduce_itself_when_there_is_no_referrer(): void
+    {
+        // A browser, extension or Referrer-Policy that drops the referrer left
+        // the form not knowing whom to tell its height, so the iframe stayed at
+        // the code's 800px. The framing page now says hello; the form takes the
+        // origin from that message - only from its own parent window - and
+        // reports its height in reply.
+        $page = $this->page();
+
+        $this->assertStringContainsString("data.type !== 'hello'", $page);
+        $this->assertStringContainsString('event.source !== window.parent', $page);
+        $this->assertStringContainsString('parentOrigin = event.origin', $page);
+        // Framed at all - not only with a referrer - the form measures itself.
+        $this->assertStringContainsString('if (window.parent !== window) {', $page);
+    }
+
+    #[Test]
+    public function a_page_with_no_origin_still_gets_the_height(): void
+    {
+        // A page opened from a file (or sandboxed) has the origin 'null', which
+        // postMessage refuses as a target - the form threw and the iframe stayed
+        // at 800px. Such a page is answered with '*': only layout numbers go,
+        // and only to this window's own parent.
+        $page = $this->page();
+
+        $this->assertStringContainsString("event.origin === 'null' ? '*' : event.origin", $page);
+    }
+
+    #[Test]
+    public function the_embed_script_keeps_the_height_attribute_in_step(): void
+    {
+        // Only the style changed, so the element still read height="800" in
+        // the browser's inspector and looked as if automatic height did nothing.
+        $script = file_get_contents(public_path('form/assets/embed.js'));
+
+        $this->assertStringContainsString("frame.style.height = height + 'px';", $script);
+        $this->assertStringContainsString("frame.setAttribute('height', String(height));", $script);
+    }
+
+    #[Test]
+    public function the_embed_script_says_hello_to_each_form(): void
+    {
+        $script = file_get_contents(public_path('form/assets/embed.js'));
+
+        $this->assertStringContainsString("type: 'hello'", $script);
+        $this->assertStringContainsString("addEventListener('load'", $script);
+        // Only to the form's own origin.
+        $this->assertStringContainsString('postMessage({ source: SOURCE, type: \'hello\' }, formOrigin)', $script);
+    }
+
+    #[Test]
+    public function the_form_also_scrolls_itself_for_a_fixed_height_iframe(): void
+    {
+        // A partner's fixed-height iframe has no script listening, so asking the
+        // page alone left an error out of view inside the frame.
+        preg_match('/function scrollFormTo\(top\) \{(.*?)\n        \}/s', $this->page(), $m);
+
+        $this->assertNotEmpty($m, 'scrollFormTo() not found');
+        $this->assertStringContainsString("postToParent({ type: 'scroll'", $m[1]);
+        $this->assertStringContainsString('window.scrollTo(', $m[1]);
+        $this->assertStringNotContainsString('if (!postToParent', $m[1]);
+    }
+
+    #[Test]
     public function opening_the_form_does_not_pull_the_framing_page_down_to_it(): void
     {
         $page = $this->page();

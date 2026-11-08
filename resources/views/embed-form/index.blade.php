@@ -759,20 +759,24 @@
             outline: none !important;
         }
 
-        /* Stepper styles with clean underlying track to prevent line bleed */
+        /* Stepper: every step has one width (--stepper-node), so the line can run
+           exactly from the first step's centre to the last one's. A fixed
+           10%-90% left a gap after step 1 and before step 8 on a wide form. */
         .stepper-wrapper {
+            --stepper-pad: 10px;
+            --stepper-node: 72px;
             display: flex;
             justify-content: space-between;
             position: relative;
             margin-bottom: 28px;
-            padding: 0 10px;
+            padding: 0 var(--stepper-pad);
         }
 
         .stepper-track {
             position: absolute;
             top: 18px;
-            left: 10%;
-            right: 10%;
+            left: calc(var(--stepper-pad) + var(--stepper-node) / 2);
+            right: calc(var(--stepper-pad) + var(--stepper-node) / 2);
             height: 2px;
             background: #e2e8f0;
             z-index: 1;
@@ -789,6 +793,7 @@
             position: relative;
             z-index: 3;
             display: flex;
+            flex: 0 0 var(--stepper-node);
             flex-direction: column;
             align-items: center;
             text-align: center;
@@ -1061,16 +1066,75 @@
             .step-name {
                 display: none !important;
             }
+
+            /* Counters only: each step is just its counter wide. */
+            .stepper-wrapper {
+                --stepper-node: 36px;
+            }
+        }
+
+        /* A phone: eight 36px counters do not fit, so they are 30px. */
+        @media (max-width: 575.98px) {
+            .stepper-wrapper {
+                --stepper-node: 30px;
+                --stepper-pad: 0px;
+            }
+
+            .step-counter {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+
+            .stepper-track {
+                top: 15px;
+            }
+        }
+
+        /* Display options from the embed code's link (EmbedFormDisplay):
+           the page background, and the form card's frame. */
+        body.form-bg-white {
+            background: #ffffff;
+        }
+
+        body.form-bg-transparent {
+            background: transparent;
+        }
+
+        /* A colour code from the link (bg=rrggbb), checked by EmbedFormDisplay. */
+        body.form-bg-custom {
+            background: var(--form-bg);
+        }
+
+        /* Frameless: no outer card, so the form sits flush on the page around
+           the iframe. 4px of room keeps the focus rings of the outermost
+           fields inside the iframe. */
+        body.is-frameless {
+            min-height: 0;
+            padding-bottom: 0;
+        }
+
+        body.is-frameless > .container {
+            max-width: none !important;
+            padding: 4px !important;
+        }
+
+        body.is-frameless .embed-main-card {
+            border: 0;
+            box-shadow: none;
+            background: transparent;
+            padding: 0 !important;
         }
     </style>
 </head>
 
-<body>
+<body class="{{ implode(' ', $display->bodyClasses()) }}"@if($display->backgroundColor()) style="--form-bg: {{ $display->backgroundColor() }}"@endif>
 
     <div class="container py-4" style="max-width: 860px;">
 
-        {{-- Header with Partner Branding --}}
-        <div class="card card-custom mb-3 text-center p-4">
+        {{-- Header with Partner Branding; off when the framing page shows its own --}}
+        @if($display->showHeader())
+        <div class="card card-custom mb-3 text-center p-4" id="embedBrandHeader">
             <div class="d-flex justify-content-center align-items-center mb-3">
                 @if(!empty($logoUrl))
                     <img src="{{ $logoUrl }}" alt="{{ $partnerName }} Logo" class="brand-logo-img">
@@ -1087,9 +1151,10 @@
                         class="bi bi-shield-check text-success me-1"></i>Secure Application</span>
             </p>
         </div>
+        @endif
 
         {{-- Main Form Card --}}
-        <div class="card card-custom p-4 p-md-5">
+        <div class="card card-custom embed-main-card p-4 p-md-5">
 
             {{-- Stepper Progress, one node per funding application step --}}
             <div class="stepper-wrapper mb-4">
@@ -1804,9 +1869,11 @@
         </div>
 
         {{-- Footer --}}
+        @if($display->showFooter())
         <div class="text-center mt-3 text-muted small">
             &copy; {{ date('Y') }} {{ $partnerName }}. All rights reserved.
         </div>
+        @endif
 
     </div>
 
@@ -1837,16 +1904,35 @@
         // So the form tells that page its height and where to scroll. Only
         // layout numbers are sent - never a field value - and only to the
         // framing page's own origin, never '*'. Opened directly, nothing runs.
-        const PARENT_ORIGIN = (() => {
+        //
+        // The framing page's origin comes from the referrer or, when a browser,
+        // extension or Referrer-Policy drops it, from that page's 'hello'
+        // message (embed.js and the website send one when the iframe loads).
+        // Only a message from this window's own parent is believed.
+        let parentOrigin = (() => {
             if (window.parent === window || !document.referrer) return null;
             try { return new URL(document.referrer).origin; } catch (e) { return null; }
         })();
 
         function postToParent(message) {
-            if (!PARENT_ORIGIN) return false;
-            window.parent.postMessage({ source: 'fch-embed-form', ...message }, PARENT_ORIGIN);
+            if (!parentOrigin) return false;
+            window.parent.postMessage({ source: 'fch-embed-form', ...message }, parentOrigin);
             return true;
         }
+
+        window.addEventListener('message', (event) => {
+            if (event.source !== window.parent || window.parent === window) return;
+            const data = event.data;
+            if (!data || data.source !== 'fch-embed-form' || data.type !== 'hello') return;
+
+            // A page opened from a file (or sandboxed) has the origin 'null',
+            // which postMessage refuses as a target. It is answered with '*':
+            // only layout numbers are sent, and only to this window's parent.
+            parentOrigin = event.origin === 'null' ? '*' : event.origin;
+            // Report afresh: the page may have missed the earlier reports.
+            lastHeight = 0;
+            reportHeight();
+        });
 
         // The body has min-height: 100vh, which inside an iframe is the iframe's
         // own height - measuring the document would never let it shrink. Measure
@@ -1856,8 +1942,12 @@
                 .concat([...document.querySelectorAll('.select2-container--open .select2-dropdown, .flatpickr-calendar.open')])
                 .filter(Boolean)
                 .map(el => el.getBoundingClientRect().bottom + window.scrollY);
-            return Math.ceil(Math.max(0, ...bottoms) + 40);
+            return Math.ceil(Math.max(0, ...bottoms) + BOTTOM_SPACE);
         }
+
+        // Room below the content: the page's own spacing, or almost none when the
+        // form is frameless and the page around the iframe provides it.
+        const BOTTOM_SPACE = @json($display->framed()) ? 40 : 8;
 
         let lastHeight = 0;
         function reportHeight() {
@@ -1868,16 +1958,20 @@
             }
         }
 
-        /** Scroll to a point in the form: the framing page when framed, else this window. */
+        /**
+         * Scroll to a point in the form. Framed, the page around the iframe is
+         * asked to scroll too - but this window always scrolls itself as well:
+         * with a fixed-height iframe (no embed script listening) the form scrolls
+         * inside it, and with automatic height there is nothing here to scroll.
+         */
         function scrollFormTo(top) {
-            if (!postToParent({ type: 'scroll', top: Math.max(0, Math.round(top)) })) {
-                window.scrollTo({ top, behavior: 'smooth' });
-            }
+            postToParent({ type: 'scroll', top: Math.max(0, Math.round(top)) });
+            window.scrollTo({ top, behavior: 'smooth' });
         }
 
         /** Bring a field into view, centred where the framing page can show it. */
         function scrollFormToElement(el) {
-            if (!PARENT_ORIGIN) {
+            if (!parentOrigin) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
@@ -1885,7 +1979,7 @@
             scrollFormTo(rect.top + window.scrollY - 120);
         }
 
-        if (PARENT_ORIGIN) {
+        if (window.parent !== window) {
             new ResizeObserver(reportHeight).observe(document.querySelector('body > .container'));
             document.addEventListener('DOMContentLoaded', reportHeight);
             window.addEventListener('load', reportHeight);
