@@ -296,15 +296,52 @@ class SubmitEmbedFormRequestTest extends TestCase
     public function every_business_field_is_required_but_the_ein_and_the_employees(): void
     {
         $optional = ['business_ein', 'number_of_employees'];
+        // The "Other" details are required only when their type is "Other"
+        // (behaviour covered end to end in EmbedFormOtherTypeNoteTest).
+        $conditional = [
+            'industry_type_note' => 'required_if:industry_type,' . config('borrower.industry_type_other'),
+            'entity_type_note' => 'required_if:entity_type,' . config('borrower.entity_type_other'),
+        ];
 
         foreach ($this->stepRules('businessInfoRules') as $field => $rules) {
             if (in_array($field, $optional, true)) {
                 $this->assertContains('nullable', $rules, "{$field} should be optional");
                 $this->assertNotContains('required', $rules, "{$field} should be optional");
+            } elseif (array_key_exists($field, $conditional)) {
+                $this->assertContains($conditional[$field], $rules, "{$field} should be required for \"Other\" only");
+                $this->assertNotContains('required', $rules, "{$field} should be required for \"Other\" only");
+                $this->assertContains('nullable', $rules, "{$field} should be optional for a listed type");
             } else {
                 $this->assertContains('required', $rules, "{$field} should be required");
             }
         }
+
+        // Both conditional fields are really there, so the branch above ran.
+        $this->assertSame(
+            array_keys($conditional),
+            array_values(array_intersect(array_keys($this->stepRules('businessInfoRules')), array_keys($conditional)))
+        );
+    }
+
+    #[Test]
+    public function the_other_details_are_needed_for_other_and_only_then(): void
+    {
+        $rules = array_intersect_key(
+            $this->stepRules('businessInfoRules'),
+            array_flip(['industry_type', 'industry_type_note', 'entity_type', 'entity_type_note'])
+        );
+        $other = config('borrower.industry_type_other');
+
+        $this->assertTrue($this->fails($rules, ['industry_type' => $other, 'entity_type' => 'LLC']));
+        $this->assertTrue($this->fails($rules, ['industry_type' => 'Retail', 'entity_type' => config('borrower.entity_type_other')]));
+        $this->assertFalse($this->fails($rules, ['industry_type' => 'Retail', 'entity_type' => 'LLC']));
+        $this->assertFalse($this->fails($rules, [
+            'industry_type' => $other, 'industry_type_note' => 'Drone services',
+            'entity_type' => config('borrower.entity_type_other'), 'entity_type_note' => 'Cooperative',
+        ]));
+        $this->assertTrue($this->fails($rules, [
+            'industry_type' => $other, 'industry_type_note' => str_repeat('a', 256), 'entity_type' => 'LLC',
+        ]));
     }
 
     #[Test]
