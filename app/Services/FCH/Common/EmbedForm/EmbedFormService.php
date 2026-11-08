@@ -313,11 +313,13 @@ class EmbedFormService
      * Reduce a URL or bare domain to a comparable lowercase host.
      */
     /**
-     * The sites the browser may show the form page in an iframe on - only the
-     * Allowed Domains, each with and without "www." (BUG-092). The submit's
-     * Origin check above cannot do this: inside an iframe the form's own page
-     * sends the request, so the browser reports the form's host, never the
-     * site around it. Null when the list is empty: unrestricted.
+     * The sites the browser may show the form page in an iframe on - the
+     * Allowed Domains, each with and without "www." (BUG-092) - plus the
+     * partner's own admin panel, so the embed preview keeps working once a
+     * partner lists its sites. The submit's Origin check above cannot do this:
+     * inside an iframe the form's own page sends the request, so the browser
+     * reports the form's host, never the site around it. Null when the list is
+     * empty: unrestricted.
      */
     public function frameAncestors(EmbedFormConfig $config): ?string
     {
@@ -337,7 +339,56 @@ class EmbedFormService
             }
         }
 
-        return $sources ? implode(' ', array_values(array_unique($sources))) : null;
+        if (! $sources) {
+            return null;
+        }
+
+        array_push($sources, ...$this->platformFrameOrigins($config));
+
+        return implode(' ', array_values(array_unique($sources)));
+    }
+
+    /**
+     * Where this form's partner opens the admin panel, whose Embed Form
+     * Settings preview frames the form: BASE_PARTNER_PORTAL for the host, and
+     * for any other partner its own `partner_domain` and `partner_subdomain`.
+     *
+     * @return list<string>
+     */
+    private function platformFrameOrigins(EmbedFormConfig $config): array
+    {
+        $partner = $config->partner;
+
+        $addresses = (! $partner || $partner->is_host)
+            ? [config('app.frontend_partner_url')]
+            : [$partner->partner_domain, $partner->partner_subdomain];
+
+        $origins = array_map(fn ($address) => $this->frameSource((string) $address), $addresses);
+
+        return array_values(array_filter($origins));
+    }
+
+    /**
+     * A CSP source for an address: scheme, host and port, no path. An address
+     * stored without a scheme ("localhost:5174") stays scheme-less, which the
+     * browser matches against the form page's own scheme.
+     */
+    private function frameSource(string $address): ?string
+    {
+        $address = trim($address);
+        if ($address === '') {
+            return null;
+        }
+
+        $hasScheme = (bool) preg_match('#^https?://#i', $address);
+        $parts = parse_url($hasScheme ? $address : "https://{$address}");
+        if (empty($parts['host'])) {
+            return null;
+        }
+
+        $source = strtolower($parts['host']).(isset($parts['port']) ? ":{$parts['port']}" : '');
+
+        return $hasScheme ? strtolower($parts['scheme'])."://{$source}" : $source;
     }
 
     protected function normalizeHost(?string $value): ?string
