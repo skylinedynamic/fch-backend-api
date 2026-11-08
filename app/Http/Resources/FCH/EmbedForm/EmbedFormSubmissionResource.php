@@ -57,7 +57,9 @@ class EmbedFormSubmissionResource extends JsonResource
             'business_state' => $this->business_state,
             'business_postal_code' => $this->business_postal_code,
             'industry_type' => $this->industry_type,
+            'industry_type_note' => $this->industry_type_note,
             'entity_type' => $this->entity_type,
+            'entity_type_note' => $this->entity_type_note,
             // Stored as the nine digits; shown as an EIN is written.
             'business_ein' => $this->business_ein,
             'business_ein_display' => $this->einDisplay(),

@@ -1296,6 +1296,18 @@
                                 @endforeach
                             </select>
                         </div>
+                        {{-- What "Other" is, as the borrower profile asks it - beside
+                        its own select, so each type and its details share a row. --}}
+                        <div class="col-md-6" id="industryTypeNoteWrap" style="display: none;">
+                            <label class="form-label fw-semibold small mb-1" for="industry_type_note">Industry Type
+                                Details <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="industry_type_note" id="industry_type_note"
+                                maxlength="255" placeholder="Enter industry type details">
+                        </div>
+                        {{-- Holds the row when only Entity Type is "Other", so Entity Type
+                        starts the next row with its details beside it. --}}
+                        <div class="col-md-6 d-none d-md-block" id="typeNoteSpacer" style="display: none !important;"
+                            aria-hidden="true"></div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Entity Type <span
                                     class="text-danger">*</span></label>
@@ -1306,6 +1318,12 @@
                                     <option value="{{ $entity }}">{{ $entity }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="col-md-6" id="entityTypeNoteWrap" style="display: none;">
+                            <label class="form-label fw-semibold small mb-1" for="entity_type_note">Entity Type
+                                Details <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="entity_type_note" id="entity_type_note"
+                                maxlength="255" placeholder="Enter entity type details">
                         </div>
                         {{-- Years in business is not asked: it is worked out from the
                         Business Start Date on the financial step. --}}
@@ -2017,6 +2035,11 @@
         const DOC_TYPES = @json($docTypes);
         const CO_BORROWER_ROLES = @json($options['co_borrower_roles']);
         const PURPOSE_OTHER = @json($options['purpose_other']);
+        // Industry / entity type "Other" asks for its details (config/borrower.php).
+        const TYPE_NOTES = [
+            { select: 'industry_type', wrap: 'industryTypeNoteWrap', note: 'industry_type_note', other: @json(config('borrower.industry_type_other')) },
+            { select: 'entity_type', wrap: 'entityTypeNoteWrap', note: 'entity_type_note', other: @json(config('borrower.entity_type_other')) },
+        ];
         const FUNDING_TYPES = @json($options['funding_types']);
         const CURRENCIES = @json($currencies);
         const REFERRAL_OTHER = @json($referralSourceOther);
@@ -2640,6 +2663,8 @@
             'business_other_city',
             'other_city',
             'purpose_note',
+            'industry_type_note',
+            'entity_type_note',
             'referral_source_other',
             'federal_compliance_disclosures_explanation',
         ];
@@ -2975,6 +3000,28 @@
         // every time it opens - and once when the page is set up.
         $(document).on('select2:opening', '#additional_funding_types', refreshAdditionalFundingTypes);
 
+        TYPE_NOTES.forEach(({ select, wrap, note, other }) => {
+            $(document).on('change', `#${select}`, function () {
+                const isOther = this.value === other;
+                document.getElementById(wrap).style.display = isOther ? 'block' : 'none';
+                if (!isOther) {
+                    const input = document.getElementById(note);
+                    input.value = '';
+                    clearInvalid(input);
+                }
+                placeTypeNotes();
+            });
+        });
+
+        // Each type shares a row with its details. With only the entity type on
+        // "Other", a spacer fills the industry row so the entity type and its
+        // details start the next one together.
+        function placeTypeNotes() {
+            const [industry, entity] = TYPE_NOTES.map(t => document.getElementById(t.select).value === t.other);
+            const spacer = document.getElementById('typeNoteSpacer');
+            spacer.style.setProperty('display', entity && !industry ? '' : 'none', 'important');
+        }
+
         $(document).on('change', '#purpose_of_funds', function () {
             const isOther = this.value === PURPOSE_OTHER;
             document.getElementById('purposeNoteWrap').style.display = isOther ? 'block' : 'none';
@@ -3282,7 +3329,9 @@
                     ['Business Phone', [val('business_country_code'), val('business_phone_no')].filter(Boolean).join(' ') || null],
                     ['Address', [val('business_address'), val('business_city'), val('business_state'), val('business_postal_code')].filter(Boolean).join(', ') || null],
                     ['Industry', val('industry_type')],
+                    ['Industry Type Details', val('industry_type_note')],
                     ['Entity Type', val('entity_type')],
+                    ['Entity Type Details', val('entity_type_note')],
                     ['Business EIN', val('business_ein')],
                     ['Employees', val('number_of_employees')],
                 ]],

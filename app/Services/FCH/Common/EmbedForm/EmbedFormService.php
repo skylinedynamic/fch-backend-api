@@ -56,10 +56,15 @@ class EmbedFormService
     /** The client's Activity entry when a conversion fills its blank profile fields. */
     public const PROFILE_FILLED_EVENT = 'Profile Filled From Application';
 
-    /** Profile fields that make up one address; filled together or not at all. */
-    private const ADDRESS_GROUPS = [
+    /**
+     * Profile fields that make up one answer - an address, or a type with the
+     * details written for "Other"; filled together or not at all.
+     */
+    private const FILLED_TOGETHER = [
         ['home_address', 'city', 'state', 'postal_code'],
         ['business_address', 'business_city', 'business_state', 'business_postal_code'],
+        ['business_entity_type', 'business_entity_type_note'],
+        ['business_industry_type', 'business_industry_type_note'],
     ];
 
     /**
@@ -582,7 +587,10 @@ class EmbedFormService
             'business_state' => $data['business_state'] ?? null,
             'business_postal_code' => $data['business_postal_code'] ?? null,
             'industry_type' => $data['industry_type'] ?? null,
+            // Kept for "Other" only (EmbedFormSubmission::booted).
+            'industry_type_note' => $data['industry_type_note'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
+            'entity_type_note' => $data['entity_type_note'] ?? null,
             // Nine digits, as the borrower profile keeps an EIN.
             'business_ein' => BusinessEin::normalize($data['business_ein'] ?? null),
             'number_of_employees' => $data['number_of_employees'] ?? null,
@@ -1235,7 +1243,9 @@ class EmbedFormService
                 : null,
             'currency' => $submission->currency,
             'business_entity_type' => $submission->entity_type,
+            'business_entity_type_note' => $submission->entity_type_note,
             'business_industry_type' => $submission->industry_type,
+            'business_industry_type_note' => $submission->industry_type_note,
             'number_of_employees' => $submission->number_of_employees,
 
             'monthly_revenue' => $submission->monthly_revenue,
@@ -1323,7 +1333,8 @@ class EmbedFormService
 
         // An address is filled whole or not at all: half the client's address
         // and half the submission's is no address (BUG-064, Texas + Miami).
-        foreach (self::ADDRESS_GROUPS as $group) {
+        // The same for a type and its "Other" details.
+        foreach (self::FILLED_TOGETHER as $group) {
             $onFile = array_filter($group, fn (string $field) => !in_array($borrower->getAttribute($field), [null, ''], true));
             if ($onFile !== []) {
                 $blanks = array_diff_key($blanks, array_flip($group));
