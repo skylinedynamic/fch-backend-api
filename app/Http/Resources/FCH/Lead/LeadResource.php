@@ -2,12 +2,14 @@
 
 namespace App\Http\Resources\FCH\Lead;
 
-use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Resources\FCH\User\UserResource;
+use App\Models\Borrower\Borrower;
+use App\Models\Lead\Lead;
+use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Models\Lead\Lead */
+/** @mixin Lead */
 class LeadResource extends JsonResource
 {
     /**
@@ -58,11 +60,7 @@ class LeadResource extends JsonResource
             'ssn' => $this->ssn,
             'requirement_details' => $this->requirement_details,
             'convert_to' => $this->convert_to,
-            'convert_email_already' => $this->email ? (
-                \App\Models\Borrower\Borrower::where('email', $this->email)->exists() ? 'Borrower' : (
-                    \App\Models\Partner\Partner::where('email', $this->email)->exists() ? 'Partner' : false
-                )
-            ) : false,
+            'convert_email_already' => $this->emailAlreadyIn(),
 
             // Partner Details
             'partner' => [
@@ -79,5 +77,29 @@ class LeadResource extends JsonResource
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * Whether this lead's email is already one of its own partner's clients
+     * ('Borrower') or - for the host, whose book partners are - a partner
+     * ('Partner'). Only the lead's own partner's records count (BUG-018): an
+     * email that is another partner's client must look like any other lead,
+     * and converting it gets the neutral message (LeadService::convertToBorrower).
+     */
+    private function emailAlreadyIn(): string|false
+    {
+        if (! $this->email) {
+            return false;
+        }
+
+        if (Borrower::where('email', $this->email)->where('partner_id', $this->partner_id)->exists()) {
+            return 'Borrower';
+        }
+
+        if ($this->partner?->is_host && Partner::where('email', $this->email)->exists()) {
+            return 'Partner';
+        }
+
+        return false;
     }
 }
