@@ -13,9 +13,24 @@ class DepartmentService
         return Department::create($data);
     }
 
+    /**
+     * The partner's departments, each with employees_count: how many of the
+     * partner's employees are in it (matched as destroy() matches them), so the
+     * screen knows before asking whether one can be deleted.
+     */
     public function list($partnerId)
     {
-        return Department::where('partner_id', $partnerId)->get();
+        $counts = Employee::where('partner_id', $partnerId)
+            ->whereNotNull('department')
+            ->selectRaw('LOWER(department) as name, COUNT(*) as total')
+            ->groupByRaw('LOWER(department)')
+            ->pluck('total', 'name');
+
+        return Department::where('partner_id', $partnerId)->get()
+            ->each(fn (Department $department) => $department->setAttribute(
+                'employees_count',
+                (int) ($counts[mb_strtolower($department->name)] ?? 0)
+            ));
     }
 
     public function show($id, $partnerId)

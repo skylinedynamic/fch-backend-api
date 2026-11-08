@@ -144,4 +144,30 @@ class DepartmentApiTest extends TestCase
 
         $this->assertDatabaseHas('departments', ['id' => $department->id]);
     }
+
+    /**
+     * The Add New Department list says how many of the partner's employees use
+     * each department, so the x can open "cannot be deleted" for one in use and
+     * the confirmation only for one that is free - as for clients and blog tags.
+     * Employees keep the department as text, matched case-insensitively, the
+     * same way the delete check counts them.
+     */
+    #[Test]
+    public function the_list_says_how_many_employees_use_each_department(): void
+    {
+        $sales = $this->department('Sales');
+        $free = $this->department('Compliance');
+        $this->employeeIn('Sales');
+        $this->employeeIn('sales');
+        // Another partner's employee in its own "Sales" does not count here.
+        $other = $this->makeCertifiedPartner();
+        $this->employeeIn('Sales', $other);
+        $this->actingAsUser($this->admin);
+
+        $rows = collect($this->postJson('/api/v1/common/departments/fetch-departments')->assertOk()->json('data'))
+            ->keyBy('id');
+
+        $this->assertSame(2, $rows[$sales->id]['employees_count']);
+        $this->assertSame(0, $rows[$free->id]['employees_count']);
+    }
 }
