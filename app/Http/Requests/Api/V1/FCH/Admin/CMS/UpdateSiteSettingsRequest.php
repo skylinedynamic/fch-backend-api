@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\CMS;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
-use App\Rules\UsPhoneNumber;
+use App\Rules\EmbedFormSnippet;
 use App\Rules\SafeUpload;
+use App\Rules\UsPhoneNumber;
+use App\Support\EmbedForm\EmbedSnippet;
 
 class UpdateSiteSettingsRequest extends BaseApiRequest
 {
@@ -31,6 +33,9 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'phone_number' => ['required', 'string', new UsPhoneNumber()],
             'email' => ['required', 'email', 'max:255'],
             'map_iframe' => ['required', 'string', 'max:2000'],
+            // Embed code copied from Embed Form Settings for the /apply page.
+            // Parsed, never served as HTML (EmbedSnippet).
+            EmbedSnippet::SETTING_KEY => ['nullable', 'string', 'max:3000', new EmbedFormSnippet],
             'site_slogan' => ['nullable', 'string', 'max:255'],
             'header_logo' => ['nullable', 'sometimes', SafeUpload::image()],
             'footer_logo' => ['nullable', 'sometimes', SafeUpload::image()],

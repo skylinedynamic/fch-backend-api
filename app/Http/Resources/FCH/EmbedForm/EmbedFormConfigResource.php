@@ -32,8 +32,9 @@ class EmbedFormConfigResource extends JsonResource
             // Null rather than a guess when the partner has nowhere to publish.
             // A link built on a fallback domain is worse than no link: it looks
             // valid, gets pasted into a website, and 404s for every applicant.
-            'embed_snippet' => $location->embedSnippet($this->public_key),
             'direct_url' => $location->formUrl($this->public_key),
+            // For the settings screen's embed-code builder (auto height).
+            'embed_script_url' => $location->embedScriptUrl(),
 
             // What the settings screen shows in place of the link, and why.
             'form_url_available' => $location->isAvailable(),

@@ -383,6 +383,28 @@ class EmbedFormService
     }
 
     /**
+     * The host's live application form, as the marketing site's /apply page
+     * embeds it: its title and link, nothing else. Null when the host has no
+     * active form or nowhere to publish one. Never creates a form - this is
+     * answered to anonymous visitors.
+     *
+     * @return array{form_title: string, form_url: string}|null
+     */
+    public function hostFormDetails(): ?array
+    {
+        $host = Partner::host();
+        $config = $host ? $this->findConfig($host->id) : null;
+
+        if (!$config || !$config->is_active) {
+            return null;
+        }
+
+        $url = EmbedFormLocation::forPartner($host)->formUrl($config->public_key);
+
+        return $url ? ['form_title' => $config->form_title, 'form_url' => $url] : null;
+    }
+
+    /**
      * Get or create an EmbedFormConfig for the given partner.
      *
      * Refuses to create one for a partner with no address to publish it at. A
