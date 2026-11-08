@@ -3,18 +3,19 @@
 namespace App\Services\FCH\Common\EmbedForm;
 
 use App\Helpers\ApiResponse;
-use App\Models\User\User;
+use App\Mail\EmbedForm\EmbedFormConverted;
+use App\Mail\EmbedForm\NewSubmissionMail;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
-use App\Mail\EmbedForm\EmbedFormConverted;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
+use App\Models\User\User;
 use App\Rules\BusinessEin;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\SignatureRecorder;
@@ -25,6 +26,7 @@ use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -32,18 +34,19 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Mail\EmbedForm\NewSubmissionMail;
 use Throwable;
-
 
 class EmbedFormService
 {
     public const EMAIL_AVAILABLE = 'available';
+
     public const EMAIL_BORROWER = 'borrower';
+
     public const EMAIL_BLOCKED = 'blocked';
 
     /** What converting a submission will do - see conversionPreview(). */
     public const CONVERSION_MODE_NEW = 'new_borrower';
+
     public const CONVERSION_MODE_EXISTING = 'existing_borrower';
 
     /**
@@ -73,7 +76,7 @@ class EmbedFormService
         if ($user) {
             $isBorrower = $user->entity_type === Borrower::class || $user->user_type === User::BORROWER;
 
-            if (!$isBorrower) {
+            if (! $isBorrower) {
                 return [
                     'status' => self::EMAIL_BLOCKED,
                     'borrower' => null,
@@ -208,7 +211,7 @@ class EmbedFormService
     {
         $allowed = $config->allowed_domains ?? [];
 
-        if (empty($allowed) || !is_array($allowed)) {
+        if (empty($allowed) || ! is_array($allowed)) {
             return true;
         }
 
@@ -217,13 +220,13 @@ class EmbedFormService
         // No Origin and no Referer means this is not a browser posting from a
         // page - a direct API call, or a stripped-down client. With a domain
         // allow-list configured, that is refused rather than waved through.
-        if (!$source) {
+        if (! $source) {
             return false;
         }
 
         $requestHost = $this->normalizeHost($source);
 
-        if (!$requestHost) {
+        if (! $requestHost) {
             return false;
         }
 
@@ -247,11 +250,13 @@ class EmbedFormService
      * Reduce a URL or bare domain to a comparable lowercase host.
      */
     /**
-     * The sites the browser may show the form page in an iframe on - only the
-     * Allowed Domains, each with and without "www." (BUG-092). The submit's
-     * Origin check above cannot do this: inside an iframe the form's own page
-     * sends the request, so the browser reports the form's host, never the
-     * site around it. Null when the list is empty: unrestricted.
+     * The sites the browser may show the form page in an iframe on - the
+     * Allowed Domains, each with and without "www." (BUG-092) - plus the
+     * platform's own origins, so the embed preview in the admin panel keeps
+     * working once a partner lists its sites. The submit's Origin check above
+     * cannot do this: inside an iframe the form's own page sends the request,
+     * so the browser reports the form's host, never the site around it. Null
+     * when the list is empty: unrestricted.
      */
     public function frameAncestors(EmbedFormConfig $config): ?string
     {
@@ -260,7 +265,7 @@ class EmbedFormService
         $sources = [];
         foreach ($allowed as $domain) {
             $host = $this->normalizeHost($domain);
-            if (!$host) {
+            if (! $host) {
                 continue;
             }
             $scheme = preg_match('#^http://#i', trim((string) $domain)) ? 'http' : 'https';
@@ -268,12 +273,61 @@ class EmbedFormService
             $sources[] = "{$scheme}://www.{$host}";
         }
 
-        return $sources ? implode(' ', array_values(array_unique($sources))) : null;
+        if (! $sources) {
+            return null;
+        }
+
+        array_push($sources, ...$this->platformFrameOrigins($config));
+
+        return implode(' ', array_values(array_unique($sources)));
+    }
+
+    /**
+     * Where this form's partner opens the admin panel, whose Embed Form
+     * Settings preview frames the form: BASE_PARTNER_PORTAL for the host, and
+     * for any other partner its own `partner_domain` and `partner_subdomain`.
+     *
+     * @return list<string>
+     */
+    private function platformFrameOrigins(EmbedFormConfig $config): array
+    {
+        $partner = $config->partner;
+
+        $addresses = (! $partner || $partner->is_host)
+            ? [config('app.frontend_partner_url')]
+            : [$partner->partner_domain, $partner->partner_subdomain];
+
+        $origins = array_map(fn ($address) => $this->frameSource((string) $address), $addresses);
+
+        return array_values(array_filter($origins));
+    }
+
+    /**
+     * A CSP source for an address: scheme, host and port, no path. An address
+     * stored without a scheme ("localhost:5174") stays scheme-less, which the
+     * browser matches against the form page's own scheme.
+     */
+    private function frameSource(string $address): ?string
+    {
+        $address = trim($address);
+        if ($address === '') {
+            return null;
+        }
+
+        $hasScheme = (bool) preg_match('#^https?://#i', $address);
+        $parts = parse_url($hasScheme ? $address : "https://{$address}");
+        if (empty($parts['host'])) {
+            return null;
+        }
+
+        $source = strtolower($parts['host']).(isset($parts['port']) ? ":{$parts['port']}" : '');
+
+        return $hasScheme ? strtolower($parts['scheme'])."://{$source}" : $source;
     }
 
     protected function normalizeHost(?string $value): ?string
     {
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 
@@ -281,13 +335,13 @@ class EmbedFormService
 
         // parse_url only finds a host when a scheme is present, and partners
         // type bare domains as often as full URLs.
-        if (!preg_match('#^https?://#i', $value)) {
-            $value = 'https://' . $value;
+        if (! preg_match('#^https?://#i', $value)) {
+            $value = 'https://'.$value;
         }
 
         $host = parse_url($value, PHP_URL_HOST);
 
-        if (!$host) {
+        if (! $host) {
             return null;
         }
 
@@ -326,7 +380,7 @@ class EmbedFormService
         $host = Partner::host();
         $config = $host ? $this->findConfig($host->id) : null;
 
-        if (!$config || !$config->is_active) {
+        if (! $config || ! $config->is_active) {
             return null;
         }
 
@@ -355,7 +409,7 @@ class EmbedFormService
 
         $location = $this->locationFor($partnerId);
 
-        if (!$location->isAvailable()) {
+        if (! $location->isAvailable()) {
             throw new \DomainException($location->warning());
         }
 
@@ -379,7 +433,7 @@ class EmbedFormService
             'allowed_domains' => $data['allowed_domains'] ?? null,
             'notification_email' => $data['notification_email'] ?? null,
             'is_active' => $data['is_active'] ?? null,
-        ], fn($v) => !is_null($v)));
+        ], fn ($v) => ! is_null($v)));
 
         return $config->fresh();
     }
@@ -391,6 +445,7 @@ class EmbedFormService
     {
         $config = $this->getOrCreateConfig($partnerId);
         $config->update(['public_key' => EmbedFormConfig::generatePublicKey()]);
+
         return $config->fresh();
     }
 
@@ -485,7 +540,7 @@ class EmbedFormService
             'email' => $data['email'],
             'phone' => $this->portalPhone($data['phone'] ?? null),
             'date_of_birth' => $data['date_of_birth'] ?? null,
-            'ssn_encrypted' => !empty($data['ssn']) ? Crypt::encryptString($data['ssn']) : null,
+            'ssn_encrypted' => ! empty($data['ssn']) ? Crypt::encryptString($data['ssn']) : null,
             'citizenship_status' => $data['citizenship_status'] ?? null,
             'street_address' => $data['street_address'] ?? null,
             'country' => $data['country'] ?? null,
@@ -493,7 +548,7 @@ class EmbedFormService
             'state' => $data['state'] ?? null,
             'zip_code' => $data['zip_code'] ?? null,
             'ownership' => $data['ownership'] ?? null,
-            'has_co_borrower' => !empty($data['co_borrowers']),
+            'has_co_borrower' => ! empty($data['co_borrowers']),
         ];
     }
 
@@ -534,7 +589,7 @@ class EmbedFormService
      */
     protected function yearsInBusiness(?string $startDate): ?string
     {
-        if (!$startDate) {
+        if (! $startDate) {
             return null;
         }
 
@@ -565,7 +620,7 @@ class EmbedFormService
             // no approved funding to name.
             'approved_funding' => null,
             'preferred_funding_type' => $data['preferred_funding_type'] ?? null,
-            'additional_funding_types' => !empty($data['additional_funding_types'])
+            'additional_funding_types' => ! empty($data['additional_funding_types'])
                 ? array_values($data['additional_funding_types'])
                 : null,
             'timeframe_needed' => $data['timeframe_needed'] ?? null,
@@ -664,13 +719,13 @@ class EmbedFormService
      */
     protected function resolveSalesRepName($userId): ?string
     {
-        if (!$userId) {
+        if (! $userId) {
             return null;
         }
 
-        $user = \App\Models\User\User::find($userId);
+        $user = User::find($userId);
 
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
@@ -696,7 +751,7 @@ class EmbedFormService
                 'mobile_phone' => $this->portalPhone($coBorrower['mobile_phone'] ?? null),
                 'home_phone' => $this->portalPhone($coBorrower['home_phone'] ?? null),
                 'date_of_birth' => $coBorrower['date_of_birth'] ?? null,
-                'ssn_encrypted' => !empty($coBorrower['ssn']) ? Crypt::encryptString($coBorrower['ssn']) : null,
+                'ssn_encrypted' => ! empty($coBorrower['ssn']) ? Crypt::encryptString($coBorrower['ssn']) : null,
                 'street_address' => $coBorrower['street_address'] ?? null,
                 'country' => $coBorrower['country'] ?? null,
                 'city' => $coBorrower['city'] ?? null,
@@ -718,7 +773,7 @@ class EmbedFormService
     {
         $documents = $request->file('documents');
 
-        if (!is_array($documents)) {
+        if (! is_array($documents)) {
             return;
         }
 
@@ -727,7 +782,7 @@ class EmbedFormService
         foreach ($documents as $docTypeId => $files) {
             $docTypeId = (int) $docTypeId;
 
-            if (!$docTypes->has($docTypeId)) {
+            if (! $docTypes->has($docTypeId)) {
                 continue;
             }
 
@@ -749,7 +804,7 @@ class EmbedFormService
         ?int $docTypeId = null
     ): void {
         $directory = "embed_forms/{$submission->partner_id}/{$submission->id}";
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
         $path = $file->storeAs($directory, $filename, 'public');
 
         EmbedFormAttachment::create([
@@ -818,12 +873,12 @@ class EmbedFormService
      */
     protected function notifyHostOfPartnerSubmission(EmbedFormSubmission $submission, ?Partner $partner, array $data): void
     {
-        if (!$partner || $partner->is_host) {
+        if (! $partner || $partner->is_host) {
             return;
         }
 
         $host = Partner::where('is_host', true)->first();
-        if (!$host) {
+        if (! $host) {
             return;
         }
 
@@ -852,19 +907,19 @@ class EmbedFormService
     protected function isWhiteLabelPartner(?Partner $partner): bool
     {
         return $partner
-            && !$partner->is_host
+            && ! $partner->is_host
             && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL;
     }
 
     /**
      * Paginated submissions for a partner (DataTable).
      */
-    public function getSubmissions(int $partnerId, array $filters = []): \Illuminate\Pagination\LengthAwarePaginator
+    public function getSubmissions(int $partnerId, array $filters = []): LengthAwarePaginator
     {
         $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'convertedBorrower', 'salesRepUser')
             ->where('partner_id', $partnerId);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $s = $filters['search'];
             $query->where(function ($q) use ($s) {
                 $q->where('first_name', 'LIKE', "%{$s}%")
@@ -879,19 +934,20 @@ class EmbedFormService
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->whereDate('created_at', '>=', $filters['date_from']);
         }
 
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
         $perPage = $filters['per_page'] ?? 15;
+
         return $query->orderByDesc('created_at')->paginate($perPage);
     }
 
@@ -901,6 +957,7 @@ class EmbedFormService
     public function updateStatus(EmbedFormSubmission $submission, string $status): EmbedFormSubmission
     {
         $submission->update(['status' => $status]);
+
         return $submission->fresh(['attachments.docType', 'coBorrowers', 'convertedBorrower']);
     }
 
@@ -920,7 +977,7 @@ class EmbedFormService
             $existingBorrower = $this->convertibleBorrower($submission);
 
             // Nothing is created until the partner has seen who this is.
-            if ($existingBorrower && !filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            if ($existingBorrower && ! filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
                 throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
             }
 
@@ -981,7 +1038,7 @@ class EmbedFormService
             // The applicant signed on the public form: keep the application as
             // signed, with its certificate, as a signing in the portals does.
             // Failures are logged inside; they never undo the conversion.
-            if ($fundingApplication && !empty($fundingApplication->signature_data)) {
+            if ($fundingApplication && ! empty($fundingApplication->signature_data)) {
                 $signature = $fundingApplication->signature_data;
                 app(FundingApplicationDocumentService::class)->generateAndLockFinalDocuments($fundingApplication, $signature);
             }
@@ -1101,7 +1158,7 @@ class EmbedFormService
     public function completeConvertedBorrowerProfile(EmbedFormSubmission $submission, bool $dryRun = false): array
     {
         $borrower = $submission->converted_borrower_id ? Borrower::find($submission->converted_borrower_id) : null;
-        if (!$borrower) {
+        if (! $borrower) {
             return [];
         }
 
@@ -1115,7 +1172,7 @@ class EmbedFormService
         }
 
         $blanks = $this->blankProfileFields($borrower, $this->borrowerProfileFrom($submission, $ssn));
-        if (!$dryRun && $blanks !== []) {
+        if (! $dryRun && $blanks !== []) {
             $borrower->forceFill($blanks)->save();
         }
 
@@ -1280,7 +1337,7 @@ class EmbedFormService
             // Nine digits, as the portals' own applications hold it.
             'ssn' => $this->ssnDigits($ssnDecrypted),
             'currency' => $submission->currency ?: $this->defaultCurrency(),
-            'currency_symbol' => config('funding_application.embed_form.currencies.' . ($submission->currency ?: $this->defaultCurrency())),
+            'currency_symbol' => config('funding_application.embed_form.currencies.'.($submission->currency ?: $this->defaultCurrency())),
 
             'is_business_info_saved' => true,
             'is_ownership_info_saved' => true,
@@ -1319,14 +1376,14 @@ class EmbedFormService
 
         $staff = [Partner::where('is_host', 1)->first()];
         $partner = $submission->partner;
-        if ($partner && !$partner->is_host) {
+        if ($partner && ! $partner->is_host) {
             $staff[] = $partner;
         }
 
         $mailed = [];
         foreach (array_filter($staff) as $recipient) {
             // One email per address, as before, even if host and partner share one.
-            $email = !empty($recipient->email) && !in_array($recipient->email, $mailed, true) ? $recipient->email : null;
+            $email = ! empty($recipient->email) && ! in_array($recipient->email, $mailed, true) ? $recipient->email : null;
             $mailed[] = $email;
 
             // Each staff copy comes from its recipient's own company: the host's
@@ -1352,7 +1409,7 @@ class EmbedFormService
                 'borrower.embed_form.converted',
                 $application->borrower,
                 [],
-                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false, existingClient: $existingClient))->to($submission->email) : null
+                mail: ! empty($submission->email) ? (new EmbedFormConverted($submission, $application, false, existingClient: $existingClient))->to($submission->email) : null
             );
         } catch (Throwable $e) {
             Log::error('Failed to send conversion notice to embed form applicant', [
@@ -1419,12 +1476,13 @@ class EmbedFormService
         $disk = Storage::disk('public');
 
         foreach ($submission->attachments as $attachment) {
-            if (!$attachment->file_path || !$disk->exists($attachment->file_path)) {
+            if (! $attachment->file_path || ! $disk->exists($attachment->file_path)) {
                 Log::warning(__('embed_form.log_funding_application_failed'), [
                     'submission_id' => $submission->id,
                     'attachment_id' => $attachment->id,
                     'reason' => 'file missing on disk',
                 ]);
+
                 continue;
             }
 
@@ -1432,7 +1490,7 @@ class EmbedFormService
                 ?: pathinfo($attachment->file_path, PATHINFO_EXTENSION);
 
             $destination = "funding-application/{$borrowerId}/FA-{$application->id}/"
-                . Str::uuid() . ($extension ? '.' . $extension : '');
+                .Str::uuid().($extension ? '.'.$extension : '');
 
             $disk->copy($attachment->file_path, $destination);
             $this->movedDocuments[] = ['from' => $attachment->file_path, 'to' => $destination];
@@ -1457,7 +1515,7 @@ class EmbedFormService
                 $destination, $attachment->original_name, $attachment->borrower_doc_type_id, $application->id, $borrowerId
             );
             $this->movedDocuments[array_key_last($this->movedDocuments)]['client']
-                = "borrowers/{$borrowerId}/" . $document->getRawOriginal('file_path');
+                = "borrowers/{$borrowerId}/".$document->getRawOriginal('file_path');
         }
     }
 
@@ -1480,10 +1538,10 @@ class EmbedFormService
     ): BorrowerDocument {
         $disk = Storage::disk('public');
         $extension = pathinfo($originalName, PATHINFO_EXTENSION) ?: pathinfo($source, PATHINFO_EXTENSION);
-        $fileName = Str::uuid() . ($extension ? '.' . $extension : '');
+        $fileName = Str::uuid().($extension ? '.'.$extension : '');
         $path = "borrowers/{$borrowerId}/{$fileName}";
 
-        if (!$disk->copy($source, $path)) {
+        if (! $disk->copy($source, $path)) {
             throw new \RuntimeException("Could not copy {$source} to the client's documents.");
         }
 
@@ -1508,10 +1566,10 @@ class EmbedFormService
     private function readableSize(int $bytes): string
     {
         if ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . ' MB';
+            return round($bytes / 1048576, 2).' MB';
         }
 
-        return $bytes >= 1024 ? round($bytes / 1024, 2) . ' KB' : $bytes . ' bytes';
+        return $bytes >= 1024 ? round($bytes / 1024, 2).' KB' : $bytes.' bytes';
     }
 
     /**
@@ -1524,7 +1582,7 @@ class EmbedFormService
         $disk = Storage::disk('public');
 
         foreach ($this->movedDocuments as $moved) {
-            if (!$disk->delete($moved['from'])) {
+            if (! $disk->delete($moved['from'])) {
                 Log::warning(__('embed_form.log_funding_application_failed'), [
                     'submission_id' => $submission->id,
                     'reason' => 'embed form upload not deleted after the move',
@@ -1559,7 +1617,7 @@ class EmbedFormService
     public function downloadAttachment(int $id): StreamedResponse|JsonResponse
     {
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::unauthorized();
         }
 
@@ -1568,23 +1626,22 @@ class EmbedFormService
 
         $attachment = EmbedFormAttachment::with('submission')->find($id);
 
-        if (!$attachment) {
+        if (! $attachment) {
             return ApiResponse::notFound(__('embed_form.file_not_found'));
         }
 
         // Verify attachment and its submission/form partner ID matches the authenticated user's partner ID
         $formPartnerId = $attachment->partner_id ?: $attachment->submission?->partner_id;
 
-        if (!$isHost && (empty($userPartnerId) || empty($formPartnerId) || (int) $formPartnerId !== (int) $userPartnerId)) {
+        if (! $isHost && (empty($userPartnerId) || empty($formPartnerId) || (int) $formPartnerId !== (int) $userPartnerId)) {
             return ApiResponse::forbidden(__('embed_form.unauthorized_attachment'));
         }
 
         $disk = Storage::disk('public');
-        if (!$disk->exists($attachment->file_path)) {
+        if (! $disk->exists($attachment->file_path)) {
             return ApiResponse::notFound(__('embed_form.file_not_exists'));
         }
 
         return $disk->download($attachment->file_path, $attachment->original_name);
     }
 }
-
