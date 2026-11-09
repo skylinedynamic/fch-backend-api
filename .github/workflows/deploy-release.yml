@@ -145,3 +145,29 @@ jobs:
             
             echo "Deployment complete!"
 
+      - name: Smoke Test - Verify API is Responding
+        env:
+          # Lets the smoke test reach the new build while the maintenance page is
+          # switched on by hand on the server (sudo fch-maintenance on).
+          MAINTENANCE_BYPASS: ${{ secrets.PROD_MAINTENANCE_BYPASS }}
+        run: |
+          echo "Waiting for server to stabilise...."
+          sleep 5
+          # /up is Laravel's health route; the API root answers 404 in production.
+          API_URL="${{ secrets.PROD_API_URL || 'https://api.fourcornerfunding.com/up' }}"
+          echo "Testing endpoint: $API_URL"
+
+          # Use a temporary file to store the body and status code separately
+          curl -s -o body.txt -w "%{http_code}" --max-time 10 -H "X-Maintenance-Bypass: $MAINTENANCE_BYPASS" "$API_URL" > status.txt || echo "000" > status.txt
+          HTTP_STATUS=$(cat status.txt)
+
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 401 ] || [ "$HTTP_STATUS" -eq 301 ] || [ "$HTTP_STATUS" -eq 302 ]; then
+            echo "✅ Smoke test passed! API responded with HTTP $HTTP_STATUS."
+          else
+            echo "❌ Smoke test failed! API ($API_URL) responded with HTTP $HTTP_STATUS."
+            echo "--- Response Body ---"
+            cat body.txt
+            echo "--- End of Response Body ---"
+            exit 1
+          fi
+
