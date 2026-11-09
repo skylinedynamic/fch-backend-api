@@ -158,6 +158,17 @@ final class CommissionViewer
         return $summary;
     }
 
+    /**
+     * What is still to be paid out on the deals in $query, and on how many -
+     * the same amount the Pay button would pay (see expectedPayout()).
+     *
+     * @return array{0: float, 1: int}
+     */
+    public function payoutsDue(Builder $query): array
+    {
+        return $this->expectedPayout($this->scope($query));
+    }
+
     private function fundedAmount(Builder $query): float
     {
         return round((float) FundingApplication::withTrashed()

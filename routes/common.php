@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerSummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -168,6 +169,9 @@ Route::prefix('v1')->group(function () {
         Route::prefix('common')->middleware('partner-portal')->group(function () {
 
             Route::get('dashboard', [DashboardController::class, 'index']);
+            // The host owner's business summary - the host's team only, and of
+            // it the owner (checked in FetchOwnerSummary).
+            Route::get('owner-summary', [OwnerSummaryController::class, 'show'])->middleware('host-partner');
             Route::get('refresh-user', [CommonController::class, 'refreshUser']);
             Route::get('partner-theme', [CommonController::class, 'getTheme']);
 
