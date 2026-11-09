@@ -2048,7 +2048,8 @@
         const CREDIT_SCORE = @json($creditScore);
         const OTHER_CITY = 'Others';
         const POSTAL_LENGTH = @json($postalCodeLength);
-        const MIN_AGE = @json($minimumAge);
+        const LATEST_DOB = @json($latestDateOfBirth);
+        const MINIMUM_AGE_MESSAGE = @json(__('common.date_of_birth_minimum_age', ['age' => $minimumAge]));
 
         // One DataTransfer per document type id, so a file can be removed from a
         // bucket without clearing the whole input.
@@ -2274,9 +2275,6 @@
         function initDatePickers(scope) {
             const root = scope || document;
             const today = new Date();
-            const adultCutoff = new Date(
-                today.getFullYear() - MIN_AGE, today.getMonth(), today.getDate()
-            );
 
             root.querySelectorAll('[data-datepicker]').forEach(el => {
                 if (el._flatpickr) return;
@@ -2291,10 +2289,16 @@
                     // the phone's native date input.
                     disableMobile: true,
                     plugins: [yearDropdownPlugin(1900)],
-                    maxDate: isDob ? adultCutoff : today,
-                    // A date of birth is decades back, so opening on the current
-                    // month would mean a long scroll on every single application.
+                    // Every year up to today can be picked; an under-age date of
+                    // birth gets the minimum-age message (fieldError), as the API.
+                    maxDate: today,
                     defaultDate: null,
+                    // A date of birth is decades back: an empty one opens on the
+                    // latest date that is old enough (from the server, so the
+                    // calendar and the API agree), a picked one on that date.
+                    onOpen: (selectedDates, dateStr, fp) => {
+                        if (isDob && !selectedDates.length) fp.jumpToDate(LATEST_DOB);
+                    },
                     onChange: () => validateField(el),
                     // Opening and dismissing the calendar counts as visiting it.
                     onClose: () => {
@@ -2775,6 +2779,8 @@
             if (type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
                 return 'Enter a valid email address.';
             }
+            // YYYY-MM-DD strings compare in date order.
+            if (el.dataset.datepicker === 'dob' && value > LATEST_DOB) return MINIMUM_AGE_MESSAGE;
             if (type === 'ssn' && value.replace(/\D/g, '').length !== 9) return 'SSN must be 9 digits.';
             if (type === 'ein' && !/^\d{2}-?\d{7}$/.test(value)) return 'EIN must be 9 digits, written XX-XXXXXXX.';
             if (type === 'signature' && value.length < 3) return 'Type your full legal name (at least 3 characters).';

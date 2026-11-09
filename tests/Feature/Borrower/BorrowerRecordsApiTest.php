@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -856,5 +857,36 @@ class BorrowerRecordsApiTest extends TestCase
         $this->actingAsUser($this->partnerAdmin);
 
         $this->postJson('/api/v1/common/borrowers-tiers')->assertOk()->assertJsonPath('status', true);
+    }
+
+    /**
+     * Defect: a client's date of birth was `nullable` with no other rule, so an
+     * admin could add a 10-year-old client, and a date that does not exist
+     * (02-30-1990) was quietly saved as no date of birth at all.
+     */
+    #[Test]
+    public function a_clients_date_of_birth_must_be_a_real_date_and_at_least_the_minimum_age(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $underAge = DateOfBirth::latestAllowedDate()->addDay()->format('m-d-Y');
+
+        $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['date_of_birth' => $underAge]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18])]);
+
+        $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['date_of_birth' => '02-30-1990']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_invalid')]);
+
+        // The admin form posts MM-DD-YYYY; someone turning 18 today may be added.
+        $turning18 = DateOfBirth::latestAllowedDate();
+        $id = $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['date_of_birth' => $turning18->format('m-d-Y')]))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertSame($turning18->toDateString(), toDateOnly(Borrower::findOrFail($id)->date_of_birth));
+
+        $this->postJson("/api/v1/common/borrowers/{$id}", ['first_name' => 'Ada', 'date_of_birth' => $underAge])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18])]);
     }
 }

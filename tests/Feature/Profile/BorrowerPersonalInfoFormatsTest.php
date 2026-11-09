@@ -8,6 +8,7 @@ use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -82,5 +83,36 @@ class BorrowerPersonalInfoFormatsTest extends TestCase
             ->assertOk();
 
         $this->assertSame('12345', Borrower::find($this->me->entity_id)->postal_code);
+    }
+
+    /**
+     * Defect: the profile's date of birth was only `before:today`, so a
+     * borrower could save a date that made them a child.
+     */
+    #[Test]
+    public function a_date_of_birth_under_the_minimum_age_is_refused(): void
+    {
+        $this->postJson('/api/v1/borrower/profile/personal-info', $this->payload([
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->addDay()->toDateString(),
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => 'You must be at least 18 years old to continue.',
+        ]);
+
+        foreach (['2000-02-30' => 'common.date_of_birth_invalid', now()->addDay()->toDateString() => 'common.date_of_birth_future'] as $dob => $message) {
+            $this->postJson('/api/v1/borrower/profile/personal-info', $this->payload(['date_of_birth' => $dob]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['date_of_birth' => __($message)]);
+        }
+    }
+
+    #[Test]
+    public function someone_turning_eighteen_today_can_save_their_profile(): void
+    {
+        $turning18 = DateOfBirth::latestAllowedDate()->toDateString();
+
+        $this->postJson('/api/v1/borrower/profile/personal-info', $this->payload(['date_of_birth' => $turning18]))
+            ->assertOk();
+
+        $this->assertSame($turning18, toDateOnly(Borrower::find($this->me->entity_id)->date_of_birth));
     }
 }
