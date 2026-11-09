@@ -1215,26 +1215,27 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Contact Full Name <span
+                            <label class="form-label fw-semibold small mb-1" for="full_name">Business Contact Full Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="full_name" id="full_name" data-req
                                 placeholder="e.g. John Doe">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Legal Business Name <span
+                            <label class="form-label fw-semibold small mb-1" for="business_name">Legal Business Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_name" id="business_name" data-req
                                 placeholder="e.g. Acme Holdings LLC">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Email <span
+                            <label class="form-label fw-semibold small mb-1" for="business_email">Business Email <span
                                     class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="business_email" id="business_email" data-req
                                 data-type="email" placeholder="accounts@acme.com">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Phone <span
+                            <label class="form-label fw-semibold small mb-1" for="business_phone_no">Business Phone <span
                                     class="text-danger">*</span></label>
+                            <label class="visually-hidden" for="business_country_select">Business phone country</label>
                             <div class="input-group">
                                 <select class="form-select select2 flex-grow-0" id="business_country_select"
                                     style="width: 132px;" data-req>
@@ -1249,13 +1250,13 @@
                             <input type="hidden" name="business_country_code" id="business_country_code">
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Business Street Address <span
+                            <label class="form-label fw-semibold small mb-1" for="business_address">Business Street Address <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_address" id="business_address"
                                 data-req placeholder="123 Commerce Way, Suite 200">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">State <span
+                            <label class="form-label fw-semibold small mb-1" for="business_state">State <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="business_state" id="business_state" data-req
                                 data-placeholder="Select state...">
@@ -1263,7 +1264,7 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">City <span
+                            <label class="form-label fw-semibold small mb-1" for="business_city_select">City <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="business_city_select" id="business_city_select"
                                 data-req data-placeholder="Select city...">
@@ -1274,19 +1275,19 @@
                             <input type="hidden" name="business_city" id="business_city">
                         </div>
                         <div class="col-md-4" id="businessOtherCityWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Other City <span
+                            <label class="form-label fw-semibold small mb-1" for="business_other_city">Other City <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="business_other_city" placeholder="Enter city">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">Postal Code <span
+                            <label class="form-label fw-semibold small mb-1" for="business_postal_code">Postal Code <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_postal_code"
                                 id="business_postal_code" data-req data-type="postal" inputmode="numeric"
                                 maxlength="{{ $postalCodeLength }}" placeholder="10001">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Industry Type <span
+                            <label class="form-label fw-semibold small mb-1" for="industry_type">Industry Type <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="industry_type" id="industry_type" data-req
                                 data-placeholder="Select industry...">
@@ -1309,7 +1310,7 @@
                         <div class="col-md-6 d-none d-md-block" id="typeNoteSpacer" style="display: none !important;"
                             aria-hidden="true"></div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Entity Type <span
+                            <label class="form-label fw-semibold small mb-1" for="entity_type">Entity Type <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="entity_type" id="entity_type" data-req
                                 data-placeholder="Select entity type...">
@@ -1328,13 +1329,13 @@
                         {{-- Years in business is not asked: it is worked out from the
                         Business Start Date on the financial step. --}}
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business EIN</label>
+                            <label class="form-label fw-semibold small mb-1" for="business_ein">Business EIN</label>
                             <input type="text" class="form-control" name="business_ein" id="business_ein"
                                 data-type="ein" inputmode="numeric" maxlength="10" placeholder="XX-XXXXXXX"
                                 autocomplete="off">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Number of Employees</label>
+                            <label class="form-label fw-semibold small mb-1" for="number_of_employees">Number of Employees</label>
                             <input type="number" class="form-control" name="number_of_employees"
                                 id="number_of_employees" min="0" placeholder="e.g. 12">
                         </div>
@@ -1349,38 +1350,38 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">First Name <span
+                            <label class="form-label fw-semibold small mb-1" for="first_name">First Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="first_name" id="first_name" data-req
                                 placeholder="e.g. John">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Last Name <span
+                            <label class="form-label fw-semibold small mb-1" for="last_name">Last Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="last_name" id="last_name" data-req
                                 placeholder="e.g. Doe">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Email Address <span
+                            <label class="form-label fw-semibold small mb-1" for="email">Email Address <span
                                     class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="email" id="email" data-req data-type="email"
                                 placeholder="john@example.com">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Mobile Phone <span
+                            <label class="form-label fw-semibold small mb-1" for="phone">Mobile Phone <span
                                     class="text-danger">*</span></label>
                             <input type="tel" class="form-control" name="phone" id="phone" data-req data-type="phone"
                                 placeholder="(555) 000-0000">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Date of Birth <span
+                            <label class="form-label fw-semibold small mb-1" for="date_of_birth">Date of Birth <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="date_of_birth" id="date_of_birth" data-req
                                 data-datepicker="dob" placeholder="Select date of birth" autocomplete="off">
                             <div class="form-text fs-12 text-muted">Applicants must be at least {{ $minimumAge }}.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Social Security Number <span
+                            <label class="form-label fw-semibold small mb-1" for="ssn">Social Security Number <span
                                     class="text-danger">*</span></label>
                             {{-- The portals' SSN field: masked ***-**-1234 at rest, dots while
                                  typed, the digits on the eye button. The number itself travels
@@ -1393,7 +1394,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Citizenship Status <span
+                            <label class="form-label fw-semibold small mb-1" for="citizenship_status">Citizenship Status <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="citizenship_status" id="citizenship_status"
                                 data-req data-placeholder="Select status...">
@@ -1404,7 +1405,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Ownership Percentage <span
+                            <label class="form-label fw-semibold small mb-1" for="ownership">Ownership Percentage <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <input type="number" class="form-control" name="ownership" id="ownership" data-req
@@ -1413,13 +1414,13 @@
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Home Street Address <span
+                            <label class="form-label fw-semibold small mb-1" for="street_address">Home Street Address <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="street_address" id="street_address" data-req
                                 placeholder="123 Main Street, Apt 4B">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">Country <span
+                            <label class="form-label fw-semibold small mb-1" for="country">Country <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="country" id="country" data-req
                                 data-placeholder="Select country...">
@@ -1427,7 +1428,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">State <span
+                            <label class="form-label fw-semibold small mb-1" for="state">State <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="state" id="state" data-req
                                 data-placeholder="Select state...">
@@ -1435,7 +1436,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">City <span
+                            <label class="form-label fw-semibold small mb-1" for="city_select">City <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="city_select" id="city_select" data-req
                                 data-placeholder="Select city...">
@@ -1444,12 +1445,12 @@
                             <input type="hidden" name="city" id="city">
                         </div>
                         <div class="col-12" id="ownerOtherCityWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Other City <span
+                            <label class="form-label fw-semibold small mb-1" for="other_city">Other City <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="other_city" placeholder="Enter city">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">ZIP Code <span
+                            <label class="form-label fw-semibold small mb-1" for="zip_code">ZIP Code <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="zip_code" id="zip_code" data-req data-type="postal"
                                 inputmode="numeric" maxlength="{{ $postalCodeLength }}" placeholder="10001">
@@ -1482,7 +1483,7 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Average Monthly Revenue <span
+                            <label class="form-label fw-semibold small mb-1" for="monthly_revenue">Average Monthly Revenue <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">$</span>
@@ -1491,7 +1492,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Annual Revenue</label>
+                            <label class="form-label fw-semibold small mb-1" for="annual_revenue">Annual Revenue</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">$</span>
                                 <input type="number" class="form-control" name="annual_revenue" id="annual_revenue"
@@ -1499,20 +1500,20 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Bank Name</label>
+                            <label class="form-label fw-semibold small mb-1" for="business_bank_name">Business Bank Name</label>
                             <input type="text" class="form-control" name="business_bank_name" id="business_bank_name"
                                 placeholder="e.g. Chase">
                         </div>
                         <div class="col-md-6">
                             {{-- Stored in business_checking_start_date. --}}
-                            <label class="form-label fw-semibold small mb-1">Business Start Date <span
+                            <label class="form-label fw-semibold small mb-1" for="business_checking_start_date">Business Start Date <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_checking_start_date"
                                 id="business_checking_start_date" data-req data-datepicker="past"
                                 placeholder="Select business start date" autocomplete="off">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">
+                            <label class="form-label fw-semibold small mb-1" for="credit_score">
                                 Estimated Credit Score
                                 <span class="badge bg-light text-secondary border ms-1"
                                     style="font-weight: 500;">Self-reported</span>
@@ -1525,7 +1526,7 @@
                             <div class="form-text fs-12" id="creditScoreBandHint"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Credit Score</label>
+                            <label class="form-label fw-semibold small mb-1" for="self_reported_business_credit_score">Business Credit Score</label>
                             <select class="form-select select2" name="self_reported_business_credit_score"
                                 id="self_reported_business_credit_score" data-placeholder="Select range...">
                                 <option value=""></option>
@@ -1536,9 +1537,10 @@
                         </div>
                         <div class="col-12">
                             <div class="compliance-row">
-                                <p class="fw-semibold">Do you have existing business debt? <span
+                                <p class="fw-semibold" id="question-has_business_debt">Do you have existing business debt? <span
                                         class="text-danger">*</span></p>
-                                <div class="answer-group" data-req-group="has_business_debt">
+                                <div class="answer-group" data-req-group="has_business_debt" role="radiogroup"
+                                    aria-labelledby="question-has_business_debt" aria-required="true">
                                     <label class="answer-option">
                                         <input type="radio" name="has_business_debt" value="1"
                                             onchange="toggleDebtBalance(true)">
@@ -1553,7 +1555,7 @@
                             </div>
                         </div>
                         <div class="col-md-6" id="debtBalanceWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Outstanding Debt Balance <span
+                            <label class="form-label fw-semibold small mb-1" for="debt_balance">Outstanding Debt Balance <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">$</span>
@@ -1572,7 +1574,7 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Requested Amount <span
+                            <label class="form-label fw-semibold small mb-1" for="requested_amount">Requested Amount <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <select class="form-select flex-grow-0" name="currency" id="currency"
@@ -1587,7 +1589,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Purpose of Funds <span
+                            <label class="form-label fw-semibold small mb-1" for="purpose_of_funds">Purpose of Funds <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="purpose_of_funds" id="purpose_of_funds" data-req
                                 data-placeholder="Select purpose...">
@@ -1598,7 +1600,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Preferred Funding Type <span
+                            <label class="form-label fw-semibold small mb-1" for="preferred_funding_type">Preferred Funding Type <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="preferred_funding_type"
                                 id="preferred_funding_type" data-req data-placeholder="Select funding type...">
@@ -1609,7 +1611,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Timeframe Needed</label>
+                            <label class="form-label fw-semibold small mb-1" for="timeframe_needed">Timeframe Needed</label>
                             <select class="form-select select2" name="timeframe_needed" id="timeframe_needed"
                                 data-placeholder="Select timeframe...">
                                 <option value=""></option>
@@ -1619,13 +1621,13 @@
                             </select>
                         </div>
                         <div class="col-12" id="purposeNoteWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Tell us more about the purpose <span
+                            <label class="form-label fw-semibold small mb-1" for="purpose_note">Tell us more about the purpose <span
                                     class="text-danger">*</span></label>
                             <textarea class="form-control" name="purpose_note" id="purpose_note" rows="2"
                                 maxlength="500" placeholder="Describe what the funds will be used for"></textarea>
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
+                            <label class="form-label fw-semibold small mb-1" for="additional_funding_types">Additional Funding Types</label>
                             {{-- The same list as Preferred; the script marks the preferred
                             type "Selected as Preferred" (disabled) - see refreshAdditionalFundingTypes. --}}
                             <select class="form-select select2" name="additional_funding_types[]"
@@ -1636,7 +1638,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Collateral Available</label>
+                            <label class="form-label fw-semibold small mb-1" for="collateral_available">Collateral Available</label>
                             <select class="form-select select2" name="collateral_available" id="collateral_available"
                                 data-placeholder="Select collateral...">
                                 <option value=""></option>
@@ -1662,12 +1664,12 @@
                     <div class="row g-3">
                         @foreach($docTypes as $docType)
                             <div class="col-12">
-                                <label class="form-label fw-semibold small mb-1">{{ $docType['name'] }}</label>
+                                <label class="form-label fw-semibold small mb-1" for="doc-file-{{ $docType['id'] }}">{{ $docType['name'] }}</label>
                                 <div class="upload-dropzone" id="zone-{{ $docType['id'] }}"
                                     ondragover="dragOver(event, '{{ $docType['id'] }}')"
                                     ondragleave="dragLeave('{{ $docType['id'] }}')"
                                     ondrop="dropFiles(event, '{{ $docType['id'] }}')">
-                                    <input type="file" multiple
+                                    <input type="file" id="doc-file-{{ $docType['id'] }}" multiple
                                         accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif"
                                         onchange="fileInputChanged(event, '{{ $docType['id'] }}')">
                                     <i class="bi bi-cloud-arrow-up fs-4 text-primary"></i>
@@ -1734,8 +1736,9 @@
                             'any_outstanding_judgments_owner' => 'Are there outstanding judgments or liens against any owner?',
                         ] as $field => $question)
                         <div class="compliance-row">
-                            <p>{{ $question }} <span class="text-danger">*</span></p>
-                            <div class="answer-group" data-req-group="{{ $field }}">
+                            <p id="question-{{ $field }}">{{ $question }} <span class="text-danger">*</span></p>
+                            <div class="answer-group" data-req-group="{{ $field }}" role="radiogroup"
+                                aria-labelledby="question-{{ $field }}" aria-required="true">
                                 <label class="answer-option">
                                     <input type="radio" name="{{ $field }}" value="1"
                                         onchange="syncComplianceExplanation()">
@@ -1754,7 +1757,7 @@
                     @endforeach
 
                     <div class="mt-3" id="complianceExplanationWrap" style="display: none;">
-                        <label class="form-label fw-semibold small mb-1">
+                        <label class="form-label fw-semibold small mb-1" for="federal_compliance_disclosures_explanation">
                             Explanation <span class="text-danger">*</span>
                         </label>
                         <textarea class="form-control" name="federal_compliance_disclosures_explanation"
@@ -1777,7 +1780,7 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Sales Representative (if assigned)</label>
+                            <label class="form-label fw-semibold small mb-1" for="sales_rep_user_id">Sales Representative (if assigned)</label>
                             <select class="form-select select2" name="sales_rep_user_id" id="sales_rep_user_id"
                                 data-placeholder="Select representative...">
                                 <option value=""></option>
@@ -1787,7 +1790,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Referral Source</label>
+                            <label class="form-label fw-semibold small mb-1" for="referral_source">Referral Source</label>
                             <select class="form-select select2" name="referral_source" id="referral_source"
                                 data-placeholder="How did you hear about us?">
                                 <option value=""></option>
@@ -1797,7 +1800,7 @@
                             </select>
                         </div>
                         <div class="col-12" id="referralOtherWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Please tell us more <span
+                            <label class="form-label fw-semibold small mb-1" for="referral_source_other">Please tell us more <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control form-control-sm" name="referral_source_other"
                                 id="referral_source_other" maxlength="255" placeholder="Where did you hear about us?">
@@ -1805,7 +1808,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold small mb-1">Type your full legal name as your electronic
+                        <label class="form-label fw-semibold small mb-1" for="signature_name">Type your full legal name as your electronic
                             signature <span class="text-danger">*</span></label>
                         <input type="text" class="form-control signature-input" name="signature_name"
                             id="signature_name" data-req data-type="signature" placeholder="John A. Doe">
@@ -2306,6 +2309,41 @@
                         validateField(el);
                     },
                 });
+                nameDatePicker(el);
+            });
+        }
+
+        /**
+         * The box a date picker shows is a copy of the field, with no id, and the
+         * field itself is hidden. Point the label at the box a person reaches.
+         */
+        function nameDatePicker(el) {
+            const label = el.id && document.querySelector(`label[for="${el.id}"]`);
+            if (!label) return;
+
+            const shown = el._flatpickr.altInput;
+            shown.id = `${el.id}_display`;
+            label.htmlFor = shown.id;
+        }
+
+        /**
+         * select2 hides the <select> and draws its own box, named only by the
+         * current choice, so a screen reader never hears the field's label.
+         * Name that box, the multi-select's typing area and the dropdown's search
+         * by the label too. The current choice stays in the box's name.
+         */
+        function nameSelect2(select) {
+            const label = select.id && document.querySelector(`label[for="${select.id}"]`);
+            if (!label) return;
+
+            label.id = label.id || `${select.id}_label`;
+            const box = $(select).next('.select2-container').find('.select2-selection');
+            box.attr('aria-labelledby', [label.id, box.attr('aria-labelledby')].filter(Boolean).join(' '));
+            box.find('.select2-search__field').attr('aria-labelledby', label.id);
+
+            $(select).on('select2:open', () => {
+                $('.select2-container--open .select2-search--dropdown .select2-search__field')
+                    .attr('aria-labelledby', label.id);
             });
         }
 
@@ -2329,6 +2367,7 @@
                             .append($('<span class="select2-option__badge">').text(badge).attr('title', 'Already selected as the Preferred Funding Type'));
                     }
                 });
+                nameSelect2(this);
             });
 
             // select2 replaces the element, so its own events drive validation -
@@ -3057,75 +3096,75 @@
             </div>
             <div class="row g-2">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">First Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][first_name]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_first_name">First Name <span class="text-danger">*</span></label>
+                    <input id="co_${index}_first_name" type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][first_name]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Last Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][last_name]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_last_name">Last Name <span class="text-danger">*</span></label>
+                    <input id="co_${index}_last_name" type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][last_name]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Email <span class="text-danger">*</span></label>
-                    <input type="email" class="form-control form-control-sm" data-co-req data-type="email" name="co_borrowers[${index}][email]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_email">Email <span class="text-danger">*</span></label>
+                    <input id="co_${index}_email" type="email" class="form-control form-control-sm" data-co-req data-type="email" name="co_borrowers[${index}][email]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Title / Role</label>
-                    <select class="form-select form-select-sm" name="co_borrowers[${index}][title_role]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_title_role">Title / Role</label>
+                    <select id="co_${index}_title_role" class="form-select form-select-sm" name="co_borrowers[${index}][title_role]">
                         <option value=""></option>
                         ${roleOptions}
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Ownership %</label>
-                    <input type="number" class="form-control form-control-sm" min="0" max="100" step="0.01" name="co_borrowers[${index}][ownership_percentage]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_ownership_percentage">Ownership %</label>
+                    <input id="co_${index}_ownership_percentage" type="number" class="form-control form-control-sm" min="0" max="100" step="0.01" name="co_borrowers[${index}][ownership_percentage]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Mobile Phone</label>
-                    <input type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][mobile_phone]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_mobile_phone">Mobile Phone</label>
+                    <input id="co_${index}_mobile_phone" type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][mobile_phone]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Home Phone</label>
-                    <input type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][home_phone]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_home_phone">Home Phone</label>
+                    <input id="co_${index}_home_phone" type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][home_phone]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Date of Birth</label>
-                    <input type="text" class="form-control form-control-sm" data-datepicker="dob" placeholder="Select date of birth" autocomplete="off" name="co_borrowers[${index}][date_of_birth]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_date_of_birth">Date of Birth</label>
+                    <input id="co_${index}_date_of_birth" type="text" class="form-control form-control-sm" data-datepicker="dob" placeholder="Select date of birth" autocomplete="off" name="co_borrowers[${index}][date_of_birth]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">SSN</label>
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_ssn">SSN</label>
                     <div class="input-group input-group-sm">
-                        <input type="password" class="form-control form-control-sm ssn-field" maxlength="11" placeholder="XXX-XX-XXXX" autocomplete="off" inputmode="numeric">
+                        <input id="co_${index}_ssn" type="password" class="form-control form-control-sm ssn-field" maxlength="11" placeholder="XXX-XX-XXXX" autocomplete="off" inputmode="numeric">
                         <button type="button" class="btn ssn-eye" tabindex="-1" aria-label="Show SSN" title="Show SSN"><i class="bi bi-eye"></i></button>
                         <input type="hidden" class="ssn-value" name="co_borrowers[${index}][ssn]">
                     </div>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-semibold small mb-1">Street Address</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][street_address]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_street_address">Street Address</label>
+                    <input id="co_${index}_street_address" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][street_address]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">City</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][city]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_city">City</label>
+                    <input id="co_${index}_city" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][city]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">State</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][state]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_state">State</label>
+                    <input id="co_${index}_state" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][state]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">ZIP Code</label>
-                    <input type="text" class="form-control form-control-sm co-zip" inputmode="numeric" maxlength="${POSTAL_LENGTH}" name="co_borrowers[${index}][zip_code]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_zip_code">ZIP Code</label>
+                    <input id="co_${index}_zip_code" type="text" class="form-control form-control-sm co-zip" inputmode="numeric" maxlength="${POSTAL_LENGTH}" name="co_borrowers[${index}][zip_code]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Country</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][country]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_country">Country</label>
+                    <input id="co_${index}_country" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][country]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Driver's License Number</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_number]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_drivers_license_number">Driver's License Number</label>
+                    <input id="co_${index}_drivers_license_number" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_number]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Driver's License State</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_state]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_drivers_license_state">Driver's License State</label>
+                    <input id="co_${index}_drivers_license_state" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_state]">
                 </div>
             </div>
         `;
