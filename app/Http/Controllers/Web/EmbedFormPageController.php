@@ -51,9 +51,10 @@ class EmbedFormPageController extends Controller
             $branding = app(AppConfigurationService::class)->getBrandingSettings($partnerId);
         }
 
-        // Resolved site/company name
-        $partnerName = $branding['site_name']
-            ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
+        // Who the applicant is dealing with: this partner's own site name, then
+        // its company name. Never the host's site name - see ownSiteName().
+        $partnerName = ($partnerId ? app(AppConfigurationService::class)->ownSiteName($partnerId) : null)
+            ?: ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
 
         // Whose logo this is - the partner's own or the host's - is a
         // brand-ownership rule, so it is resolved before the address is built.
