@@ -3,6 +3,7 @@
 namespace App\Models\Borrower;
 
 use App\Models\Commission\Commission;
+use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -892,6 +893,13 @@ class FundingApplication extends Model
     public function fundingRequest()
     {
         return $this->belongsTo(FundingRequest::class, 'funding_request_id');
+    }
+
+    /** Whether an embed form submission was converted into this application. */
+    public function isFromEmbedForm(): bool
+    {
+        return $this->exists
+            && EmbedFormSubmission::where('converted_funding_application_id', $this->id)->exists();
     }
 
     /*

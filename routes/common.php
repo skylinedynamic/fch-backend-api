@@ -58,6 +58,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
+use App\Http\Controllers\Api\V1\Global\General\FundingSequenceOptionController;
 use App\Http\Controllers\Api\V1\Global\General\LenderProductCategoryController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
@@ -163,6 +164,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/status', [V1TwoFaController::class, 'status']);
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
+
+        // Funding sequences offered for a funding type - the Funding Sequence
+        // dropdown on the funding application's Funding Request step. Outside
+        // the partner-portal group: the borrower wizard shows it too.
+        Route::get('common/funding-sequences', [FundingSequenceOptionController::class, 'index']);
         // Partner portal API; borrowers only reach the routes the borrower
         // portal calls - see RejectBorrowersFromPartnerPortal.
         Route::prefix('common')->middleware('partner-portal')->group(function () {

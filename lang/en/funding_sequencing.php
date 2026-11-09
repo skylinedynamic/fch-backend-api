@@ -95,4 +95,6 @@ return [
     'bank_statements_reason_not_uploaded'  => 'No :document uploaded yet.',
     'bank_statements_reason_rejected'      => 'Your :document were rejected.',
     'bank_statements_requirement'          => 'Upload your :document on the Documents page.',
+    'options_fetched'                      => 'Funding sequences fetched successfully.',
+    'options_fetch_failed'                 => 'Failed to fetch the funding sequences.',
 ];

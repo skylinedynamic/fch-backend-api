@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\Concerns\FundingRequestStepRules;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Rules\KnownFundingType;
@@ -10,6 +11,16 @@ use App\Rules\VisibleToUser;
 
 class StoreFundingRequestRequest extends BaseApiRequest
 {
+    use FundingRequestStepRules;
+
+    /** The application this save is for, when the caller may reach it. */
+    protected function targetApplication(): ?FundingApplication
+    {
+        $id = $this->targetApplicationId();
+
+        return $id === null || ! $this->user() ? null : FundingApplication::visibleTo($this->user())->find($id);
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -28,13 +39,11 @@ class StoreFundingRequestRequest extends BaseApiRequest
         return [
             'id' => ['nullable', new VisibleToUser(FundingApplication::class)],
             'funding_request_id' => ['nullable', new VisibleToUser(FundingRequest::class)],
-            'funding_sequence_id' => 'nullable',
             'requested_amount' => 'required|numeric|min:0',
             'purpose_of_funds' => 'required|string|max:500',
-            'approved_funding' => 'required|string|max:255',
             'purpose_note' => 'nullable|string|max:500',
-            // An Active lender product category, as offered (Lenders > Product Categories).
-            'preferred_funding_type' => ['required', 'string', 'max:255', new KnownFundingType('borrower_validation.preferred_funding_type_invalid')],
+            // funding_sequence_id, approved_funding, preferred_funding_type.
+            ...$this->fundingSequenceRules(),
             // The other funding types the applicant would also consider - never
             // the preferred one again, each once, from the same list.
             'additional_funding_types' => ['nullable', 'array'],
@@ -74,6 +83,7 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'timeframe_needed.max' => __('borrower_validation.timeframe_needed_max'),
             'collateral_available.string' => __('borrower_validation.collateral_available_string'),
             'collateral_available.max' => __('borrower_validation.collateral_available_max'),
+            ...$this->fundingSequenceMessages(),
         ];
     }
 }
