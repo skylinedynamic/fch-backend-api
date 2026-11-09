@@ -1962,6 +1962,16 @@
             try { return new URL(document.referrer).origin; } catch (e) { return null; }
         })();
 
+        // The page this form is framed on, kept with the submission so staff can
+        // see where an application came from. Only the framing page's own address
+        // the browser gives out; opened directly there is none. The referrer is
+        // the whole address from the same site, and only its origin from another.
+        function framingPage() {
+            if (window.parent === window) return null;
+            if (document.referrer) return document.referrer;
+            return parentOrigin && parentOrigin !== '*' ? parentOrigin : null;
+        }
+
         function postToParent(message) {
             if (!parentOrigin) return false;
             window.parent.postMessage({ source: 'fch-embed-form', ...message }, parentOrigin);
@@ -3457,6 +3467,8 @@
             document.getElementById('consents_data').value = JSON.stringify(consentTimestamps);
 
             const formData = buildFormData(true);
+            const source = framingPage();
+            if (source) formData.set('origin_page', source);
 
             try {
                 const res = await fetch(`${API_BASE}/v1/embed/submit/${PUBLIC_KEY}`, {

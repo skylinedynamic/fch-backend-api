@@ -534,7 +534,10 @@ class EmbedFormService
                     'form_config_id' => $config->id,
                     'status' => EmbedFormSubmission::STATUS_NEW,
                     'ip_address' => $request->ip(),
-                    'origin_url' => $request->headers->get('referer'),
+                    // The page the form was framed on, from the form itself. Not
+                    // the Referer: the form sends this request, so that only ever
+                    // names the form's own address.
+                    'origin_url' => $data['origin_page'] ?? null,
                     'sales_rep_user_id' => $data['sales_rep_user_id'] ?? null,
                     // Denormalised alongside the id so the name a partner saw at
                     // submission time survives the user being renamed or removed.

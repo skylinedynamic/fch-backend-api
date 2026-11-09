@@ -10,6 +10,7 @@ use App\Helpers\ApiResponse;
 use App\Rules\EmbedFormApplicantEmail;
 use App\Rules\UsPhoneNumber;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
+use App\Support\EmbedForm\FramingPage;
 use App\Rules\KnownFundingType;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
@@ -96,6 +97,12 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     protected function prepareForValidation(): void
     {
         $merge = [];
+
+        // Cleaned rather than ruled on: a bad value is dropped, because a label
+        // for staff is no reason to refuse an application.
+        if ($this->has('origin_page')) {
+            $merge['origin_page'] = FramingPage::clean($this->input('origin_page'));
+        }
 
         // Only a writing of an SSN is reduced; one carrying letters is left for
         // the Ssn rule to refuse rather than passing with them stripped.
@@ -434,6 +441,8 @@ class SubmitEmbedFormRequest extends BaseApiRequest
         $otherSource = config('funding_application.embed_form.referral_source_other', 'Other');
 
         return [
+            'origin_page' => ['nullable', 'string'],
+
             // The rep is picked from the owning partner's active users, not
             // typed - free text here could never be tied back to a real person.
             'sales_rep_user_id' => ['nullable', 'integer', Rule::in($this->partnerUserIds())],
