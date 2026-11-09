@@ -151,6 +151,24 @@ class AppConfigurationService
     }
 
     /**
+     * The site name this partner set for itself, or null when it set none.
+     *
+     * getBrandingSettings() fills a missing site_name from the host, which is
+     * wrong where the name says who an applicant is dealing with: the embedded
+     * form would thank them for applying with, and have them authorize, a
+     * different company.
+     */
+    public function ownSiteName(int $partnerId): ?string
+    {
+        $siteName = trim((string) AppConfiguration::where('partner_id', $partnerId)
+            ->where('module', AppConfiguration::MODULE_BRANDING)
+            ->where('key', 'site_name')
+            ->value('value'));
+
+        return $siteName === '' || $siteName === 'null' ? null : $siteName;
+    }
+
+    /**
      * Current branding cache generation.
      */
     private static function brandingCacheVersion(): int

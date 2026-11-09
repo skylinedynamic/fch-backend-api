@@ -1894,7 +1894,8 @@
                 <h3 class="fw-bold text-dark mb-2">Application Submitted!</h3>
                 <p class="text-muted mb-4">
                     Thank you for applying with <strong>{{ $partnerName }}</strong>. Our team has received your
-                    application and will contact you shortly.
+                    application and will review it. If we need anything else or have an update, we'll contact you
+                    using the details you provided. Submitting an application does not guarantee approval or funding.
                 </p>
                 <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 mb-3"
                     id="successRefBadge">
