@@ -164,7 +164,13 @@ class FundingRequest extends Model
         if ($application) {
             $application->setRelation('fundingRequest', $this);
 
-            return app(LenderMatchService::class)->match($this->borrower, $application->lenderCategories());
+            // Once the lender is fixed it is always listed, even if made
+            // Inactive since - the locked view shows it alone (S434-BUG-05).
+            return app(LenderMatchService::class)->match(
+                $this->borrower,
+                $application->lenderCategories(),
+                $application->canAssignLender() ? [] : $application->assignedLenderIds(),
+            );
         }
 
         return app(LenderMatchService::class)->match($this->borrower, [$this->funding_type]);

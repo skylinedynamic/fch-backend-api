@@ -319,6 +319,88 @@ class FundingApplicationLenderAssignmentTest extends TestCase
     }
 
     /**
+     * Defect (SCRUM-434 S434-BUG-05): app 90 / Funding Request 47 - Closed
+     * (Completed), lender R2 Lender A assigned, then made Inactive - showed the
+     * lock notice and an empty table ("The assigned lender is not among the
+     * lenders matched for this application"). The BUG-02 fix drops Inactive
+     * lenders from the matched list, and the locked view shows the assigned
+     * lender only from that list. Once the lender is fixed it is shown whatever
+     * its status, on both pages, marked Inactive.
+     */
+    #[Test]
+    #[DataProvider('nonEditableStatuses')]
+    public function a_fixed_lender_made_inactive_is_still_shown_on_both_pages(string $status): void
+    {
+        $lenderId = $this->lenderIn('Term Loan', 'R2 Lender A', ['min_fico' => 450]);
+        $requestId = $this->request('Term Loan', ['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+        $id = $this->application(['status' => $status, 'funding_request_id' => $requestId, 'preferred_funding_type' => 'Term Loan']);
+        DB::table('lenders')->where('id', $lenderId)->update(['status' => 'Inactive']);
+
+        $data = $this->details($this->hostAdmin, $id);
+        $this->assertFalse($data['can_assign_lender']);
+        $this->assertSame([$lenderId], $data['assigned_lender_ids']);
+        $shown = collect($data['matched_lenders'])->firstWhere('id', $lenderId);
+        $this->assertNotNull($shown, 'The assigned lender must be shown once it is fixed');
+        $this->assertSame('R2 Lender A', $shown['name']);
+        $this->assertFalse($shown['is_active']);
+        $this->assertSame('Term Loan', $shown['product_category']);
+        $this->assertSame(100.0, (float) $shown['score']);
+
+        $request = $this->getJson("/api/v1/common/funding-request/{$requestId}")->assertOk()->json('data');
+        $this->assertFalse($request['can_assign_lender']);
+        $this->assertContains($lenderId, array_column($request['matched_lenders'], 'id'));
+        $this->assertFalse(collect($request['matched_lenders'])->firstWhere('id', $lenderId)['is_active']);
+    }
+
+    /**
+     * S434-BUG-05 exactly as reported: app 90 (Closed (Completed)), Funding
+     * Request 47, lender R2 Lender A made Inactive. Both pages show it alone.
+     */
+    #[Test]
+    public function qa_app_90_closed_completed_shows_its_inactive_lender_on_both_pages(): void
+    {
+        $lenderId = $this->lenderIn('Term Loan', 'R2 Lender A');
+        $requestId = $this->request('Term Loan', ['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+        $id = $this->application([
+            'status' => FundingApplication::CLOSED_COMPLETED,
+            'funding_request_id' => $requestId,
+            'preferred_funding_type' => 'Term Loan',
+        ]);
+        DB::table('lenders')->where('id', $lenderId)->update(['status' => Lender::STATUS_INACTIVE]);
+
+        $application = $this->details($this->hostAdmin, $id);
+        $request = $this->getJson("/api/v1/common/funding-request/{$requestId}")->assertOk()->json('data');
+
+        foreach (['application' => $application, 'funding request' => $request] as $page => $data) {
+            $this->assertFalse($data['can_assign_lender'], "{$page}: the lender is fixed");
+            // The application page names it assigned_lender_ids, the request page lender_ids.
+            $this->assertSame([$lenderId], array_map('intval', $data['assigned_lender_ids'] ?? $data['lender_ids']), "{$page}: assigned lender");
+            $assigned = collect($data['matched_lenders'])->firstWhere('id', $lenderId);
+            $this->assertNotNull($assigned, "{$page}: the assigned lender is listed, so the card shows it");
+            $this->assertSame('R2 Lender A', $assigned['name']);
+            $this->assertFalse($assigned['is_active']);
+        }
+    }
+
+    /** Guard for S434-BUG-02: while the lender can still be chosen, an Inactive one is not offered. */
+    #[Test]
+    public function an_inactive_lender_is_not_offered_while_the_lender_can_still_be_chosen(): void
+    {
+        $lenderId = $this->lenderIn('Term Loan', 'R2 Lender A');
+        $requestId = $this->request('Term Loan', ['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+        $id = $this->application(['status' => FundingApplication::DRAFT, 'funding_request_id' => $requestId, 'preferred_funding_type' => 'Term Loan']);
+        DB::table('lenders')->where('id', $lenderId)->update(['status' => 'Inactive']);
+
+        $data = $this->details($this->hostAdmin, $id);
+        $this->assertTrue($data['can_assign_lender']);
+        $this->assertNotContains($lenderId, array_column($data['matched_lenders'], 'id'));
+        // Every lender offered is an Active one.
+        foreach ($data['matched_lenders'] as $lender) {
+            $this->assertTrue($lender['is_active']);
+        }
+    }
+
+    /**
      * Defect: an Inactive lender could be assigned (SCRUM-434 S434-BUG-02).
      */
     #[Test]

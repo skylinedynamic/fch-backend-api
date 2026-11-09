@@ -25,29 +25,49 @@ class LenderMatchService
 {
     /**
      * @param  array<int, string|null>  $categoryNames  product category names, the preferred one first,
-     *                                                   e.g. ["Term Loan", "Business Line of Credit"]
+     *                                                  e.g. ["Term Loan", "Business Line of Credit"]
+     * @param  array<int, int>  $alwaysShowLenderIds  lenders listed whatever their status: the assigned
+     *                                                lender once it is fixed (past the editable statuses),
+     *                                                so a lender made Inactive afterwards is still shown
+     *                                                (SCRUM-434 S434-BUG-05). Otherwise only Active
+     *                                                lenders are matched (R2 BUG-020, S434-BUG-02).
      * @return array<int, array<string, mixed>> the highest match % first; on an equal %, a lender of the
      *                                          preferred (first) category first. A lender in several
      *                                          categories is listed once, at its best.
      */
-    public function match(?Borrower $borrower, array $categoryNames): array
+    public function match(?Borrower $borrower, array $categoryNames, array $alwaysShowLenderIds = []): array
     {
         $categoryNames = array_values(array_unique(array_filter($categoryNames, fn ($name) => filled($name))));
-        if (! $borrower || $categoryNames === []) {
+        $alwaysShowLenderIds = array_values(array_unique(array_map('intval', $alwaysShowLenderIds)));
+        if (! $borrower || ($categoryNames === [] && $alwaysShowLenderIds === [])) {
             return [];
         }
 
-        $preferredKey = $this->categoryKey($categoryNames[0]);
+        $preferredKey = $categoryNames !== [] ? $this->categoryKey($categoryNames[0]) : null;
         $matched = [];
         $inPreferred = [];
         foreach ($this->categoriesFor($categoryNames) as $category) {
             $isPreferred = $this->categoryKey($category->name) === $preferredKey;
-            foreach ($this->matchCategory($borrower, $category) as $lender) {
+            foreach ($this->matchCategory($borrower, $category, $alwaysShowLenderIds) as $lender) {
                 $inPreferred[$lender['id']] = ($inPreferred[$lender['id']] ?? false) || $isPreferred;
                 $best = $matched[$lender['id']] ?? null;
                 if (! $best || $lender['score'] > $best['score']) {
                     $matched[$lender['id']] = $lender;
                 }
+            }
+        }
+
+        // A lender to show that is no longer in any of these categories (its
+        // listing moved, or the funding types changed after it was assigned):
+        // scored against a product category it is still listed in.
+        foreach ($alwaysShowLenderIds as $lenderId) {
+            if (isset($matched[$lenderId])) {
+                continue;
+            }
+            $visibility = LenderVisibility::with(['lender', 'productCategory'])->where('lender_id', $lenderId)->first();
+            if ($visibility && $visibility->lender) {
+                $matched[$lenderId] = $this->score($borrower, $visibility, (string) $visibility->productCategory?->name);
+                $inPreferred[$lenderId] = false;
             }
         }
 
@@ -80,19 +100,41 @@ class LenderMatchService
         return FundingTypeName::key($name);
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function matchCategory(Borrower $borrower, LenderProductCategory $category): array
+    /**
+     * @param  array<int, int>  $alwaysShowLenderIds  listed even when Inactive (see match())
+     * @return array<int, array<string, mixed>>
+     */
+    private function matchCategory(Borrower $borrower, LenderProductCategory $category, array $alwaysShowLenderIds = []): array
     {
         // An inactive lender is not offered: not matched, so not in the
-        // Assign list or the lender filter built from it (R2 BUG-020).
+        // Assign list or the lender filter built from it (R2 BUG-020) - except
+        // a fixed, assigned one, which is shown, not offered (S434-BUG-05).
         $visibilities = LenderVisibility::with('lender')
             ->where('lender_product_category_id', $category->id)
-            ->whereHas('lender', fn ($q) => $q->where('status', Lender::STATUS_ACTIVE))
+            ->where(fn ($q) => $q
+                ->whereHas('lender', fn ($lender) => $lender->where('status', Lender::STATUS_ACTIVE))
+                ->orWhereIn('lender_id', $alwaysShowLenderIds))
             ->get()
             ->unique('lender_id');
 
         $matchedLenders = [];
+        foreach ($visibilities as $visibility) {
+            if ($visibility->lender) {
+                $matchedLenders[] = $this->score($borrower, $visibility, $category->name);
+            }
+        }
 
+        return $matchedLenders;
+    }
+
+    /**
+     * One lender's listing in a product category, scored against what it
+     * requires (FICO, business credit, revenue, time in business, deposits).
+     *
+     * @return array<string, mixed>
+     */
+    private function score(Borrower $borrower, LenderVisibility $visibility, string $categoryName): array
+    {
         // calculate TIB
         $tibMonths = 0;
         if ($borrower->business_start_date) {
@@ -119,81 +161,74 @@ class LenderMatchService
         $borrowerRevenue = (float) $borrower->monthly_revenue;
         $borrowerDeposits = (float) $borrower->average_monthly_deposits;
 
-        foreach ($visibilities as $visibility) {
-            // Only an Active lender is offered (an Inactive one cannot be assigned either).
-            if (! $visibility->lender || $visibility->lender->status !== Lender::STATUS_ACTIVE) {
+        $checks = [
+            'fico' => false,
+            'business_credit' => false,
+            'revenue' => false,
+            'tib' => false,
+            'deposit' => false,
+        ];
+        $totalCriteria = 0;
+        $metCriteria = 0;
+
+        foreach ([
+            'fico' => [$visibility->min_fico, $borrowerFico],
+            'business_credit' => [$visibility->min_business_credit_score, $borrowerBusinessCredit],
+            'revenue' => [$visibility->min_monthly_revenue, $borrowerRevenue],
+            'tib' => [$visibility->min_tib_months, $tibMonths],
+            'deposit' => [$visibility->min_monthly_deposits, $borrowerDeposits],
+        ] as $check => [$minimum, $value]) {
+            if (is_null($minimum)) {
+                $checks[$check] = true;
+
                 continue;
             }
 
-            $checks = [
-                'fico' => false,
-                'business_credit' => false,
-                'revenue' => false,
-                'tib' => false,
-                'deposit' => false,
-            ];
-            $totalCriteria = 0;
-            $metCriteria = 0;
-
-            foreach ([
-                'fico' => [$visibility->min_fico, $borrowerFico],
-                'business_credit' => [$visibility->min_business_credit_score, $borrowerBusinessCredit],
-                'revenue' => [$visibility->min_monthly_revenue, $borrowerRevenue],
-                'tib' => [$visibility->min_tib_months, $tibMonths],
-                'deposit' => [$visibility->min_monthly_deposits, $borrowerDeposits],
-            ] as $check => [$minimum, $value]) {
-                if (is_null($minimum)) {
-                    $checks[$check] = true;
-
-                    continue;
-                }
-
-                $totalCriteria++;
-                if ($value >= $minimum) {
-                    $checks[$check] = true;
-                    $metCriteria++;
-                }
+            $totalCriteria++;
+            if ($value >= $minimum) {
+                $checks[$check] = true;
+                $metCriteria++;
             }
-
-            $score = $totalCriteria > 0 ? round(($metCriteria / $totalCriteria) * 100) : 100;
-            if ($totalCriteria == 0) {
-                $matchString = 'Perfect Match';
-                $matchHex = '#16a34a';
-            } elseif ($score >= 80) {
-                $matchString = 'Excellent Match';
-                $matchHex = '#16a34a';
-            } elseif ($score >= 50) {
-                $matchString = 'Good Match';
-                $matchHex = '#d97706';
-            } else {
-                $matchString = 'Low Match';
-                $matchHex = '#dc2626';
-            }
-
-            $matchedLenders[] = [
-                'id' => $visibility->lender->id,
-                'name' => $visibility->lender->name,
-                'legal_name' => $visibility->lender->legal_name,
-                // "Lender Name - Legal Name": what the screens show (R2 BUG-008).
-                'display_name' => $visibility->lender->displayName(),
-                'phone' => $visibility->lender->contact_phone,
-                'email' => $visibility->lender->contact_email,
-                'product_category' => $category->name,
-                'requirements' => [
-                    'min_fico' => $visibility->min_fico,
-                    'min_business_credit_score' => $visibility->min_business_credit_score,
-                    'min_revenue' => $visibility->min_monthly_revenue,
-                    'min_tib' => $visibility->min_tib_months,
-                    'min_deposit' => $visibility->min_monthly_deposits,
-                ],
-                'checks' => $checks,
-                'score' => $score,
-                'score_text' => $matchString,
-                'score_hex' => $matchHex,
-                'matches_fraction' => "{$metCriteria}/" . ($totalCriteria ?: 4),
-            ];
         }
 
-        return $matchedLenders;
+        $score = $totalCriteria > 0 ? round(($metCriteria / $totalCriteria) * 100) : 100;
+        if ($totalCriteria == 0) {
+            $matchString = 'Perfect Match';
+            $matchHex = '#16a34a';
+        } elseif ($score >= 80) {
+            $matchString = 'Excellent Match';
+            $matchHex = '#16a34a';
+        } elseif ($score >= 50) {
+            $matchString = 'Good Match';
+            $matchHex = '#d97706';
+        } else {
+            $matchString = 'Low Match';
+            $matchHex = '#dc2626';
+        }
+
+        return [
+            'id' => $visibility->lender->id,
+            'name' => $visibility->lender->name,
+            'legal_name' => $visibility->lender->legal_name,
+            // "Lender Name - Legal Name": what the screens show (R2 BUG-008).
+            'display_name' => $visibility->lender->displayName(),
+            'phone' => $visibility->lender->contact_phone,
+            'email' => $visibility->lender->contact_email,
+            // False only for a fixed, assigned lender made Inactive since (S434-BUG-05).
+            'is_active' => $visibility->lender->status === Lender::STATUS_ACTIVE,
+            'product_category' => $categoryName,
+            'requirements' => [
+                'min_fico' => $visibility->min_fico,
+                'min_business_credit_score' => $visibility->min_business_credit_score,
+                'min_revenue' => $visibility->min_monthly_revenue,
+                'min_tib' => $visibility->min_tib_months,
+                'min_deposit' => $visibility->min_monthly_deposits,
+            ],
+            'checks' => $checks,
+            'score' => $score,
+            'score_text' => $matchString,
+            'score_hex' => $matchHex,
+            'matches_fraction' => "{$metCriteria}/".($totalCriteria ?: 4),
+        ];
     }
 }
