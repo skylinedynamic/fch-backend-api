@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\Borrower;
 
+use App\Exceptions\StaleRecordException;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
@@ -29,6 +30,12 @@ use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\ArchiveBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\RevealBorrowerFieldRequest;
+use App\Services\Borrower\CreditProfile\ClientCreditProfileService;
+use App\Support\Files\FileUrl;
+use App\Support\Files\StoragePath;
+use App\Support\Files\StoredFileName;
+use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class BorrowerController extends Controller
 {
@@ -126,6 +133,9 @@ class BorrowerController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             // e.g. the new email is already taken — the form needs to show why.
             throw $e;
+        } catch (StaleRecordException $e) {
+            // Changed by someone else since this form loaded (R2 BUG-065).
+            return ApiResponse::error($e->getMessage(), 409);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
         }
@@ -348,15 +358,14 @@ class BorrowerController extends Controller
                 return ApiResponse::notFound(__('borrower.file_path_not_found'));
             }
 
-            // Extract relative path from full URL if needed
-            // e.g., "http://127.0.0.1:8000/storage/borrowers/documents/aa.png" -> "borrowers/documents/aa.png"
-            $relativePath = $urlPath;
-            if (str_contains($relativePath, '/storage/')) {
-                $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
+            // The path on the uploads disk, from the public or signed URL.
+            $relativePath = StoragePath::fromUrl($urlPath);
+            if (!$relativePath) {
+                return ApiResponse::notFound(__('borrower.file_path_not_found'));
             }
 
             // Get the full path to the file
-            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
+            $filePath = Storage::disk(Disk::UPLOADS)->path($relativePath);
 
             // Check if file exists
             if (!file_exists($filePath)) {
@@ -470,24 +479,12 @@ class BorrowerController extends Controller
             // Whether this user may upload, update or remove it - the host's team.
             $data['can_manage'] = \App\Http\Middleware\EnsureHostPartner::allows(auth()->user());
 
-            // Load PDF if available
-            if ($creditProfile->pdf_url) {
-                $pdfContent = null;
-                if (str_contains($creditProfile->pdf_url, '/storage/')) {
-                    $relativePath = substr($creditProfile->pdf_url, strpos($creditProfile->pdf_url, '/storage/') + strlen('/storage/'));
-                    $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
-                    if (file_exists($filePath)) {
-                        $pdfContent = file_get_contents($filePath);
-                    }
-                } else {
-                    $httpResponse = Http::timeout(30)->get($creditProfile->pdf_url);
-                    if ($httpResponse->successful()) {
-                        $pdfContent = $httpResponse->body();
-                    }
-                }
-                if ($pdfContent) {
-                    $data['pdf'] = base64_encode($pdfContent);
-                }
+            // The report, read from the uploads disk only (BUG-016). A saved URL
+            // is never fetched: one pointing anywhere else gives no path.
+            $reportPath = StoragePath::fromUrl($creditProfile->getRawOriginal('pdf_url'));
+            $uploads = Storage::disk(Disk::UPLOADS);
+            if ($reportPath && $uploads->exists($reportPath)) {
+                $data['pdf'] = base64_encode($uploads->get($reportPath));
             }
 
             return ApiResponse::success($data, __('borrower.retrieved_details'));
@@ -597,9 +594,13 @@ class BorrowerController extends Controller
                 return ApiResponse::error(__('borrower.credit_profile_not_a_report'), 422);
             }
 
-            // Store PDF in public storage under borrowers/{borrower_id}
-            $fileName = 'credit_report_' . time() . '.pdf';
-            $path = $pdfFile->storeAs("borrowers/{$borrowerId}", $fileName, 'public');
+            // Kept privately in its own folder under a name that says nothing
+            // (BUG-016): credit-reports/{borrower}/{uuid}.pdf.
+            $path = $pdfFile->storeAs(
+                BorrowerDocument::CREDIT_REPORT_FOLDER . "/{$borrowerId}",
+                StoredFileName::anonymous('pdf'),
+                Disk::UPLOADS
+            );
 
             // Find an appropriate document type or use null
             $docType = \App\Models\Borrower\BorrowerDocType::where('name', 'Others')->orWhere('name', 'Miscellaneous Documents')->first();
@@ -608,7 +609,7 @@ class BorrowerController extends Controller
             $borrowerDoc = \App\Models\Borrower\BorrowerDocument::create([
                 'borrower_id' => $borrowerId,
                 'file_name' => $pdfFile->getClientOriginalName(),
-                'file_path' => $fileName,
+                'file_path' => $path,
                 'document_type_id' => $docType?->id,
                 'file_size' => round(filesize($pdfFile->getPathname()) / 1024, 2) . ' KB',
                 'status' => \App\Models\Borrower\BorrowerDocument::STATUS_UPLOADED,
@@ -618,16 +619,13 @@ class BorrowerController extends Controller
             $borrowerDoc->forceFill(['is_credit_report' => true])->save();
 
             // Read PDF content as base64 for immediate frontend display
-            $pdfContent = null;
-            $storedPath = "borrowers/{$borrowerId}/{$fileName}";
-            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($storedPath);
-            if (file_exists($filePath)) {
-                $pdfContent = base64_encode(file_get_contents($filePath));
-            }
+            $uploads = Storage::disk(Disk::UPLOADS);
+            $pdfContent = $uploads->exists($path) ? base64_encode($uploads->get($path)) : null;
 
             return ApiResponse::success([
                 'extracted_data' => $extractedData,
-                'pdf_url' => asset("storage/borrowers/{$borrowerId}/{$fileName}"),
+                // A short-lived signed URL; the profile keeps the path, not this.
+                'pdf_url' => FileUrl::for($path),
                 'document_id' => $borrowerDoc->id,
                 'pdf' => $pdfContent,
                 'mime' => 'application/pdf'
@@ -652,8 +650,10 @@ class BorrowerController extends Controller
         $request->validate([
             'borrower_id' => 'required|integer|exists:borrowers,id',
             'metrics' => 'nullable|array',
-            // Stored on the borrower too, where it decides lender matching.
-            'metrics.fico_score' => ['nullable', new FicoScore()],
+            // Stored on the borrower too, where it decides lender matching and
+            // Capital Access readiness, so a profile is never saved without one
+            // (BUG-074).
+            'metrics.fico_score' => ['required', new FicoScore()],
             'personal_info' => 'nullable|array',
             'addresses' => 'nullable|array',
             'trade_accounts' => 'nullable|array',
@@ -662,6 +662,8 @@ class BorrowerController extends Controller
             'document_id' => 'nullable|integer|exists:borrower_documents,id',
             // Optional: ties this pull to the consent that authorised it.
             'isoftpull_transaction_id' => 'nullable|string|max:191',
+        ], [
+            'metrics.fico_score.required' => __('common.fico_score_required'),
         ]);
 
         try {
@@ -681,8 +683,22 @@ class BorrowerController extends Controller
             $addresses = $request->input('addresses') ?? [];
             $tradeAccounts = $request->input('trade_accounts') ?? [];
             $inquiries = $request->input('inquiries') ?? [];
-            $pdfUrl = $request->input('pdf_url');
+            // The report is the one uploaded for this client (BUG-016): its path
+            // comes from that document, never from a URL the client sends - the
+            // server would read whatever it pointed at.
             $documentId = $request->input('document_id');
+            $pdfUrl = $borrower->creditProfile?->getRawOriginal('pdf_url');
+            if ($documentId) {
+                $report = BorrowerDocument::where('borrower_id', $borrower->id)
+                    ->where('is_credit_report', true)
+                    ->find($documentId);
+                if (!$report) {
+                    return ApiResponse::error(__('borrower.credit_report_not_found'), 422, [
+                        'document_id' => [__('borrower.credit_report_not_found')],
+                    ]);
+                }
+                $pdfUrl = $report->storagePath();
+            }
 
             // One transaction for the borrower's own columns and the profile
             // lines: a failure part-way must not leave the borrower claiming a
@@ -836,6 +852,8 @@ class BorrowerController extends Controller
                 ]));
             }
 
+            app(ClientCreditProfileService::class)->recordSaved($borrower);
+
             $this->notifyBorrowerCreditProfileUpdated($borrower);
 
             return ApiResponse::success($creditProfile, 'Credit profile saved successfully.');
@@ -909,9 +927,11 @@ class BorrowerController extends Controller
     }
 
     /**
-     * Whether a parse found anything a credit report has: a score, an
-     * account, an inquiry, an address or the person it is about. The
-     * parsers always fill delinquent_accounts and summary, so those don't count.
+     * Whether a parse found credit data: a score, a trade account or an
+     * inquiry. A name, address, phone or date of birth is on any business
+     * document - a commission invoice ("Payee Name: ...") passed on those
+     * alone - so they no longer count. The parsers always fill
+     * delinquent_accounts and summary, so those don't count either.
      */
     private function looksLikeCreditReport(array $extracted): bool
     {
@@ -922,15 +942,8 @@ class BorrowerController extends Controller
             }
         }
 
-        foreach (['trade_accounts', 'inquiries', 'addresses'] as $list) {
+        foreach (['trade_accounts', 'inquiries'] as $list) {
             if (!empty($extracted[$list])) {
-                return true;
-            }
-        }
-
-        $personal = $extracted['personal_info'] ?? [];
-        foreach (['name', 'ssn', 'dob'] as $field) {
-            if (!empty($personal[$field])) {
                 return true;
             }
         }

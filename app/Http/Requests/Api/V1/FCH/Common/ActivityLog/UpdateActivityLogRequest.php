@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\Concerns\ValidatesTaskAssign
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Partner\Partner;
 use Illuminate\Validation\Rule;
+use App\Rules\SafeUpload;
 
 class UpdateActivityLogRequest extends BaseApiRequest
 {
@@ -36,7 +37,7 @@ class UpdateActivityLogRequest extends BaseApiRequest
 
             'existing_attachments' => ['nullable', 'json'],
             'attachments'          => ['nullable', 'array'],
-            'attachments.*'        => ['file', 'mimes:jpg,jpeg,png,pdf,gif,webp,svg,xls,xlsx,doc,docx,ppt,pptx,txt,zip,rar,csv', 'max:5120'],
+            'attachments.*'        => ['file', 'mimes:jpg,jpeg,png,pdf,gif,webp,xls,xlsx,doc,docx,ppt,pptx,txt,zip,rar,csv', 'max:5120', SafeUpload::document()],
 
             'remind_me'           => ['nullable', 'in:1,0,true,false'],
             'remind_at'           => ['nullable', 'required_if:remind_me,1,true', 'date'],

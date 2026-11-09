@@ -47,7 +47,7 @@ class SqliteMysqlFunctionsTest extends TestCase
     {
         $this->assertSame('2026-06-05 08:00:00', $this->select("CONVERT_TZ('2026-06-05 12:00:00', '+00:00', '-04:00')"));
         $this->assertSame('2026-06-05 08:00:00', $this->select("CONVERT_TZ('2026-06-05 12:00:00', 'UTC', 'America/New_York')"));
-        // Nested as DownloadHistory::scopeSearch uses them: 02:00 UTC is the day before in New York.
+        // Nested as a timezone-aware date search uses them: 02:00 UTC is the day before in New York.
         $this->assertSame('Jun 04, 2026', $this->select("DATE_FORMAT(CONVERT_TZ('2026-06-05 02:00:00', '+00:00', '-04:00'), '%b %d, %Y')"));
         $this->assertNull($this->select("CONVERT_TZ(NULL, '+00:00', '-04:00')"));
     }

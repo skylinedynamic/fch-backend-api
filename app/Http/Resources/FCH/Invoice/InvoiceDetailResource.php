@@ -31,6 +31,8 @@ class InvoiceDetailResource extends InvoiceResource
             'invoice_id' => $this->invoice_id,
             'entity_type' => $this->entity_name,
             'type' => $this->getFormattedType(),
+            // Paying it reactivates a cancelled subscription (BUG-069).
+            'reactivates_subscription' => $this->reactivatesSubscription(),
             'status' => $this->status,
             'payment_amount' => (float) $this->payment_amount,
             'displayable_payment_amount' => currencyFormat(

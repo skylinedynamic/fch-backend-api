@@ -12,6 +12,7 @@ use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
+use App\Rules\SafeUpload;
 
 class StoreActivityLogRequest extends BaseApiRequest
 {
@@ -95,12 +96,15 @@ class StoreActivityLogRequest extends BaseApiRequest
             ],
             'category'      => ['nullable', 'string', 'max:255'],
 
+            // New Email, for the host: whose mail settings it goes out with.
+            'send_from'     => ['nullable', Rule::in(ActivityLog::EMAIL_SENDERS)],
+
             // "Want to Assign" on a Task
             ...$this->taskAssignmentRules(),
 
             // Attachments array
             'attachments'   => ['nullable', 'array'],
-            'attachments.*' => ['file'], // basic file check
+            'attachments.*' => ['file', SafeUpload::document()],
             
             // Reminders
             'remind_me'     => ['nullable', 'in:1,0,true,false'],
@@ -166,6 +170,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             'subject.max'            => 'The summary may not be greater than 200 characters.',
             'description.required'   => __('activity_log.description_required'),
             'attachments.*.file'     => __('activity_log.attachment_file'),
+            'send_from.in'           => __('activity_log.send_from_invalid'),
             'remind_at.required_if'  => 'A reminder time is required when setting a reminder.',
         ];
     }
@@ -176,7 +181,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             $this->validateTaskAssignment($validator);
 
             $allowedExtensions = [
-                'jpg','jpeg','png','pdf','gif','webp','svg',
+                'jpg','jpeg','png','pdf','gif','webp',
                 'xls','xlsx','doc','docx','ppt','pptx','txt',
                 'zip','rar','csv'
             ];

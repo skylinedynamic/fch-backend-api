@@ -41,40 +41,57 @@ class PasswordResetAndLogoutTest extends TestCase
         return $this->withHeader('Origin', 'https://' . self::PARTNER_PORTAL);
     }
 
+    /**
+     * BUG-068: forgot password answered an unknown email with 400 "We can't
+     * find a user with that email address", another portal's user with 403,
+     * and a known user with 200 - so anyone could check which emails have an
+     * account, and on which portal. Every email now gets the same answer; the
+     * link is only sent where it should be.
+     */
+    private function assertNeutral(\Illuminate\Testing\TestResponse $response): void
+    {
+        $response->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('message', __('auth.password_reset_link_maybe_sent'));
+    }
+
     #[Test]
     public function forgot_password_issues_a_reset_token_for_a_known_user(): void
     {
         $user = $this->makePartnerAdmin($this->host);
 
-        $this->fromPartnerPortal()
-            ->postJson('/api/v1/auth/forgot', ['email' => $user->email])
-            ->assertOk()
-            ->assertJsonPath('status', true);
+        $this->assertNeutral($this->fromPartnerPortal()->postJson('/api/v1/auth/forgot', ['email' => $user->email]));
 
         $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
     }
 
     #[Test]
-    public function forgot_password_for_an_unknown_email_fails_without_issuing_anything(): void
+    public function an_unknown_email_gets_the_same_answer_and_nothing_is_issued(): void
     {
-        $this->fromPartnerPortal()
-            ->postJson('/api/v1/auth/forgot', ['email' => 'nobody@example.test'])
-            ->assertStatus(400)
-            ->assertJsonPath('status', false);
+        $this->assertNeutral($this->fromPartnerPortal()->postJson('/api/v1/auth/forgot', ['email' => 'nobody@example.test']));
 
         $this->assertDatabaseCount('password_reset_tokens', 0);
     }
 
     #[Test]
-    public function forgot_password_is_refused_from_a_domain_the_user_cannot_sign_in_on(): void
+    public function a_user_of_another_portal_gets_the_same_answer_and_nothing_is_issued(): void
     {
         $user = $this->makePartnerAdmin($this->makeWhiteLabelPartner());
 
-        $this->fromPartnerPortal()
-            ->postJson('/api/v1/auth/forgot', ['email' => $user->email])
-            ->assertForbidden();
+        $this->assertNeutral($this->fromPartnerPortal()->postJson('/api/v1/auth/forgot', ['email' => $user->email]));
 
         $this->assertDatabaseCount('password_reset_tokens', 0);
+    }
+
+    #[Test]
+    public function asking_again_too_soon_gets_the_same_answer_too(): void
+    {
+        // Laravel's "Please wait before retrying" comes only for a real
+        // account, so it would give the account away as well.
+        $user = $this->makePartnerAdmin($this->host);
+        $this->fromPartnerPortal()->postJson('/api/v1/auth/forgot', ['email' => $user->email]);
+
+        $this->assertNeutral($this->fromPartnerPortal()->postJson('/api/v1/auth/forgot', ['email' => $user->email]));
     }
 
     #[Test]

@@ -19,11 +19,20 @@ class UnderwritingStatusUpdated extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
+    /** Sent to the borrower: the button opens the request in the borrower portal. */
+    public const AUDIENCE_BORROWER = 'borrower';
+
+    /** Sent to the request's non-host partner: the button opens it in the partner portal. */
+    public const AUDIENCE_PARTNER = 'partner';
+
     public $fundingRequest;
 
-    public function __construct(FundingRequest $fundingRequest)
+    public string $audience;
+
+    public function __construct(FundingRequest $fundingRequest, string $audience = self::AUDIENCE_BORROWER)
     {
         $this->fundingRequest = $fundingRequest;
+        $this->audience = $audience;
         $this->fundingRequest->loadMissing(['borrower.user', 'partner', 'fundingSequence']);
         $partner = $fundingRequest->partner ?? $fundingRequest->borrower?->partner;
         if ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
@@ -56,6 +65,7 @@ class UnderwritingStatusUpdated extends Mailable implements ShouldQueue
                             'fundingRequest' => $this->fundingRequest,
                             'siteName'       => $siteName,
                             'logoUrl'        => $logoUrl,
+                            'detailsUrl'     => $this->detailsUrl(),
                         ]);
         } catch (\Exception $e) {
             Log::error('Error building UnderwritingStatusUpdated email: ' . $e->getMessage(), [
@@ -63,5 +73,20 @@ class UnderwritingStatusUpdated extends Mailable implements ShouldQueue
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * The request itself, in the portal of whoever reads this copy.
+     */
+    private function detailsUrl(): string
+    {
+        $id = $this->fundingRequest->id;
+        $partnerId = $this->fundingRequest->partner_id;
+
+        if ($this->audience === self::AUDIENCE_PARTNER) {
+            return concatUrl(getPartnerDomain($partnerId), 'intake-review/funding-request/' . $id);
+        }
+
+        return concatUrl(getBorrowerDomain($partnerId), 'funding-requests/' . $id, config('app.frontend_borrower_url'));
     }
 }

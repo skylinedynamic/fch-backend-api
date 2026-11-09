@@ -23,6 +23,8 @@ class ScheduleTest extends TestCase
 
     private const EXPECTED = [
         'subscriptions:process-all' => '0 1,13 * * *',
+        // BUG-066: card payments left waiting on 3-D Secure.
+        'payments:settle-card-authentications' => '*/5 * * * *',
         'funding:application-reminders' => '0 14 * * *',
         'task:reminder-check' => '*/5 * * * *',
         'scheduler:heartbeat' => '* * * * *',
@@ -33,6 +35,8 @@ class ScheduleTest extends TestCase
         'monitoring:prune' => '30 3 * * *',
         'backup:run --only-db' => '0 4 * * *',
         'backup:clean' => '0 5 * * *',
+        // The day's seal of the funding application audit trail.
+        'audit:seal' => '55 23 * * *',
     ];
 
     /** @return array<string, Event> keyed by the command line after "artisan" */

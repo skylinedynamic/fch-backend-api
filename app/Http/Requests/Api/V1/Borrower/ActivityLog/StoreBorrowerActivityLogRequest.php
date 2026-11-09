@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\ActivityLog\ActivityLog;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
+use App\Rules\SafeUpload;
 
 class StoreBorrowerActivityLogRequest extends BaseApiRequest
 {
@@ -85,7 +86,7 @@ class StoreBorrowerActivityLogRequest extends BaseApiRequest
 
             // Attachments array
             'attachments'   => ['nullable', 'array'],
-            'attachments.*' => ['file'], // basic file check
+            'attachments.*' => ['file', SafeUpload::document()],
         ];
     }
 
@@ -108,7 +109,7 @@ class StoreBorrowerActivityLogRequest extends BaseApiRequest
     {
         $validator->after(function ($validator) {
             $allowedExtensions = [
-                'jpg','jpeg','png','pdf','gif','webp','svg',
+                'jpg','jpeg','png','pdf','gif','webp',
                 'xls','xlsx','doc','docx','ppt','pptx','txt',
                 'zip','rar','csv'
             ];

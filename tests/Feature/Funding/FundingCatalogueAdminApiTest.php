@@ -2,6 +2,12 @@
 
 namespace Tests\Feature\Funding;
 
+use App\Http\Requests\Api\V1\FCH\Admin\Lender\StoreLenderRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Lender\UpdateLenderRequest;
+use App\Http\Resources\FCH\Lender\LenderResource;
+use App\Http\Resources\FCH\Funding\FundingSequencingResource;
+use App\Rules\UniqueLenderLegalName;
+use App\Services\FCH\Admin\Lender\LenderService;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingTypeController;
@@ -17,6 +23,7 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
@@ -26,6 +33,13 @@ use Tests\TestCase;
  * their product categories, and the funding sequences (the options borrowers
  * are shown) with each lender's visibility rules. Admin routes: host team only.
  */
+#[CoversClass(StoreLenderRequest::class)]
+#[CoversClass(UpdateLenderRequest::class)]
+#[CoversClass(LenderResource::class)]
+#[CoversClass(FundingSequencingResource::class)]
+#[CoversClass(Lender::class)]
+#[CoversClass(UniqueLenderLegalName::class)]
+#[CoversClass(LenderService::class)]
 #[CoversClass(FundingGroupController::class)]
 #[CoversClass(FundingTypeController::class)]
 #[CoversClass(LenderController::class)]
@@ -93,6 +107,12 @@ class FundingCatalogueAdminApiTest extends TestCase
         FundingType::forceCreate(['id' => $id, 'name' => 'Type ' . uniqid(), 'status' => 'Active']);
 
         return $id;
+    }
+
+    /** A lender Add Lender takes: with a product category. */
+    private function addable(array $overrides = []): array
+    {
+        return $this->lender(array_merge(['product_categories' => [$this->productCategory()]], $overrides));
     }
 
     private function visibility(int $lenderId, int $categoryId, array $overrides = []): array
@@ -218,11 +238,101 @@ class FundingCatalogueAdminApiTest extends TestCase
 
         $categories = [$this->productCategory()];
 
-        $first = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'First Lender', 'product_categories' => $categories]))->assertCreated()->json('data.id');
-        $second = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'Second Lender', 'product_categories' => $categories]))->assertCreated()->json('data.id');
+        // Each has its own legal name (unique since R2 BUG-008); the phone is shared.
+        $first = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'First Lender', 'legal_name' => 'First Lender LLC', 'product_categories' => $categories]))->assertCreated()->json('data.id');
+        $second = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'Second Lender', 'legal_name' => 'Second Lender LLC', 'product_categories' => $categories]))->assertCreated()->json('data.id');
 
-        $this->putJson("/api/v1/admin/lenders/{$first}", $this->lender(['name' => 'First Lender Renamed', 'product_categories' => $categories]))->assertOk();
-        $this->putJson("/api/v1/admin/lenders/{$second}", $this->lender(['name' => 'Second Lender Renamed', 'product_categories' => $categories]))->assertOk();
+        $this->putJson("/api/v1/admin/lenders/{$first}", $this->lender(['name' => 'First Lender Renamed', 'legal_name' => 'First Lender LLC', 'product_categories' => $categories]))->assertOk();
+        $this->putJson("/api/v1/admin/lenders/{$second}", $this->lender(['name' => 'Second Lender Renamed', 'legal_name' => 'Second Lender LLC', 'product_categories' => $categories]))->assertOk();
+    }
+
+    // -- R2 BUG-008: duplicate lender ----------------------------------------
+    //
+    // Add Lender saved a second "Kabbage" and nothing told the two apart. The
+    // legal name is now unique (case and spaces ignored) and a lender is shown
+    // everywhere as "Lender Name - Legal Name".
+
+    /** @return iterable<string, array{string}> */
+    public static function sameLegalName(): iterable
+    {
+        yield 'exact' => ['Kabbage Inc.'];
+        yield 'other case' => ['KABBAGE inc.'];
+        yield 'extra spaces' => ['  Kabbage   Inc. '];
+    }
+
+    /** Defect: R2 BUG-008 - a second lender with the same legal name was saved. */
+    #[Test]
+    #[DataProvider('sameLegalName')]
+    public function add_lender_refuses_a_legal_name_another_lender_has(string $legalName): void
+    {
+        $this->actingAsUser($this->admin);
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->assertCreated();
+
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => $legalName]))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.legal_name', __('lender.legal_name_unique'));
+
+        $this->assertSame(1, Lender::where('name', 'Kabbage')->count());
+    }
+
+    #[Test]
+    public function edit_lender_refuses_another_lenders_legal_name_but_keeps_its_own(): void
+    {
+        $this->actingAsUser($this->admin);
+        $kabbage = $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->json('data.id');
+        $other = $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'OnDeck', 'legal_name' => 'OnDeck Capital']))->json('data.id');
+
+        $this->putJson("/api/v1/admin/lenders/{$other}", $this->addable(['name' => 'OnDeck', 'legal_name' => 'kabbage inc.']))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.legal_name', __('lender.legal_name_unique'));
+        $this->putJson("/api/v1/admin/lenders/{$kabbage}", $this->addable(['name' => 'Kabbage Renamed', 'legal_name' => 'Kabbage Inc.']))->assertOk();
+
+        $this->assertSame('OnDeck Capital', Lender::find($other)->legal_name);
+    }
+
+    #[Test]
+    public function two_lenders_may_share_a_name_when_their_legal_names_differ(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->assertCreated();
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Funding LLC']))->assertCreated();
+    }
+
+    #[Test]
+    public function a_deleted_lenders_legal_name_can_be_used_again(): void
+    {
+        $this->actingAsUser($this->admin);
+        $old = $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->json('data.id');
+        $this->deleteJson("/api/v1/admin/lenders/{$old}")->assertOk();
+
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->assertCreated();
+    }
+
+    #[Test]
+    public function the_legal_name_is_still_required(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['legal_name' => '']))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.legal_name', __('lender.legal_name_required'));
+    }
+
+    #[Test]
+    public function lenders_go_out_with_their_name_and_legal_name_label(): void
+    {
+        $this->actingAsUser($this->admin);
+        $id = $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))
+            ->assertCreated()
+            ->assertJsonPath('data.display_name', 'Kabbage - Kabbage Inc.')
+            ->json('data.id');
+
+        $this->getJson("/api/v1/admin/lenders/{$id}")->assertJsonPath('data.display_name', 'Kabbage - Kabbage Inc.');
+        $this->getJson('/api/v1/admin/lenders/get/all')
+            ->assertJsonPath('data.0.name', 'Kabbage')
+            ->assertJsonPath('data.0.display_name', 'Kabbage - Kabbage Inc.');
+        $this->getJson('/api/v1/admin/lenders')->assertJsonPath('data.0.display_name', 'Kabbage - Kabbage Inc.');
     }
 
     #[Test]
@@ -279,7 +389,7 @@ class FundingCatalogueAdminApiTest extends TestCase
         $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$lender->id]])
             ->assertStatus(422)
             ->assertJsonPath('message', self::LENDER_BLOCKED_ONE)
-            ->assertJsonPath('errors.blocked', [['id' => $lender->id, 'name' => 'Reagan Capital']]);
+            ->assertJsonPath('errors.blocked', [['id' => $lender->id, 'name' => 'Reagan Capital', 'display_name' => 'Reagan Capital - Acme Capital LLC']]);
         $this->deleteJson("/api/v1/admin/lenders/{$lender->id}")
             ->assertStatus(422)
             ->assertJsonPath('message', self::LENDER_BLOCKED_ONE);
@@ -300,7 +410,7 @@ class FundingCatalogueAdminApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$free->id, $first->id, $second->id]])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Some selected lenders have related records and cannot be deleted: Reagan Capital, Jessamine Funding. '
+            ->assertJsonPath('message', 'Some selected lenders have related records and cannot be deleted: Reagan Capital - Acme Capital LLC, Jessamine Funding - Acme Capital LLC. '
                 . 'Please change their status instead, or unselect them to delete the others.');
 
         $this->assertSame(['Reagan Capital', 'Jessamine Funding'], array_column($response->json('errors.blocked'), 'name'));
@@ -580,6 +690,137 @@ class FundingCatalogueAdminApiTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.min_fico']);
     }
 
+    /**
+     * R2 BUG-030 - a rule whose lender was set to Inactive showed "Unknown
+     * Lender": the grid named it from the active-lender list. The rule list
+     * carries its own lender, name and status, which the grid now uses.
+     */
+    #[Test]
+    public function a_rule_keeps_its_lenders_name_and_status_after_the_lender_is_deactivated(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'R2 Lender A']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $data['funding_type_id'])];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        $lender->update(['status' => Lender::STATUS_INACTIVE]);
+
+        $rows = $this->postJson("/api/v1/admin/funding-sequencings/{$id}/visibilities/fetch")->assertOk()->json('data');
+        $rule = collect($rows)->firstWhere('lender_id', $lender->id);
+
+        $this->assertNotNull($rule, 'The rule of an inactive lender is still listed.');
+        $this->assertSame('R2 Lender A', $rule['lender']['name']);
+        $this->assertSame(Lender::STATUS_INACTIVE, $rule['lender']['status']);
+    }
+
+    /** R2 BUG-008: Underwriting Logic names each rule's lender with its legal name too. */
+    #[Test]
+    public function underwriting_logic_shows_each_lender_with_its_legal_name(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $data['funding_type_id'])];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        $rows = $this->postJson("/api/v1/admin/funding-sequencings/{$id}/visibilities/fetch")->assertOk()->json('data');
+        $this->assertSame('Kabbage - Kabbage Inc.', collect($rows)->firstWhere('lender_id', $lender->id)['lender']['display_name']);
+
+        $this->getJson("/api/v1/admin/funding-sequencings/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.lender_visibilities.0.lender.name', 'Kabbage')
+            ->assertJsonPath('data.lender_visibilities.0.lender.display_name', 'Kabbage - Kabbage Inc.');
+    }
+
+    /** R2 BUG-008: the delete check names a lender with its legal name. */
+    #[Test]
+    public function a_lender_kept_from_deletion_is_named_with_its_legal_name(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'Kabbage', 'legal_name' => 'Kabbage Holdings']));
+        $this->fundingRequestAssignedTo($lender);
+        $other = Lender::create($this->lender(['name' => 'Free Lender', 'legal_name' => 'Free Lender LLC']));
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/lenders/check-deletable', ['ids' => [$lender->id]])
+            ->assertJsonPath('data.0.name', 'Kabbage')
+            ->assertJsonPath('data.0.display_name', 'Kabbage - Kabbage Holdings');
+        $this->postJson('/api/v1/admin/lenders/multiple-delete', ['ids' => [$lender->id, $other->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Some selected lenders have related records and cannot be deleted: Kabbage - Kabbage Holdings. '
+                . 'Please change their status instead, or unselect them to delete the others.')
+            ->assertJsonPath('errors.blocked.0.display_name', 'Kabbage - Kabbage Holdings');
+    }
+
+    /**
+     * Defect: R2 BUG-009 - a Min FICO of 851 was saved from Underwriting Logic.
+     * The per-category save (what the grid's Update button calls) must refuse
+     * a score outside 300-850 like the other two saves.
+     */
+    #[Test]
+    public function the_per_category_save_also_refuses_a_min_fico_outside_the_scale(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'Scored']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $category = $data['funding_type_id'];
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category)];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        foreach ([851, 299] as $bad) {
+            $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/category/{$category}/visibility", [
+                'lender_visibilities' => [$this->visibility($lender->id, $category, ['min_fico' => $bad])],
+            ])->assertStatus(422)->assertJsonValidationErrors([
+                'lender_visibilities.0.min_fico' => __('common.fico_score_invalid', ['min' => 300, 'max' => 850]),
+            ]);
+        }
+
+        $this->assertSame(650, (int) FundingSequencing::find($id)->lenderVisibilities()->first()->min_fico);
+    }
+
+    /**
+     * Defect: R2 BUG-010 - Texas could be saved as both an allowed and a
+     * restricted state, leaving the rule for a Texas borrower undefined. The
+     * same applies to industries.
+     */
+    #[Test]
+    public function a_state_or_industry_cannot_be_both_allowed_and_restricted(): void
+    {
+        $lender = Lender::create($this->lender(['name' => 'States']));
+        $this->actingAsUser($this->admin);
+        $data = $this->sequence();
+        $category = $data['funding_type_id'];
+
+        $overlap = $this->visibility($lender->id, $category, [
+            'allowed_states' => ['TX', 'CA'],
+            'restricted_states' => ['TX'],
+            'allowed_industries' => ['Retail'],
+            'restricted_industries' => ['Retail', 'Gaming'],
+        ]);
+
+        $data['lender_visibilities'] = [$overlap];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'lender_visibilities.0.restricted_states' => __('funding_sequencing.state_allowed_and_restricted', ['values' => 'TX']),
+                'lender_visibilities.0.restricted_industries' => __('funding_sequencing.industry_allowed_and_restricted', ['values' => 'Retail']),
+            ]);
+
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $category, ['allowed_states' => ['CA'], 'restricted_states' => ['TX']])];
+        $id = $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+
+        $this->putJson("/api/v1/admin/funding-sequencings/{$id}", array_merge($data, ['lender_visibilities' => [$overlap]]))
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_states']);
+        $this->putJson("/api/v1/admin/funding-sequencings/{$id}/visibility", ['lender_visibilities' => [$overlap]])
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_states']);
+        $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/visibility", ['lender_visibilities' => [$overlap]])
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_industries']);
+        $this->postJson("/api/v1/admin/funding-sequencings/{$id}/lender/{$lender->id}/category/{$category}/visibility", ['lender_visibilities' => [$overlap]])
+            ->assertStatus(422)->assertJsonValidationErrors(['lender_visibilities.0.restricted_states']);
+
+        $this->assertSame(['TX'], FundingSequencing::find($id)->lenderVisibilities()->first()->restricted_states);
+    }
+
     #[Test]
     public function a_lenders_visibility_rules_are_replaced_one_lender_at_a_time(): void
     {
@@ -620,5 +861,151 @@ class FundingCatalogueAdminApiTest extends TestCase
         $this->deleteJson("/api/v1/admin/funding-sequencings/{$first}/visibilities", ['visibility_ids' => [$othersRow]])->assertOk();
 
         $this->assertSame(1, FundingSequencing::find($second)->lenderVisibilities()->count());
+    }
+
+    /** A funding sequence whose underwriting logic has a rule for this category. */
+    private function sequenceUsingCategory(int $categoryId, string $name = 'SBA 7(a)'): int
+    {
+        $lender = Lender::create($this->lender(['name' => 'Lender ' . uniqid()]));
+        $data = $this->sequence(['name' => $name]);
+        $data['lender_visibilities'] = [$this->visibility($lender->id, $categoryId)];
+
+        return $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful()->json('data.id');
+    }
+
+    /**
+     * Defect: Manage Product Categories deleted any category - also one a
+     * funding sequence's underwriting logic still has a rule for
+     * (lender_visibilities.lender_product_category_id). Like a blog tag on a
+     * post, a category in use is kept and the refusal names it.
+     */
+    #[Test]
+    public function a_product_category_used_in_a_funding_sequence_is_not_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $this->sequenceUsingCategory($categoryId, 'SBA 7(a)');
+        $this->sequenceUsingCategory($categoryId, 'Equipment');
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('lender.category_in_use'))
+            ->assertJsonPath('errors.blocked.0.id', $categoryId)
+            ->assertJsonPath('errors.blocked.0.name', LenderProductCategory::find($categoryId)->name)
+            ->assertJsonPath('errors.blocked.0.count', 2);
+
+        $this->assertNotNull(LenderProductCategory::find($categoryId));
+    }
+
+    #[Test]
+    public function a_product_category_no_funding_sequence_uses_is_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")->assertOk();
+
+        $this->assertNull(LenderProductCategory::find($categoryId));
+    }
+
+    /**
+     * The list says how many live funding sequences use each category, so the
+     * portal can say "cannot be deleted" at once instead of asking "Are you
+     * sure?" first (like blogs_count on blog tags).
+     */
+    #[Test]
+    public function the_category_list_says_how_many_funding_sequences_use_each_category(): void
+    {
+        $this->actingAsUser($this->admin);
+        $used = $this->productCategory();
+        $this->sequenceUsingCategory($used, 'SBA 7(a)');
+        $this->sequenceUsingCategory($used, 'Equipment');
+        $unused = $this->productCategory();
+        $onlyDeleted = $this->productCategory();
+        FundingSequencing::findOrFail($this->sequenceUsingCategory($onlyDeleted))->delete();
+
+        $rows = collect($this->getJson('/api/v1/admin/lenders/product-categories')->assertOk()->json('data'))->keyBy('id');
+
+        $this->assertSame(2, $rows[$used]['funding_sequences_count']);
+        $this->assertSame(0, $rows[$unused]['funding_sequences_count']);
+        $this->assertSame(0, $rows[$onlyDeleted]['funding_sequences_count']);
+    }
+
+    /** Two lenders' rules for the category in one sequence are still one sequence. */
+    #[Test]
+    public function a_sequence_with_several_rules_for_the_category_counts_once(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $data = $this->sequence();
+        $data['lender_visibilities'] = [
+            $this->visibility(Lender::create($this->lender(['name' => 'Lender A']))->id, $categoryId),
+            $this->visibility(Lender::create($this->lender(['name' => 'Lender B']))->id, $categoryId),
+        ];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful();
+
+        $rows = collect($this->getJson('/api/v1/admin/lenders/product-categories')->json('data'))->keyBy('id');
+        $this->assertSame(1, $rows[$categoryId]['funding_sequences_count']);
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.blocked.0.count', 1);
+    }
+
+    /**
+     * Defect: Manage Funding Groups deleted any group - also one funding
+     * sequences are filed under (funding_sequencings.funding_group_id). Like a
+     * product category in use, it is kept, and the list says how many live
+     * sequences use each group so the portal can refuse at once.
+     */
+    #[Test]
+    public function a_funding_group_used_by_a_funding_sequence_is_not_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $used = FundingGroup::create(['name' => 'Loans', 'status' => 'Active'])->id;
+        $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['name' => 'One', 'funding_group_id' => $used]))->assertSuccessful();
+        $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['name' => 'Two', 'funding_group_id' => $used]))->assertSuccessful();
+        $unused = FundingGroup::create(['name' => 'Spare', 'status' => 'Active'])->id;
+
+        $rows = collect($this->getJson('/api/v1/admin/funding-groups')->assertOk()->json('data'))->keyBy('id');
+        $this->assertSame(2, $rows[$used]['funding_sequences_count']);
+        $this->assertSame(0, $rows[$unused]['funding_sequences_count']);
+
+        $this->deleteJson("/api/v1/admin/funding-groups/{$used}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('funding_sequencing.group_in_use'))
+            ->assertJsonPath('errors.blocked.0.id', $used)
+            ->assertJsonPath('errors.blocked.0.name', 'Loans')
+            ->assertJsonPath('errors.blocked.0.count', 2);
+        $this->assertNotSoftDeleted('funding_groups', ['id' => $used]);
+
+        $this->deleteJson("/api/v1/admin/funding-groups/{$unused}")->assertOk();
+        $this->assertSoftDeleted('funding_groups', ['id' => $unused]);
+    }
+
+    /** A deleted funding sequence no longer holds its group. */
+    #[Test]
+    public function a_funding_group_used_only_by_a_deleted_sequence_is_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $group = FundingGroup::create(['name' => 'Old', 'status' => 'Active'])->id;
+        $sequence = $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['funding_group_id' => $group]))->assertSuccessful()->json('data.id');
+        FundingSequencing::findOrFail($sequence)->delete();
+
+        $this->assertSame(0, collect($this->getJson('/api/v1/admin/funding-groups')->json('data'))->firstWhere('id', $group)['funding_sequences_count']);
+        $this->deleteJson("/api/v1/admin/funding-groups/{$group}")->assertOk();
+    }
+
+    /** A deleted funding sequence no longer uses anything. */
+    #[Test]
+    public function a_product_category_used_only_by_a_deleted_funding_sequence_is_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $sequenceId = $this->sequenceUsingCategory($categoryId);
+        FundingSequencing::findOrFail($sequenceId)->delete();
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")->assertOk();
+
+        $this->assertNull(LenderProductCategory::find($categoryId));
     }
 }

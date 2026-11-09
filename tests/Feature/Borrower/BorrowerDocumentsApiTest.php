@@ -70,7 +70,7 @@ class BorrowerDocumentsApiTest extends TestCase
     private function documentFor(Borrower $borrower, string $contents = 'statement'): BorrowerDocument
     {
         $name = 'doc-' . uniqid() . '.txt';
-        Storage::disk('public')->put("borrowers/{$borrower->id}/{$name}", $contents);
+        Storage::disk('uploads')->put("borrowers/{$borrower->id}/{$name}", $contents);
 
         return BorrowerDocument::create([
             'borrower_id' => $borrower->id,
@@ -110,7 +110,7 @@ class BorrowerDocumentsApiTest extends TestCase
     public function the_download_reads_the_file_through_the_public_disk(): void
     {
         Storage::fake('public');
-        Storage::disk('public')->put("borrowers/{$this->borrower->id}/on-disk.txt", 'from the disk');
+        Storage::disk('uploads')->put("borrowers/{$this->borrower->id}/on-disk.txt", 'from the disk');
         $document = BorrowerDocument::create([
             'borrower_id' => $this->borrower->id,
             'file_name' => 'On disk.txt',

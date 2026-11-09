@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Support\Database\LikePattern;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use App\Models\Concerns\Archivable;
 use App\Models\Concerns\HasEncryptedSsn;
 use App\Models\Concerns\HasPersonName;
+use App\Support\Files\FileUrl;
 
 
 class Borrower extends Model
@@ -62,6 +64,38 @@ class Borrower extends Model
         'credit_profile_updated' => 'boolean',
         'stripe_customer_id' => 'array',
     ];
+
+    /**
+     * The columns the client-info form (partner / host portal) writes, which
+     * its version is taken over. Business financials, credit scores and the
+     * SSN have screens and processes of their own and are left out, so a save
+     * there does not make an open client-info form stale.
+     */
+    public const CLIENT_INFO_FIELDS = [
+        'first_name', 'middle_name', 'last_name', 'phone_number', 'email',
+        'country', 'country_code', 'state', 'city', 'postal_code', 'home_address', 'date_of_birth',
+        'business_name', 'business_ein', 'business_phone', 'business_address', 'business_city',
+        'business_country', 'business_country_code', 'business_state', 'business_postal_code',
+        'business_email', 'business_website', 'business_entity_type', 'business_entity_type_note',
+        'business_industry_type', 'business_industry_type_note', 'business_description',
+        'duns_number', 'state_file_number', 'business_start_date', 'status', 'assign_id', 'notes',
+    ];
+
+    /**
+     * Which copy of the client's details a client-info form is showing: a
+     * fingerprint of the stored CLIENT_INFO_FIELDS. The form sends it back as
+     * expected_version and a save from an older copy is refused, rather than
+     * putting back what another user changed meanwhile (R2 BUG-065).
+     */
+    public function clientInfoVersion(): string
+    {
+        $stored = [];
+        foreach (self::CLIENT_INFO_FIELDS as $field) {
+            $stored[$field] = $this->getRawOriginal($field);
+        }
+
+        return sha1(json_encode($stored));
+    }
 
     /**
      * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.
@@ -153,6 +187,33 @@ class Borrower extends Model
     const LOGIN_ALLOWED_STATUSES = [
         self::STATUS_ONBOARDING,
         self::STATUS_ACTIVE,
+    ];
+
+    /**
+     * Profile fields a borrower fills in once: when saved, a change goes
+     * through a Change Request the host approves (BUG-054). The borrower
+     * portal locks the same fields (src/config/profileLockFields.ts).
+     */
+    public const LOCKED_BUSINESS_FIELDS = [
+        'business_ein',
+        'business_address',
+        'business_phone',
+        'business_website',
+        'business_email',
+        'duns_number',
+        'business_start_date',
+    ];
+
+    public const LOCKED_FINANCIAL_FIELDS = [
+        'monthly_revenue',
+        'annual_revenue',
+        'annual_personal_income',
+    ];
+
+    /** Locked on a bank account the borrower has already saved. */
+    public const LOCKED_BANK_ACCOUNT_FIELDS = [
+        'bank_name',
+        'account_open_date',
     ];
 
 
@@ -493,29 +554,29 @@ class Borrower extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.middle_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.business_name', 'LIKE', "%{$search}%")
+            $q->whereContains('borrowers.first_name', $search)
+                ->orWhereContains('borrowers.middle_name', $search)
+                ->orWhereContains('borrowers.last_name', $search)
+                ->orWhereContains('borrowers.email', $search)
+                ->orWhereContains('borrowers.phone_number', $search)
+                ->orWhereContains('borrowers.status', $search)
+                ->orWhereContains('borrowers.business_name', $search)
                 ->orWhereHas(
                     'partner',
                     function ($q) use ($search) {
-                        $q->where('full_name', 'LIKE', "%{$search}%");
+                        $q->whereContains('full_name', $search);
                     }
                 )
                 ->orWhereHas(
                     'tier',
                     function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->whereContains('name', $search);
                     }
                 )
                 ->orWhereHas(
                     'assignedUser',
                     function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->whereContains('name', $search);
                     }
                 )
                 // The whole name as displayed, so "John Quincy Smith" is found by
@@ -523,8 +584,8 @@ class Borrower extends Model
                 // instead of collapsing the whole expression to NULL, which is what
                 // plain CONCAT would do.
                 ->orWhereRaw(
-                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ?",
-                    ["%{$search}%"]
+                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ? " . LikePattern::ESCAPE_CLAUSE,
+                    [LikePattern::contains($search)]
                 );
         });
     }
@@ -537,7 +598,7 @@ class Borrower extends Model
 
     public function getImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     public function getYearsInBusinessAttribute()

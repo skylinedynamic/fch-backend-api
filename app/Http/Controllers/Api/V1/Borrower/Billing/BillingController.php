@@ -41,4 +41,10 @@ class BillingController extends Controller
     {
         return $this->borrowerBillingService->cancelSubscription($request->all());
     }
+
+    /** Resume a cancelled subscription (BUG-069). */
+    public function resumeSubscription(): JsonResponse
+    {
+        return $this->borrowerBillingService->resumeSubscription();
+    }
 }

@@ -105,9 +105,16 @@ class CreditBuilderStepGuideService
         $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
 
         $verificationRequests = [];
+        // Only the requests this call opened; the host is told about these.
+        $opened = [];
 
         DB::beginTransaction();
         try {
+            // One submission per borrower at a time: a double-click sends two
+            // requests at once, and without the lock both would pass the
+            // "already in review" check below before either row exists (BUG-034).
+            Borrower::whereKey($borrower->id)->lockForUpdate()->first();
+
             foreach ($taskIds as $taskId) {
                 // Get task details to retrieve tier_id
                 $task = TierTask::find($taskId);
@@ -130,8 +137,23 @@ class CreditBuilderStepGuideService
                     ->latest()
                     ->first();
 
+                // Already in review (a double-click, or a second tab): answer
+                // with that request instead of opening a second one (BUG-034).
+                // A rejected request does not count, so "Submit Again" works.
+                $inReview = $is_task_exist ? null : BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
+                    ->where('task_id', $taskId)
+                    ->where('tier_id', $tierId)
+                    ->when($migratedTaskId, function ($query) use ($migratedTaskId) {
+                        $query->where('migrated_task_id', $migratedTaskId);
+                    })
+                    ->where('status', BorrowerTaskVerificationRequest::PROCESSING)
+                    ->latest()
+                    ->first();
+
                 if ($is_task_exist) {
                     throw new \Exception("Task already completed.");
+                } elseif ($inReview) {
+                    $verificationRequest = $inReview;
                 } else {
                     // Create new request
                     $verificationRequest = BorrowerTaskVerificationRequest::create([
@@ -145,6 +167,7 @@ class CreditBuilderStepGuideService
                         'rejection_reason' => null,
                         'migrated_task_id' => $migratedTaskId,
                     ]);
+                    $opened[] = $verificationRequest;
                 }
 
                 $verificationRequests[] = $verificationRequest;
@@ -172,9 +195,10 @@ class CreditBuilderStepGuideService
         // task and tier are eager-loaded here because the mail lists every task
         // with its tier, and a bulk submission would otherwise be two queries
         // per task.
+        // Only what this call opened: a repeated submission is not news to the host.
         app(VerificationNotifier::class)->requestSubmitted(
             $borrower,
-            $requests->load('task.tier', 'tier')
+            (new EloquentCollection($opened))->load('task.tier', 'tier')
         );
 
         return $requests;

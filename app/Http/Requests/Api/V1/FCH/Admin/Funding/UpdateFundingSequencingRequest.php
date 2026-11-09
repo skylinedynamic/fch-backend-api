@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Funding;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\FicoScore;
 use App\Rules\BusinessCreditScore;
+use App\Rules\DisjointFrom;
 
 class UpdateFundingSequencingRequest extends BaseApiRequest
 {
@@ -73,11 +74,11 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'lender_visibilities.*.min_dscr'             => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,8}(\.\d{1,4})?$/'],
             'lender_visibilities.*.allowed_states'       => 'nullable|array',
             'lender_visibilities.*.allowed_states.*'     => 'string',
-            'lender_visibilities.*.restricted_states'    => 'nullable|array',
+            'lender_visibilities.*.restricted_states'    => ['nullable', 'array', new DisjointFrom('allowed_states', 'funding_sequencing.state_allowed_and_restricted')],
             'lender_visibilities.*.restricted_states.*'  => 'string',
             'lender_visibilities.*.allowed_industries'   => 'nullable|array',
             'lender_visibilities.*.allowed_industries.*' => 'string',
-            'lender_visibilities.*.restricted_industries' => 'nullable|array',
+            'lender_visibilities.*.restricted_industries' => ['nullable', 'array', new DisjointFrom('allowed_industries', 'funding_sequencing.industry_allowed_and_restricted')],
             'lender_visibilities.*.restricted_industries.*' => 'string',
         ];
     }

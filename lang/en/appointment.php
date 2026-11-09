@@ -9,6 +9,8 @@ return [
     'updated_synced' => 'Appointment updated successfully.',
     'updated_sync_failed' => 'Appointment updated successfully, but Microsoft 365 sync failed.',
     'deleted' => 'Appointment deleted successfully.',
+    'cancelled' => 'Appointment cancelled.',
+    'cannot_cancel' => 'Only an upcoming appointment that is not already cancelled or completed can be cancelled.',
     'multiple_deleted' => 'Selected appointments deleted successfully.',
     'retrieved' => 'Appointment details retrieved successfully.',
     'list_retrieved' => 'Appointments retrieved successfully.',
@@ -23,6 +25,7 @@ return [
     'time_in_past' => 'This time has already passed. Choose a later time.',
     'time_taken_by' => ':name already has an appointment from :from to :to. Choose another time.',
     'time_taken_by_you' => 'You already have an appointment from :from to :to. Choose another time.',
+    'time_taken_by_both' => 'You and :name already have an appointment from :from to :to. Choose another time.',
     'the_attendee' => 'The attendee',
     'external_email' => 'Microsoft 365 sync is not available for external email addresses.',
 

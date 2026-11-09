@@ -7,6 +7,7 @@ use App\Rules\Ssn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\Files\FileUrl;
 
 class BorrowerDetailsResource extends JsonResource
 {
@@ -21,6 +22,8 @@ class BorrowerDetailsResource extends JsonResource
 
         return [
             'id' => $this->id,
+            // Sent back with the next client-info save (R2 BUG-065).
+            'client_info_version' => $this->resource->clientInfoVersion(),
             'user_id' => $this->user?->id,
             // A new sign-in email awaiting confirmation from that address.
             'pending_email' => $this->user?->pending_email,
@@ -61,7 +64,7 @@ class BorrowerDetailsResource extends JsonResource
             'business_industry_type' => $this->business_industry_type,
             'business_industry_type_note' => $this->business_industry_type_note,
             'business_description' => $this->business_description,
-            'business_logo' => $this->business_logo ? url($this->business_logo) : null,
+            'business_logo' => FileUrl::for($this->business_logo),
             'business_registration_number' => $this->business_registration_number,
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number' => $this->duns_number,

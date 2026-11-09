@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use App\Mail\CronJobFailureMail;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
+use App\Services\GlobalPayment\PaymentMailService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Subscription\SubscriptionListResource;
@@ -363,6 +364,22 @@ class SubscriptionService
      * @return void
      */
     public function handleSuccessfulPayment(Invoice $invoice, ?Subscription $subscription)
+    {
+        // Paying an invoice a cancelled subscription still had open makes it
+        // Active again (BUG-069); everyone concerned is told so.
+        $wasCancelled = $subscription?->status === Subscription::STATUS_CANCELLED;
+
+        $this->applySuccessfulPayment($invoice, $subscription);
+
+        if ($wasCancelled && $subscription->fresh()?->status === Subscription::STATUS_ACTIVE) {
+            app(PaymentMailService::class)->sendSubscriptionReactivated($subscription->fresh());
+        }
+    }
+
+    /**
+     * What a paid invoice does to its subscription, by enrollment type.
+     */
+    private function applySuccessfulPayment(Invoice $invoice, ?Subscription $subscription): void
     {
         // When invoice status is Processing, do not update or start the subscription (invoice is not paid yet)
         if (
@@ -753,17 +770,6 @@ class SubscriptionService
     }
 
     /**
-     * Create invoice for a subscription billing cycle (enrollment / platform fee).
-     *
-     * Phase data is read directly from the subscription model.
-     * The subscription_phases table is kept in the database for historical records
-     * but is no longer read from or written to by this method.
-     *
-     * @param Subscription $subscription
-     * @param string       $type  'enrollment' | 'platform_fee'
-     * @return void
-     */
-    /**
      * Why this subscription cannot be billed right now, or null if it can.
      *
      * A borrower is also blocked when their partner is not Active — the borrower
@@ -824,15 +830,42 @@ class SubscriptionService
         return null;
     }
 
-    protected function createInvoiceForSubscription(Subscription $subscription): void
+    /**
+     * Raise the next bill of a cancelled subscription that is being resumed
+     * after its end date (BUG-069) - the same invoice the cron would raise, on
+     * the plan it was on. Null when there is nothing to bill.
+     */
+    public function raiseResumeInvoice(Subscription $subscription): ?Invoice
+    {
+        return $this->createInvoiceForSubscription($subscription, resuming: true);
+    }
+
+    /**
+     * Create invoice for a subscription billing cycle (enrollment / platform fee).
+     *
+     * Phase data is read directly from the subscription model.
+     * The subscription_phases table is kept in the database for historical records
+     * but is no longer read from or written to by this method.
+     *
+     * @param Subscription $subscription
+     * @param bool         $resuming  a cancelled subscription being resumed (BUG-069)
+     * @return Invoice|null the invoice raised, or null when none was
+     */
+    protected function createInvoiceForSubscription(Subscription $subscription, bool $resuming = false): ?Invoice
     {
         try {
-            DB::transaction(function () use ($subscription) {
+            return DB::transaction(function () use ($subscription, $resuming) {
 
                 $entity = $subscription->entity;
 
-                if (!$entity || $subscription->status !== Subscription::STATUS_ACTIVE) {
-                    return;
+                // The cron bills Active subscriptions only. Resuming a cancelled
+                // one raises its next bill too: paying it is what makes it Active
+                // again (BUG-069).
+                $billable = $subscription->status === Subscription::STATUS_ACTIVE
+                    || ($resuming && $subscription->status === Subscription::STATUS_CANCELLED);
+
+                if (!$entity || !$billable) {
+                    return null;
                 }
 
                 // Status guard per entity type.
@@ -850,7 +883,7 @@ class SubscriptionService
                         'reason' => $blockReason,
                     ]);
 
-                    return;
+                    return null;
                 }
 
                 // Safety net: a Borrower should never be in the recurring platform-fee
@@ -866,27 +899,27 @@ class SubscriptionService
                     Log::warning('Auto-completed a Borrower subscription stuck in platform_fee phase', [
                         'subscription_id' => $subscription->id,
                     ]);
-                    return;
+                    return null;
                 }
 
                 if (!$this->createInvoiceIfDue($subscription)) {
-                    return;
+                    return null;
                 }
 
                 $phase = $subscription->current_phase;
                 $isPlatformFee = $phase === Subscription::PHASE_PLATFORM_FEE;
 
                 // Installment limit check — keyed on actual payments collected
-                // (installments_paid), not raw invoice row count. A missed cycle now
-                // generates an Expired row that's rolled past, not a real payment, so
-                // counting rows here would stop billing before the plan is actually
-                // paid off.
+                // (installments_paid), not raw invoice row count. Invoice rows are not
+                // payments: older subscriptions still carry Expired rows from the
+                // retired roll-forward billing, and counting them would stop billing
+                // before the plan is actually paid off.
                 if ($phase === Subscription::PHASE_INSTALLMENT) {
                     $totalCount = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installment_count_upto ?? 0);
                     $paidCount = (int) ($subscription->installments_paid ?? 0);
 
                     if ($totalCount && $paidCount >= $totalCount) {
-                        return;
+                        return null;
                     }
                 }
 
@@ -902,7 +935,9 @@ class SubscriptionService
                     $partnerId = $entity->id;
                 }
 
-                // Amount by phase
+                // Amount by phase. $details explains an amount that differs
+                // from the usual one (the adjusted last installment).
+                $details = null;
                 if ($phase === Subscription::PHASE_PLATFORM_FEE) {
                     $amount = $subscription->monthly_platform_fee;
                 } elseif ($phase === Subscription::PHASE_USER_SEAT) {
@@ -939,9 +974,18 @@ class SubscriptionService
                         // 12 months was billed 474.67 a month instead of 558.00, so
                         // the customer was undercharged every cycle and the plan
                         // could never settle.
-                        $amount = $isFirstCycle && $hasDownPayment
+                        //
+                        // The last installment takes up the rounding of the monthly
+                        // figure, so the installments total the plan exactly
+                        // (BUG-049) - see Subscription::finalInstallmentAmount().
+                        $isDownPaymentCycle = $isFirstCycle && $hasDownPayment;
+                        $amount = $isDownPaymentCycle
                             ? $subscription->down_payment
-                            : $subscription->subscription_amount_per_month;
+                            : $subscription->nextInstallmentAmount();
+
+                        if (!$isDownPaymentCycle && $subscription->isNextInstallmentFinal()) {
+                            $details = $this->finalInstallmentDetails($subscription);
+                        }
                     } else {
                         $amount = $subscription->payable_amount;
                     }
@@ -978,7 +1022,7 @@ class SubscriptionService
                         'amount' => $amount,
                         'expected_from' => $source,
                     ]);
-                    return;
+                    return null;
                 }
 
                 // Nothing is expired on the way in. Reaching this point means
@@ -1001,6 +1045,7 @@ class SubscriptionService
                     'month_count' => 1,
                     'is_partner_paying' => $isPartnerPaying ? 1 : 0,
                     'is_platform_fee' => $isPlatformFee ? 1 : 0,
+                    'details' => $details,
                 ]);
 
                 // Update current cycle invoice ID
@@ -1018,6 +1063,8 @@ class SubscriptionService
                         'error' => $e->getMessage(),
                     ]);
                 }
+
+                return $invoice;
             });
         } catch (\Exception $e) {
             Log::error('Failed to create invoice for subscription', [
@@ -1043,6 +1090,48 @@ class SubscriptionService
                 ]))->to($emails));
             }
         }
+
+        return null;
+    }
+
+    /**
+     * The invoice details of a plan's last installment when it differs from the
+     * monthly one (BUG-049): its line item names it and says why, and the
+     * figures are kept for the email and the bell (Invoice::finalInstallmentNote()).
+     * Null when the last installment is the monthly amount - nothing to explain.
+     */
+    private function finalInstallmentDetails(Subscription $subscription): ?array
+    {
+        $adjustment = $subscription->finalInstallmentAdjustment();
+
+        if ($adjustment === null) {
+            return null;
+        }
+
+        $count = (int) $subscription->installment_count;
+        $final = [
+            'adjustment' => $adjustment,
+            'monthly' => (float) $subscription->subscription_amount_per_month,
+            'total' => (float) $subscription->total_subscription_amount,
+            'count' => $count,
+        ];
+
+        // Formatted by the same rule the email and the bell use.
+        $note = (new Invoice(['details' => ['final_installment' => $final]]))->finalInstallmentNote();
+
+        return [
+            'items' => [[
+                'description' => __('invoice.final_installment.description', ['number' => $note['number'], 'count' => $note['count']]),
+                'detail' => __('invoice.final_installment.detail', [
+                    'difference' => $note['difference'],
+                    'monthly' => $note['monthly'],
+                    'count' => $note['count'],
+                    'total' => $note['total'],
+                ]),
+                'amount' => $subscription->finalInstallmentAmount(),
+            ]],
+            'final_installment' => $final,
+        ];
     }
 
     // Cron Job

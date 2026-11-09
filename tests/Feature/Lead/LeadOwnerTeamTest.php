@@ -4,6 +4,7 @@ namespace Tests\Feature\Lead;
 
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
+use App\Models\Employee\Employee;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -87,6 +88,58 @@ class LeadOwnerTeamTest extends TestCase
         $this->actingAsUser($this->hostAdmin);
 
         $this->assertSame(collect([$this->wlpAdmin->id, $wlpStaff->id])->sort()->values()->all(), $this->teamIds(['partner_id' => $this->wlp->id]));
+    }
+
+    /**
+     * Defect: R2 BUG-051 - an employee set to Inactive (or Suspended) was still
+     * offered in the client "Assign to" list. A client already assigned to them
+     * keeps the name on screen: keep_ids brings that one user back, flagged
+     * inactive. The employee's job status does not change the login's status,
+     * so active_only has to look at both.
+     */
+    #[Test]
+    public function inactive_and_suspended_employees_are_not_offered_unless_already_assigned(): void
+    {
+        $active = $this->employeeLogin($this->host, Employee::STATUS_ACTIVE);
+        $inactive = $this->employeeLogin($this->host, Employee::STATUS_INACTIVE);
+        $suspended = $this->employeeLogin($this->host, Employee::STATUS_SUSPENDED);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assertSame(collect([$this->hostAdmin->id, $active->id])->sort()->values()->all(), $this->teamIds(['active_only' => true]));
+
+        $users = collect($this->postJson('/api/v1/common/get-all-users', ['active_only' => true, 'keep_ids' => [$inactive->id]])->assertOk()->json('data'))->keyBy('id');
+        $this->assertSame([$this->hostAdmin->id, $active->id, $inactive->id], $users->keys()->sort()->values()->all());
+        $this->assertTrue($users[$inactive->id]['is_inactive']);
+        $this->assertFalse($users[$active->id]['is_inactive']);
+        $this->assertFalse($users->has($suspended->id));
+
+        // Naming someone outside the team brings nobody in.
+        $this->assertSame(collect([$this->hostAdmin->id, $active->id])->sort()->values()->all(), $this->teamIds(['active_only' => true, 'keep_ids' => [$this->wlpAdmin->id]]));
+
+        // List filters (no active_only) still get everyone, flagged.
+        $everyone = collect($this->postJson('/api/v1/common/get-all-users')->assertOk()->json('data'))->keyBy('id');
+        $this->assertSame(collect([$this->hostAdmin->id, $active->id, $inactive->id, $suspended->id])->sort()->values()->all(), $everyone->keys()->sort()->values()->all());
+        $this->assertTrue($everyone[$suspended->id]['is_inactive']);
+    }
+
+    private function employeeLogin(Partner $partner, string $jobStatus): User
+    {
+        $employee = Employee::create([
+            'partner_id' => $partner->id,
+            'first_name' => 'Staff',
+            'last_name' => $jobStatus,
+            'email' => 'staff-' . uniqid() . '@example.test',
+            'job_status' => $jobStatus,
+        ]);
+
+        return $this->makeUser([
+            'name' => "Staff {$jobStatus}",
+            'email' => $employee->email,
+            'user_type' => $partner->is_host ? User::ADMIN : User::PARTNER,
+            'partner_id' => $partner->id,
+            'entity_type' => Employee::class,
+            'entity_id' => $employee->id,
+        ]);
     }
 
     #[Test]

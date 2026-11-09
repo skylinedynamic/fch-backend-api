@@ -21,7 +21,9 @@ return [
     'fetch_financial_info' => 'Fetch Financial Information',
     'fetch_financial_info_failed' => 'Failed to fetch financial information. Please try again.',
 
+    'changed_elsewhere' => 'This client was changed by someone else since you opened it. Reload to see the latest before saving.',
     'funding_request_not_found' => 'Funding request information not found',
+    'funding_request_not_approved' => 'No funding application can be started for this request: it has not been approved.',
     'fetch_funding_request' => 'Fetch Funding Request',
     'fetch_funding_request_failed' => 'Failed to fetch funding request information. Please try again.',
 
@@ -119,6 +121,7 @@ return [
 
     'list_failed' => 'Failed to retrieve borrowers.',
     'not_found' => 'Borrower not found.',
+    'credit_report_not_found' => 'That credit report was not uploaded for this client. Please upload the iSoftPull report again.',
     'credit_profile_not_a_report' => 'This file is not a credit report. Please upload the iSoftPull credit report PDF.',
     'credit_profile_unreadable_pdf' => 'This PDF could not be read. Please upload the iSoftPull credit report PDF.',
     'funding_data_failed' => 'Failed to load funding data.',
@@ -136,6 +139,7 @@ return [
     'tiers_fetch_failed' => 'Failed to retrieve tiers.',
     'upload_failed' => 'Failed to upload document.',
     'document_delete_failed' => 'Failed to delete document.',
+    'document_in_use' => 'This document is accepted and needed by funding request :requests. Upload a replacement first, then remove this one.',
     'document_not_found' => 'Document not found.',
     'document_status_updated' => 'Document status updated successfully.',
     'document_reviewed_mail' => [
@@ -216,5 +220,13 @@ return [
     'credit_profile_not_found' => 'This client has no credit profile to remove.',
     'logs' => [
         'credit_profile_removed' => 'Client credit profile removed.',
+        'credit_profile_activity_failed' => 'Could not record the credit profile change in the client activity.',
+    ],
+    // The client's Activity panel (BUG-075): who saved or removed it, and when.
+    'activity' => [
+        'credit_profile_saved' => 'Credit Profile Saved',
+        'credit_profile_saved_desc' => "The client's credit profile was saved.",
+        'credit_profile_removed' => 'Credit Profile Data Removed',
+        'credit_profile_removed_desc' => "The client's credit profile data and its uploaded report were removed.",
     ],
 ];

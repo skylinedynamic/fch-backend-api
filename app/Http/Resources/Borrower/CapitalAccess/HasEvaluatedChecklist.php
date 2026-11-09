@@ -4,6 +4,7 @@ namespace App\Http\Resources\Borrower\CapitalAccess;
 
 use App\Models\CreditBuilder\CapitalAccess;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
+use App\Services\Borrower\Profile\ProfileCompletionService;
 
 trait HasEvaluatedChecklist
 {
@@ -33,7 +34,7 @@ trait HasEvaluatedChecklist
         }
 
         // Cache checks so we only run each DB query once per resource serialization
-        $isBusinessInfoValid   = null;
+        $businessInfo          = null;
         $isEinVerified         = null;
         $isPersonalCreditPulled = null;
         $hasBusinessBankAccount = null;
@@ -44,26 +45,16 @@ trait HasEvaluatedChecklist
             $label    = is_array($item) ? ($item['label'] ?? $item['name'] ?? '') : $item;
             $itemId   = is_array($item) ? ($item['id'] ?? null) : null;
             $complete = false;
+            $missingFields = null;
 
             // Match by normalized label
             $normLabel = strtolower(trim($label));
 
             if ($normLabel === strtolower(CapitalAccess::TASK_BUSINESS_INFORMATION)) {
-                if ($isBusinessInfoValid === null) {
-                    $businessFields = [
-                        'business_name', 'business_ein', 'business_phone', 'business_address',
-                        'business_city', 'business_state', 'business_email', 'business_entity_type',
-                        'business_industry_type', 'business_start_date'
-                    ];
-                    $isBusinessInfoValid = true;
-                    foreach ($businessFields as $field) {
-                        if (empty($borrower->$field)) {
-                            $isBusinessInfoValid = false;
-                            break;
-                        }
-                    }
-                }
-                $complete = $isBusinessInfoValid;
+                // The profile's own business rule (BUG-043).
+                $businessInfo ??= app(ProfileCompletionService::class)->checkBusiness($borrower);
+                $complete      = $businessInfo['is_complete'];
+                $missingFields = $businessInfo['missing_fields'];
                 $itemId   = $itemId ?? 'business_info';
             } elseif ($normLabel === strtolower(CapitalAccess::TASK_EIN_VERIFIED)) {
                 if ($isEinVerified === null) {
@@ -119,11 +110,16 @@ trait HasEvaluatedChecklist
                 $itemId   = $itemId ?? 'item-' . $idx;
             }
 
-            $evaluated[] = [
+            $entry = [
                 'id'       => $itemId,
                 'label'    => $label,
                 'complete' => $complete,
             ];
+            // Only the business item can say which profile fields are missing.
+            if ($missingFields !== null) {
+                $entry['missing_fields'] = $missingFields;
+            }
+            $evaluated[] = $entry;
         }
 
         return $evaluated;

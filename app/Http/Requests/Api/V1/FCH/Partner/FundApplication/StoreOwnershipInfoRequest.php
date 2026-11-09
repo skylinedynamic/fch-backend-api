@@ -7,6 +7,7 @@ use App\Rules\OwnershipWithinTotal;
 use App\Rules\UsPostalCode;
 use App\Models\Borrower\FundingApplication;
 use App\Rules\VisibleToUser;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\UsPhoneNumber;
 use Illuminate\Validation\Validator;
@@ -63,7 +64,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
-            'date_of_birth' => 'required|date',
+            'date_of_birth' => ['required', new DateOfBirth()],
             'ssn' => ['required', 'string', new Ssn()],
             'country' => 'nullable|string|max:255',
             'phone_number' => ['required', 'string', new UsPhoneNumber()],
@@ -96,7 +97,6 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'first_name.max' => __('borrower_validation.first_name_max'),
             'last_name.string' => __('borrower_validation.last_name_string'),
             'last_name.max' => __('borrower_validation.last_name_max'),
-            'date_of_birth.date' => __('borrower_validation.date_of_birth_date'),
             'ssn.string' => __('borrower_validation.ssn_string'), 
             'ssn.digits' => __('borrower_validation.ssn_digits'),
             'country.string' => __('borrower_validation.country_string'),
@@ -132,6 +132,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
                 'zip_code' => new UsPostalCode(),
                 'mobile_phone' => new UsPhoneNumber(),
                 'home_phone' => new UsPhoneNumber(),
+                'date_of_birth' => new DateOfBirth(),
             ];
 
             foreach ((array) $this->input('co_borrowers', []) as $index => $coBorrower) {

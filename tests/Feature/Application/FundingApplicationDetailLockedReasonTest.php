@@ -20,9 +20,9 @@ use Tests\TestCase;
  * partner, the certified partner and the borrower when the application can't
  * be edited any more, and why.
  *
- * The host's team is the exception: it edits any application at any status
- * (HostEditsAnyFundingApplicationTest), so it is never told it is locked.
- * Decision 2026-10-29, merging SCRUM-331 into stage.
+ * The host's team follows the same rule (decision 2026-11-03, replacing the
+ * 2026-10-29 one that let it edit at any status): only the statuses in
+ * config `statuses.editable` are editable, for everyone.
  */
 #[CoversClass(FundingApplicationResource::class)]
 class FundingApplicationDetailLockedReasonTest extends TestCase
@@ -34,17 +34,15 @@ class FundingApplicationDetailLockedReasonTest extends TestCase
 
     public static function viewerProvider(): array
     {
-        return [
-            'host on a certified partner\'s application' => ['host'],
-            'host on a white-label partner\'s application' => ['host_on_white_label'],
-            ...self::lockedViewerProvider(),
-        ];
+        return self::lockedViewerProvider();
     }
 
-    /** Everyone the status lock applies to - all but the host's team. */
+    /** Everyone the status lock applies to - the host's team included. */
     public static function lockedViewerProvider(): array
     {
         return [
+            'host on a certified partner\'s application' => ['host'],
+            'host on a white-label partner\'s application' => ['host_on_white_label'],
             'white-label partner' => ['white_label'],
             'certified partner' => ['certified'],
             'borrower' => ['borrower'],
@@ -147,19 +145,6 @@ class FundingApplicationDetailLockedReasonTest extends TestCase
     }
 
     #[Test]
-    public function the_host_may_still_edit_at_a_locked_status_so_it_gets_no_locked_reason(): void
-    {
-        foreach (self::lockedStatusProvider() as [$status]) {
-            [$user, $applicationId] = $this->viewerAndApplication('host', $status);
-
-            $data = $this->details($user, $applicationId);
-
-            $this->assertTrue($data['is_editable'], "host at {$status}");
-            $this->assertNull($data['locked_reason'], "host at {$status}");
-        }
-    }
-
-    #[Test]
     #[DataProvider('lockedViewerProvider')]
     public function every_viewer_is_told_a_locked_application_cannot_be_edited(string $viewer): void
     {
@@ -169,8 +154,12 @@ class FundingApplicationDetailLockedReasonTest extends TestCase
             $data = $this->details($user, $applicationId);
 
             $this->assertFalse($data['is_editable'], "{$viewer} at {$status}");
+            // The borrower is pointed to their funding advisor; the host and the
+            // partners are the advisors, so they are just told it is locked.
             $this->assertSame(
-                __('application.funding_application_locked', ['status' => $status]),
+                $viewer === 'borrower'
+                    ? __('application.funding_application_locked', ['status' => $status])
+                    : __('application.funding_application_locked_staff', ['status' => $status]),
                 $data['locked_reason'],
                 "{$viewer} at {$status}"
             );

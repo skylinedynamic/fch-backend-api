@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\FundingRequest\FetchFundingRequestRequest;
 use App\Http\Requests\Api\V1\FCH\Common\FundingRequest\GetFundingRequestByIdRequest;
 use App\Http\Requests\Api\V1\FCH\Common\FundingRequest\UpdateFundingRequestStatusRequest;
+use App\Models\Lender\Lender;
 use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Helpers\ApiResponse;
+use Closure;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class FundingRequestController extends Controller
 {
@@ -63,12 +66,23 @@ class FundingRequestController extends Controller
     /**
      * Assign Lender to Funding Request
      */
-    public function assignLender(\Illuminate\Http\Request $request): JsonResponse
+    public function assignLender(Request $request): JsonResponse
     {
         $request->validate([
             'id' => 'required|exists:funding_requests,id',
             'lender_ids' => 'nullable|array',
-            'lender_ids.*' => 'integer|exists:lenders,id',
+            // Only an active lender can be assigned (R2 BUG-020). A lender
+            // assigned before it was deactivated stays assigned until changed.
+            'lender_ids.*' => [
+                'bail',
+                'integer',
+                'exists:lenders,id',
+                function (string $attribute, mixed $value, Closure $fail) {
+                    if (Lender::whereKey($value)->value('status') !== Lender::STATUS_ACTIVE) {
+                        $fail(__('funding_request.lender_inactive'));
+                    }
+                },
+            ],
         ]);
 
         try {

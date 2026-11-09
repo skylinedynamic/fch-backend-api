@@ -3,11 +3,15 @@
 namespace Tests\Feature\EmbedForm;
 
 use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
+use App\Models\Borrower\Borrower;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
+use App\Models\Partner\SubscriptionPlan;
+use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -222,7 +226,10 @@ class EmbedFormSubmissionsApiTest extends TestCase
     {
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->getJson('/api/v1/common/embed-forms/config')->assertSuccessful();
+        $this->getJson('/api/v1/common/embed-forms/config')
+            ->assertSuccessful()
+            // The settings screen builds the auto-height embed code with it.
+            ->assertJsonPath('data.embed_script_url', fn ($url) => is_string($url) && str_ends_with($url, '/form/assets/embed.js'));
     }
 
     #[Test]
@@ -247,13 +254,66 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertSame(['their-key', 'Theirs'], [$theirs->fresh()->public_key, $theirs->fresh()->form_title]);
     }
 
+    /**
+     * notification_email was saved but never used: new-submission mail goes to
+     * the partner's own email, and the portal never sent the field. The column
+     * and the setting are removed.
+     */
     #[Test]
-    public function an_allowed_domain_must_be_a_url(): void
+    public function the_form_has_no_notification_email_setting(): void
+    {
+        EmbedFormConfig::create(['partner_id' => $this->partner->id, 'public_key' => 'my-key', 'form_title' => 'Mine', 'is_active' => true]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->assertFalse(Schema::hasColumn('embedded_form_configs', 'notification_email'));
+        $this->assertArrayNotHasKey('notification_email', $this->getJson('/api/v1/common/embed-forms/config')->assertOk()->json('data'));
+        // Sent anyway, it is neither validated nor stored.
+        $this->putJson('/api/v1/common/embed-forms/config', ['notification_email' => 'not-an-email'])->assertOk();
+    }
+
+    #[Test]
+    public function an_allowed_domain_must_be_a_domain(): void
     {
         $this->actingAsUser($this->partnerAdmin);
 
         $this->putJson('/api/v1/common/embed-forms/config', ['allowed_domains' => ['not a url']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('allowed_domains.0');
+    }
+
+    /**
+     * BUG-058 (retest): the Loan Applications list labelled a submission
+     * converted onto a paid client "Free Plan" - the list endpoint never sent
+     * the client it was converted onto, so the portal could not know its plan.
+     */
+    #[Test]
+    public function the_list_sends_the_client_a_submission_was_converted_onto_with_its_plan(): void
+    {
+        $client = Borrower::create([
+            'partner_id' => $this->partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Owner',
+            'last_name' => 'Client Two',
+            'email' => 'client-two@example.test',
+            'is_free_trail' => false,
+        ]);
+        Subscription::create([
+            'entity_type' => Borrower::class,
+            'entity_id' => $client->id,
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $this->submissionFor($this->partner, [
+            'status' => EmbedFormSubmission::STATUS_CONVERTED,
+            'converted_borrower_id' => $client->id,
+        ]);
+
+        $this->actingAsUser($this->partnerAdmin);
+        $row = $this->postJson('/api/v1/common/embed-forms/submissions/fetch')->assertOk()->json('data.0');
+
+        $this->assertSame('Ann Applicant', trim($row['first_name'] . ' ' . $row['last_name']));
+        $this->assertSame($client->id, $row['converted_borrower']['id'] ?? null);
+        $this->assertFalse($row['converted_borrower']['is_free_trail']);
+        $this->assertSame(SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT, $row['converted_borrower']['enrollment_type']);
     }
 }

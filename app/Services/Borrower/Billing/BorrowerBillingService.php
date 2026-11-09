@@ -2,6 +2,9 @@
 
 namespace App\Services\Borrower\Billing;
 
+use App\Services\FCH\Subscription\SubscriptionResumeService;
+use Illuminate\Http\JsonResponse;
+
 use Exception;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Borrower\Payment\PaymentResource;
@@ -183,6 +186,8 @@ class BorrowerBillingService
                 'payable_amount' => currencyFormat($subscription->payable_amount),
                 'down_payment' => currencyFormat($subscription->down_payment),
                 'subscription_amount_per_month' => currencyFormat($subscription->subscription_amount_per_month),
+                // The last installment, when it takes up the monthly rounding (BUG-049).
+                'final_installment_amount' => currencyFormat($subscription->adjustedFinalInstallmentAmount()),
                 'installment_count' => (int) $subscription->installment_count,
                 'installments_paid' => (int) ($subscription->installments_paid ?? 0),
                 'subscription_start_date' => toDateOnly($subscription->subscription_start_date),
@@ -356,6 +361,25 @@ class BorrowerBillingService
     /**
      * Cancel borrower subscription.
      */
+    /**
+     * Resume the borrower's cancelled subscription (BUG-069).
+     */
+    public function resumeSubscription(): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user->entity_id || $user->entity_type !== Borrower::class) {
+            return ApiResponse::error(__('borrower.borrower_not_found'), 404);
+        }
+
+        $subscription = Subscription::where('entity_id', $user->entity_id)
+            ->where('entity_type', Borrower::class)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return app(SubscriptionResumeService::class)->resume($subscription);
+    }
+
     public function cancelSubscription(array $data)
     {
         $user = Auth::user();

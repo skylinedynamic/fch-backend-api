@@ -2,6 +2,7 @@
 
 namespace App\Services\GlobalPayment\Drivers;
 
+use App\Contracts\Payment\AuthenticatesCardPayments;
 use App\Contracts\Payment\PaymentGatewayInterface;
 use App\Models\Invoice\Invoice;
 use App\Models\PaymentMethod\PaymentProvider;
@@ -25,8 +26,23 @@ use RuntimeException;
  * The application (Laravel) manages billing cycles, installments, and platform fees entirely.
  * Due payments are automatically charged off-session by the `subscriptions:process-all` cron job.
  */
-class StripePaymentDriver implements PaymentGatewayInterface
+class StripePaymentDriver implements PaymentGatewayInterface, AuthenticatesCardPayments
 {
+    /** PaymentIntent statuses that mean the money has been taken (or authorised). */
+    public const INTENT_PAID_STATUSES = ['succeeded', 'requires_capture'];
+
+    /** The issuer wants the cardholder to authenticate - 3-D Secure, usually an OTP. */
+    public const INTENT_REQUIRES_ACTION = 'requires_action';
+
+    /**
+     * Not settled yet, but no longer waiting on the payer: Stripe is still
+     * processing an authenticated charge. Kept pending, never failed.
+     */
+    public const INTENT_PROCESSING = 'processing';
+
+    /** last_payment_error.code when the cardholder failed (or abandoned) the bank's challenge. */
+    public const ERROR_AUTHENTICATION_FAILED = 'payment_intent_authentication_failure';
+
     protected array $config = [];
     protected string $environment = PaymentProvider::MODE_SANDBOX;
     protected ?string $apiKey = null;
@@ -192,13 +208,12 @@ class StripePaymentDriver implements PaymentGatewayInterface
         }
 
         return [
-            'success' => in_array($intent->status, ['succeeded', 'requires_capture']),
+            'success' => in_array($intent->status, self::INTENT_PAID_STATUSES, true),
             // Not a decline. The issuer wants the cardholder to authenticate -
-            // 3-D Secure, which usually means an OTP - and the charge is waiting
-            // on a step this application does not implement. Flagged separately so
-            // callers can say that, instead of reporting a generic failure for a
-            // card that is perfectly good.
-            'requires_action' => $intent->status === 'requires_action',
+            // 3-D Secure, which usually means an OTP. The browser finishes it
+            // with `client_secret` (stripe.handleNextAction), and the result is
+            // read back with retrievePayment() (BUG-066).
+            'requires_action' => $intent->status === self::INTENT_REQUIRES_ACTION,
             'transaction_id' => $intent->id,
             'status' => $intent->status,
             'client_secret' => $intent->client_secret,
@@ -275,6 +290,40 @@ class StripePaymentDriver implements PaymentGatewayInterface
             'transaction_id' => $intent->id,
             'status' => $intent->status,
             'raw' => $intent->toArray(),
+        ];
+    }
+
+    public function retrievePayment(string $transactionId): array
+    {
+        return $this->describeIntent(PaymentIntent::retrieve($transactionId));
+    }
+
+    public function cancelPayment(string $transactionId): array
+    {
+        $intent = PaymentIntent::retrieve($transactionId);
+
+        return $this->describeIntent($intent->cancel());
+    }
+
+    /**
+     * A PaymentIntent in the shape AuthenticatesCardPayments describes. The
+     * client secret is left out: it lets a browser confirm the charge, and
+     * nothing that reads an intent back needs it.
+     */
+    protected function describeIntent(PaymentIntent $intent): array
+    {
+        $error = $intent->last_payment_error ?? null;
+
+        return [
+            'success' => in_array($intent->status, self::INTENT_PAID_STATUSES, true),
+            'requires_action' => $intent->status === self::INTENT_REQUIRES_ACTION,
+            'processing' => $intent->status === self::INTENT_PROCESSING,
+            'transaction_id' => $intent->id,
+            'status' => $intent->status,
+            'error' => $error->message ?? null,
+            'error_code' => $error->code ?? null,
+            'customer_id' => is_string($intent->customer ?? null) ? $intent->customer : ($intent->customer->id ?? null),
+            'raw' => array_diff_key($intent->toArray(), ['client_secret' => true]),
         ];
     }
 

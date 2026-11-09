@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
@@ -57,7 +58,7 @@ class StoreLeadRequest extends BaseApiRequest
             'entity_type_note' => ['nullable', 'string'],
             'industry_type' => ['nullable', 'string', 'max:255'],
             'industry_type_note' => ['nullable', 'string'],
-            'business_start_date' => ['nullable', 'date'],
+            'business_start_date' => ['nullable', 'date', new NotFutureDate()], // BUG-007
             // The full SSN, kept encrypted (Lead::ssn), as on a client's profile.
             'ssn' => ['nullable', 'string', new Ssn()],
             'requirement_details' => ['nullable', 'string'],

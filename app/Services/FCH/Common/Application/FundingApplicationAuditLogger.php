@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\Application;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
+use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Support\Facades\Log;
 
@@ -23,6 +24,8 @@ class FundingApplicationAuditLogger
 {
     public const ACTOR_BORROWER = 'borrower';
     public const ACTOR_PARTNER = 'partner';
+
+    public const EVENT_CONVERTED_FROM_EMBED_FORM = 'Successfully Converted to Funding Application';
 
     public function __construct(private ActivityLogService $activityLog)
     {
@@ -174,6 +177,36 @@ class FundingApplicationAuditLogger
             'is_resubmission' => $wasResubmission,
             'signatures' => $signatures ?: null,
         ]);
+    }
+
+    /**
+     * The application was created by converting an embed form submission -
+     * Create Client & Funding Application. Its first entry: who created it, for
+     * which client, and from which submission.
+     */
+    public function logCreatedFromEmbedForm(
+        FundingApplication $application,
+        EmbedFormSubmission $submission,
+        bool $existingClient
+    ): void {
+        $actorName = $this->actorName(self::ACTOR_PARTNER);
+        $clientName = personName($submission->first_name, $submission->middle_name, $submission->last_name);
+        $client = $existingClient ? "existing client {$clientName}" : "new client {$clientName}";
+
+        $this->write(
+            $application,
+            self::EVENT_CONVERTED_FROM_EMBED_FORM,
+            "Embedded form submission #{$submission->id} successfully converted to Funding Application "
+                . "{$application->application_number} by {$actorName} for {$client}.",
+            [
+                'visible_to_borrower' => '1',
+                'actor' => self::ACTOR_PARTNER,
+                'actor_name' => $actorName,
+                'source' => 'embed_form',
+                'embed_form_submission_id' => $submission->id,
+                'is_existing_client' => $existingClient,
+            ]
+        );
     }
 
     /**

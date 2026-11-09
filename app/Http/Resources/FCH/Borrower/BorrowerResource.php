@@ -4,6 +4,7 @@ namespace App\Http\Resources\FCH\Borrower;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\Files\FileUrl;
 
 class BorrowerResource extends JsonResource
 {
@@ -50,7 +51,7 @@ class BorrowerResource extends JsonResource
             'business_industry_type'    => $this->business_industry_type,
             'business_industry_type_note'=> $this->business_industry_type_note,
             'business_description'      => $this->business_description,
-            'business_logo'             => $this->business_logo ? url($this->business_logo) : null,
+            'business_logo'             => FileUrl::for($this->business_logo),
             'business_registration_number' => $this->business_registration_number,
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number'               => $this->duns_number,

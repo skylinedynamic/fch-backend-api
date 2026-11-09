@@ -117,7 +117,7 @@ class BorrowerCreditProfileApiTest extends TestCase
     }
 
     #[Test]
-    public function a_report_without_a_fico_score_still_saves(): void
+    public function a_fico_score_from_300_to_850_saves(): void
     {
         $this->actingAsUser($this->hostAdmin);
 
@@ -127,11 +127,45 @@ class BorrowerCreditProfileApiTest extends TestCase
             ]))->assertOk();
         }
 
-        $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
-            'metrics' => ['paydex_score' => 80],
-        ]))->assertOk();
+        $this->assertSame(850, (int) BorrowerCreditProfile::where('borrower_id', $this->borrower->id)->firstOrFail()->fico_score);
+    }
 
-        $this->assertNull(BorrowerCreditProfile::where('borrower_id', $this->borrower->id)->firstOrFail()->fico_score);
+    /**
+     * Defect (BUG-074): a cleared FICO Score saved with 200 "Credit profile
+     * saved", leaving the client with no score - Capital Access then read it as
+     * "below the minimum" and the client was emailed that the profile changed.
+     */
+    #[Test]
+    public function a_credit_profile_without_a_fico_score_is_refused_and_nothing_is_saved(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+
+        foreach ([['fico_score' => ''], ['fico_score' => null], ['paydex_score' => 80]] as $metrics) {
+            $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
+                'metrics' => $metrics,
+            ]))->assertStatus(422)->assertJsonValidationErrors(['metrics.fico_score']);
+        }
+
+        $this->postJson('/api/v1/common/borrowers/save-credit-profile', ['borrower_id' => $this->borrower->id])
+            ->assertStatus(422)->assertJsonValidationErrors(['metrics.fico_score']);
+
+        $this->assertSame(0, BorrowerCreditProfile::where('borrower_id', $this->borrower->id)->count());
+        $this->assertFalse((bool) $this->borrower->fresh()->credit_profile_updated);
+    }
+
+    /** A cleared score on a profile already on file leaves the saved one as it was. */
+    #[Test]
+    public function clearing_the_fico_score_on_a_saved_profile_keeps_the_score_on_file(): void
+    {
+        $this->actingAsUser($this->hostAdmin);
+        $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower))->assertOk();
+
+        $this->postJson('/api/v1/common/borrowers/save-credit-profile', $this->savePayload($this->borrower, [
+            'metrics' => ['fico_score' => ''],
+        ]))->assertStatus(422)->assertJsonValidationErrors(['metrics.fico_score']);
+
+        $this->assertSame(712, (int) $this->borrower->fresh()->fico_score);
+        $this->assertSame(712, (int) BorrowerCreditProfile::where('borrower_id', $this->borrower->id)->firstOrFail()->fico_score);
     }
 
     #[Test]
@@ -238,7 +272,7 @@ class BorrowerCreditProfileApiTest extends TestCase
 
         $this->post('/api/v1/common/borrowers/parse-credit-profile', [
             'borrower_id' => $this->borrower->id,
-            'pdf' => $this->reportPdf('Name: UNIQUEREPORTMARKER 123 MAIN ST'),
+            'pdf' => $this->reportPdf('Name: UNIQUEREPORTMARKER FICO Score: 712 123 MAIN ST'),
         ], ['Accept' => 'application/json'])->assertOk();
 
         $all = implode("\n", $logged);

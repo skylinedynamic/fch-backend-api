@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
 class FundingRequestPurposeOfFundsTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
 
     private int $applicationId;
     private int $fundingRequestId;
@@ -30,6 +32,7 @@ class FundingRequestPurposeOfFundsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         $partnerId = DB::table('partners')->insertGetId([
             'full_name' => 'Pat Partner',

@@ -6,14 +6,18 @@ use App\Models\Borrower\BorrowerDocType;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
+use App\Services\Global\General\LenderProductCategoryService;
 use App\Services\FCH\Common\Scoring\CreditScoreService;
 use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use App\Support\EmbedForm\EmbedFormDisplay;
 use App\Support\EmbedForm\EmbedFormLogo;
+use App\Rules\DateOfBirth;
 use App\Rules\UsPostalCode;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class EmbedFormPageController extends Controller
 {
@@ -47,9 +51,10 @@ class EmbedFormPageController extends Controller
             $branding = app(AppConfigurationService::class)->getBrandingSettings($partnerId);
         }
 
-        // Resolved site/company name
-        $partnerName = $branding['site_name']
-            ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
+        // Who the applicant is dealing with: this partner's own site name, then
+        // its company name. Never the host's site name - see ownSiteName().
+        $partnerName = ($partnerId ? app(AppConfigurationService::class)->ownSiteName($partnerId) : null)
+            ?: ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
 
         // Whose logo this is - the partner's own or the host's - is a
         // brand-ownership rule, so it is resolved before the address is built.
@@ -59,8 +64,13 @@ class EmbedFormPageController extends Controller
         $logoUrl = $this->resolveLogoUrl($logoBranding, $partner);
         $faviconUrl = $this->resolveFaviconUrl($branding);
 
-        // Theme colors
-        $primaryColor = $branding['primary_color'] ?? '#0d6efd';
+        // Header, footer, background, frame and primary colour, from the embed
+        // code's link.
+        $display = EmbedFormDisplay::fromRequest($request);
+
+        // Theme colors. The embed code's own primary colour, when it has one,
+        // matches the form to the site around it.
+        $primaryColor = $display->primaryColor() ?? $branding['primary_color'] ?? '#0d6efd';
         $secondaryColor = $branding['secondary_color'] ?? '#198754';
 
         $response = response()->view('embed-form.index', [
@@ -71,11 +81,16 @@ class EmbedFormPageController extends Controller
             'primaryColor' => $primaryColor,
             'secondaryColor' => $secondaryColor,
             'publicKey' => $key,
+            'display' => $display,
             'apiBase' => config('app.url') . '/api',
 
             // The funding application's own dropdowns and document buckets, so
             // the public form asks for exactly what the portal's wizard does.
-            'options' => config('funding_application.options'),
+            // Funding types: the same service as GET /api/v1/common/funding-types.
+            // Purpose of Funds comes straight from the config, as before.
+            'options' => array_merge(config('funding_application.options'), [
+                'funding_types' => app(LenderProductCategoryService::class)->fundingTypeNames(),
+            ]),
             // Code => symbol; the first is preselected.
             'currencies' => config('funding_application.embed_form.currencies'),
             'locations' => config('locations'),
@@ -94,7 +109,10 @@ class EmbedFormPageController extends Controller
             'referralSources' => config('funding_application.embed_form.referral_sources', []),
             'referralSourceOther' => config('funding_application.embed_form.referral_source_other', 'Other'),
             'creditScore' => app(CreditScoreService::class)->toArray(),
-            'minimumAge' => (int) config('funding_application.embed_form.minimum_age', 18),
+            'minimumAge' => DateOfBirth::minimumAge(),
+            // The calendar's last pickable date of birth, worked out the same
+            // way the API checks it (no rolling 29 Feb into March).
+            'latestDateOfBirth' => DateOfBirth::latestAllowedDate()->toDateString(),
             'postalCodeLength' => UsPostalCode::length(),
         ]);
 
@@ -174,7 +192,7 @@ class EmbedFormPageController extends Controller
     private function publicUrl(string $path): string
     {
         $path = ltrim($path, '/');
-        $url = Storage::disk('public')->url($path);
+        $url = Storage::disk(Disk::UPLOADS)->url($path);
 
         // BASE_API_URL unset leaves the disk's base as the bare string
         // `/storage`, so the disk hands back a host-less address. A relative src
@@ -204,7 +222,7 @@ class EmbedFormPageController extends Controller
         $favicon = $branding['favicon'] ?? null;
 
         return $favicon
-            ? encodeUrl(Storage::disk('public')->url($favicon))
+            ? encodeUrl(Storage::disk(Disk::UPLOADS)->url($favicon))
             : null;
     }
 }

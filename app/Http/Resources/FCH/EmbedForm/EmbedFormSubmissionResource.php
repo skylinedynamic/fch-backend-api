@@ -57,7 +57,9 @@ class EmbedFormSubmissionResource extends JsonResource
             'business_state' => $this->business_state,
             'business_postal_code' => $this->business_postal_code,
             'industry_type' => $this->industry_type,
+            'industry_type_note' => $this->industry_type_note,
             'entity_type' => $this->entity_type,
+            'entity_type_note' => $this->entity_type_note,
             // Stored as the nine digits; shown as an EIN is written.
             'business_ein' => $this->business_ein,
             'business_ein_display' => $this->einDisplay(),
@@ -230,6 +232,15 @@ class EmbedFormSubmissionResource extends JsonResource
                     'status' => $this->convertedBorrower->status,
                     'is_free_trail' => (bool) $this->convertedBorrower->is_free_trail,
                     'free_trail_end_date' => toDateOnly($this->convertedBorrower->free_trail_end_date),
+                    // BUG-058: converted onto an existing client, the details page
+                    // shows that client - not the submitted applicant - and their
+                    // real plan (the enrollment type of a paid client).
+                    'email' => $this->convertedBorrower->email,
+                    'phone' => $this->convertedBorrower->phone_number,
+                    'business_name' => $this->convertedBorrower->business_name,
+                    'enrollment_type' => $this->convertedBorrower->relationLoaded('latestSubscription')
+                        ? $this->convertedBorrower->latestSubscription?->enrollment_type
+                        : null,
                 ] : null;
             }),
 

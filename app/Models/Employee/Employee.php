@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Support\Files\FileUrl;
 
 class Employee extends Model
 {
@@ -51,6 +52,8 @@ class Employee extends Model
     const STATUS_ACTIVE = 'Active';
     const STATUS_INACTIVE = 'Inactive';
     const STATUS_SUSPENDED = 'Suspended';
+
+    const STATUSES = [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_SUSPENDED];
 
     /**
      * 🔹 Relationship: each employee belongs to a user.
@@ -140,7 +143,7 @@ class Employee extends Model
      */
     public function getImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     public function getEntityImage(): string

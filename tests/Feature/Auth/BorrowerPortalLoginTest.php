@@ -7,6 +7,7 @@ use App\Models\Borrower\Borrower;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
@@ -125,6 +126,41 @@ class BorrowerPortalLoginTest extends TestCase
         $this->login($user->email)
             ->assertUnauthorized()
             ->assertJsonPath('message', __('auth.borrower_inactive'));
+    }
+
+    /**
+     * BUG-067: the password was checked last, after the account's state, so a
+     * wrong password on a registered account still got "suspended", "inactive"
+     * or "free plan expired" (naming the partner) - telling an outsider the
+     * email is registered. A wrong password now always gets the neutral
+     * message; the account's state is only told to someone with the password.
+     */
+    public static function accountStates(): array
+    {
+        return [
+            'suspended' => [['status' => Borrower::STATUS_SUSPENDED], [], 'auth.borrower_suspended'],
+            'inactive' => [['status' => Borrower::STATUS_INACTIVE], [], 'auth.borrower_inactive'],
+            'free plan expired' => [['is_free_trail' => true, 'free_trail_end_date' => now()->subDay()->toDateString()], [], 'auth.free_plan_expired'],
+            'login deactivated' => [[], ['status' => 0], 'auth.user_inactive'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('accountStates')]
+    public function a_wrong_password_never_reveals_the_accounts_state(array $borrower, array $user, string $stateMessage): void
+    {
+        $partner = $this->makeHostPartner();
+        $account = $this->makeBorrowerUser($partner, $borrower, $user);
+
+        $this->login($account->email, password: 'wrong-password')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', __('auth.invalid_login'))
+            ->assertJsonPath('field', 'password');
+
+        // With the right password, the owner is told why.
+        $this->login($account->email)
+            ->assertUnauthorized()
+            ->assertJsonPath('message', __($stateMessage, ['partner' => $partner->company_name ?? $partner->full_name]));
     }
 
     #[Test]

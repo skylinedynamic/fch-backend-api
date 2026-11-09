@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
+use App\Models\Partner\PartnerDocument;
+use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
@@ -28,6 +30,9 @@ class StorePartnerDocumentRequest extends BaseApiRequest
     {
         return [
             'partner_id' => ['required', 'integer', 'exists:partners,id'],
+            // The folder the file paths are in: the Documents tab's private
+            // partner-documents/{id}, or the older public partners/{id}.
+            'entity_type' => ['nullable', Rule::in(PartnerDocument::PICK_FOLDERS)],
             'file_path' => ['nullable', new NoPathTraversal()],
             'file_path.*' => ['nullable', new NoPathTraversal()],
         ];
@@ -42,6 +47,7 @@ class StorePartnerDocumentRequest extends BaseApiRequest
             'partner_id.required' => __('partner.validation.partner_id.required'),
             'partner_id.exists' => __('partner.validation.partner_id.exists'),
             'file_path.max' => __('partner.validation.document_file.max'),
+            'entity_type.in' => __('partner.validation.document_file.folder'),
         ];
     }
 }

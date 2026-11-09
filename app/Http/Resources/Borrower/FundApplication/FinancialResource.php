@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\Borrower\FundApplication;
 
+use App\Http\Resources\Concerns\CarriesApplicationVersion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FinancialResource extends JsonResource
 {
+    use CarriesApplicationVersion;
+
     /**
      * Transform the resource into an array.
      *
@@ -19,6 +22,8 @@ class FinancialResource extends JsonResource
         if (isset($this->borrower_id)) {
             $startDate = $this->business_checking_start_date ?? $borrower?->business_start_date;
             return [
+                // Sent back with the next save; see CarriesApplicationVersion.
+                'version' => $this->applicationVersion(),
                 'id' => $this->id,
                 'monthly_revenue' => $this->monthly_revenue ?? $borrower?->monthly_revenue ?? null,
                 'annual_revenue' => $this->annual_revenue ?? $borrower?->annual_revenue ?? null,
