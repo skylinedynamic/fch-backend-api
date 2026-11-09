@@ -151,6 +151,12 @@ class DateOfBirthTest extends TestCase
     {
         $this->assertNull($this->errorFor(null));
         $this->assertNull($this->errorFor(''));
+
+        // Called directly too: the validator skips empty values before a rule
+        // runs, so this is the rule's own guard.
+        foreach ([null, ''] as $empty) {
+            (new DateOfBirth)->validate('dob', $empty, fn () => $this->fail('An empty value must pass.'));
+        }
     }
 
     #[Test]
