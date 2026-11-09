@@ -8,13 +8,16 @@ use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
+use App\Models\Compensation\CompensationSetting;
 use App\Models\EmbedForm\EmbedFormSubmission;
+use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
+use App\Services\FCH\Common\Commission\CommissionPayoutService;
 use App\Services\FCH\Common\OwnerSummary\OwnerSummaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -405,6 +408,36 @@ class OwnerSummaryTest extends TestCase
     }
 
     #[Test]
+    public function all_payments_adds_production_and_sandbox_together(): void
+    {
+        $production = $this->data();
+        $all = $this->data(['environment' => 'all']);
+
+        $this->assertSame('all', $all['environment']);
+        $this->assertEquals(['current' => 1625, 'previous' => 400], $all['kpis']['cash_collected']);
+        $this->assertEquals(75, collect($all['cash_by_stream'])->firstWhere('stream', OwnerSummaryService::STREAM_USER_SEAT)['amount']);
+        $this->assertEquals(
+            collect($production['monthly'])->sum('cash') + 75,
+            collect($all['monthly'])->sum('cash')
+        );
+    }
+
+    #[Test]
+    public function the_switch_only_changes_payments_since_nothing_else_is_marked_sandbox_or_live(): void
+    {
+        $production = $this->data();
+
+        foreach (['sandbox', 'all'] as $environment) {
+            $other = $this->data(['environment' => $environment]);
+
+            $this->assertEquals($production['kpis']['outstanding'], $other['kpis']['outstanding']);
+            $this->assertEquals($production['kpis']['funded'], $other['kpis']['funded']);
+            $this->assertEquals($production['kpis']['new_leads'], $other['kpis']['new_leads']);
+            $this->assertEquals($production['receivables'], $other['receivables']);
+        }
+    }
+
+    #[Test]
     public function what_is_owed_to_the_host_is_split_by_age_and_failure(): void
     {
         $data = $this->data();
@@ -422,7 +455,14 @@ class OwnerSummaryTest extends TestCase
     {
         $data = $this->data();
 
-        $this->assertEquals(['amount' => 150000, 'deals' => 2, 'previous_amount' => 20000], $data['kpis']['funded']);
+        $this->assertEquals([
+            'amount' => 150000,
+            'deals' => 2,
+            'previous_amount' => 20000,
+            'previous_deals' => 1,
+            'host' => ['amount' => 50000, 'deals' => 1],
+            'partners' => ['amount' => 100000, 'deals' => 1],
+        ], $data['kpis']['funded']);
         $this->assertEquals(20, $data['pipeline']['median_days_to_fund']);
 
         $commissions = $data['commissions'];
@@ -431,6 +471,36 @@ class OwnerSummaryTest extends TestCase
         $this->assertEquals(0, $commissions['paid_to_partners']);
         $this->assertEquals(0, $commissions['paid_to_staff']);
         $this->assertEquals(4000, $commissions['payouts_due']);
+    }
+
+    /**
+     * Regression: the summary failed with "Attempted to lazy load [entity] on
+     * model [User]" once deals were assigned to two different staff members.
+     */
+    #[Test]
+    public function payouts_due_add_up_across_different_assigned_staff_members(): void
+    {
+        foreach ([10 => '2026-11-13', 20 => '2026-11-14'] as $rate => $fundedOn) {
+            $staff = $this->makeStaffUser($this->host);
+            CompensationSetting::create([
+                'partner_id' => $this->host->id,
+                'entity_type' => Employee::class,
+                'entity_id' => $staff->entity_id,
+                'paid_by' => CompensationSetting::PAID_BY_PER_DEAL,
+                'service' => CommissionPayoutService::SERVICE_FUNDING,
+                'payout_type' => CompensationSetting::PAYOUT_TYPE_COMMISSION,
+                'amount' => $rate,
+            ]);
+
+            $application = $this->application($this->host, FundingApplication::SUBMITTED, 10000, '2026-11-05');
+            Borrower::whereKey($application->borrower_id)->update(['assign_id' => $staff->id]);
+            $this->moveTo($application, FundingApplication::CLOSED_COMPLETED, $fundedOn, 10000);
+            $this->commission($application, 1000, 0);
+        }
+        $this->at(self::TODAY);
+
+        // 4,000 to P1 as before, plus 10% and 20% of 1,000 to the two staff members.
+        $this->assertEquals(4300, $this->data()['commissions']['payouts_due']);
     }
 
     #[Test]
@@ -511,6 +581,60 @@ class OwnerSummaryTest extends TestCase
     }
 
     #[Test]
+    public function partners_and_clients_give_a_total_and_how_many_are_active_without_archived_ones(): void
+    {
+        $before = $this->data()['kpis']['clients'];
+
+        $this->makeBorrower($this->host, ['status' => Borrower::STATUS_ACTIVE]);
+        $this->makeBorrower($this->p1, ['status' => Borrower::STATUS_SUSPENDED]);
+        $this->makeBorrower($this->p1, ['status' => Borrower::STATUS_ACTIVE])->archive();
+        $this->makeCertifiedPartner()->archive();
+
+        $kpis = $this->data()['kpis'];
+
+        $this->assertEquals(['total' => $before['total'] + 2, 'active' => $before['active'] + 1, 'new' => $before['new'] + 2], $kpis['clients']);
+        // Partner One is active and Partner Two is suspended; the host is not its own partner.
+        $this->assertEquals(['total' => 2, 'active' => 1, 'new' => 2], $kpis['partners']);
+    }
+
+    private function clientLead(Partner $partner, string $email, string $on, ?string $convertedTo = Lead::BORROWER_TYPE_LEAD, string $type = Lead::BORROWER_TYPE_LEAD): void
+    {
+        $lead = $this->lead($partner, null, $on);
+        $lead->forceFill(['email' => $email, 'lead_type' => $type, 'convert_to' => $convertedTo])->save();
+    }
+
+    private function fundedClient(Partner $partner, string $email): void
+    {
+        $application = $this->application($partner, FundingApplication::SUBMITTED, 10000, '2026-11-02');
+        $application->borrower->forceFill(['email' => $email])->save();
+        $this->moveTo($application, FundingApplication::CLOSED_COMPLETED, '2026-11-10', 10000);
+    }
+
+    #[Test]
+    public function lead_to_funded_follows_converted_client_leads_to_a_funded_deal_by_email(): void
+    {
+        $this->fundedClient($this->host, 'host-funded@example.test');
+        $this->fundedClient($this->p1, 'partner-funded@example.test');
+
+        // Host: two client leads from this period, one of which reached funded. Email case doesn't matter.
+        $this->clientLead($this->host, 'HOST-FUNDED@example.test', '2026-11-03');
+        $this->clientLead($this->host, 'still-a-client@example.test', '2026-11-03');
+        // Partners: two as well. The second has a funded client's email but never converted.
+        $this->clientLead($this->p1, 'partner-funded@example.test', '2026-11-04');
+        $this->clientLead($this->p2, 'host-funded@example.test', '2026-11-04', null);
+        // Neither counts: from the period before, and a lead to recruit a partner.
+        $this->clientLead($this->host, 'old@example.test', '2026-10-04');
+        $this->clientLead($this->p1, 'recruit@example.test', '2026-11-04', Lead::PARTNER_TYPE_LEAD, Lead::PARTNER_TYPE_LEAD);
+        $this->at(self::TODAY);
+
+        // seedGrowth() adds one host and two partner leads this period, none converted.
+        $this->assertEquals([
+            'host' => ['leads' => 3, 'funded' => 1],
+            'partners' => ['leads' => 4, 'funded' => 1],
+        ], $this->data()['kpis']['lead_conversion']);
+    }
+
+    #[Test]
     public function growth_counts_clients_leads_and_partners(): void
     {
         $data = $this->data();
@@ -518,7 +642,7 @@ class OwnerSummaryTest extends TestCase
         // Hosted and Partnered, plus one client per application (seven, all opened in Oct/Nov).
         $this->assertSame(Borrower::whereBetween('created_at', ['2026-11-01', '2026-12-01'])->count(), $data['kpis']['new_clients']['current']);
         $this->assertSame(Borrower::whereBetween('created_at', ['2026-10-01', '2026-11-01'])->count(), $data['kpis']['new_clients']['previous']);
-        $this->assertEquals(['current' => 3, 'previous' => 2], $data['kpis']['new_leads']);
+        $this->assertEquals(['current' => 3, 'previous' => 2, 'host' => 1, 'partners' => 2], $data['kpis']['new_leads']);
         $this->assertEquals(['current' => 1, 'total' => 2], $data['kpis']['active_partners']);
 
         $this->assertEquals([
@@ -579,6 +703,120 @@ class OwnerSummaryTest extends TestCase
         $this->assertSame('2026-10-01', $data['period']['from']);
         $this->assertSame('2026-09-01', $data['period']['previous_from']);
         $this->assertEquals(['current' => 400, 'previous' => 0], $data['kpis']['cash_collected']);
-        $this->assertEquals(['amount' => 20000, 'deals' => 1, 'previous_amount' => 0], $data['kpis']['funded']);
+        $this->assertEquals(20000, $data['kpis']['funded']['amount']);
+        $this->assertEquals(0, $data['kpis']['funded']['previous_amount']);
+    }
+
+    #[Test]
+    public function this_week_runs_sunday_to_saturday_against_last_week(): void
+    {
+        $data = $this->data(['period' => 'this_week']); // today, the 15th, is a Sunday
+
+        $this->assertSame('this_week', $data['period']['key']);
+        $this->assertSame('2026-11-15', $data['period']['from']);
+        $this->assertSame('2026-11-21', $data['period']['to']);
+        $this->assertSame('2026-11-08', $data['period']['previous_from']);
+        $this->assertSame('2026-11-14', $data['period']['previous_to']);
+        // The host's 300 on the 8th and the deals funded on the 10th and 12th were last week.
+        $this->assertEquals(['current' => 0, 'previous' => 300], $data['kpis']['cash_collected']);
+        $this->assertEquals(0, $data['kpis']['funded']['amount']);
+        $this->assertEquals(150000, $data['kpis']['funded']['previous_amount']);
+    }
+
+    #[Test]
+    public function a_custom_range_counts_those_days_against_the_same_number_of_days_just_before(): void
+    {
+        $data = $this->data(['period' => 'custom', 'from' => '2026-11-05', 'to' => '2026-11-08']);
+
+        $this->assertSame('custom', $data['period']['key']);
+        $this->assertSame('2026-11-05', $data['period']['from']);
+        $this->assertSame('2026-11-08', $data['period']['to']);
+        $this->assertSame('2026-11-01', $data['period']['previous_from']);
+        $this->assertSame('2026-11-04', $data['period']['previous_to']);
+        // 1,000 + 200 + 50 + 300, and nothing in the four days before.
+        $this->assertEquals(['current' => 1550, 'previous' => 0], $data['kpis']['cash_collected']);
+    }
+
+    #[Test]
+    public function a_custom_range_may_end_today(): void
+    {
+        $data = $this->data(['period' => 'custom', 'from' => '2025-11-15', 'to' => '2026-11-15']);
+
+        $this->assertSame('2025-11-15', $data['period']['from']);
+        $this->assertSame('2026-11-15', $data['period']['to']);
+    }
+
+    #[Test]
+    public function a_custom_range_needs_both_dates(): void
+    {
+        $this->summary($this->owner, ['period' => 'custom'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'from' => 'Choose a start date.',
+                'to' => 'Choose an end date.',
+            ]);
+    }
+
+    #[Test]
+    public function a_custom_range_refuses_a_date_that_is_not_a_date(): void
+    {
+        $this->summary($this->owner, ['period' => 'custom', 'from' => '2026-02-31', 'to' => '11/08/2026'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'from' => 'Enter a valid start date.',
+                'to' => 'Enter a valid end date.',
+            ]);
+    }
+
+    #[Test]
+    public function a_custom_range_cannot_end_before_it_starts(): void
+    {
+        $this->summary($this->owner, ['period' => 'custom', 'from' => '2026-11-08', 'to' => '2026-11-05'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['to' => 'The end date cannot be before the start date.']);
+    }
+
+    #[Test]
+    public function a_custom_range_cannot_reach_into_the_future(): void
+    {
+        $this->summary($this->owner, ['period' => 'custom', 'from' => '2026-11-16', 'to' => '2026-11-17'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'from' => 'The start date cannot be in the future.',
+                'to' => 'The end date cannot be in the future.',
+            ]);
+    }
+
+    #[Test]
+    public function today_is_the_viewers_today_for_a_custom_range(): void
+    {
+        // 02:00 UTC on the 16th is still the 15th in New York.
+        Carbon::setTestNow(Carbon::parse('2026-11-16 02:00:00', 'UTC'));
+        $this->actingAsUser($this->owner);
+
+        $this->withHeader('X-Timezone', 'America/New_York')
+            ->getJson('/api/v1/common/owner-summary?period=custom&from=2026-11-16&to=2026-11-16')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('to');
+    }
+
+    #[Test]
+    public function a_custom_range_can_be_as_long_as_the_owner_likes(): void
+    {
+        $data = $this->data(['period' => 'custom', 'from' => '2020-01-01', 'to' => '2026-11-15']);
+
+        $this->assertSame('2020-01-01', $data['period']['from']);
+        $this->assertSame('2026-11-15', $data['period']['to']);
+        // Compared with the same number of days just before.
+        $this->assertSame('2013-02-15', $data['period']['previous_from']);
+        $this->assertSame('2019-12-31', $data['period']['previous_to']);
+    }
+
+    #[Test]
+    public function other_periods_ignore_a_stray_range(): void
+    {
+        $data = $this->data(['period' => 'this_month', 'from' => 'nonsense', 'to' => 'nonsense']);
+
+        $this->assertSame('this_month', $data['period']['key']);
     }
 }

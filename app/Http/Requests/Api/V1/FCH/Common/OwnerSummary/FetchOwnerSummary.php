@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\OwnerSummary;
 use App\Services\FCH\Common\Commission\CommissionViewer;
 use App\Services\FCH\Common\OwnerSummary\OwnerSummaryPeriod;
 use App\Services\FCH\Common\OwnerSummary\OwnerSummaryService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,15 +25,40 @@ class FetchOwnerSummary extends FormRequest
 
     public function rules(): array
     {
+        $onlyForCustom = 'exclude_unless:period,' . OwnerSummaryPeriod::CUSTOM;
+        $today = CarbonImmutable::now($this->timezone())->toDateString();
+
         return [
             'period' => ['nullable', 'string', Rule::in(OwnerSummaryPeriod::KEYS)],
             'environment' => ['nullable', 'string', Rule::in(array_keys(OwnerSummaryService::ENVIRONMENTS))],
+            'from' => [$onlyForCustom, 'required', 'date_format:Y-m-d', 'before_or_equal:' . $today],
+            'to' => [$onlyForCustom, 'required', 'date_format:Y-m-d', 'before_or_equal:' . $today, 'after_or_equal:from'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'from.required' => __('owner_summary.from_required'),
+            'from.date_format' => __('owner_summary.from_invalid'),
+            'from.before_or_equal' => __('owner_summary.from_future'),
+            'to.required' => __('owner_summary.to_required'),
+            'to.date_format' => __('owner_summary.to_invalid'),
+            'to.before_or_equal' => __('owner_summary.to_future'),
+            'to.after_or_equal' => __('owner_summary.to_before_from'),
         ];
     }
 
     public function period(): string
     {
         return $this->validated('period') ?? OwnerSummaryPeriod::DEFAULT;
+    }
+
+    public function summaryPeriod(): OwnerSummaryPeriod
+    {
+        return $this->period() === OwnerSummaryPeriod::CUSTOM
+            ? OwnerSummaryPeriod::custom($this->validated('from'), $this->validated('to'), $this->timezone())
+            : OwnerSummaryPeriod::make($this->period(), $this->timezone());
     }
 
     public function environment(): string

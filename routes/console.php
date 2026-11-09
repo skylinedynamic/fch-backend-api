@@ -1,6 +1,7 @@
 <?php
 
 use App\Mail\CronJobFailureMail;
+use App\Services\FCH\Common\OwnerSummary\OwnerWeeklyReportService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -215,3 +216,13 @@ Schedule::command('audit:seal')
     ->onFailure($onFailure('audit:seal'))
     ->appendOutputTo($schedulerLogPath)
     ->onSuccess($onSuccess('audit:seal'));
+
+// The host owner's report of last week: promised at 10:00 Eastern, so on that
+// clock rather than the scheduler's. It does nothing until Report settings turn it on.
+Schedule::command('owner-summary:send-weekly-report')
+    ->weeklyOn(0, '10:00')
+    ->timezone(OwnerWeeklyReportService::TIMEZONE)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('owner-summary:send-weekly-report'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('owner-summary:send-weekly-report'));

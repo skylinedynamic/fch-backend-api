@@ -22,8 +22,7 @@ use Illuminate\Support\Collection;
 /**
  * The host owner's business summary, built only from what the database records
  * today. What it deliberately does not show, because nothing records it:
- * churn (a cancelled subscription keeps no cancellation date) and lead-to-
- * funded conversion (a client keeps no link to the lead it came from).
+ * churn (a cancelled subscription keeps no cancellation date).
  *
  * Definitions, so every number means one thing:
  *   cash collected  succeeded payments in the environment asked for, on an
@@ -33,14 +32,21 @@ use Illuminate\Support\Collection;
  *   funded          Closed (Completed) with a funded date in the period
  *   commission      booked: what the commission records say, not cash in
  *   stalled         open, with no status change for STALLED_AFTER_DAYS
+ *   host / partners who a deal or lead belongs to, by its partner_id; none is the host's
+ *   active          partners and clients with the Active status, archived ones left out
+ *   lead-to-funded  client leads from the period that converted and whose client,
+ *                   matched by email, has a funded deal: a lead keeps no client id
  */
 class OwnerSummaryService
 {
     public const ENVIRONMENT_PRODUCTION = 'production';
     public const ENVIRONMENT_SANDBOX = 'sandbox';
+    public const ENVIRONMENT_ALL = 'all';
+    /** The payments each mode counts, by is_environment; null counts them all. Only payments carry this mark. */
     public const ENVIRONMENTS = [
         self::ENVIRONMENT_PRODUCTION => PaymentProvider::ENVIRONMENT_PRODUCTION,
         self::ENVIRONMENT_SANDBOX => PaymentProvider::ENVIRONMENT_SANDBOX,
+        self::ENVIRONMENT_ALL => null,
     ];
 
     public const STREAM_PARTNER_ENROLLMENT = 'partner_enrollment';
@@ -105,7 +111,7 @@ class OwnerSummaryService
 
     private Partner $host;
     private OwnerSummaryPeriod $period;
-    private int $environment;
+    private ?int $environment;
     private ?Collection $open = null;
 
     public function summary(User $owner, OwnerSummaryPeriod $period, string $environment): array
@@ -116,6 +122,9 @@ class OwnerSummaryService
         $this->open = null;
 
         $funded = $this->fundedIn($period->from, $period->to);
+        $previousFunded = $this->fundedIn($period->previousFrom, $period->previousTo);
+        $leads = Lead::whereBetween('created_at', $period->between())->get(['partner_id']);
+        $hostLeads = $leads->filter(fn (Lead $lead) => $this->isHosts($lead->partner_id))->count();
         $receivables = $this->receivables();
         $commissions = $this->commissions($owner);
         $stalled = $this->stalledDeals();
@@ -135,20 +144,36 @@ class OwnerSummaryService
                 'funded' => [
                     'amount' => $this->money($funded->sum('total_funded_amount')),
                     'deals' => $funded->count(),
-                    'previous_amount' => $this->money($this->fundedIn($period->previousFrom, $period->previousTo)->sum('total_funded_amount')),
+                    'previous_amount' => $this->money($previousFunded->sum('total_funded_amount')),
+                    'previous_deals' => $previousFunded->count(),
+                    'host' => $this->fundedTotals($funded->filter(fn (FundingApplication $application) => $this->isHosts($application->partner_id))),
+                    'partners' => $this->fundedTotals($funded->reject(fn (FundingApplication $application) => $this->isHosts($application->partner_id))),
                 ],
                 'new_clients' => [
                     'current' => Borrower::whereBetween('created_at', $period->between())->count(),
                     'previous' => Borrower::whereBetween('created_at', $period->previousBetween())->count(),
                 ],
                 'new_leads' => [
-                    'current' => Lead::whereBetween('created_at', $period->between())->count(),
+                    'current' => $leads->count(),
                     'previous' => Lead::whereBetween('created_at', $period->previousBetween())->count(),
+                    'host' => $hostLeads,
+                    'partners' => $leads->count() - $hostLeads,
                 ],
                 'active_partners' => [
                     'current' => $this->activePartners(),
                     'total' => Partner::excludingHost()->count(),
                 ],
+                'partners' => [
+                    'total' => Partner::excludingHost()->notArchived()->count(),
+                    'active' => Partner::excludingHost()->notArchived()->where('status', Partner::STATUS_ACTIVE)->count(),
+                    'new' => Partner::excludingHost()->notArchived()->whereBetween('created_at', $period->between())->count(),
+                ],
+                'clients' => [
+                    'total' => Borrower::notArchived()->count(),
+                    'active' => Borrower::notArchived()->where('status', Borrower::STATUS_ACTIVE)->count(),
+                    'new' => Borrower::notArchived()->whereBetween('created_at', $period->between())->count(),
+                ],
+                'lead_conversion' => $this->leadConversion(),
             ],
             'cash_by_stream' => $this->cashByStream(),
             'receivables' => $receivables,
@@ -191,7 +216,7 @@ class OwnerSummaryService
         $query = Payment::query()
             ->join('invoices', 'invoices.id', '=', 'payments.invoice_id')
             ->whereNull('invoices.deleted_at')
-            ->where('payments.is_environment', $this->environment);
+            ->when($this->environment !== null, fn ($q) => $q->where('payments.is_environment', $this->environment));
 
         return $this->hostInvoices($query);
     }
@@ -339,6 +364,50 @@ class OwnerSummaryService
     {
         return $this->fundedQuery(FundingApplication::query(), $from, $to)
             ->get(['id', 'partner_id', 'total_funded_amount', 'funded_date', 'created_at']);
+    }
+
+    /** Whether something with this partner_id is the host's own rather than another partner's. */
+    private function isHosts(?int $partnerId): bool
+    {
+        return $partnerId === null || $partnerId === $this->host->id;
+    }
+
+    private function fundedTotals(Collection $funded): array
+    {
+        return ['amount' => $this->money($funded->sum('total_funded_amount')), 'deals' => $funded->count()];
+    }
+
+    /**
+     * Of the client leads created in the period, how many have reached a funded
+     * deal so far, whenever it funded. Only a converted lead counts: conversion
+     * copies its email to the client and refuses an email already in use, while
+     * an unconverted lead can share an email with another partner's client.
+     * Leads to recruit a partner are left out, since they can never fund.
+     */
+    private function leadConversion(): array
+    {
+        $fundedEmails = FundingApplication::query()
+            ->where('funding_applications.status', FundingApplication::CLOSED_COMPLETED)
+            ->join('borrowers', 'borrowers.id', '=', 'funding_applications.borrower_id')
+            ->pluck('borrowers.email')
+            ->map(fn (?string $email) => strtolower((string) $email))
+            ->flip();
+
+        $leads = Lead::whereBetween('created_at', $this->period->between())
+            ->where('lead_type', Lead::BORROWER_TYPE_LEAD)
+            ->get(['partner_id', 'email', 'convert_to']);
+
+        $totals = fn (Collection $rows) => [
+            'leads' => $rows->count(),
+            'funded' => $rows->filter(fn (Lead $lead) => $lead->convert_to === Lead::BORROWER_TYPE_LEAD
+                && filled($lead->email)
+                && $fundedEmails->has(strtolower($lead->email)))->count(),
+        ];
+
+        return [
+            'host' => $totals($leads->filter(fn (Lead $lead) => $this->isHosts($lead->partner_id))),
+            'partners' => $totals($leads->reject(fn (Lead $lead) => $this->isHosts($lead->partner_id))),
+        ];
     }
 
     private function medianDaysToFund(Collection $funded): ?float
