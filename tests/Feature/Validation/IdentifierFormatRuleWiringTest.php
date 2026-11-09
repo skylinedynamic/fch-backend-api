@@ -46,6 +46,7 @@ use App\Http\Requests\Api\V1\Global\Website\PreQualification\StorePreQualificati
 use App\Models\User\User;
 use App\Rules\BusinessCreditScore;
 use App\Rules\BusinessEin;
+use App\Rules\DateOfBirth;
 use App\Rules\DunsNumber;
 use App\Rules\FicoScore;
 use App\Rules\Ssn;
@@ -63,7 +64,8 @@ use Tests\TestCase;
  * That every request taking a zip code, phone number, SSN, EIN or DUNS number,
  * or a typed-in credit score, validates it with the one shared rule for that
  * format (FicoScore: a whole number 300-850; BusinessCreditScore: a whole
- * number of 0 or more). Credit score dropdowns (the self-reported ranges and
+ * number of 0 or more) - and every date of birth with DateOfBirth (a real date,
+ * not in the future, at least the platform's minimum age of 18). Credit score dropdowns (the self-reported ranges and
  * pre-qualification bands) are not covered: they keep their own option rules.
  *
  * Each format has a single definition in app/Rules (5-digit ZIP, NANP phone,
@@ -198,6 +200,23 @@ class IdentifierFormatRuleWiringTest extends TestCase
             UpdateFundingSequencingVisibilityRequest::class => ['lender_visibilities.*.min_business_credit_score'],
         ];
 
+        // One age floor for every date of birth the API takes. Co-borrowers saved
+        // with the ownership step are checked in after(), not rules(), so they are
+        // covered over HTTP instead.
+        $wired[DateOfBirth::class] = [
+            UpdatePersonalProfileRequest::class => ['date_of_birth'],
+            StoreCreditProfileRequestRequest::class => ['date_of_birth'],
+            BorrowerStoreOwnershipInfoRequest::class => ['date_of_birth'],
+            BorrowerCoBorrowerValidationRequest::class => ['date_of_birth'],
+            PartnerStoreOwnershipInfoRequest::class => ['date_of_birth'],
+            PartnerCoBorrowerValidationRequest::class => ['date_of_birth'],
+            StoreBorrowerRequest::class => ['date_of_birth'],
+            UpdateBorrowerRequest::class => ['date_of_birth'],
+            StoreEmployeeRequest::class => ['date_of_birth'],
+            UpdateEmployeeRequest::class => ['date_of_birth'],
+            SubmitEmbedFormRequest::class => ['date_of_birth', 'co_borrowers.*.date_of_birth'],
+        ];
+
         foreach ($wired as $rule => $requests) {
             foreach ($requests as $request => $keys) {
                 foreach ($keys as $key) {
@@ -220,6 +239,7 @@ class IdentifierFormatRuleWiringTest extends TestCase
             'business_ein' => BusinessEin::class,
             'duns_number' => DunsNumber::class,
             'personal_credit_score' => FicoScore::class,
+            'date_of_birth' => DateOfBirth::class,
         ];
 
         foreach ($changeRequest as $field => $rule) {

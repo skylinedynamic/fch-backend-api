@@ -10,6 +10,7 @@ use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\FicoScore;
 use App\Rules\PartnerTeamMember;
@@ -60,7 +61,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'country_code'         => ['nullable', 'string', 'max:5'],
             'postal_code'          => ['nullable', 'string', new UsPostalCode()],
             'home_address'         => ['nullable', 'string', 'max:255'],
-            'date_of_birth'        => ['nullable'],
+            'date_of_birth'        => ['nullable', DateOfBirth::acceptingUsFormat()],
             'ssn'                  => ['nullable', 'string', new Ssn()],
             // ── Business Info ───────────────────────────────────────────────
             'business_name'        => ['nullable', 'string', 'max:255'],

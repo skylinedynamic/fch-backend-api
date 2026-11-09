@@ -10,6 +10,7 @@ use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\DunsNumber;
 use App\Rules\FicoScore;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 
 class StoreChangeRequest extends BaseApiRequest
@@ -99,7 +100,7 @@ class StoreChangeRequest extends BaseApiRequest
             'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
             // The full SSN, as on the profile itself; the last four alone are not taken.
             'ssn' => ['required', new Ssn()],
-            'date_of_birth' => 'required|date_format:Y-m-d|before:today',
+            'date_of_birth' => ['required', new DateOfBirth()],
         ];
 
         $newValueRule = $allRules[$fieldName] ?? 'required';

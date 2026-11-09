@@ -495,9 +495,6 @@ return [
             'debt_balance' => ['min' => 0, 'max' => 500000000],
         ],
 
-        // Minimum age to apply. Contracts signed by a minor are not enforceable,
-        // so this is a hard floor rather than a warning.
-        'minimum_age' => 18,
 
         // Referral source is a controlled list so the field can actually be
         // reported on - it used to accept arbitrary free text, which made it

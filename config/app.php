@@ -69,6 +69,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Minimum Age
+    |--------------------------------------------------------------------------
+    |
+    | The platform's minimum age, applied to every date of birth the API takes
+    | (App\Rules\DateOfBirth): borrowers, co-borrowers, applicants and staff.
+    | Legal capacity rules for a state or a funding product are separate.
+    |
+    */
+
+    'minimum_age' => 18,
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

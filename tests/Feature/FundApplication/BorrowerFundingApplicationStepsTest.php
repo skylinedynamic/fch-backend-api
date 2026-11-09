@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -510,5 +511,55 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         $this->getJson($this->url("documents/{$documentId}/download"))->assertForbidden();
         $this->deleteJson($this->url("documents/{$documentId}"))->assertStatus(500);
         $this->assertDatabaseHas('funding_application_documents', ['id' => $documentId]);
+    }
+
+    /**
+     * Defect: the owner's date of birth was only `date` - a 10-year-old, a date
+     * next year and "next tuesday" were all saved - and a co-borrower's was not
+     * checked at all.
+     */
+    #[Test]
+    public function the_owner_and_each_co_borrower_must_be_at_least_the_minimum_age(): void
+    {
+        $this->actingAsUser($this->me);
+        $underAge = DateOfBirth::latestAllowedDate()->addDay()->toDateString();
+        $turning18 = DateOfBirth::latestAllowedDate()->toDateString();
+        $coBorrower = ['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 0];
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'date_of_birth' => $underAge,
+            'has_co_borrower' => true,
+            'co_borrowers' => [array_merge($coBorrower, ['date_of_birth' => $underAge])],
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+            'co_borrowers.0.date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+        ]);
+
+        foreach (['next tuesday' => 'common.date_of_birth_invalid', now()->addYear()->toDateString() => 'common.date_of_birth_future'] as $dob => $message) {
+            $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+                'id' => $this->myApplicationId,
+                'date_of_birth' => $dob,
+            ]))->assertStatus(422)->assertJsonValidationErrors(['date_of_birth' => __($message)]);
+        }
+
+        $this->postJson($this->url('ownership-info'), array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'date_of_birth' => $turning18,
+            'has_co_borrower' => true,
+            'co_borrowers' => [array_merge($coBorrower, ['date_of_birth' => $turning18])],
+        ]))->assertOk();
+    }
+
+    #[Test]
+    public function the_co_borrower_check_refuses_an_under_age_co_borrower(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/myapplication/funding-application/co-borrower-validation', [
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->addDay()->toDateString(),
+        ])->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+        ]);
     }
 }

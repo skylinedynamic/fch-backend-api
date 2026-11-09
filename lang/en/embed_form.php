@@ -66,7 +66,6 @@ return [
     'honeypot_triggered' => 'Submission rejected.',
     'phone_required' => 'A phone number is required.',
     'phone_invalid' => 'Enter a valid 10-digit US phone number, e.g. (555) 234-5678.',
-    'minimum_age' => 'Applicants must be at least :age years old.',
     'credit_score_required' => 'An estimated credit score is required.',
     'sales_rep_invalid' => 'Select a sales representative from the list.',
     'referral_source_invalid' => 'Select a referral source from the list.',

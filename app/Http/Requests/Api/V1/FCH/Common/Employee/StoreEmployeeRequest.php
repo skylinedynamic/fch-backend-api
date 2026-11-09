@@ -9,6 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use App\Rules\DateOfBirth;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 
@@ -51,7 +52,7 @@ class StoreEmployeeRequest extends BaseApiRequest
                 'max:255',
                 Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)->whereNull('deleted_at')),
             ],
-            'date_of_birth'  => ['nullable', 'date', 'before:today'],
+            'date_of_birth'  => ['nullable', new DateOfBirth()],
             'gender'         => ['nullable'],
             'city'           => ['nullable', 'string', 'max:255'],
             'state'          => ['nullable', 'string', 'max:255'],

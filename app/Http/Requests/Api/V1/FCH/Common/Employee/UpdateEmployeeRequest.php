@@ -10,6 +10,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use App\Rules\DateOfBirth;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 
@@ -60,7 +61,7 @@ class UpdateEmployeeRequest extends BaseApiRequest
             'passport_number'=> ['nullable', 'string', 'max:255'],
             // Required, but unique only where it doubles as a login (above).
             'email' => $emailRules,
-            'date_of_birth'  => ['nullable', 'date', 'before:today'],
+            'date_of_birth'  => ['nullable', new DateOfBirth()],
             'gender'         => ['nullable', 'string'],
             'city'           => ['nullable', 'string', 'max:255'],
             'state'          => ['nullable', 'string', 'max:255'],
