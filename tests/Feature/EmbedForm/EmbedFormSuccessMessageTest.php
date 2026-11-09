@@ -158,6 +158,22 @@ class EmbedFormSuccessMessageTest extends TestCase
         $this->assertStringNotContainsString('Host Brand', $page);
     }
 
+    /**
+     * Defect (SCRUM-435 S435-BUG-06): Bootstrap's .badge never wraps, so on a
+     * phone the Reference ID ran past the form and was clipped. Measured in a
+     * real browser by fch-website-react's e2e/apply-confirmation-mobile.spec.ts.
+     */
+    #[Test]
+    public function the_reference_id_may_wrap_and_stays_within_the_form(): void
+    {
+        $page = $this->formPage($this->partner('Acme Capital'));
+
+        $this->assertSame(1, preg_match('/#successRefBadge\s*\{(.*?)\}/s', $page, $m), 'The badge has no rule of its own');
+        $this->assertStringContainsString('white-space: normal', $m[1]);
+        $this->assertStringContainsString('overflow-wrap: anywhere', $m[1]);
+        $this->assertStringContainsString('max-width: 100%', $m[1]);
+    }
+
     #[Test]
     public function a_company_name_is_escaped_on_the_confirmation(): void
     {

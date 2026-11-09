@@ -903,6 +903,15 @@
             display: block;
         }
 
+        /* Bootstrap's .badge never wraps, and an ID has no spaces to wrap at, so on
+           a phone the Reference ID ran past the form and was clipped. */
+        #successRefBadge {
+            white-space: normal;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            line-height: 1.4;
+        }
+
         .honeypot {
             display: none !important;
             visibility: hidden !important;
