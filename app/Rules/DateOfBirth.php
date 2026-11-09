@@ -8,13 +8,16 @@ use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
  * A date of birth anywhere on the platform: a real calendar date, not in the
- * future, and at least the minimum age (config `app.minimum_age`, 18).
+ * future, at least the minimum age (config `app.minimum_age`, 18) and at most
+ * the maximum age (config `app.maximum_age`, 120 - past that the date is a
+ * typo, not a person; BUG-005).
  *
  * Every request that takes a date of birth uses this one rule, so the same
  * person is accepted or refused the same way on every screen. Before it, most
  * requests took `date` (which accepts "next tuesday" and rolls 2000-02-30 over
  * into March), some added `before:today`, and only the embed form had an age
- * floor.
+ * floor. It also replaces AdultDateOfBirth (BUG-005), which checked the same
+ * 18-to-120 range on the client and profile forms only.
  *
  * Age is worked out from the full date: someone born 18 years ago today is 18
  * and may continue. The cutoff is "today minus 18 years" without month overflow,
@@ -23,8 +26,8 @@ use Illuminate\Contracts\Validation\ValidationRule;
  *
  * Accepted writing: YYYY-MM-DD, which is what every date picker posts. The
  * admin client form posts MM-DD-YYYY (normalizeDate() stores it), so that
- * request uses acceptingUsFormat(). Dates before 1900 are refused as not a real
- * date of birth.
+ * request uses acceptingUsFormat(). Someone is still 120 the day before their
+ * 121st birthday.
  *
  * This is the platform's minimum age only. Legal capacity rules for a state or
  * a funding product are checked separately.
@@ -36,7 +39,7 @@ class DateOfBirth implements ValidationRule
 {
     public const DEFAULT_MINIMUM_AGE = 18;
 
-    public const EARLIEST = '1900-01-01';
+    public const DEFAULT_MAXIMUM_AGE = 120;
 
     public function __construct(private bool $usFormat = false) {}
 
@@ -51,10 +54,21 @@ class DateOfBirth implements ValidationRule
         return (int) config('app.minimum_age', self::DEFAULT_MINIMUM_AGE);
     }
 
+    public static function maximumAge(): int
+    {
+        return (int) config('app.maximum_age', self::DEFAULT_MAXIMUM_AGE);
+    }
+
     /** The latest date of birth that is old enough today - the date pickers' max date. */
     public static function latestAllowedDate(): CarbonImmutable
     {
         return CarbonImmutable::today()->subYearsNoOverflow(self::minimumAge());
+    }
+
+    /** The earliest date of birth still within the maximum age today (the day after the 121st birthday cutoff). */
+    public static function earliestAllowedDate(): CarbonImmutable
+    {
+        return CarbonImmutable::today()->subYearsNoOverflow(self::maximumAge() + 1)->addDay();
     }
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
@@ -65,7 +79,7 @@ class DateOfBirth implements ValidationRule
 
         $date = self::parse($value, $this->usFormat);
 
-        if ($date === null || $date->lt(CarbonImmutable::parse(self::EARLIEST))) {
+        if ($date === null) {
             $fail(__('common.date_of_birth_invalid'));
 
             return;
@@ -79,6 +93,12 @@ class DateOfBirth implements ValidationRule
 
         if ($date->gt(self::latestAllowedDate())) {
             $fail(__('common.date_of_birth_minimum_age', ['age' => self::minimumAge()]));
+
+            return;
+        }
+
+        if ($date->lt(self::earliestAllowedDate())) {
+            $fail(__('common.date_of_birth_max_age', ['age' => self::maximumAge()]));
         }
     }
 

@@ -98,7 +98,7 @@ class CreditReportDocumentTest extends TestCase
     /** A real, one-page PDF with selectable text, as iSoftPull sends. */
     private function reportPdf(): UploadedFile
     {
-        $stream = "BT /F1 12 Tf 72 720 Td (Name: Odessa Mccall) Tj 0 -20 Td (SSN: XXX-XX-6789) Tj ET";
+        $stream = "BT /F1 12 Tf 72 720 Td (Name: Odessa Mccall) Tj 0 -20 Td (SSN: XXX-XX-6789) Tj 0 -20 Td (FICO Score: 712) Tj ET";
         $objects = [
             '<< /Type /Catalog /Pages 2 0 R >>',
             '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',

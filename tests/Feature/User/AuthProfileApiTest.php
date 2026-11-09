@@ -10,6 +10,8 @@ use App\Models\Partner\Partner;
 use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -154,6 +156,10 @@ class AuthProfileApiTest extends TestCase
     public function the_profile_picture_is_filed_under_the_users_own_record(): void
     {
         $user = $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        // A real picture in the partner's file manager folder (BUG-014 checks it).
+        Storage::fake('public');
+        $picture = UploadedFile::fake()->image('me.png', 64, 64);
+        Storage::disk('public')->put("partners/{$this->partner->id}/me.png", file_get_contents($picture->getRealPath()));
 
         $this->postJson('/api/v1/common/auth-profile/update-profile-picture', ['image' => 'me.png'])
             ->assertOk();

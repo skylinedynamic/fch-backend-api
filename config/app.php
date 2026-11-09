@@ -69,16 +69,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Minimum Age
+    | Minimum and Maximum Age
     |--------------------------------------------------------------------------
     |
-    | The platform's minimum age, applied to every date of birth the API takes
+    | The platform's age range, applied to every date of birth the API takes
     | (App\Rules\DateOfBirth): borrowers, co-borrowers, applicants and staff.
-    | Legal capacity rules for a state or a funding product are separate.
+    | 18 is a hard floor (a borrower signs funding agreements); past 120 the
+    | date is a typo, not a person (BUG-005). Legal capacity rules for a state
+    | or a funding product are separate.
     |
     */
 
     'minimum_age' => 18,
+
+    'maximum_age' => 120,
 
     /*
     |--------------------------------------------------------------------------

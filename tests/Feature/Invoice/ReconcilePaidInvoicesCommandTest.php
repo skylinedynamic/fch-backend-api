@@ -82,7 +82,7 @@ class ReconcilePaidInvoicesCommandTest extends TestCase
 
     private function paid(Invoice $invoice, float $amount, string $status = Payment::STATUS_SUCCEEDED, string $on = '2026-07-19 15:30:00'): void
     {
-        $payment = (new Payment())->createRecord([
+        $payment = (new Payment())->createRecord(['is_environment' => PaymentProvider::ENVIRONMENT_SANDBOX, 
             'invoice_id' => $invoice->id,
             'partner_id' => $invoice->partner_id,
             'borrower_id' => $invoice->borrower_id,

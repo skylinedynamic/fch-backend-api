@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
+use App\Support\Files\FileUrl;
+use App\Support\Files\Folder;
 
 class PartnerDocument extends Model
 {
@@ -28,6 +30,24 @@ class PartnerDocument extends Model
     /**
      * Get the partner that owns the document.
      */
+    /** Partner documents' own folder (BUG-016), apart from the partner's branding and pictures. */
+    public const FOLDER = Folder::PARTNER_DOCUMENTS;
+
+    /**
+     * The folders a document is picked from in the file manager: the private
+     * documents folder (the Documents tab's) or the partner's older public one.
+     */
+    public const PICK_FOLDERS = [self::FOLDER, Folder::PARTNERS];
+
+    /**
+     * Where a document's file is on the uploads disk: its own path once moved
+     * to partner-documents/, else the partner's folder it was uploaded to.
+     */
+    public static function storagePathFor(int|string $partnerId, string $filePath): string
+    {
+        return str_starts_with($filePath, self::FOLDER . '/') ? $filePath : Folder::PARTNERS . "/{$partnerId}/{$filePath}";
+    }
+
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class, 'partner_id');
@@ -38,6 +58,6 @@ class PartnerDocument extends Model
      */
     public function getFilePathAttribute($value)
     {
-        return $value ? asset("storage/partners/{$this->partner_id}/{$value}") : null;
+        return $value ? FileUrl::for(self::storagePathFor($this->partner_id, $value)) : null;
     }
 }

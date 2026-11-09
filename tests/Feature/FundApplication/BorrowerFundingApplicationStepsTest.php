@@ -20,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -34,6 +35,7 @@ use Tests\TestCase;
 class BorrowerFundingApplicationStepsTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
 
     private Partner $partner;
@@ -46,6 +48,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         Storage::fake('public');
         $this->makeHostPartner();
@@ -111,7 +114,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
             ], 'is_financial_info_saved'],
             'funding request' => ['funding-request', [
                 'requested_amount' => 50000, 'purpose_of_funds' => 'Inventory',
-                'approved_funding' => 'Line of Credit', 'preferred_funding_type' => 'Line of Credit',
+                'approved_funding' => 'Business Line of Credit', 'preferred_funding_type' => 'Business Line of Credit',
             ], 'is_funding_request_saved'],
             'disclosures' => ['disclosures-and-consent', [
                 'credit_pull_authorization' => true, 'terms_conditions_acceptance' => true,
@@ -202,7 +205,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
 
         $this->postJson($this->url('funding-request'), [
             'requested_amount' => 50000, 'purpose_of_funds' => 'Inventory',
-            'approved_funding' => 'Line of Credit', 'preferred_funding_type' => 'Line of Credit',
+            'approved_funding' => 'Business Line of Credit', 'preferred_funding_type' => 'Business Line of Credit',
             'funding_request_id' => $theirRequest,
         ])->assertStatus(422)->assertJsonValidationErrors(['funding_request_id']);
     }
@@ -457,7 +460,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         $this->copyPassportKeys(storage_path(), $storage);
         $this->app->useStoragePath($storage);
         $relative = "funding-application/{$this->me->entity_id}/FA-{$this->myApplicationId}/statement-" . uniqid() . '.pdf';
-        \Illuminate\Support\Facades\Storage::disk('public')->put($relative, '%PDF-1.4 test');
+        Storage::disk('uploads')->put($relative, '%PDF-1.4 test');
         $documentId = DB::table('funding_application_documents')->insertGetId([
             'funding_application_id' => $this->myApplicationId,
             'borrower_id' => $this->me->entity_id,

@@ -63,6 +63,29 @@ class PlanFeeValidationTest extends TestCase
         yield 'installments 0' => [['total_amount' => 59, 'total_installment_count_upto' => 0], 'total_installment_count_upto', 'plan_fee.installments_min'];
         yield 'installments not whole' => [['total_amount' => 59, 'total_installment_count_upto' => 2.5], 'total_installment_count_upto', 'plan_fee.installments_integer'];
         yield 'seats negative' => [['total_amount' => 59, 'total_seat_count' => -1], 'total_seat_count', 'plan_fee.seats_min'];
+        // BUG-076: a price is kept to the cent, decimal(10, 2). 10.555 was let
+        // through, shown as $10.55 and would have been saved as 10.56.
+        yield 'amount with 3 decimals' => [['total_amount' => 10.555], 'total_amount', 'plan_fee.total_amount_decimals'];
+        yield 'amount with 3 decimals as typed' => [['total_amount' => '10.555'], 'total_amount', 'plan_fee.total_amount_decimals'];
+        yield 'platform fee with 3 decimals' => [['total_amount' => 59, 'platform_fee' => '1.005'], 'platform_fee', 'plan_fee.platform_fee_decimals'];
+    }
+
+    /** @return iterable<string, array{float|int|string, float}> */
+    public static function toTheCent(): iterable
+    {
+        yield 'whole' => [10, 10.0];
+        yield 'one decimal' => ['10.5', 10.5];
+        yield 'two decimals' => ['10.56', 10.56];
+        yield 'two decimals, last 0' => ['10.50', 10.5];
+    }
+
+    #[Test]
+    #[DataProvider('toTheCent')]
+    public function an_amount_to_the_cent_is_saved_as_given(float|int|string $amount, float $saved): void
+    {
+        $this->update(['total_amount' => $amount])->assertOk();
+
+        $this->assertEquals($saved, $this->plan->fresh()->total_amount);
     }
 
     #[Test]
@@ -97,7 +120,7 @@ class PlanFeeValidationTest extends TestCase
     #[Test]
     public function the_messages_read_as_sentences_not_keys(): void
     {
-        foreach (['total_amount_required', 'total_amount_gt', 'platform_fee_required', 'platform_fee_gt', 'installments_min', 'seats_min'] as $key) {
+        foreach (['total_amount_required', 'total_amount_gt', 'total_amount_decimals', 'platform_fee_required', 'platform_fee_gt', 'platform_fee_decimals', 'installments_min', 'seats_min'] as $key) {
             $this->assertNotSame("plan_fee.{$key}", __("plan_fee.{$key}"), "lang/en/plan_fee.php is missing {$key}");
         }
     }

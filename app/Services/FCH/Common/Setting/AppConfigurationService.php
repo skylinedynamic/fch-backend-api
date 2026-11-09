@@ -6,6 +6,7 @@ use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class AppConfigurationService
 {
@@ -362,7 +363,7 @@ class AppConfigurationService
             // The disk's url (BASE_API_URL, config/filesystems.php) is the same
             // answer for every caller, which is what makes it safe to cache.
             $resolvedLogos[$imageKey . '_full_url'] = $resolved
-                ? encodeUrl(Storage::disk('public')->url($resolved))
+                ? encodeUrl(Storage::disk(Disk::UPLOADS)->url($resolved))
                 : ($inheritThisKey ? null : $placeholder);
         }
 

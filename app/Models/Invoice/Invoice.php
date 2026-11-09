@@ -59,6 +59,8 @@ class Invoice extends Model
     const STATUS_SUCCESS = 'Success';
     const STATUS_CANCELED = 'Canceled';
     const STATUS_OVERDUE = 'Overdue';
+    // Not set any more (the roll-forward billing that wrote it was retired on
+    // 2026-10-11); older invoices still carry it.
     const STATUS_EXPIRED = 'Expired';
     const STATUS_PROCESSING = 'Processing';
     const STATUS_ALL = 'All Status';
@@ -123,7 +125,10 @@ class Invoice extends Model
     }
 
     /**
-     * An unpaid invoice that is the subscription's own billing cycle.
+     * An unsettled invoice that is the subscription's own billing cycle: Unpaid, or
+     * Processing - a manual payment awaiting approval has not settled it either,
+     * and raising the cycle again in the meantime billed (and auto-charged) a
+     * month already paid in cash.
      *
      * The single definition of "this subscriber still owes us for their plan", used
      * both to decide whether to raise the next invoice and to exclude such rows in
@@ -131,7 +136,7 @@ class Invoice extends Model
      */
     public function scopeOpenCycle($query)
     {
-        return $query->where('status', self::STATUS_UNPAID)
+        return $query->whereIn('status', [self::STATUS_UNPAID, self::STATUS_PROCESSING])
             ->where(function ($q) {
                 $q->whereIn('type', self::CYCLE_INVOICE_TYPES)->orWhereNull('type');
             });
@@ -174,6 +179,38 @@ class Invoice extends Model
         return $paid > 0 && round($paid, 2) >= round((float) $this->payment_amount, 2);
     }
 
+    /**
+     * What the invoice's line item, email and bell say when this is the last
+     * installment of a plan and its amount differs from the monthly one
+     * (BUG-049). The billing cron records the figures in
+     * details.final_installment; null on every other invoice.
+     *
+     * @return array{number: int, count: int, adjustment: string, difference: string, monthly: string, total: string}|null
+     */
+    public function finalInstallmentNote(): ?array
+    {
+        $final = $this->details['final_installment'] ?? null;
+
+        if (!is_array($final) || !isset($final['adjustment'], $final['monthly'], $final['total'], $final['count'])) {
+            return null;
+        }
+
+        $adjustment = (float) $final['adjustment'];
+
+        return [
+            'number' => (int) $final['count'],
+            'count' => (int) $final['count'],
+            // Signed both ways: "-$0.02" or "+$0.01".
+            'adjustment' => ($adjustment > 0 ? '+' : '') . currencyFormat($adjustment),
+            // In words for the customer: "$0.02 less" or "$0.01 more".
+            'difference' => __($adjustment < 0 ? 'invoice.final_installment.less' : 'invoice.final_installment.more', [
+                'amount' => currencyFormat(abs($adjustment)),
+            ]),
+            'monthly' => currencyFormat($final['monthly']),
+            'total' => currencyFormat($final['total']),
+        ];
+    }
+
     public function borrower(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Borrower::class, 'borrower_id');
@@ -187,6 +224,21 @@ class Invoice extends Model
     public function entity()
     {
         return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
+    }
+
+    /**
+     * Whether paying this invoice makes a cancelled subscription active again
+     * (BUG-069): an open cycle invoice of a cancelled subscription. The portals
+     * warn before taking the payment.
+     */
+    public function reactivatesSubscription(): bool
+    {
+        $open = in_array($this->status, [self::STATUS_UNPAID, self::STATUS_PROCESSING], true)
+            && ($this->type === null || in_array($this->type, self::CYCLE_INVOICE_TYPES, true));
+
+        return $open
+            && $this->subscription_id
+            && $this->subscription?->status === Subscription::STATUS_CANCELLED;
     }
 
     public function subscription(): \Illuminate\Database\Eloquent\Relations\BelongsTo

@@ -19,6 +19,8 @@ return [
 
     // Submissions
     'submission_not_found' => 'Submission not found.',
+    'submissions_deleted' => 'Applications deleted successfully.',
+    'converted_cannot_delete' => 'Converted applications cannot be deleted: they belong to a client and a funding application. Unselect them and try again.',
     'status_updated' => 'Status updated successfully.',
     'status_invalid' => 'That is not a valid submission status.',
     'status_locked_converted' => 'A converted application cannot change status.',
@@ -62,6 +64,7 @@ return [
     'ssn_format' => 'SSN must be 9 digits, in the format XXX-XX-XXXX.',
     'currency_invalid' => 'Select the currency of the requested amount: USD, EUR or GBP.',
     'additional_funding_type_invalid' => 'Select additional funding types from the list, each once.',
+    'preferred_funding_type_invalid' => 'Select the preferred funding type from the list.',
     'additional_funding_type_preferred' => 'The preferred funding type cannot also be an additional funding type.',
     'honeypot_triggered' => 'Submission rejected.',
     'phone_required' => 'A phone number is required.',
@@ -107,6 +110,12 @@ return [
     'paystub_max' => 'Each paystub file may not exceed 10 MB.',
     'credit_report_mimes' => 'Credit report must be a PDF, Word, Excel, or image file.',
     'credit_report_max' => 'Each credit report file may not exceed 10 MB.',
+
+    // Allowed Domains (R2 BUG-035)
+    'allowed_domain_wildcard' => '":domain": wildcards are not supported. Add each site, such as shop.example.com, on its own.',
+    'allowed_domain_localhost' => '":domain" cannot be allowed. Add the website the form will be shown on.',
+    'allowed_domain_invalid' => '":domain" is not a domain. Enter one such as example.com.',
+    'allowed_domain_duplicate' => '":domain" is already in the list.',
 
     // Logs
     'log_store_failed' => 'EmbedFormService::storeSubmission failed',

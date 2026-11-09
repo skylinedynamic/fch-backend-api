@@ -68,6 +68,13 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
     public int $uniqueFor = 11 * 60 * 60;
 
     /**
+     * The environment every payment this run records is filed under: the mode
+     * of the receiver's payment method the charge goes through (or would have,
+     * for a refusal before Stripe is reached). Set at the start of handle().
+     */
+    protected int $environment = PaymentProvider::ENVIRONMENT_SANDBOX;
+
+    /**
      * Create a new job instance.
      *
      * Deliberately NOT pinned to a connection. It used to be pinned to
@@ -147,6 +154,18 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        // The payer is paying it by hand right now and their bank is asking for
+        // 3-D Secure (BUG-066). Charging off-session as well could take the money
+        // twice; payments:settle-card-authentications settles or cancels that
+        // attempt within minutes, and a later pass picks the invoice up if needed.
+        if (Payment::awaitingAuthentication()->where('invoice_id', $invoice->id)->exists()) {
+            Log::info('[ChargeSubscriptionInvoiceJob] Skipped: a card payment awaiting bank authentication is open', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+            return;
+        }
+
         // Paid already, whatever the status says: older code recorded a Stripe
         // payment and left the invoice Unpaid, and this job kept charging it
         // twice a day. Stripe forgets an idempotency key after 24 hours, so a
@@ -163,6 +182,22 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
         }
 
         $subscription = $invoice->subscription;
+
+        // Who receives the money, and so whose payment method - and mode - the
+        // charge goes through. Resolved before anything can fail, so a refusal
+        // is filed under the same environment a charge would have been.
+        $receiverId = (in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) || $invoice->is_partner_paying || in_array($subscription?->entity_type, [Partner::class, User::class, Employee::class]))
+            ? Partner::where('is_host', true)->value('id')
+            : $invoice->partner_id;
+
+        // An automatic charge is a Stripe charge, so it goes through the
+        // receiver's active Stripe - whatever the receiver's default method is.
+        // Charging through the default used to pick Cash or Bank Transfer, which
+        // has no gateway driver and threw outside this job's error handling.
+        $stripe = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
+        $partnerProvider = $stripe ? $gatewayManager->findPartnerProvider($receiverId, $stripe->id) : null;
+
+        $this->environment = Payment::environmentOf($partnerProvider);
 
         // Never take money off-session while billing is paused. The dispatcher
         // already filters these out, but this is the point where money actually
@@ -209,6 +244,15 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        // Only a payer who chose Stripe as their default is charged automatically.
+        // Anyone else pays by hand; they are told once, like a payer with no card.
+        if (strcasecmp((string) $payer->default_payment_method, PaymentProvider::STRIPE) !== 0) {
+            $entityName = class_basename($payer);
+            $default = $payer->default_payment_method ?: 'none';
+            $this->failAndTellPayer("Default payment method of {$entityName} ID {$payer->id} is {$default}, not Stripe; not charged automatically", [], noSavedCard: true);
+            return;
+        }
+
         if (empty($payer->stripe_customer_id_raw)) {
             $entityName = class_basename($payer);
             // Never saved, or removed by the payer (F110): only they can pay it now.
@@ -216,12 +260,12 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        // 2. Resolve Receiver Partner
-        $receiverId = (in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) || $invoice->is_partner_paying || in_array($subscription?->entity_type, [Partner::class, User::class, Employee::class]))
-            ? Partner::where('is_host', true)->value('id')
-            : $invoice->partner_id;
-
-        $partnerProvider = $gatewayManager->resolvePartnerProvider($receiverId);
+        // 2. The receiver's Stripe (resolved above). None: nothing can be charged
+        // until the receiver sets it up - the admins' to fix, not the payer's.
+        if (!$partnerProvider) {
+            $this->markFailed("Receiver partner ID {$receiverId} has no active Stripe to charge invoice #{$invoice->invoice_id}");
+            return;
+        }
 
         // A saved card lives in one Stripe account. Charging it from the other
         // fails at Stripe with a message about the token rather than the mode,
@@ -311,6 +355,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
                     'currency' => strtoupper($invoice->currency ?? Payment::CURRENCY_USD),
                     'payment_from' => PaymentProvider::STRIPE,
                     'status' => Payment::STATUS_SUCCEEDED,
+                    'is_environment' => $this->environment,
                     'details' => $result['raw'] ?? [],
                 ]);
 
@@ -384,6 +429,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'currency' => strtoupper($this->invoice->currency ?? Payment::CURRENCY_USD),
                 'payment_from' => PaymentProvider::STRIPE,
                 'status' => Payment::STATUS_FAILED,
+                'is_environment' => $this->environment,
                 'details' => array_merge(['error' => $reason], $details),
             ]);
         } catch (\Exception $e) {

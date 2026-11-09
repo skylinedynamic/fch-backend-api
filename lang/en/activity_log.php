@@ -2,6 +2,20 @@
 
 return [
     'listed'              => 'Activity logs retrieved successfully.',
+    'email_sender'        => 'The addresses emails can be sent from.',
+    'email_sender_host_only' => 'Only the host chooses which address an email is sent from.',
+    'send_from_invalid'   => "Choose to send from the partner's or the host's email.",
+    // The email New Email sends (emails/activity_log_mail).
+    'mail' => [
+        'default_subject'  => 'New Email from Activity Log',
+        'greeting'         => 'Hello,',
+        'greeting_name'    => 'Hello :name,',
+        'intro'            => ':sender sent you the message below.',
+        'message'          => 'Message',
+        'attachments'      => 'Attachments (:count)',
+        'attachments_note' => 'The files are attached to this email.',
+        'file'             => 'File',
+    ],
     'list_failed'         => 'Failed to retrieve activity logs.',
     'details_retrieved'   => 'Activity log details retrieved successfully.',
     'not_found'           => 'Activity log not found.',

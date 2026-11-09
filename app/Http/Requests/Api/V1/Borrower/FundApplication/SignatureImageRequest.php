@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\Files\Disk;
 
 /**
  * The file a borrower picked in the file manager to sign with.
@@ -76,7 +77,7 @@ class SignatureImageRequest extends BaseApiRequest
      */
     private function signatureFileError(): ?string
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
         $path = $this->storagePath();
         $name = basename($path);
 

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 use Tests\TestCase;
 
 /**
@@ -64,7 +66,7 @@ class FileManagerApiTest extends TestCase
     }
 
     #[Test]
-    public function an_upload_lands_in_the_root_folder_under_a_safe_timestamped_name(): void
+    public function an_upload_lands_in_the_root_folder_under_its_name_then_the_time(): void
     {
         $response = $this->fm('POST', 'upload', [
             'path' => '/',
@@ -72,15 +74,29 @@ class FileManagerApiTest extends TestCase
         ])->assertOk();
 
         $name = $response->json('data.name');
-        $this->assertMatchesRegularExpression('/^\d+_Q1_report__final_\.pdf$/', $name);
-        Storage::disk('public')->assertExists("partners/7/{$name}");
+        $this->assertMatchesRegularExpression('/^Q1_report__final__\d{10}\.pdf$/', $name);
+        Storage::disk('uploads')->assertExists("partners/7/{$name}");
+    }
+
+    #[Test]
+    public function two_uploads_of_the_same_name_in_the_same_second_are_both_kept_the_second_numbered(): void
+    {
+        $this->freezeTime();
+
+        $first = $this->fm('POST', 'upload', ['path' => '/', 'file' => UploadedFile::fake()->createWithContent('bank.pdf', 'one')])->json('data.name');
+        $second = $this->fm('POST', 'upload', ['path' => '/', 'file' => UploadedFile::fake()->createWithContent('bank.pdf', 'two')])->json('data.name');
+
+        $this->assertNotSame($first, $second);
+        $this->assertMatchesRegularExpression('/^bank_\d{10}_1\.pdf$/', $second);
+        $this->assertSame('one', Storage::disk('uploads')->get("partners/7/{$first}"));
+        $this->assertSame('two', Storage::disk('uploads')->get("partners/7/{$second}"));
     }
 
     #[Test]
     public function the_list_shows_folders_and_files_with_paths_relative_to_the_root(): void
     {
-        Storage::disk('public')->put('partners/7/contract.pdf', 'pdf');
-        Storage::disk('public')->makeDirectory('partners/7/Statements');
+        Storage::disk('uploads')->put('partners/7/contract.pdf', 'pdf');
+        Storage::disk('uploads')->makeDirectory('partners/7/Statements');
 
         $items = collect($this->fm('POST', 'list', ['path' => '/'])->assertOk()->json('data'))->keyBy('name');
 
@@ -94,7 +110,7 @@ class FileManagerApiTest extends TestCase
     public function a_folder_is_created_once(): void
     {
         $this->fm('POST', 'folder', ['path' => '', 'name' => 'Tax'])->assertOk()->assertJsonPath('data.path', '/Tax');
-        Storage::disk('public')->assertExists('partners/7/Tax');
+        Storage::disk('uploads')->assertExists('partners/7/Tax');
 
         $this->fm('POST', 'folder', ['path' => '', 'name' => 'Tax'])->assertStatus(422);
     }
@@ -102,7 +118,7 @@ class FileManagerApiTest extends TestCase
     #[Test]
     public function the_tree_lists_nested_folders(): void
     {
-        Storage::disk('public')->makeDirectory('partners/7/2026/Q1');
+        Storage::disk('uploads')->makeDirectory('partners/7/2026/Q1');
 
         $this->fm('POST', 'tree', ['path' => '/'])
             ->assertOk()
@@ -113,19 +129,19 @@ class FileManagerApiTest extends TestCase
     #[Test]
     public function an_item_is_renamed_in_place(): void
     {
-        Storage::disk('public')->put('partners/7/old.pdf', 'pdf');
+        Storage::disk('uploads')->put('partners/7/old.pdf', 'pdf');
 
         $this->fm('PUT', 'rename', ['path' => '/old.pdf', 'newName' => 'new.pdf'])->assertOk();
 
-        Storage::disk('public')->assertMissing('partners/7/old.pdf');
-        Storage::disk('public')->assertExists('partners/7/new.pdf');
+        Storage::disk('uploads')->assertMissing('partners/7/old.pdf');
+        Storage::disk('uploads')->assertExists('partners/7/new.pdf');
     }
 
     #[Test]
     public function renaming_a_missing_item_or_onto_an_existing_name_fails(): void
     {
-        Storage::disk('public')->put('partners/7/a.pdf', 'a');
-        Storage::disk('public')->put('partners/7/b.pdf', 'b');
+        Storage::disk('uploads')->put('partners/7/a.pdf', 'a');
+        Storage::disk('uploads')->put('partners/7/b.pdf', 'b');
 
         $this->fm('PUT', 'rename', ['path' => '/ghost.pdf', 'newName' => 'x.pdf'])->assertNotFound();
         $this->fm('PUT', 'rename', ['path' => '/a.pdf', 'newName' => 'b.pdf'])->assertStatus(422);
@@ -134,21 +150,21 @@ class FileManagerApiTest extends TestCase
     #[Test]
     public function files_and_folders_are_deleted(): void
     {
-        Storage::disk('public')->put('partners/7/a.pdf', 'a');
-        Storage::disk('public')->put('partners/7/Old/b.pdf', 'b');
+        Storage::disk('uploads')->put('partners/7/a.pdf', 'a');
+        Storage::disk('uploads')->put('partners/7/Old/b.pdf', 'b');
 
         $this->fm('POST', 'delete', ['paths' => ['/a.pdf', '/Old']])->assertOk();
 
-        Storage::disk('public')->assertMissing('partners/7/a.pdf');
-        Storage::disk('public')->assertMissing('partners/7/Old');
+        Storage::disk('uploads')->assertMissing('partners/7/a.pdf');
+        Storage::disk('uploads')->assertMissing('partners/7/Old');
     }
 
     #[Test]
     public function pasting_a_copy_keeps_the_original_and_names_a_clash_as_a_copy(): void
     {
-        Storage::disk('public')->put('partners/7/a.pdf', 'a');
-        Storage::disk('public')->makeDirectory('partners/7/Archive');
-        Storage::disk('public')->put('partners/7/Archive/a.pdf', 'older');
+        Storage::disk('uploads')->put('partners/7/a.pdf', 'a');
+        Storage::disk('uploads')->makeDirectory('partners/7/Archive');
+        Storage::disk('uploads')->put('partners/7/Archive/a.pdf', 'older');
 
         $this->fm('POST', 'paste', [
             'files' => [['path' => '/a.pdf']],
@@ -156,15 +172,15 @@ class FileManagerApiTest extends TestCase
             'operation' => 'copy',
         ])->assertOk()->assertJsonPath('data.0.name', 'a - Copy.pdf');
 
-        Storage::disk('public')->assertExists('partners/7/a.pdf');
-        Storage::disk('public')->assertExists('partners/7/Archive/a - Copy.pdf');
+        Storage::disk('uploads')->assertExists('partners/7/a.pdf');
+        Storage::disk('uploads')->assertExists('partners/7/Archive/a - Copy.pdf');
     }
 
     #[Test]
     public function pasting_a_move_removes_the_original(): void
     {
-        Storage::disk('public')->put('partners/7/a.pdf', 'a');
-        Storage::disk('public')->makeDirectory('partners/7/Archive');
+        Storage::disk('uploads')->put('partners/7/a.pdf', 'a');
+        Storage::disk('uploads')->makeDirectory('partners/7/Archive');
 
         $this->fm('POST', 'paste', [
             'files' => [['path' => '/a.pdf']],
@@ -172,14 +188,14 @@ class FileManagerApiTest extends TestCase
             'operation' => 'move',
         ])->assertOk();
 
-        Storage::disk('public')->assertMissing('partners/7/a.pdf');
-        Storage::disk('public')->assertExists('partners/7/Archive/a.pdf');
+        Storage::disk('uploads')->assertMissing('partners/7/a.pdf');
+        Storage::disk('uploads')->assertExists('partners/7/Archive/a.pdf');
     }
 
     #[Test]
     public function a_file_downloads_under_its_own_name(): void
     {
-        Storage::disk('public')->put('partners/7/contract.pdf', 'contract body');
+        Storage::disk('uploads')->put('partners/7/contract.pdf', 'contract body');
 
         $response = $this->fm('POST', 'download', ['path' => '/contract.pdf'])->assertOk();
 
@@ -196,7 +212,7 @@ class FileManagerApiTest extends TestCase
     #[Test]
     public function dot_dot_segments_cannot_climb_out_of_the_root_folder(): void
     {
-        Storage::disk('public')->put('partners/8/secret.pdf', 'not yours');
+        Storage::disk('uploads')->put('partners/8/secret.pdf', 'not yours');
 
         $items = collect($this->fm('POST', 'list', ['path' => '/../8'])->assertOk()->json('data'))->pluck('name');
 
@@ -213,8 +229,8 @@ class FileManagerApiTest extends TestCase
     {
         $borrowerUser = $this->makeBorrowerUser($this->partner);
         $other = $this->makeBorrower($this->partner);
-        Storage::disk('public')->put("borrowers/{$other->id}/statement.pdf", 'not yours');
-        Storage::disk('public')->put("borrowers/{$borrowerUser->entity_id}/mine.pdf", 'mine');
+        Storage::disk('uploads')->put("borrowers/{$other->id}/statement.pdf", 'not yours');
+        Storage::disk('uploads')->put("borrowers/{$borrowerUser->entity_id}/mine.pdf", 'mine');
         $this->actingAsUser($borrowerUser);
 
         $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'borrowers', 'entity_id' => $borrowerUser->entity_id, 'path' => '/'])
@@ -245,8 +261,8 @@ class FileManagerApiTest extends TestCase
     {
         $myBorrower = $this->makeBorrower($this->partner);
         $myStaff = $this->makeStaffUser($this->partner);
-        Storage::disk('public')->put("borrowers/{$myBorrower->id}/mine.pdf", 'mine');
-        Storage::disk('public')->put("employees/{$myStaff->entity_id}/w4.pdf", 'mine');
+        Storage::disk('uploads')->put("borrowers/{$myBorrower->id}/mine.pdf", 'mine');
+        Storage::disk('uploads')->put("employees/{$myStaff->entity_id}/w4.pdf", 'mine');
 
         foreach ([$this->partnerAdmin, $myStaff] as $caller) {
             $this->actingAsUser($caller);
@@ -264,8 +280,8 @@ class FileManagerApiTest extends TestCase
         $other = $this->makeCertifiedPartner();
         $theirBorrower = $this->makeBorrower($other);
         $theirStaff = $this->makeStaffUser($other);
-        Storage::disk('public')->put("borrowers/{$theirBorrower->id}/statement.pdf", 'not yours');
-        Storage::disk('public')->put("employees/{$theirStaff->entity_id}/w4.pdf", 'not yours');
+        Storage::disk('uploads')->put("borrowers/{$theirBorrower->id}/statement.pdf", 'not yours');
+        Storage::disk('uploads')->put("employees/{$theirStaff->entity_id}/w4.pdf", 'not yours');
 
         foreach ([$this->partnerAdmin, $this->makeStaffUser($this->partner)] as $caller) {
             $this->actingAsUser($caller);
@@ -284,9 +300,9 @@ class FileManagerApiTest extends TestCase
             }
         }
 
-        Storage::disk('public')->assertExists("borrowers/{$theirBorrower->id}/statement.pdf");
-        Storage::disk('public')->assertExists("employees/{$theirStaff->entity_id}/w4.pdf");
-        Storage::disk('public')->assertMissing("borrowers/{$theirBorrower->id}/Hijack");
+        Storage::disk('uploads')->assertExists("borrowers/{$theirBorrower->id}/statement.pdf");
+        Storage::disk('uploads')->assertExists("employees/{$theirStaff->entity_id}/w4.pdf");
+        Storage::disk('uploads')->assertMissing("borrowers/{$theirBorrower->id}/Hijack");
     }
 
     /** get_all opens every borrower's (or every staff member's) folder at once. */
@@ -308,8 +324,8 @@ class FileManagerApiTest extends TestCase
         $host = Partner::where('is_host', true)->firstOrFail();
         $theirBorrower = $this->makeBorrower($this->makeCertifiedPartner());
         $theirStaff = $this->makeStaffUser($this->partner);
-        Storage::disk('public')->put("borrowers/{$theirBorrower->id}/statement.pdf", 'pdf');
-        Storage::disk('public')->put("employees/{$theirStaff->entity_id}/w4.pdf", 'pdf');
+        Storage::disk('uploads')->put("borrowers/{$theirBorrower->id}/statement.pdf", 'pdf');
+        Storage::disk('uploads')->put("employees/{$theirStaff->entity_id}/w4.pdf", 'pdf');
 
         foreach ([$this->makePartnerAdmin($host), $this->makeStaffUser($host)] as $caller) {
             $this->actingAsUser($caller);
@@ -318,6 +334,46 @@ class FileManagerApiTest extends TestCase
                 ->assertOk()->assertJsonPath('data.0.name', 'statement.pdf');
             $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'employees', 'entity_id' => $theirStaff->entity_id, 'path' => '/'])
                 ->assertOk()->assertJsonPath('data.0.name', 'w4.pdf');
+        }
+    }
+
+    /**
+     * The Partner Documents tab opens its file manager on the partner's
+     * private documents folder: a file is kept there (never on the public
+     * disk), listed from there, and opened through a signed link.
+     */
+    #[Test]
+    public function the_hosts_team_keeps_a_partners_documents_in_their_private_folder(): void
+    {
+        $host = Partner::where('is_host', true)->firstOrFail();
+        $this->actingAsUser($this->makePartnerAdmin($host));
+        $root = ['entity_type' => Folder::PARTNER_DOCUMENTS, 'entity_id' => $this->partner->id];
+
+        $this->postJson('/api/v1/filemanager/upload', $root + ['path' => '/', 'file' => UploadedFile::fake()->create('w9.pdf', 1)])->assertOk();
+
+        $kept = Storage::disk(Disk::UPLOADS)->files(Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}");
+        $this->assertCount(1, $kept);
+        Storage::disk(Disk::LOCAL)->assertExists($kept[0]);
+        Storage::disk(Disk::PUBLIC)->assertMissing($kept[0]);
+
+        $list = $this->postJson('/api/v1/filemanager/list', $root + ['path' => '/'])->assertOk();
+        $this->assertSame(basename($kept[0]), $list->json('data.0.name'));
+        $this->assertStringContainsString('/private-files/' . Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}/", $list->json('data.0.url'));
+        $this->assertStringContainsString('signature=', $list->json('data.0.url'));
+    }
+
+    /** Partner documents are the host team's, as the Documents tab is: no partner opens them, its own included. */
+    #[Test]
+    public function a_non_host_partner_cannot_open_any_partners_documents_folder(): void
+    {
+        Storage::disk(Disk::UPLOADS)->put(Folder::PARTNER_DOCUMENTS . "/{$this->partner->id}/w9.pdf", 'pdf');
+
+        foreach ([$this->partner->id, $this->makeCertifiedPartner()->id] as $partnerId) {
+            $root = ['entity_type' => Folder::PARTNER_DOCUMENTS, 'entity_id' => $partnerId];
+
+            $this->postJson('/api/v1/filemanager/list', $root + ['path' => '/'])->assertForbidden();
+            $this->postJson('/api/v1/filemanager/upload', $root + ['path' => '/', 'file' => UploadedFile::fake()->create('x.pdf', 1)])->assertForbidden();
+            $this->postJson('/api/v1/filemanager/download', $root + ['path' => '/w9.pdf'])->assertForbidden();
         }
     }
 }

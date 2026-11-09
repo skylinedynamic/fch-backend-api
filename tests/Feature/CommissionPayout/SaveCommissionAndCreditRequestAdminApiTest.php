@@ -4,6 +4,7 @@ namespace Tests\Feature\CommissionPayout;
 
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
+use App\Http\Requests\Api\V1\FCH\Admin\Commission\SaveCommissionRequest;
 use App\Models\Borrower\CreditProfileRequest;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 #[CoversClass(CommissionController::class)]
 #[CoversClass(CreditProfileRequestAdminController::class)]
+#[CoversClass(SaveCommissionRequest::class)]
 class SaveCommissionAndCreditRequestAdminApiTest extends TestCase
 {
     use RefreshDatabase;
@@ -118,6 +120,34 @@ class SaveCommissionAndCreditRequestAdminApiTest extends TestCase
             'total_commission' => 150,
             'admin_commission' => 0,
         ])->assertUnprocessable()->assertJsonValidationErrors(['total_commission', 'admin_commission']);
+    }
+
+    /**
+     * Defect: a partner client's success fee could be split so that the admin
+     * and partner rates did not add up to 100% (e.g. admin 1%, partner 91%) -
+     * the closing modal let either be cleared without the other.
+     */
+    #[Test]
+    public function the_admin_and_partner_rates_must_add_up_to_100(): void
+    {
+        $application = $this->application();
+        $this->actingAsUser($this->reviewer);
+
+        $this->postJson('/api/v1/admin/funding-application/save-commission', [
+            'funding_application_id' => $application->id,
+            'total_commission' => 10,
+            'admin_commission' => 1,
+            'partner_commission' => 91,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['partner_commission' => __('application.commission_split_must_total_100')]);
+
+        $this->assertFalse(Commission::where('funding_application_id', $application->id)->exists());
+
+        $this->postJson('/api/v1/admin/funding-application/save-commission', [
+            'funding_application_id' => $application->id,
+            'total_commission' => 10,
+            'admin_commission' => 9.5,
+            'partner_commission' => 90.5,
+        ])->assertOk();
     }
 
     #[Test]

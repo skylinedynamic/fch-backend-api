@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,8 @@ use App\Rules\DunsNumber;
 use App\Rules\FicoScore;
 use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
+use App\Services\Borrower\Profile\ChangeRequestGuard;
+use Illuminate\Validation\Validator;
 
 class StoreChangeRequest extends BaseApiRequest
 {
@@ -56,6 +59,10 @@ class StoreChangeRequest extends BaseApiRequest
             'business_name' => 'required|string|max:255',
             'business_ein' => ['required', new BusinessEin()],
             'business_phone' => ['nullable', 'string', new UsPhoneNumber()],
+            // BY DESIGN (BUG-071): no uniqueness rule. Mail goes to the client's
+            // sign-in email, never to this one (it is only shown and printed on
+            // documents), and two clients of one company may share an office
+            // address. Only the sign-in email (`email` below) must be unique.
             'business_email' => 'required|email|max:255',
             'duns_number' => ['nullable', 'string', new DunsNumber()],
             'business_address' => 'required|string|max:255',
@@ -67,7 +74,7 @@ class StoreChangeRequest extends BaseApiRequest
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
-            'business_start_date' => 'required|date',
+            'business_start_date' => ['required', 'date', new NotFutureDate()], // BUG-007
             'personal_credit_score' => ['required', new FicoScore()],
             // Financial Info
             'currency' => 'required|string|max:10',
@@ -111,6 +118,36 @@ class StoreChangeRequest extends BaseApiRequest
             'entity_type' => 'nullable|string',
             'entity_id' => 'nullable|integer',
         ];
+    }
+
+    /**
+     * A request for the value already on file changes nothing, and a field
+     * already waiting for review takes no second request (R2 BUG-039). An
+     * unknown field or a row that is not the borrower's is left to the service.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $borrower = Auth::user()?->entity;
+            $field = $this->input('field_name');
+
+            if ($validator->errors()->isNotEmpty() || !$borrower || !is_string($field)) {
+                return;
+            }
+
+            $guard = app(ChangeRequestGuard::class);
+            $current = $guard->current($borrower, $field, $this->integer('entity_id') ?: null);
+
+            if (!$current) {
+                return;
+            }
+
+            if ($guard->isSameValue($field, $current['value'], $this->input('new_value'))) {
+                $validator->errors()->add('new_value', __('profile.change_request_same_value'));
+            } elseif ($guard->hasPending($borrower, $field, $current['entity_id'])) {
+                $validator->errors()->add('new_value', __('profile.change_request_already_pending'));
+            }
+        });
     }
 
     /**

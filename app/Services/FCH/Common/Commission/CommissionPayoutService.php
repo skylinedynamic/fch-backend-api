@@ -10,6 +10,7 @@ use App\Models\Compensation\CompensationSetting;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use App\Services\FCH\Common\Compensation\CompensationService;
 use App\Services\FCH\Common\Invoice\InvoiceService;
@@ -100,6 +101,8 @@ class CommissionPayoutService
             'paid_at' => null,
             'payment_method' => null,
             'can_pay' => $this->reasonNotPayable($commission, $payout) === null,
+            // What the payout dialog's Environment starts on.
+            'default_environment' => PaymentProvider::defaultModeForApp(),
         ]);
     }
 
@@ -107,11 +110,12 @@ class CommissionPayoutService
      * Pay the payee: record the payout, an invoice and a payment, and mark the
      * commission Paid and Completed.
      *
+     * @param string $environment PaymentProvider::MODE_*, as the host stated it
      * @throws ValidationException when there's nothing that can be paid yet
      */
-    public function pay(Commission $commission, string $paymentMethod, ?string $note = null): Commission
+    public function pay(Commission $commission, string $paymentMethod, string $environment, ?string $note = null): Commission
     {
-        [$commission, $invoice] = DB::transaction(function () use ($commission, $paymentMethod, $note) {
+        [$commission, $invoice] = DB::transaction(function () use ($commission, $paymentMethod, $environment, $note) {
             // Locked, so two clicks can't both pay.
             $commission = Commission::whereKey($commission->getKey())->lockForUpdate()->firstOrFail();
 
@@ -161,6 +165,7 @@ class CommissionPayoutService
                 'payment_from' => $paymentMethod,
                 'payment_type' => $paymentMethod,
                 'status' => Payment::STATUS_SUCCEEDED,
+                'is_environment' => Payment::environmentFromMode($environment),
                 'transaction_date' => now(),
                 'created_by' => Auth::id(),
             ]);

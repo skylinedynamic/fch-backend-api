@@ -45,9 +45,9 @@ class FundingApplicationEditGuard
             return;
         }
 
-        // The host's team is never locked out; borrowers and partners are.
+        // One status rule for everyone: host, partners and borrowers.
         if (! $application->isEditableBy($editor)) {
-            throw FundingApplicationLockedException::for($application);
+            throw FundingApplicationLockedException::for($application, $editor);
         }
     }
 

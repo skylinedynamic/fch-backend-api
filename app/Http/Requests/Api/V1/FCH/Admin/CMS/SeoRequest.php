@@ -3,6 +3,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\CMS;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\SafeUpload;
 
 class SeoRequest extends FormRequest
 {
@@ -33,7 +34,8 @@ class SeoRequest extends FormRequest
                 'sometimes', 
                 request()->hasFile('og_image') ? 'image' : 'string',
                 request()->hasFile('og_image') ? 'mimes:png,jpg,jpeg,svg,webp' : 'nullable',
-                'max:2048'
+                'max:2048',
+                SafeUpload::image(),
             ],
         ];
     }

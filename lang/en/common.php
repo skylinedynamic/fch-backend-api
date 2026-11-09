@@ -23,10 +23,13 @@ return [
     'duns_number_invalid' => 'Enter a 9-digit D-U-N-S number, e.g. 123456789.',
     'routing_number_invalid' => 'Enter a 9-digit routing number, e.g. 021000021.',
     'fico_score_invalid' => 'Enter a FICO score as a whole number between :min and :max.',
+    'fico_score_required' => 'Enter the FICO score.',
     'business_credit_score_invalid' => 'Enter the business credit score as a whole number of 0 or more.',
     'date_of_birth_invalid' => 'Enter a valid date of birth.',
     'date_of_birth_future' => 'Date of birth cannot be in the future.',
     'date_of_birth_minimum_age' => 'You must be at least :age years old to continue.',
+    'date_of_birth_max_age' => 'Enter a date of birth no more than :age years ago.',
+    'date_not_in_future' => 'The date cannot be in the future.',
     // Shown when an operation fails unexpectedly. The real exception is logged;
     // it is never returned to the client, because its text can carry SQL,
     // file paths and other internals.

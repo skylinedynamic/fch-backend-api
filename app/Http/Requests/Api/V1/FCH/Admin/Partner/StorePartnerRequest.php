@@ -13,6 +13,7 @@ use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\BusinessEin;
+use App\Rules\SafeUpload;
 
 class StorePartnerRequest extends BaseApiRequest
 {
@@ -79,8 +80,8 @@ class StorePartnerRequest extends BaseApiRequest
             'tax_id' => ['nullable', 'string', new BusinessEin()],
             'website' => ['nullable', 'string'],
             'joining_date' => ['nullable', 'date'],
-            'company_logo' => ['nullable'],
-            'partner_image' => ['nullable'],
+            'company_logo' => ['nullable', SafeUpload::image()],
+            'partner_image' => ['nullable', SafeUpload::image()],
             'assign_to' => ['nullable', 'integer', 'exists:users,id'],
             'partner_domain' => [
                 'required',

@@ -52,6 +52,54 @@ class AgreementSignController extends Controller
     }
 
     /**
+     * Excuse one partner or client from signing their agreement, or require it
+     * again. The host's team only - never the partner or client themselves.
+     */
+    /** Host only: whether this partner / client is required to sign, and whether that can be changed now. */
+    public function requirement(int $userId)
+    {
+        if (!$this->isHostTeam()) {
+            return ApiResponse::notFound(__('agreement.not_found'));
+        }
+
+        $status = $this->agreementService->requirementStatus($userId);
+
+        return $status === null
+            ? ApiResponse::notFound(__('agreement.signer_not_found'))
+            : ApiResponse::success($status);
+    }
+
+    public function setRequired(Request $request, int $userId)
+    {
+        $request->validate(['required' => 'required|boolean']);
+
+        if (!$this->isHostTeam()) {
+            return ApiResponse::notFound(__('agreement.not_found'));
+        }
+
+        // Locked while signing, or the agreement they would sign, is off in Settings.
+        $status = $this->agreementService->requirementStatus($userId);
+        if ($status === null) {
+            return ApiResponse::notFound(__('agreement.signer_not_found'));
+        }
+        if (!$status['can_change']) {
+            return ApiResponse::error($status['locked_reason'], 422);
+        }
+
+        try {
+            $result = $this->agreementService->setRequired($userId, $request->boolean('required'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('agreement.required_update_failed') . ': ' . $e->getMessage());
+        }
+
+        if ($result === null) {
+            return ApiResponse::notFound(__('agreement.signer_not_found'));
+        }
+
+        return ApiResponse::success($result, __('agreement.required_updated_successfully'));
+    }
+
+    /**
      * Submit / save the signed agreement for the authenticated partner.
      */
     public function submitSign(Request $request)
@@ -122,8 +170,14 @@ class AgreementSignController extends Controller
 
         // Only the host's team reaches someone else's agreement; everyone else
         // - non-host partners and their staff, and borrowers - only their own.
-        $isHostTeam = (bool) optional($user->partner)->is_host && $user->entity_type !== Borrower::class;
+        return $this->isHostTeam() ? $targetUserId : null;
+    }
 
-        return $isHostTeam ? $targetUserId : null;
+    /** The host's admins and staff - not a non-host partner's team, and never a borrower. */
+    private function isHostTeam(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) optional($user->partner)->is_host && $user->entity_type !== Borrower::class;
     }
 }

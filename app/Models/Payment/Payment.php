@@ -48,6 +48,23 @@ class Payment extends Model
     public const DETAIL_FAILURE_SOURCE = 'source';
     public const FAILURE_SOURCE_CHECKOUT = 'checkout';
 
+    /**
+     * A "Pay Now" card charge the issuer wants authenticated - 3-D Secure,
+     * usually an OTP (BUG-066). It is kept as a PENDING row, marked in details,
+     * while the payer completes the bank's challenge in the browser. The
+     * confirm endpoint, or the payments:settle-card-authentications command for
+     * a payer who closed the tab, then settles it as SUCCEEDED or FAILED.
+     *
+     * The gateway account is kept with it, so the PaymentIntent is read back from
+     * the same Stripe account - and mode - that created it.
+     */
+    public const DETAIL_AWAITING = 'awaiting';
+    public const AWAITING_AUTHENTICATION = 'authentication';
+    public const DETAIL_GATEWAY_ACCOUNT = 'partner_payment_provider_id';
+
+    /** How long a payer has to finish the bank's challenge before it is cancelled. */
+    public const AUTHENTICATION_TIMEOUT_MINUTES = 30;
+
     public const TRANSACTION_TYPE_DEBIT = 'Debit';
     public const TRANSACTION_TYPE_CREDIT = 'Credit';
 
@@ -162,9 +179,13 @@ class Payment extends Model
                 || (int) $this->partner_id === (int) $authUserPartnerId;
         }
 
-        // Non-host partner: can only approve borrower payments under their own partner
+        // Non-host partner: only what its own borrowers paid it. What the partner
+        // pays the host - the borrower fee included, though it names a borrower -
+        // is the host's to confirm; a partner confirming it would mark the host
+        // paid with nothing received.
         return (int) $this->partner_id === (int) $authUserPartnerId
-            && ($this->entity_type === Borrower::class || !empty($this->borrower_id));
+            && $this->entity_type === Borrower::class
+            && !$this->is_partner_paying;
     }
 
     /**
@@ -178,10 +199,37 @@ class Payment extends Model
     /**
      * Create a payment record dynamically.
      */
+    /**
+     * A card payment waiting on the payer's bank authentication (see
+     * DETAIL_AWAITING).
+     */
+    public function isAwaitingAuthentication(): bool
+    {
+        return $this->status === self::STATUS_PENDING
+            && ($this->details[self::DETAIL_AWAITING] ?? null) === self::AWAITING_AUTHENTICATION;
+    }
+
+    /**
+     * Scope: card payments waiting on the payer's bank authentication.
+     */
+    public function scopeAwaitingAuthentication($query)
+    {
+        return $query->where('payments.status', self::STATUS_PENDING)
+            ->where('payments.details->' . self::DETAIL_AWAITING, self::AWAITING_AUTHENTICATION);
+    }
+
     public function createRecord(array $data): self
     {
+        // Never guessed: the caller knows which payment method the money was
+        // taken with (or the attempt made with), and that method's mode is the
+        // environment - see environmentOf(). Guessing from the partner's Stripe
+        // filed Production cash payments under Sandbox.
+        if (!isset($data['is_environment'])) {
+            throw new \InvalidArgumentException('A payment must say which environment (sandbox / production) it was made in.');
+        }
+
         $partnerId = $data['partner_id'] ?? null;
-        $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
+        $isEnvironment = $data['is_environment'];
         $paymentFrom = $data['payment_from'] ?? PaymentProvider::STRIPE;
         $paymentType = $data['payment_type'] ?? ($paymentFrom === PaymentProvider::STRIPE ? PaymentProvider::TYPE_CARD : $paymentFrom);
 
@@ -242,36 +290,16 @@ class Payment extends Model
     }
 
     /**
-     * Resolve environment based on Partner's payment mode.
+     * The environment of a payment taken with (or attempted on) this payment
+     * method: the mode the receiver has it set to. No method set up means no
+     * live money could have moved, so Sandbox.
      */
-    public function getEnvironmentForPartner(?int $partnerId): int
+    public static function environmentOf(?PartnerPaymentProvider $method): int
     {
-        if ($partnerId) {
-            $partner = Partner::find($partnerId);
-            if ($partner && $partner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL && !$partner->is_host) {
-                $host = Partner::where('is_host', 1)->first();
-                if ($host) {
-                    $partnerId = $host->id;
-                }
-            }
-        }
-
-        $paymentMode = PaymentProvider::MODE_SANDBOX;
-
-        $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
-        if ($stripeProvider) {
-            $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
-                ->where('payment_provider_id', $stripeProvider->id)
-                ->first();
-            if ($linkage) {
-                $paymentMode = $linkage->paymentMode();
-            }
-        }
-
-        return $this->environmentFromMode($paymentMode);
+        return self::environmentFromMode($method?->paymentMode() ?? PaymentProvider::MODE_SANDBOX);
     }
 
-    public function environmentFromMode(string $mode): int
+    public static function environmentFromMode(string $mode): int
     {
         return $mode === PaymentProvider::MODE_PRODUCTION
             ? PaymentProvider::ENVIRONMENT_PRODUCTION

@@ -106,7 +106,7 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
     private function upload(): string
     {
         $path = "embed_forms/{$this->partner->id}/{$this->submission->id}/" . Str::uuid() . '.pdf';
-        Storage::disk('public')->put($path, 'statement');
+        Storage::disk('uploads')->put($path, 'statement');
         EmbedFormAttachment::create([
             'submission_id' => $this->submission->id,
             'partner_id' => $this->partner->id,
@@ -138,7 +138,7 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
         $this->assertSame(0, FundingApplication::count());
         $this->assertSame(0, FundingApplicationDocument::count());
         $this->assertNotSame(EmbedFormSubmission::STATUS_CONVERTED, $this->submission->fresh()->status);
-        Storage::disk('public')->assertExists($upload);
+        Storage::disk('uploads')->assertExists($upload);
     }
 
     #[Test]
@@ -154,7 +154,7 @@ class EmbedFormConvertExistingBorrowerTest extends TestCase
         $this->assertSame(1, Borrower::count());
         $this->assertSame($this->borrower->id, FundingApplication::findOrFail($applicationId)->borrower_id);
         $this->assertSame($this->borrower->id, $this->submission->fresh()->converted_borrower_id);
-        $this->assertCount(1, Storage::disk('public')->allFiles("funding-application/{$this->borrower->id}/FA-{$applicationId}"));
+        $this->assertCount(1, Storage::disk('uploads')->allFiles("funding-application/{$this->borrower->id}/FA-{$applicationId}"));
     }
     // -- Only the form's own partner's borrower -------------------------------
 

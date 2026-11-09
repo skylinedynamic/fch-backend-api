@@ -759,20 +759,24 @@
             outline: none !important;
         }
 
-        /* Stepper styles with clean underlying track to prevent line bleed */
+        /* Stepper: every step has one width (--stepper-node), so the line can run
+           exactly from the first step's centre to the last one's. A fixed
+           10%-90% left a gap after step 1 and before step 8 on a wide form. */
         .stepper-wrapper {
+            --stepper-pad: 10px;
+            --stepper-node: 72px;
             display: flex;
             justify-content: space-between;
             position: relative;
             margin-bottom: 28px;
-            padding: 0 10px;
+            padding: 0 var(--stepper-pad);
         }
 
         .stepper-track {
             position: absolute;
             top: 18px;
-            left: 10%;
-            right: 10%;
+            left: calc(var(--stepper-pad) + var(--stepper-node) / 2);
+            right: calc(var(--stepper-pad) + var(--stepper-node) / 2);
             height: 2px;
             background: #e2e8f0;
             z-index: 1;
@@ -789,6 +793,7 @@
             position: relative;
             z-index: 3;
             display: flex;
+            flex: 0 0 var(--stepper-node);
             flex-direction: column;
             align-items: center;
             text-align: center;
@@ -1061,16 +1066,99 @@
             .step-name {
                 display: none !important;
             }
+
+            /* Counters only: each step is just its counter wide. */
+            .stepper-wrapper {
+                --stepper-node: 36px;
+            }
+        }
+
+        /* A phone: eight 36px counters do not fit, so they are 30px. */
+        @media (max-width: 575.98px) {
+            .stepper-wrapper {
+                --stepper-node: 30px;
+                --stepper-pad: 0px;
+            }
+
+            .step-counter {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+
+            .stepper-track {
+                top: 15px;
+            }
+        }
+
+        /* Display options from the embed code's link (EmbedFormDisplay):
+           the page background, and the form card's frame. */
+        body.form-bg-white {
+            background: #ffffff;
+        }
+
+        body.form-bg-transparent {
+            background: transparent;
+        }
+
+        /* A colour code from the link (bg=rrggbb), checked by EmbedFormDisplay. */
+        body.form-bg-custom {
+            background: var(--form-bg);
+        }
+
+        /* Frameless: no outer card, so the form sits flush on the page around
+           the iframe. 4px of room keeps the focus rings of the outermost
+           fields inside the iframe. */
+        body.is-frameless {
+            min-height: 0;
+            padding-bottom: 0;
+        }
+
+        body.is-frameless > .container {
+            max-width: none !important;
+            padding: 4px !important;
+        }
+
+        body.is-frameless .embed-main-card {
+            border: 0;
+            box-shadow: none;
+            background: transparent;
+            padding: 0 !important;
+        }
+
+        /* An option's badge in a select2 list - the preferred funding type in
+           Additional Funding Types, listed but not selectable: "Selected as Preferred". */
+        .select2-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .select2-option__badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            line-height: 1.4;
+            color: var(--brand-primary);
+            background: rgba(var(--bs-primary-rgb), 0.12);
+            border: 1px solid rgba(var(--bs-primary-rgb), 0.25);
+        }
+
+        .select2-results__option--disabled {
+            cursor: not-allowed;
         }
     </style>
 </head>
 
-<body>
+<body class="{{ implode(' ', $display->bodyClasses()) }}"@if($display->backgroundColor()) style="--form-bg: {{ $display->backgroundColor() }}"@endif>
 
     <div class="container py-4" style="max-width: 860px;">
 
-        {{-- Header with Partner Branding --}}
-        <div class="card card-custom mb-3 text-center p-4">
+        {{-- Header with Partner Branding; off when the framing page shows its own --}}
+        @if($display->showHeader())
+        <div class="card card-custom mb-3 text-center p-4" id="embedBrandHeader">
             <div class="d-flex justify-content-center align-items-center mb-3">
                 @if(!empty($logoUrl))
                     <img src="{{ $logoUrl }}" alt="{{ $partnerName }} Logo" class="brand-logo-img">
@@ -1087,9 +1175,10 @@
                         class="bi bi-shield-check text-success me-1"></i>Secure Application</span>
             </p>
         </div>
+        @endif
 
         {{-- Main Form Card --}}
-        <div class="card card-custom p-4 p-md-5">
+        <div class="card card-custom embed-main-card p-4 p-md-5">
 
             {{-- Stepper Progress, one node per funding application step --}}
             <div class="stepper-wrapper mb-4">
@@ -1207,6 +1296,18 @@
                                 @endforeach
                             </select>
                         </div>
+                        {{-- What "Other" is, as the borrower profile asks it - beside
+                        its own select, so each type and its details share a row. --}}
+                        <div class="col-md-6" id="industryTypeNoteWrap" style="display: none;">
+                            <label class="form-label fw-semibold small mb-1" for="industry_type_note">Industry Type
+                                Details <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="industry_type_note" id="industry_type_note"
+                                maxlength="255" placeholder="Enter industry type details">
+                        </div>
+                        {{-- Holds the row when only Entity Type is "Other", so Entity Type
+                        starts the next row with its details beside it. --}}
+                        <div class="col-md-6 d-none d-md-block" id="typeNoteSpacer" style="display: none !important;"
+                            aria-hidden="true"></div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Entity Type <span
                                     class="text-danger">*</span></label>
@@ -1217,6 +1318,12 @@
                                     <option value="{{ $entity }}">{{ $entity }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="col-md-6" id="entityTypeNoteWrap" style="display: none;">
+                            <label class="form-label fw-semibold small mb-1" for="entity_type_note">Entity Type
+                                Details <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="entity_type_note" id="entity_type_note"
+                                maxlength="255" placeholder="Enter entity type details">
                         </div>
                         {{-- Years in business is not asked: it is worked out from the
                         Business Start Date on the financial step. --}}
@@ -1480,28 +1587,6 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Preferred Funding Type <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select select2" name="preferred_funding_type"
-                                id="preferred_funding_type" data-req data-placeholder="Select funding type...">
-                                <option value=""></option>
-                                @foreach($options['funding_types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
-                            {{-- Every funding type except the preferred one, which the
-                            script takes out whenever the preferred type changes. --}}
-                            <select class="form-select select2" name="additional_funding_types[]"
-                                id="additional_funding_types" multiple data-placeholder="Select any others...">
-                                @foreach($options['funding_types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Purpose of Funds <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="purpose_of_funds" id="purpose_of_funds" data-req
@@ -1509,6 +1594,17 @@
                                 <option value=""></option>
                                 @foreach($options['purposes_of_funds'] as $purpose)
                                     <option value="{{ $purpose }}">{{ $purpose }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small mb-1">Preferred Funding Type <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select select2" name="preferred_funding_type"
+                                id="preferred_funding_type" data-req data-placeholder="Select funding type...">
+                                <option value=""></option>
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -1527,6 +1623,17 @@
                                     class="text-danger">*</span></label>
                             <textarea class="form-control" name="purpose_note" id="purpose_note" rows="2"
                                 maxlength="500" placeholder="Describe what the funds will be used for"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
+                            {{-- The same list as Preferred; the script marks the preferred
+                            type "Selected as Preferred" (disabled) - see refreshAdditionalFundingTypes. --}}
+                            <select class="form-select select2" name="additional_funding_types[]"
+                                id="additional_funding_types" multiple data-placeholder="Select any others...">
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small mb-1">Collateral Available</label>
@@ -1804,9 +1911,11 @@
         </div>
 
         {{-- Footer --}}
+        @if($display->showFooter())
         <div class="text-center mt-3 text-muted small">
             &copy; {{ date('Y') }} {{ $partnerName }}. All rights reserved.
         </div>
+        @endif
 
     </div>
 
@@ -1830,12 +1939,107 @@
         const API_BASE = '{{ $apiBase }}';
         const PUBLIC_KEY = '{{ $publicKey }}';
 
+        /* ─────────────────────── Page around the iframe ───────────────────── */
+        // When this form is shown in an iframe (the website's /apply page, a
+        // partner's site) the page around it cannot see how tall the form is,
+        // and scrolling inside an iframe sized to its content moves nothing.
+        // So the form tells that page its height and where to scroll. Only
+        // layout numbers are sent - never a field value - and only to the
+        // framing page's own origin, never '*'. Opened directly, nothing runs.
+        //
+        // The framing page's origin comes from the referrer or, when a browser,
+        // extension or Referrer-Policy drops it, from that page's 'hello'
+        // message (embed.js and the website send one when the iframe loads).
+        // Only a message from this window's own parent is believed.
+        let parentOrigin = (() => {
+            if (window.parent === window || !document.referrer) return null;
+            try { return new URL(document.referrer).origin; } catch (e) { return null; }
+        })();
+
+        function postToParent(message) {
+            if (!parentOrigin) return false;
+            window.parent.postMessage({ source: 'fch-embed-form', ...message }, parentOrigin);
+            return true;
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.source !== window.parent || window.parent === window) return;
+            const data = event.data;
+            if (!data || data.source !== 'fch-embed-form' || data.type !== 'hello') return;
+
+            // A page opened from a file (or sandboxed) has the origin 'null',
+            // which postMessage refuses as a target. It is answered with '*':
+            // only layout numbers are sent, and only to this window's parent.
+            parentOrigin = event.origin === 'null' ? '*' : event.origin;
+            // Report afresh: the page may have missed the earlier reports.
+            lastHeight = 0;
+            reportHeight();
+        });
+
+        // The body has min-height: 100vh, which inside an iframe is the iframe's
+        // own height - measuring the document would never let it shrink. Measure
+        // the content instead, plus any open dropdown or calendar hanging below it.
+        function formHeight() {
+            const bottoms = [document.querySelector('body > .container')]
+                .concat([...document.querySelectorAll('.select2-container--open .select2-dropdown, .flatpickr-calendar.open')])
+                .filter(Boolean)
+                .map(el => el.getBoundingClientRect().bottom + window.scrollY);
+            return Math.ceil(Math.max(0, ...bottoms) + BOTTOM_SPACE);
+        }
+
+        // Room below the content: the page's own spacing, or almost none when the
+        // form is frameless and the page around the iframe provides it.
+        const BOTTOM_SPACE = @json($display->framed()) ? 40 : 8;
+
+        let lastHeight = 0;
+        function reportHeight() {
+            const height = formHeight();
+            if (height !== lastHeight) {
+                lastHeight = height;
+                postToParent({ type: 'resize', height });
+            }
+        }
+
+        /**
+         * Scroll to a point in the form. Framed, the page around the iframe is
+         * asked to scroll too - but this window always scrolls itself as well:
+         * with a fixed-height iframe (no embed script listening) the form scrolls
+         * inside it, and with automatic height there is nothing here to scroll.
+         */
+        function scrollFormTo(top) {
+            postToParent({ type: 'scroll', top: Math.max(0, Math.round(top)) });
+            window.scrollTo({ top, behavior: 'smooth' });
+        }
+
+        /** Bring a field into view, centred where the framing page can show it. */
+        function scrollFormToElement(el) {
+            if (!parentOrigin) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            const rect = el.getBoundingClientRect();
+            scrollFormTo(rect.top + window.scrollY - 120);
+        }
+
+        if (window.parent !== window) {
+            new ResizeObserver(reportHeight).observe(document.querySelector('body > .container'));
+            document.addEventListener('DOMContentLoaded', reportHeight);
+            window.addEventListener('load', reportHeight);
+            // Dropdowns and calendars open outside the observed layout.
+            ['click', 'keyup', 'focusin'].forEach(evt => document.addEventListener(evt, () => setTimeout(reportHeight, 50)));
+        }
+
         // Country / state / city data, and the document buckets, both rendered from
         // the same server-side source the portal's own application uses.
         const LOCATIONS = @json($locations);
         const DOC_TYPES = @json($docTypes);
         const CO_BORROWER_ROLES = @json($options['co_borrower_roles']);
         const PURPOSE_OTHER = @json($options['purpose_other']);
+        // Industry / entity type "Other" asks for its details (config/borrower.php).
+        const TYPE_NOTES = [
+            { select: 'industry_type', wrap: 'industryTypeNoteWrap', note: 'industry_type_note', other: @json(config('borrower.industry_type_other')) },
+            { select: 'entity_type', wrap: 'entityTypeNoteWrap', note: 'entity_type_note', other: @json(config('borrower.entity_type_other')) },
+        ];
         const FUNDING_TYPES = @json($options['funding_types']);
         const CURRENCIES = @json($currencies);
         const REFERRAL_OTHER = @json($referralSourceOther);
@@ -1863,6 +2067,7 @@
         $(document).ready(function () {
             populateCountries();
             initSelect2();
+            refreshAdditionalFundingTypes();
             initDatePickers();
 
             document.getElementById('timezone').value =
@@ -1872,7 +2077,7 @@
             // hidden and stays that way until something is switched to Yes.
             syncComplianceExplanation();
 
-            showStep(1);
+            showStep(1, false);
         });
 
         /**
@@ -2115,7 +2320,15 @@
                     placeholder: $(this).data('placeholder') || '',
                     allowClear: !$(this).is('[data-req]'),
                     // Several picks in a row without reopening the list.
-                    closeOnSelect: !$(this).prop('multiple')
+                    closeOnSelect: !$(this).prop('multiple'),
+                    // An option with data-badge shows it beside its text.
+                    templateResult: function (item) {
+                        const badge = item.element && item.element.dataset ? item.element.dataset.badge : '';
+                        if (!badge) return item.text;
+                        return $('<span class="select2-option">')
+                            .append($('<span>').text(item.text))
+                            .append($('<span class="select2-option__badge">').text(badge).attr('title', 'Already selected as the Preferred Funding Type'));
+                    }
                 });
             });
 
@@ -2294,7 +2507,7 @@
 
         /* ──────────────────────────── Navigation ─────────────────────────── */
 
-        function showStep(step) {
+        function showStep(step, scroll = true) {
             document.querySelectorAll('.tab-step').forEach(tab => tab.classList.remove('active'));
             document.getElementById(`tab-${step}`)?.classList.add('active');
 
@@ -2319,7 +2532,7 @@
                 renderReviewSummary();
             }
 
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (scroll) scrollFormTo(0);
         }
 
         let stepCheckPending = false;
@@ -2412,7 +2625,7 @@
             });
 
             if (first) {
-                errorAnchor(first).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollFormToElement(errorAnchor(first));
             }
 
             if (unplaced.length || !first) {
@@ -2454,6 +2667,8 @@
             'business_other_city',
             'other_city',
             'purpose_note',
+            'industry_type_note',
+            'entity_type_note',
             'referral_source_other',
             'federal_compliance_disclosures_explanation',
         ];
@@ -2657,7 +2872,7 @@
             });
 
             if (firstInvalid) {
-                errorAnchor(firstInvalid).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollFormToElement(errorAnchor(firstInvalid));
                 if (firstInvalid.matches('input:not([type="hidden"]):not([type="checkbox"]), textarea')) {
                     firstInvalid.focus({ preventScroll: true });
                 }
@@ -2763,9 +2978,10 @@
         });
 
         /**
-         * The additional funding types are every type but the preferred one.
-         * The list is rebuilt rather than an option hidden, so the preferred type
-         * cannot be picked twice; what was already chosen stays chosen.
+         * The additional funding types are the same list as the preferred one.
+         * The type chosen as Preferred is listed "Selected as Preferred" and
+         * disabled, so it is not picked twice (the API refuses it too); what was
+         * already chosen otherwise stays chosen.
          */
         function refreshAdditionalFundingTypes() {
             const preferred = document.getElementById('preferred_funding_type').value;
@@ -2773,13 +2989,44 @@
             const chosen = ($additional.val() || []).filter(type => type !== preferred);
 
             $additional.empty();
-            FUNDING_TYPES.filter(type => type !== preferred).forEach(type => {
-                $additional.append(new Option(type, type, false, chosen.includes(type)));
+            FUNDING_TYPES.forEach(type => {
+                const option = new Option(type, type, false, chosen.includes(type));
+                if (type === preferred) {
+                    option.disabled = true;
+                    option.dataset.badge = 'Selected as Preferred';
+                }
+                $additional.append(option);
             });
             $additional.trigger('change.select2');
         }
 
         $(document).on('change', '#preferred_funding_type', refreshAdditionalFundingTypes);
+        // A Preferred type can be in place without a change (the browser restores
+        // it, or it was chosen before this step showed), so mark the list again
+        // every time it opens - and once when the page is set up.
+        $(document).on('select2:opening', '#additional_funding_types', refreshAdditionalFundingTypes);
+
+        TYPE_NOTES.forEach(({ select, wrap, note, other }) => {
+            $(document).on('change', `#${select}`, function () {
+                const isOther = this.value === other;
+                document.getElementById(wrap).style.display = isOther ? 'block' : 'none';
+                if (!isOther) {
+                    const input = document.getElementById(note);
+                    input.value = '';
+                    clearInvalid(input);
+                }
+                placeTypeNotes();
+            });
+        });
+
+        // Each type shares a row with its details. With only the entity type on
+        // "Other", a spacer fills the industry row so the entity type and its
+        // details start the next one together.
+        function placeTypeNotes() {
+            const [industry, entity] = TYPE_NOTES.map(t => document.getElementById(t.select).value === t.other);
+            const spacer = document.getElementById('typeNoteSpacer');
+            spacer.style.setProperty('display', entity && !industry ? '' : 'none', 'important');
+        }
 
         $(document).on('change', '#purpose_of_funds', function () {
             const isOther = this.value === PURPOSE_OTHER;
@@ -3088,7 +3335,9 @@
                     ['Business Phone', [val('business_country_code'), val('business_phone_no')].filter(Boolean).join(' ') || null],
                     ['Address', [val('business_address'), val('business_city'), val('business_state'), val('business_postal_code')].filter(Boolean).join(', ') || null],
                     ['Industry', val('industry_type')],
+                    ['Industry Type Details', val('industry_type_note')],
                     ['Entity Type', val('entity_type')],
+                    ['Entity Type Details', val('entity_type_note')],
                     ['Business EIN', val('business_ein')],
                     ['Employees', val('number_of_employees')],
                 ]],
@@ -3189,7 +3438,7 @@
                     if (json.data?.submission_uid) {
                         document.getElementById('successRefBadge').textContent = 'Reference ID: ' + json.data.submission_uid;
                     }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    scrollFormTo(0);
                 } else {
                     showSubmitErrors(json);
                 }

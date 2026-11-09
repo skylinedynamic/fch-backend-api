@@ -7,6 +7,7 @@ use App\Rules\Ssn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\Files\FileUrl;
 
 class BorrowerDetailsResource extends JsonResource
 {
@@ -63,7 +64,7 @@ class BorrowerDetailsResource extends JsonResource
             'business_industry_type' => $this->business_industry_type,
             'business_industry_type_note' => $this->business_industry_type_note,
             'business_description' => $this->business_description,
-            'business_logo' => $this->business_logo ? url($this->business_logo) : null,
+            'business_logo' => FileUrl::for($this->business_logo),
             'business_registration_number' => $this->business_registration_number,
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number' => $this->duns_number,
@@ -154,6 +155,8 @@ class BorrowerDetailsResource extends JsonResource
                 'invoice_id' => $this->latestInvoice->invoice_id,
             ] : null,
             'has_sign' => (bool) $this->signedAgreement()->exists(),
+            // Whether the host still asks them to sign (false: excused).
+            'agreement_required' => $this->agreement_required !== false,
         ];
     }
 }

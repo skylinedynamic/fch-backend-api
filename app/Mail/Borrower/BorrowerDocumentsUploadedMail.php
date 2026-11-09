@@ -10,6 +10,8 @@ use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Mail\Mailables\Attachment;
+use App\Support\Files\Disk;
 
 class BorrowerDocumentsUploadedMail extends Mailable implements ShouldQueue
 {
@@ -69,14 +71,13 @@ class BorrowerDocumentsUploadedMail extends Mailable implements ShouldQueue
         $attachments = [];
 
         foreach ($this->documents as $document) {
-            // Get the raw relative path stored in DB
-            $filePath = $document->getRawOriginal('file_path');
+            // The file on the uploads disk (private, BUG-016).
+            $diskPath = $document->storagePath();
+            if (!$diskPath) {
+                continue;
+            }
 
-            // Construct the path relative to the disk root
-            // The disk is 'public', and files are in borrowers/{id}/
-            $diskPath = "borrowers/{$document->borrower_id}/{$filePath}";
-
-            $attachments[] = \Illuminate\Mail\Mailables\Attachment::fromStorageDisk('public', $diskPath)
+            $attachments[] = Attachment::fromStorageDisk(Disk::UPLOADS, $diskPath)
                 ->as($document->file_name);
         }
 

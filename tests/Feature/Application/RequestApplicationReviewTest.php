@@ -3,7 +3,6 @@
 namespace Tests\Feature\Application;
 
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Partner\Partner;
@@ -17,6 +16,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
+use App\Models\Audit\FundingApplicationAuditEvent;
+use App\Services\Audit\FundingApplicationAuditTrail;
 
 /**
  * The partner portal's Intake & Review: /common/request-application/* - the
@@ -59,6 +60,17 @@ class RequestApplicationReviewTest extends TestCase
         $this->theirApplicationId = $this->applicationFor($theirBorrower->id, $this->otherPartner->id);
         $this->myPreQualId = $this->preQualFor($this->borrowerUser->entity_id, $this->partner->id);
         $this->theirPreQualId = $this->preQualFor($theirBorrower->id, $this->otherPartner->id);
+    }
+
+    /**
+     * A lender on the application: every status outside the editable ones needs
+     * one first (FundingApplicationLenderAssignmentTest).
+     */
+    private function assignLenderTo(int $applicationId): void
+    {
+        $lenderId = DB::table('lenders')->insertGetId(['name' => 'Fundbox Financing', 'status' => 'Active', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('funding_applications')->where('id', $applicationId)
+            ->update(['lender_ids' => json_encode([$lenderId]), 'assign_lender' => $lenderId]);
     }
 
     private function applicationFor(int $borrowerId, int $partnerId): int
@@ -152,6 +164,7 @@ class RequestApplicationReviewTest extends TestCase
     #[Test]
     public function a_funded_date_is_the_day_in_the_closers_timezone(): void
     {
+        $this->assignLenderTo($this->myApplicationId);
         $this->actingAsUser($this->partnerAdmin);
         Carbon::setTestNow(Carbon::parse('2026-10-20 21:30:00', 'UTC'));
 
@@ -163,6 +176,20 @@ class RequestApplicationReviewTest extends TestCase
         Carbon::setTestNow();
 
         $this->assertStringStartsWith('2026-10-21', (string) DB::table('funding_applications')->where('id', $this->myApplicationId)->value('funded_date'));
+    }
+
+    /** The details page's Closed (Completed) summary shows when it was funded. */
+    #[Test]
+    public function the_details_carry_the_funded_date(): void
+    {
+        DB::table('funding_applications')->where('id', $this->myApplicationId)
+            ->update(['status' => FundingApplication::CLOSED_COMPLETED, 'total_funded_amount' => 50000, 'funded_date' => '2026-10-21']);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson($this->url("funding-application/{$this->myApplicationId}"))
+            ->assertOk()
+            ->assertJsonPath('data.funded_date', '2026-10-21')
+            ->assertJsonPath('data.total_funded_amount', '50000.00');
     }
 
     /** A status change, and a note on its own, are written to the activity log. */
@@ -272,6 +299,7 @@ class RequestApplicationReviewTest extends TestCase
     #[Test]
     public function an_application_is_moved_to_each_new_status(): void
     {
+        $this->assignLenderTo($this->myApplicationId);
         $this->actingAsUser($this->partnerAdmin);
 
         foreach ([
@@ -315,6 +343,7 @@ class RequestApplicationReviewTest extends TestCase
     public function a_status_note_of_10000_characters_is_saved(): void
     {
         $this->assertSame('text', \Illuminate\Support\Facades\Schema::getColumnType('funding_applications', 'status_note'));
+        $this->assignLenderTo($this->myApplicationId);
         $this->actingAsUser($this->partnerAdmin);
         $note = str_repeat('a', 10000);
 
@@ -347,6 +376,8 @@ class RequestApplicationReviewTest extends TestCase
         ])->assertOk();
         $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, FundingApplication::find($this->myApplicationId)->status);
 
+        // Withdrawn is past the editable statuses, so it needs a lender first.
+        $this->assignLenderTo($this->myApplicationId);
         $this->postJson($this->url('funding-application/status-update'), [
             'funding_application_id' => $this->myApplicationId,
             'status' => FundingApplication::WITHDRAWN,
@@ -388,34 +419,40 @@ class RequestApplicationReviewTest extends TestCase
     }
 
     #[Test]
-    public function the_audit_history_is_my_own_applications_only(): void
+    public function the_audit_trail_is_my_own_applications_only(): void
     {
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->postJson($this->url("funding-application/{$this->myApplicationId}/audit-history"))->assertOk();
-        $this->postJson($this->url("funding-application/{$this->theirApplicationId}/audit-history"))
-            ->assertJsonPath('status', false)
+        $this->getJson($this->url("funding-application/{$this->myApplicationId}/audit-trail"))->assertOk();
+        $this->getJson($this->url("funding-application/{$this->theirApplicationId}/audit-trail"))
+            ->assertNotFound()
             ->assertJsonMissingPath('data.0');
     }
 
     /**
      * Defect: a stored download (the generated application PDF, SSNs and all)
-     * was fetched by its history id alone.
+     * was fetched by its history id alone. The audit trail hands out a kept
+     * file only for an application the user may review.
      */
     #[Test]
-    public function a_stored_download_is_fetched_only_for_my_own_application(): void
+    public function a_kept_file_is_fetched_only_for_my_own_application(): void
     {
-        Storage::disk('public')->put('funding-application/mine.pdf', '%PDF mine');
-        Storage::disk('public')->put('funding-application/theirs.pdf', '%PDF theirs');
-        $mine = DownloadHistory::create(['file_type' => 'pdf', 'sha256_hash' => str_repeat('a', 64), 'downloaded_at' => now(), 'funding_application_id' => $this->myApplicationId, 'details' => ['file_path' => 'funding-application/mine.pdf']]);
-        $theirs = DownloadHistory::create(['file_type' => 'pdf', 'sha256_hash' => str_repeat('a', 64), 'downloaded_at' => now(), 'funding_application_id' => $this->theirApplicationId, 'details' => ['file_path' => 'funding-application/theirs.pdf']]);
+        $theirs = app(FundingApplicationAuditTrail::class)->append([
+            'funding_application_id' => $this->theirApplicationId,
+            'partner_id' => DB::table('funding_applications')->where('id', $this->theirApplicationId)->value('partner_id'),
+            'event' => FundingApplicationAuditEvent::EVENT_DOCUMENT_ADDED,
+            'file_hash' => str_repeat('a', 64),
+            'file_path' => 'audit/files/theirs.pdf',
+        ]);
+        Storage::disk('uploads')->put('audit/files/theirs.pdf', '%PDF theirs');
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->get($this->url("download-history/{$mine->id}/download"))->assertOk();
-        $response = $this->getJson($this->url("download-history/{$theirs->id}/download"));
+        foreach ([$this->myApplicationId, $this->theirApplicationId] as $applicationId) {
+            $response = $this->getJson($this->url("funding-application/{$applicationId}/audit-trail/{$theirs->id}/file"));
 
-        $this->assertNotSame(200, $response->status());
-        $this->assertStringNotContainsString('%PDF theirs', (string) $response->getContent());
+            $this->assertNotSame(200, $response->status());
+            $this->assertStringNotContainsString('%PDF theirs', (string) $response->getContent());
+        }
     }
 
     #[Test]

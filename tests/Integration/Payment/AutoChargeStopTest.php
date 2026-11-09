@@ -115,7 +115,7 @@ class AutoChargeStopTest extends TestCase
 
     private function succeededPayment(Invoice $invoice, float $amount): void
     {
-        (new Payment())->createRecord([
+        (new Payment())->createRecord(['is_environment' => PaymentProvider::ENVIRONMENT_SANDBOX, 
             'partner_id' => $invoice->partner_id,
             'borrower_id' => $invoice->borrower_id,
             'invoice_id' => $invoice->id,
@@ -211,7 +211,7 @@ class AutoChargeStopTest extends TestCase
         // Kirsten's invoice already had 29 failures when this shipped.
         $invoice = $this->invoiceFor($this->partnerPayer(withCard: false));
         foreach (range(1, 29) as $_) {
-            (new Payment())->createRecord([
+            (new Payment())->createRecord(['is_environment' => PaymentProvider::ENVIRONMENT_SANDBOX, 
                 'invoice_id' => $invoice->id, 'partner_id' => $invoice->partner_id, 'entity_type' => $invoice->entity_type,
                 'entity_id' => $invoice->entity_id, 'transaction_id' => 'FAILED_' . uniqid(), 'amount' => 2497.00,
                 'currency' => 'USD', 'payment_from' => PaymentProvider::STRIPE, 'status' => Payment::STATUS_FAILED,
@@ -232,7 +232,7 @@ class AutoChargeStopTest extends TestCase
     {
         $invoice = $this->invoiceFor($this->partnerPayer(withCard: false));
         foreach (range(1, 6) as $_) {
-            (new Payment())->createRecord([
+            (new Payment())->createRecord(['is_environment' => PaymentProvider::ENVIRONMENT_SANDBOX, 
                 'invoice_id' => $invoice->id, 'partner_id' => $invoice->partner_id, 'entity_type' => $invoice->entity_type,
                 'entity_id' => $invoice->entity_id, 'transaction_id' => 'FAILED_' . uniqid(), 'amount' => 2497.00,
                 'currency' => 'USD', 'payment_from' => PaymentProvider::STRIPE, 'status' => Payment::STATUS_FAILED,

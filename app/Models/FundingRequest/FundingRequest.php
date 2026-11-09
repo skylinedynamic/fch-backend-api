@@ -5,11 +5,10 @@ namespace App\Models\FundingRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
-use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
-use App\Models\Lender\LenderProductCategory;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\FCH\Common\Funding\LenderMatchService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -152,157 +151,39 @@ class FundingRequest extends Model
         return $docs;
     }
 
+    /**
+     * The lenders for this request's funding type, best match first - see
+     * LenderMatchService (shared with the funding application details page).
+     */
     public function getMatchedLendersAttribute()
     {
-        $borrower = $this->borrower;
-        if (!$borrower || empty($this->funding_type)) {
-            return [];
+        // The same list as its application's page: the application's Preferred
+        // + Additional Funding Types (request 2026-11-05). With no application,
+        // the request's own funding type.
+        $application = $this->fundingApplication;
+        if ($application) {
+            $application->setRelation('fundingRequest', $this);
+
+            return app(LenderMatchService::class)->match($this->borrower, $application->lenderCategories());
         }
 
-        $category = LenderProductCategory::where('name', $this->funding_type)->first();
-        if (!$category) {
-            return [];
+        return app(LenderMatchService::class)->match($this->borrower, [$this->funding_type]);
+    }
+
+    /**
+     * Whether the lender may be assigned or changed now: its funding
+     * application's rule (FundingApplication::canAssignLender) when it has one -
+     * past the editable statuses the lender is fixed, from either page.
+     */
+    public function canAssignLender(): bool
+    {
+        $application = $this->fundingApplication;
+        if (! $application) {
+            return true;
         }
+        $application->setRelation('fundingRequest', $this);
 
-        // An inactive lender is not offered: not matched, so not in the
-        // Assign list or the lender filter built from it (R2 BUG-020).
-        $visibilities = LenderVisibility::with('lender')
-            ->where('lender_product_category_id', $category->id)
-            ->whereHas('lender', fn ($q) => $q->where('status', Lender::STATUS_ACTIVE))
-            ->get()
-            ->unique('lender_id');
-
-        $matchedLenders = [];
-
-        // calculate TIB
-        $tibMonths = 0;
-        if ($borrower->business_start_date) {
-            try {
-                $tibMonths = \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths(\Carbon\Carbon::now());
-            } catch (\Exception $e) {}
-        } elseif ($borrower->years_in_business) {
-            if (stripos($borrower->years_in_business, 'month') !== false) {
-                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                if (isset($matches[1])) $tibMonths = (int)$matches[1];
-            } elseif (stripos($borrower->years_in_business, 'year') !== false) {
-                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
-            }
-        }
-
-        $borrowerFico = (int) $borrower->fico_score;
-        $borrowerBusinessCredit = (int) $borrower->paydex_score;
-        $borrowerRevenue = (float) $borrower->monthly_revenue;
-        $borrowerDeposits = (float) $borrower->average_monthly_deposits;
-
-        foreach ($visibilities as $visibility) {
-            if (!$visibility->lender) continue;
-
-            $checks = [
-                'fico' => false,
-                'business_credit' => false,
-                'revenue' => false,
-                'tib' => false,
-                'deposit' => false,
-            ];
-            $totalCriteria = 0;
-            $metCriteria = 0;
-
-            if (!is_null($visibility->min_fico)) {
-                $totalCriteria++;
-                if ($borrowerFico >= $visibility->min_fico) {
-                    $checks['fico'] = true;
-                    $metCriteria++;
-                }
-            } else {
-                $checks['fico'] = true;
-            }
-
-            if (!is_null($visibility->min_business_credit_score)) {
-                $totalCriteria++;
-                if ($borrowerBusinessCredit >= $visibility->min_business_credit_score) {
-                    $checks['business_credit'] = true;
-                    $metCriteria++;
-                }
-            } else {
-                $checks['business_credit'] = true;
-            }
-
-            if (!is_null($visibility->min_monthly_revenue)) {
-                $totalCriteria++;
-                if ($borrowerRevenue >= $visibility->min_monthly_revenue) {
-                    $checks['revenue'] = true;
-                    $metCriteria++;
-                }
-            } else {
-                $checks['revenue'] = true;
-            }
-
-            if (!is_null($visibility->min_tib_months)) {
-                $totalCriteria++;
-                if ($tibMonths >= $visibility->min_tib_months) {
-                    $checks['tib'] = true;
-                    $metCriteria++;
-                }
-            } else {
-                $checks['tib'] = true;
-            }
-
-            if (!is_null($visibility->min_monthly_deposits)) {
-                $totalCriteria++;
-                if ($borrowerDeposits >= $visibility->min_monthly_deposits) {
-                    $checks['deposit'] = true;
-                    $metCriteria++;
-                }
-            } else {
-                $checks['deposit'] = true;
-            }
-
-            $score = $totalCriteria > 0 ? round(($metCriteria / $totalCriteria) * 100) : 100;
-            if ($totalCriteria == 0) {
-                $matchString = "Perfect Match";
-                $matchHex = "#16a34a";
-            } else {
-                if ($score >= 80) {
-                    $matchString = "Excellent Match";
-                    $matchHex = "#16a34a";
-                } elseif ($score >= 50) {
-                    $matchString = "Good Match";
-                    $matchHex = "#d97706";
-                } else {
-                    $matchString = "Low Match";
-                    $matchHex = "#dc2626";
-                }
-            }
-
-            $matchedLenders[] = [
-                'id' => $visibility->lender->id,
-                'name' => $visibility->lender->name,
-                // "Lender Name - Legal Name": what the screens show (R2 BUG-008).
-                'display_name' => $visibility->lender->displayName(),
-                'phone' => $visibility->lender->contact_phone,
-                'email' => $visibility->lender->contact_email,
-                'product_category' => $category->name,
-                'requirements' => [
-                    'min_fico' => $visibility->min_fico,
-                    'min_business_credit_score' => $visibility->min_business_credit_score,
-                    'min_revenue' => $visibility->min_monthly_revenue,
-                    'min_tib' => $visibility->min_tib_months,
-                    'min_deposit' => $visibility->min_monthly_deposits,
-                ],
-                'checks' => $checks,
-                'score' => $score,
-                'score_text' => $matchString,
-                'score_hex' => $matchHex,
-                'matches_fraction' => "{$metCriteria}/" . ($totalCriteria ?: 4),
-            ];
-        }
-
-        usort($matchedLenders, function($a, $b) {
-            return $b['score'] <=> $a['score'];
-        });
-
-        return $matchedLenders;
+        return $application->canAssignLender();
     }
 
     public function getLenderNamesAttribute()

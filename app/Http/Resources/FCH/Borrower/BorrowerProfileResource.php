@@ -4,6 +4,7 @@ namespace App\Http\Resources\FCH\Borrower;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\Files\FileUrl;
 
 class BorrowerProfileResource extends JsonResource
 {
@@ -49,7 +50,7 @@ class BorrowerProfileResource extends JsonResource
             'business_industry_type'    => $this->business_industry_type,
             'business_industry_type_note'=> $this->business_industry_type_note,
             'business_description'      => $this->business_description,
-            'business_logo'             => $this->business_logo ? url($this->business_logo) : null,
+            'business_logo'             => FileUrl::for($this->business_logo),
             'business_registration_number' => $this->business_registration_number,
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number'               => $this->duns_number,
@@ -163,7 +164,7 @@ class BorrowerProfileResource extends JsonResource
                         'industry' => $inq->industry,
                     ];
                 })->toArray(),
-                'pdf_url' => $this->creditProfile->pdf_url,
+                'pdf_url' => FileUrl::for($this->creditProfile->pdf_url),
                 'document_id' => $this->creditProfile->document_id,
             ] : null,
 
@@ -171,6 +172,8 @@ class BorrowerProfileResource extends JsonResource
             'partner_name' => $this->partner?->full_name,
             'partner_email' => $this->partner?->email,
             'has_sign' => (bool) $this->signedAgreement()->exists(),
+            // Whether the host still asks them to sign (false: excused).
+            'agreement_required' => $this->agreement_required !== false,
         ];
     }
 }

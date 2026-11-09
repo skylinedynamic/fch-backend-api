@@ -49,7 +49,7 @@ class ResourceLibraryApiTest extends TestCase
             'is_borrower' => false,
             'file' => 'resources/guide-' . uniqid() . '.pdf',
         ], $attributes));
-        Storage::disk('public')->put($resource->file, '%PDF-1.4 guide');
+        Storage::disk('uploads')->put($resource->file, '%PDF-1.4 guide');
 
         return $resource;
     }

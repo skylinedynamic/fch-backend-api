@@ -88,7 +88,6 @@ class DateOfBirthTest extends TestCase
             'two-digit year' => ['00-01-15'],
             'unpadded ISO' => ['2000-1-5'],
             'trailing junk' => ['2000-01-15x'],
-            'before 1900' => ['1899-12-31'],
             'a number' => [20000115],
             'an array' => [['2000-01-15']],
         ];
@@ -101,10 +100,50 @@ class DateOfBirthTest extends TestCase
         $this->assertSame(__('common.date_of_birth_invalid'), $this->errorFor($value));
     }
 
-    #[Test]
-    public function the_earliest_accepted_date_is_the_first_of_1900(): void
+    /**
+     * BUG-005: past 120 the date is a typo, not a person. Someone is still 120
+     * the day before their 121st birthday (today is 2026-11-09 here).
+     */
+    public static function withinTheMaximumAge(): array
     {
-        $this->assertNull($this->errorFor('1900-01-01'));
+        return [
+            '120 today' => ['1906-11-09'],
+            '120, a day short of 121' => ['1905-11-10'],
+            'QA: 106 years old' => ['1920-01-01'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('withinTheMaximumAge')]
+    public function an_age_up_to_120_is_accepted(string $date): void
+    {
+        $this->assertNull($this->errorFor($date));
+    }
+
+    public static function pastTheMaximumAge(): array
+    {
+        return [
+            '121 today' => ['1905-11-09'],
+            'born 1899' => ['1899-12-31'],
+            'born 1800' => ['1800-01-01'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('pastTheMaximumAge')]
+    public function over_120_is_refused(string $date): void
+    {
+        $this->assertSame(__('common.date_of_birth_max_age', ['age' => 120]), $this->errorFor($date));
+    }
+
+    #[Test]
+    public function the_maximum_age_comes_from_config(): void
+    {
+        config(['app.maximum_age' => 100]);
+
+        $this->assertSame(100, DateOfBirth::maximumAge());
+        $this->assertSame(__('common.date_of_birth_max_age', ['age' => 100]), $this->errorFor('1920-01-01'));
+        $this->assertSame('1925-11-10', DateOfBirth::earliestAllowedDate()->toDateString());
     }
 
     #[Test]

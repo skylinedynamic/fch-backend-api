@@ -5,6 +5,7 @@ namespace App\Models\Borrower;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Support\Files\FileUrl;
 
 class FundingApplicationDocument extends Model
 {
@@ -48,7 +49,8 @@ class FundingApplicationDocument extends Model
             return null;
         }
 
-        return asset('storage/' . $this->path);
+        // BUG-016: a signed URL once the folder is private (the uploads disk decides).
+        return FileUrl::for($this->path);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use App\Models\Borrower\FundingApplication;
+use App\Models\User\User;
 use Exception;
 
 /**
@@ -26,9 +27,10 @@ class FundingApplicationLockedException extends Exception
         );
     }
 
-    public static function for(FundingApplication $application): self
+    /** With the message worded for the editor who was refused. */
+    public static function for(FundingApplication $application, ?User $editor = null): self
     {
-        return new self($application->status ?? '', $application->id);
+        return new self($application->status ?? '', $application->id, $application->lockedReasonFor($editor));
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Services\Borrower\Profile;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerBankAccount;
+use App\Support\Profile\LockedFields;
 use Illuminate\Support\Facades\Auth;
 
 class FinancialInfoService
@@ -29,6 +30,14 @@ class FinancialInfoService
 
         if (!$borrower) {
             return null;
+        }
+
+        // Saved, locked fields keep their stored values; the request has
+        // already refused any change to them (UpdateFinancialInfoRequest, BUG-054).
+        foreach (Borrower::LOCKED_FINANCIAL_FIELDS as $field) {
+            if (LockedFields::isSaved($borrower->getAttributes()[$field] ?? null)) {
+                $data[$field] = $borrower->getAttributes()[$field];
+            }
         }
 
         $borrower->update([
@@ -60,13 +69,23 @@ class FinancialInfoService
 
             foreach ($incoming as $row) {
                 if (!empty($row['id'])) {
-                    // Update an existing, locked row only if it still belongs to this borrower
-                    BorrowerBankAccount::where('id', $row['id'])
+                    // Update an existing row only if it still belongs to this
+                    // borrower, and never its saved, locked fields (BUG-054).
+                    $account = BorrowerBankAccount::where('id', $row['id'])
                         ->where('borrower_id', $borrower->id)
-                        ->update([
+                        ->first();
+                    if ($account) {
+                        $changes = [
                             'bank_name' => $row['bank_name'],
                             'account_open_date' => $row['account_open_date'] ?? null,
-                        ]);
+                        ];
+                        foreach (Borrower::LOCKED_BANK_ACCOUNT_FIELDS as $field) {
+                            if (LockedFields::isSaved($account->getAttributes()[$field] ?? null)) {
+                                unset($changes[$field]);
+                            }
+                        }
+                        $account->update($changes);
+                    }
                 } else {
                     // Create a new row
                     BorrowerBankAccount::create([

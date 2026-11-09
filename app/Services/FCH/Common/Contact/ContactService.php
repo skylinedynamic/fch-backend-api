@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class ContactService
 {
@@ -152,7 +154,7 @@ class ContactService
             // Handling Image Upload
             if (isset($contactData['image']) && $contactData['image'] instanceof UploadedFile) {
                 if ($contact->image) {
-                    $this->deleteFile($contact->getRawOriginal('image'), 'public');
+                    $this->deleteFile($contact->getRawOriginal('image'), Disk::UPLOADS);
                 }
                 $this->uploadContactImage($contact, $contactData['image']);
                 unset($contactData['image']); // Remove from data to avoid double update if fillable
@@ -192,7 +194,7 @@ class ContactService
     {
         try {
             if ($contact->image) {
-                $this->deleteFile($contact->getRawOriginal('image'), 'public');
+                $this->deleteFile($contact->getRawOriginal('image'), Disk::UPLOADS);
             }
 
             $contact->delete();
@@ -229,7 +231,7 @@ class ContactService
         $contacts = Contact::whereIn('id', $ids)->where('partner_id', auth()->user()->partner_id)->get();
         foreach ($contacts as $contact) {
             if ($contact->image) {
-                $this->deleteFile($contact->getRawOriginal('image'), 'public');
+                $this->deleteFile($contact->getRawOriginal('image'), Disk::UPLOADS);
             }
         }
 
@@ -242,7 +244,7 @@ class ContactService
 
     protected function uploadContactImage(Contact $contact, UploadedFile $file)
     {
-        $upload = $this->uploadFile($file, "contacts/{$contact->id}", 'public');
+        $upload = $this->uploadFile($file, Folder::CONTACTS . "/{$contact->id}", Disk::UPLOADS);
         $contact->update(['image' => $upload['name']]); // Assuming uploadFile returns path or name
     }
 }

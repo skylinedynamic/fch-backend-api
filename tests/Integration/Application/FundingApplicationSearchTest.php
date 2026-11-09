@@ -117,7 +117,7 @@ class FundingApplicationSearchTest extends TestCase
         $locked = $this->application(['full_name' => 'Locked', 'status' => FundingApplication::MATCHED_TO_LENDER]);
 
         $payload = fn (FundingApplication $application) => (new FundingApplicationResource(
-            $application->load(['borrower', 'partner', 'commission', 'coborrowers', 'fundingDocuments', 'downloadHistories', 'fundingSequence', 'fundingRequest'])
+            $application->load(['borrower', 'partner', 'commission', 'coborrowers', 'fundingDocuments', 'fundingSequence', 'fundingRequest'])
         ))->toArray(request());
 
         $this->assertTrue($payload($open)['is_editable']);

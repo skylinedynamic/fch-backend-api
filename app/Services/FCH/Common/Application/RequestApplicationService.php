@@ -8,21 +8,23 @@ use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResourc
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
 use App\Models\ActivityLog\ActivityLog;
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Borrower\FundingApplication;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
 use App\Models\Common\AppConfiguration;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\Application\SignatureCertificateService;
+use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Funding\FundingTypeName;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -82,8 +84,18 @@ class RequestApplicationService
             $query->whereRaw('DATE(COALESCE(updated_at, created_at)) <= ?', [$filters['end_date']]);
         }
 
+        // A funding type from the common list (GET /common/funding-types) finds
+        // the pre-qualifications whose purpose has the same meaningful words:
+        // "Equipment Financing" finds "Equipment" (FundingTypeName).
         if(isset($filters['funding_type']) && !empty($filters['funding_type'])) {
-            $query->where('purpose_of_funding', $filters['funding_type']);
+            $purposes = PreQualificationRequest::query()
+                ->whereNotNull('purpose_of_funding')
+                ->distinct()
+                ->pluck('purpose_of_funding')
+                ->filter(fn ($purpose) => FundingTypeName::same($purpose, $filters['funding_type']))
+                ->values()
+                ->all();
+            $query->whereIn('purpose_of_funding', $purposes);
         }
 
         // Apply Search
@@ -347,7 +359,7 @@ class RequestApplicationService
     {
         $authUser = Auth::user();
 
-        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
+        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'fundingSequence', 'fundingRequest')
             ->reviewableBy($authUser)
             ->where('funding_applications.id', $id)->first();
 
@@ -356,47 +368,6 @@ class RequestApplicationService
         }
         //return ApiResponse::success($application);
         return ApiResponse::success(new ApplicationFundingApplicationResource($application));
-    }
-
-    /**
-     * Get Funding Application Audit History
-     */
-    public function getAuditHistory($id, array $filters)
-    {
-        if (!FundingApplication::reviewableBy(Auth::user())->whereKey($id)->exists()) {
-            return ApiResponse::error(__('application.funding_application_not_found'));
-        }
-
-        $perPage = $filters['per_page'] ?? 10;
-        if ($perPage == -1 || $perPage == 'All') {
-            $items = DownloadHistory::where('funding_application_id', $id)->get();
-            $perPage = $items->count() > 0 ? $items->count() : 10;
-        }
-        $perPage = isset($filters['per_page']) && is_numeric($filters['per_page']) ? max(1, (int) $filters['per_page']) : (is_numeric($perPage) ? max(1, (int) $perPage) : 1000000);
-        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
-
-        $query = DownloadHistory::with('user:id,name,email,user_type')
-            ->where('funding_application_id', $id);
-
-        if (!empty($filters['search'])) {
-            $query->search($filters['search'], $filters['timezone'] ?? null);
-        }
-
-        if (!empty($filters['sort_by'])) {
-            $sortField = $filters['sort_by'];
-            $sortDir = (!empty($filters['sort_dir']) && strtolower($filters['sort_dir']) === 'asc') ? 'asc' : 'desc';
-            $query->orderBy($sortField, $sortDir);
-        } else {
-            $query->orderBy('downloaded_at', 'desc');
-        }
-
-        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
-        return $this->respondWithPaginationResource(
-            $paginator,
-            \App\Http\Resources\FCH\Common\Application\DownloadHistoryResource::class,
-            __('application.audit_history_retrieved')
-        );
     }
 
     /**
@@ -434,6 +405,63 @@ class RequestApplicationService
     }
 
     /**
+     * Assign a lender to a funding application (host's team only - see
+     * AssignFundingApplicationLenderRequest). One with a funding request shares
+     * the request's lender, so it is assigned there, as on the funding request
+     * page; one without (converted from a loan application) keeps its own.
+     * At any status (decision 2026-11-03), as on the funding request page.
+     */
+    public function assignFundingApplicationLender(int $id, array $lenderIds)
+    {
+        $application = FundingApplication::with('borrower', 'fundingRequest')
+            ->reviewableBy(Auth::user())
+            ->whereKey($id)->first();
+
+        if ($application == null) {
+            return ApiResponse::notFound(__('application.funding_application_not_found'));
+        }
+
+        // Past the editable statuses the lender assigned is fixed.
+        if (! $application->canAssignLender()) {
+            return ApiResponse::error(__('application.lender_locked', ['status' => $application->status]), 422);
+        }
+
+        $lenderIds = array_values(array_map('intval', $lenderIds));
+
+        if ($application->funding_request_id && $application->fundingRequest) {
+            // The request's own assignment, logged on the request as its page does.
+            app(FundingRequestService::class)->assignLender([
+                'id' => $application->funding_request_id,
+                'lender_ids' => $lenderIds,
+            ]);
+            $application->load('fundingRequest');
+        } else {
+            $application->forceFill([
+                'lender_ids' => $lenderIds,
+                'assign_lender' => $lenderIds[0] ?? null,
+            ])->save();
+        }
+
+        $lenderNames = Lender::whereIn('id', $lenderIds)->pluck('name')->implode(', ') ?: 'None';
+        app(ActivityLogService::class)->logSystemEvent(
+            FundingApplication::class,
+            $application->id,
+            $application->partner_id,
+            $application->borrower_id,
+            __('application.activity_lender_assigned_title', ['lenders' => $lenderNames]),
+            __('application.activity_lender_assigned_description', ['lenders' => $lenderNames]),
+            'update',
+            ['lender_ids' => $lenderIds, 'is_internal' => true],
+            ActivityLog::VISIBILITY_INTERNAL
+        );
+
+        return ApiResponse::success(
+            new ApplicationFundingApplicationResource($application->fresh(['borrower', 'fundingRequest'])),
+            __('application.lender_assigned')
+        );
+    }
+
+    /**
      * Update Funding Application Status
      */
     public function fundingApplicationStatusUpdate(array $data)
@@ -448,7 +476,7 @@ class RequestApplicationService
 
     private function applyFundingApplicationStatus(array $data)
     {
-        $application = FundingApplication::with('borrower')
+        $application = FundingApplication::with('borrower', 'fundingRequest')
             ->reviewableBy(Auth::user())
             ->where('funding_applications.id', $data['funding_application_id'])
             ->lockForUpdate()
@@ -456,6 +484,13 @@ class RequestApplicationService
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        // Matched to Lender ... Closed (Completed) only once a lender is assigned.
+        if ($data['status'] !== $application->status
+            && FundingApplication::statusRequiresLender($data['status'])
+            && ! $application->hasAssignedLender()) {
+            return ApiResponse::error(__('application.lender_required_for_status', ['status' => $data['status']]), 422);
         }
 
         $oldStatus = $application->status;

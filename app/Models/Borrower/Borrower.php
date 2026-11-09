@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Support\Database\LikePattern;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use App\Models\Concerns\Archivable;
 use App\Models\Concerns\HasEncryptedSsn;
 use App\Models\Concerns\HasPersonName;
+use App\Support\Files\FileUrl;
 
 
 class Borrower extends Model
@@ -56,6 +58,7 @@ class Borrower extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
         'partner_payment_for_me' => 'boolean',
+        'agreement_required' => 'boolean',
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',
         'credit_profile_updated' => 'boolean',
@@ -184,6 +187,33 @@ class Borrower extends Model
     const LOGIN_ALLOWED_STATUSES = [
         self::STATUS_ONBOARDING,
         self::STATUS_ACTIVE,
+    ];
+
+    /**
+     * Profile fields a borrower fills in once: when saved, a change goes
+     * through a Change Request the host approves (BUG-054). The borrower
+     * portal locks the same fields (src/config/profileLockFields.ts).
+     */
+    public const LOCKED_BUSINESS_FIELDS = [
+        'business_ein',
+        'business_address',
+        'business_phone',
+        'business_website',
+        'business_email',
+        'duns_number',
+        'business_start_date',
+    ];
+
+    public const LOCKED_FINANCIAL_FIELDS = [
+        'monthly_revenue',
+        'annual_revenue',
+        'annual_personal_income',
+    ];
+
+    /** Locked on a bank account the borrower has already saved. */
+    public const LOCKED_BANK_ACCOUNT_FIELDS = [
+        'bank_name',
+        'account_open_date',
     ];
 
 
@@ -524,29 +554,29 @@ class Borrower extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.middle_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
-                ->orWhere('borrowers.business_name', 'LIKE', "%{$search}%")
+            $q->whereContains('borrowers.first_name', $search)
+                ->orWhereContains('borrowers.middle_name', $search)
+                ->orWhereContains('borrowers.last_name', $search)
+                ->orWhereContains('borrowers.email', $search)
+                ->orWhereContains('borrowers.phone_number', $search)
+                ->orWhereContains('borrowers.status', $search)
+                ->orWhereContains('borrowers.business_name', $search)
                 ->orWhereHas(
                     'partner',
                     function ($q) use ($search) {
-                        $q->where('full_name', 'LIKE', "%{$search}%");
+                        $q->whereContains('full_name', $search);
                     }
                 )
                 ->orWhereHas(
                     'tier',
                     function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->whereContains('name', $search);
                     }
                 )
                 ->orWhereHas(
                     'assignedUser',
                     function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->whereContains('name', $search);
                     }
                 )
                 // The whole name as displayed, so "John Quincy Smith" is found by
@@ -554,8 +584,8 @@ class Borrower extends Model
                 // instead of collapsing the whole expression to NULL, which is what
                 // plain CONCAT would do.
                 ->orWhereRaw(
-                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ?",
-                    ["%{$search}%"]
+                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ? " . LikePattern::ESCAPE_CLAUSE,
+                    [LikePattern::contains($search)]
                 );
         });
     }
@@ -568,7 +598,7 @@ class Borrower extends Model
 
     public function getImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     public function getYearsInBusinessAttribute()

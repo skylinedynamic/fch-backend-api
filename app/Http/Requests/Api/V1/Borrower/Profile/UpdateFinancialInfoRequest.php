@@ -3,6 +3,10 @@
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerBankAccount;
+use App\Support\Profile\LockedFields;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateFinancialInfoRequest extends BaseApiRequest
 {
@@ -38,6 +42,39 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'bank_accounts.*.account_open_date' => 'nullable|date|before_or_equal:today',
         ];
 
+    }
+
+    /**
+     * Saved revenues, income and bank accounts may only come back unchanged:
+     * changing them is a Change Request for the host to approve (BUG-054).
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            // Read fresh: the lock is judged against what is stored now.
+            $borrower = Auth::user()?->entity()->first();
+            if (!$borrower instanceof Borrower) {
+                return;
+            }
+
+            $message = __('borrower_validation.locked_field_change_request');
+
+            foreach (LockedFields::changed($borrower->getAttributes(), $this->all(), Borrower::LOCKED_FINANCIAL_FIELDS) as $field) {
+                $validator->errors()->add($field, $message);
+            }
+
+            $saved = BorrowerBankAccount::where('borrower_id', $borrower->id)->get()->keyBy('id');
+            foreach ((array) $this->input('bank_accounts', []) as $index => $row) {
+                $account = is_array($row) && !empty($row['id']) ? $saved->get($row['id']) : null;
+                if (!$account) {
+                    continue;
+                }
+
+                foreach (LockedFields::changed($account->getAttributes(), $row, Borrower::LOCKED_BANK_ACCOUNT_FIELDS) as $field) {
+                    $validator->errors()->add("bank_accounts.{$index}.{$field}", $message);
+                }
+            }
+        });
     }
 
     /**

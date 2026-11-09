@@ -125,8 +125,15 @@ class CreditAccount extends Model
                 ? \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths()
                 : 0;
 
-            $query->where('typical_personal_fico_min', '<=', $score)
-                ->where('time_in_business_min_months', '<=', (int) $months);
+            // A card the borrower already applied for stays theirs when the
+            // host later raises its minimums, or their own score drops - they
+            // must still see and update their request (BUG-052). Switched off
+            // by the host still hides it (available() above).
+            $query->where(fn ($q) => $q
+                ->where(fn ($gates) => $gates
+                    ->where('typical_personal_fico_min', '<=', $score)
+                    ->where('time_in_business_min_months', '<=', (int) $months))
+                ->orWhereHas('applications', fn ($a) => $a->where('borrower_id', $borrower->id)));
         }
 
         return $query;

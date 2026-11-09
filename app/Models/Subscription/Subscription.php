@@ -153,8 +153,9 @@ class Subscription extends Model
     }
 
     /**
-     * Invoices still owed. Excludes Expired — a rolled-past cycle is not a
-     * collectable debt, it is a record of a cycle that was missed.
+     * Invoices still owed. Excludes Expired: no invoice is set to Expired any
+     * more, but older ones were, when a missed cycle was rolled past. Those are
+     * a record of the missed cycle, not a collectable debt.
      */
     public function unpaidInvoices()
     {
@@ -399,7 +400,7 @@ class Subscription extends Model
                         $amount = $this->down_payment;
                     } else {
                         $type = __('subscription.next_billing.installment');
-                        $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
+                        $amount = $this->nextInstallmentAmount() ?? $this->payable_amount;
                     }
                 } else {
                     $type = __('subscription.next_billing.platform_fee');
@@ -412,7 +413,7 @@ class Subscription extends Model
             if (!$isEnrollmentCompleted) {
                 $date = $this->subscription_end_date;
                 $type = __('subscription.next_billing.installment');
-                $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
+                $amount = $this->nextInstallmentAmount() ?? $this->payable_amount;
             }
         } else {
             // Additional Seat Subscription.
@@ -427,6 +428,90 @@ class Subscription extends Model
             'type' => $type,
             'amount' => $amount !== null ? (float) $amount : null,
         ];
+    }
+
+    /**
+     * The last installment of an installment plan (BUG-049).
+     *
+     * The monthly installment is the balance divided by the months, rounded to
+     * the cent, so the months add up to a few cents more or less than the
+     * balance (6696.70 over 12: 558.06 a month, 6696.72 in all). The last
+     * installment takes up the difference: balance - monthly x (months - 1),
+     * here 558.04, so the plan totals exactly what was agreed.
+     *
+     * total_subscription_amount is the balance after the down payment (see
+     * EnrollmentService), and the down payment is not one of the installments.
+     *
+     * @return float|null null when this is not an installment plan, or its
+     *                    figures are missing so the last one cannot be worked out
+     */
+    public function finalInstallmentAmount(): ?float
+    {
+        $count = (int) $this->installment_count;
+        $monthly = $this->subscription_amount_per_month;
+        $balance = $this->total_subscription_amount;
+
+        if ((int) $this->installment_type !== 1 || $count < 1 || $monthly === null || $balance === null) {
+            return null;
+        }
+
+        // In cents, so the float arithmetic cannot leave 558.0399999.
+        $finalCents = (int) round((float) $balance * 100) - (int) round((float) $monthly * 100) * ($count - 1);
+
+        // A balance smaller than the months already billed (a hand-edited row)
+        // would make the last one zero or negative: bill the monthly amount.
+        return $finalCents > 0 ? $finalCents / 100 : (float) $monthly;
+    }
+
+    /**
+     * How far the last installment differs from the monthly one: negative when
+     * it is less, positive when more, null when they are the same or there is
+     * no last installment to work out.
+     */
+    public function finalInstallmentAdjustment(): ?float
+    {
+        $final = $this->finalInstallmentAmount();
+
+        if ($final === null) {
+            return null;
+        }
+
+        $differenceCents = (int) round($final * 100) - (int) round((float) $this->subscription_amount_per_month * 100);
+
+        return $differenceCents === 0 ? null : $differenceCents / 100;
+    }
+
+    /**
+     * The last installment when it differs from the monthly one - what the
+     * subscription screens show beside the monthly amount. Null when it is the
+     * same (an even split), so there is nothing extra to show.
+     */
+    public function adjustedFinalInstallmentAmount(): ?float
+    {
+        return $this->finalInstallmentAdjustment() !== null ? $this->finalInstallmentAmount() : null;
+    }
+
+    /** Whether the next installment billed is the plan's last. */
+    public function isNextInstallmentFinal(): bool
+    {
+        $count = (int) $this->installment_count;
+
+        return (int) $this->installment_type === 1
+            && $count > 0
+            && (int) $this->installments_paid === $count - 1;
+    }
+
+    /**
+     * The amount of the next installment: the monthly one, or the adjusted last
+     * one when that is next.
+     */
+    public function nextInstallmentAmount(): ?float
+    {
+        if ($this->isNextInstallmentFinal() && ($final = $this->finalInstallmentAmount()) !== null) {
+            return $final;
+        }
+
+        return $this->subscription_amount_per_month !== null ? (float) $this->subscription_amount_per_month : null;
     }
 
     /**

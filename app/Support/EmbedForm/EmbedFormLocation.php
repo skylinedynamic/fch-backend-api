@@ -172,13 +172,17 @@ final class EmbedFormLocation
         return ($this->baseUrl && $publicKey) ? "{$this->baseUrl}/form/{$publicKey}" : null;
     }
 
-    /** The iframe snippet a partner pastes into their own site. */
-    public function embedSnippet(?string $publicKey): ?string
-    {
-        $url = $this->formUrl($publicKey);
+    /** Path of the auto-height script, beside the form so the same proxy rule serves it. */
+    public const EMBED_SCRIPT_PATH = '/form/assets/embed.js';
 
-        return $url
-            ? "<iframe src=\"{$url}\" width=\"100%\" height=\"800\" frameborder=\"0\" style=\"border:none;border-radius:8px;\"></iframe>"
-            : null;
+    /**
+     * The script a partner pastes with the iframe so it grows to the form's
+     * height (public/form/assets/embed.js), or null when there is no address.
+     */
+    public function embedScriptUrl(): ?string
+    {
+        return $this->baseUrl ? $this->baseUrl.self::EMBED_SCRIPT_PATH : null;
     }
+
+
 }

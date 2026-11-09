@@ -59,7 +59,9 @@ class InvoiceService
 
         $query->with([
             'partner:id,full_name,company_name,email',
-            'borrower:id,first_name,last_name,business_name,email'
+            'borrower:id,first_name,last_name,business_name,email',
+            // Whether paying a row reactivates a cancelled subscription (BUG-069).
+            'subscription:id,status',
         ])->select('invoices.*');
 
         // Determine sorting
@@ -190,6 +192,7 @@ class InvoiceService
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('is_partner_paying', false)
             ->excludingCommissionPayouts()
+            ->with('subscription:id,status')
             ->get();
     }
 

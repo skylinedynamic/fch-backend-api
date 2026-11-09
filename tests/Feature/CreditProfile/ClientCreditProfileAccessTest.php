@@ -118,7 +118,7 @@ class ClientCreditProfileAccessTest extends TestCase
     /** A saved profile with its children, document and stored report. */
     private function storedProfile(): BorrowerCreditProfile
     {
-        Storage::disk('public')->put("borrowers/{$this->borrower->id}/credit_report_1.pdf", '%PDF-1.4 report');
+        Storage::disk('uploads')->put("borrowers/{$this->borrower->id}/credit_report_1.pdf", '%PDF-1.4 report');
         $document = BorrowerDocument::create([
             'borrower_id' => $this->borrower->id,
             'file_name' => 'report.pdf',
@@ -182,7 +182,7 @@ class ClientCreditProfileAccessTest extends TestCase
             'pdf' => UploadedFile::fake()->create('report.pdf', 10, 'application/pdf'),
         ])->assertForbidden();
 
-        $this->assertSame([], Storage::disk('public')->allFiles());
+        $this->assertSame([], Storage::disk('uploads')->allFiles());
         $this->assertSame(0, BorrowerDocument::count());
     }
 
@@ -239,7 +239,7 @@ class ClientCreditProfileAccessTest extends TestCase
         $this->assertSame(0, BorrowerCreditTrade::where('borrower_credit_profile_id', $profile->id)->count());
         $this->assertSame(0, BorrowerCreditInquiry::where('borrower_credit_profile_id', $profile->id)->count());
         $this->assertNull(BorrowerDocument::find($profile->document_id));
-        Storage::disk('public')->assertMissing("borrowers/{$this->borrower->id}/credit_report_1.pdf");
+        Storage::disk('uploads')->assertMissing("borrowers/{$this->borrower->id}/credit_report_1.pdf");
 
         $this->borrower->refresh();
         $this->assertNull($this->borrower->fico_score);
@@ -259,7 +259,7 @@ class ClientCreditProfileAccessTest extends TestCase
         $this->deleteJson("/api/v1/common/borrowers/{$this->borrower->id}/credit-profile")->assertForbidden();
 
         $this->assertNotNull(BorrowerCreditProfile::find($profile->id));
-        Storage::disk('public')->assertExists("borrowers/{$this->borrower->id}/credit_report_1.pdf");
+        Storage::disk('uploads')->assertExists("borrowers/{$this->borrower->id}/credit_report_1.pdf");
     }
 
     #[Test]

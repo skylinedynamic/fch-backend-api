@@ -121,6 +121,7 @@ return [
 
     'list_failed' => 'Failed to retrieve borrowers.',
     'not_found' => 'Borrower not found.',
+    'credit_report_not_found' => 'That credit report was not uploaded for this client. Please upload the iSoftPull report again.',
     'credit_profile_not_a_report' => 'This file is not a credit report. Please upload the iSoftPull credit report PDF.',
     'credit_profile_unreadable_pdf' => 'This PDF could not be read. Please upload the iSoftPull credit report PDF.',
     'funding_data_failed' => 'Failed to load funding data.',
@@ -219,5 +220,13 @@ return [
     'credit_profile_not_found' => 'This client has no credit profile to remove.',
     'logs' => [
         'credit_profile_removed' => 'Client credit profile removed.',
+        'credit_profile_activity_failed' => 'Could not record the credit profile change in the client activity.',
+    ],
+    // The client's Activity panel (BUG-075): who saved or removed it, and when.
+    'activity' => [
+        'credit_profile_saved' => 'Credit Profile Saved',
+        'credit_profile_saved_desc' => "The client's credit profile was saved.",
+        'credit_profile_removed' => 'Credit Profile Data Removed',
+        'credit_profile_removed_desc' => "The client's credit profile data and its uploaded report were removed.",
     ],
 ];

@@ -17,6 +17,11 @@ return [
     'change_request_failed' => 'Failed to submit change request. Please try again.',
     'change_request_list_success' => 'Change requests retrieved successfully.',
     'change_request_status_updated' => 'Change request status updated successfully.',
+    'change_request_cancelled' => 'Your change request has been cancelled.',
+    'change_request_not_found' => 'Change request not found.',
+    'change_request_pending_list' => 'Fields waiting for review.',
+    'change_request_same_value' => 'This is already the value on your profile.',
+    'change_request_already_pending' => 'You already have a change request for this field waiting for review.',
     'change_request_already_processed' => 'This change request has already been processed and cannot be modified.',
     'change_request_nothing_to_reveal' => 'Only an SSN or EIN change is masked; this one has nothing to reveal.',
 

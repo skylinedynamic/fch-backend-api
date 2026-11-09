@@ -124,4 +124,70 @@ class PaidSeatUserActivationTest extends TestCase
         $this->assertSame(User::STATUS['active'], $user->fresh()->status);
         $this->assertNotNull(Subscription::find($invoice->subscription_id)->fresh()->subscription_end_date);
     }
+
+    // ── Renewal ──────────────────────────────────────────────────────
+
+    /**
+     * An active seat whose paid-through date is $endsOn, with its renewal
+     * invoice for $months months raised and paid.
+     */
+    private function renew(\Carbon\Carbon $endsOn, int $months = 1): Subscription
+    {
+        [, $first] = $this->buySeat();
+        $this->settle($first, Invoice::STATUS_PAID);
+
+        $subscription = Subscription::find($first->subscription_id);
+        $subscription->update(['subscription_end_date' => $endsOn]);
+
+        $renewal = Invoice::create([
+            'invoice_id' => 'INV-RENEW-' . uniqid(),
+            'partner_id' => $this->partner->id,
+            'subscription_id' => $subscription->id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->partner->id,
+            'payment_amount' => 49 * $months,
+            'month_count' => $months,
+            'status' => Invoice::STATUS_UNPAID,
+            'type' => Invoice::INVOICE_TYPE_USER_SEAT,
+            'is_partner_paying' => true,
+        ]);
+        $subscription->update(['current_cycle_invoice_id' => $renewal->id]);
+
+        $this->settle($renewal, Invoice::STATUS_PAID);
+
+        return $subscription->fresh();
+    }
+
+    /**
+     * Defect: a renewal paid late was added to the old paid-through date, so a
+     * seat that lapsed in March and was paid in November ran to April - still
+     * in the past. The user stayed locked out after paying, and the cron billed
+     * the next month at once. Paid late, a seat runs from the day it is paid,
+     * like every other subscription (SubscriptionService::nextCycleFrom()).
+     */
+    #[Test]
+    public function a_renewal_paid_late_runs_from_the_day_it_is_paid(): void
+    {
+        $subscription = $this->renew(today()->subMonths(8));
+
+        $this->assertSame(today()->addMonth()->toDateString(), $subscription->subscription_end_date->toDateString());
+    }
+
+    #[Test]
+    public function a_renewal_paid_early_extends_the_current_paid_through_date(): void
+    {
+        $endsOn = today()->addDays(10);
+
+        $subscription = $this->renew($endsOn->copy());
+
+        $this->assertSame($endsOn->copy()->addMonth()->toDateString(), $subscription->subscription_end_date->toDateString());
+    }
+
+    #[Test]
+    public function a_late_renewal_for_several_months_runs_that_many_months_from_today(): void
+    {
+        $subscription = $this->renew(today()->subMonths(3), months: 3);
+
+        $this->assertSame(today()->addMonths(3)->toDateString(), $subscription->subscription_end_date->toDateString());
+    }
 }

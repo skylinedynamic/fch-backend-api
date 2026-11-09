@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\FileUrl;
+use App\Support\Files\Disk;
 
 class Resource extends Model
 {
@@ -64,7 +66,7 @@ class Resource extends Model
         if (!$path)
             return null;
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         // 1. Check raw path
         if ($disk->exists($path))
@@ -86,7 +88,7 @@ class Resource extends Model
     public function getFileUrlAttribute()
     {
         $resolvedPath = $this->resolveFilePath();
-        return $resolvedPath ? asset('storage/' . encodeUrl($resolvedPath)) : null;
+        return $resolvedPath ? FileUrl::for($resolvedPath) : null;
     }
 
     /**
@@ -99,7 +101,7 @@ class Resource extends Model
         if (!$resolvedPath)
             return null;
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
         $absolutePath = $disk->path($resolvedPath);
 
         if (!file_exists($absolutePath))

@@ -17,15 +17,18 @@ use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
+use App\Services\FCH\Common\Application\FundingRequestStepFields;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Mail\Partner\FundingApplicationSubmittedMail as PartnerFundingApplicationSubmittedMail;
+use App\Support\Files\Disk;
 class PartnerFundingApplicationService
 {
     public function __construct(
         private FundingApplicationEditGuard $editGuard,
-        private FundingApplicationAuditLogger $auditLogger
+        private FundingApplicationAuditLogger $auditLogger,
+        private FundingRequestStepFields $fundingRequestStepFields
     ) {
     }
 
@@ -40,6 +43,12 @@ class PartnerFundingApplicationService
      */
     private function preparationStatus(array $data, $existing = null): string
     {
+        // Draft is never undone by a step save: one converted from the embed
+        // form is Draft without the explanation (SCRUM-434 S434-BUG-04).
+        if ($existing && $existing->status === FundingApplication::DRAFT) {
+            return FundingApplication::DRAFT;
+        }
+
         $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation'])
             || ($existing && $existing->federal_compliance_disclosures_explanation !== null);
 
@@ -59,6 +68,15 @@ class PartnerFundingApplicationService
 
     public function getFundingInfo()
     {
+        // An application is read by its own id when the wizard has it: one
+        // converted from the embed form has no funding request to be found by.
+        $fundingApplicationId = request()->input('funding_application_id');
+        if ($fundingApplicationId) {
+            return FundingApplication::visibleTo(auth()->user())
+                ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
+                ->find($fundingApplicationId);
+        }
+
         $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
         $borrowerId = request()->input('borrower_id');
 
@@ -109,10 +127,11 @@ class PartnerFundingApplicationService
             $matchId = $data['id'] ?? null;
             
             $borrowerId = null;
+            $targeted = null;
             if ($matchId) {
-                $existing = FundingApplication::visibleTo(auth()->user())->find($matchId);
-                if ($existing) {
-                    $borrowerId = $existing->borrower_id;
+                $targeted = FundingApplication::visibleTo(auth()->user())->find($matchId);
+                if ($targeted) {
+                    $borrowerId = $targeted->borrower_id;
                 }
             } else if ($fundingReqId) {
                 $req = FundingRequest::visibleTo(auth()->user())->find($fundingReqId);
@@ -139,14 +158,24 @@ class PartnerFundingApplicationService
             $data['partner_id'] = Borrower::whereKey($borrowerId)->value('partner_id');
 
             if (empty($data['funding_request_id'])) {
-                $data['funding_request_id'] = request()->input('funding_request_id') 
-                    ?? request()->input('fundingRequestId') 
-                    ?? request()->input('id')
-                    ?? request()->route('id')
+                // Never request()->input('id'): that is the application's id,
+                // not a funding request's.
+                $data['funding_request_id'] = request()->input('funding_request_id')
+                    ?? request()->input('fundingRequestId')
                     ?? request()->route('fundingRequestId');
             }
 
-            if (empty($data['funding_request_id'])) {
+            // Saving an application that already exists keeps the funding
+            // request it has. One converted from the embed form has none, and
+            // must not be given the borrower's latest approved request.
+            if ($targeted && empty($data['funding_request_id'])) {
+                $data['funding_request_id'] = $targeted->funding_request_id;
+                if (empty($data['funding_sequence_id'])) {
+                    $data['funding_sequence_id'] = $targeted->funding_sequence_id;
+                }
+            }
+
+            if (!$targeted && empty($data['funding_request_id'])) {
                 $latestReq = FundingRequest::where('borrower_id', $borrowerId)
                     ->where('status', FundingRequest::STATUS_APPROVED)
                     ->latest()
@@ -203,6 +232,10 @@ class PartnerFundingApplicationService
                 $existing = FundingApplication::visibleTo(auth()->user())->findOrFail($matchId);
             }
 
+            // Read-only Preferred Funding Type; the funding sequence chosen
+            // or kept (FundingRequestStepFields).
+            $data = $this->fundingRequestStepFields->apply($existing, $data);
+
             $isNew = empty($existing);
 
             if ($isNew) {
@@ -230,7 +263,7 @@ class PartnerFundingApplicationService
 
             if (!$isNew && $existing) {
                 try {
-                    // With the editor: the host's team may edit at any status.
+                    // Locked past the editable statuses for every editor, the host included.
                     $decision = $this->editGuard->applyEditRules($existing, $data, $status, auth()->user());
                 } catch (FundingApplicationLockedException $e) {
                     $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_PARTNER);
@@ -407,8 +440,8 @@ class PartnerFundingApplicationService
         $documents = BorrowerDocument::where('borrower_id', $borrowerId)->get();
         $baseDestinationDir = "funding-application/{$borrowerId}/FA-{$fundingApplicationId}";
 
-        if (!Storage::disk('public')->exists($baseDestinationDir)) {
-            Storage::disk('public')->makeDirectory($baseDestinationDir);
+        if (!Storage::disk(Disk::UPLOADS)->exists($baseDestinationDir)) {
+            Storage::disk(Disk::UPLOADS)->makeDirectory($baseDestinationDir);
         }
 
         foreach ($documents as $document) {
@@ -418,14 +451,14 @@ class PartnerFundingApplicationService
                 continue;
             }
 
-            $sourcePath = "borrowers/{$borrowerId}/{$rawFilePath}";
+            $sourcePath = BorrowerDocument::storagePathFor($borrowerId, $rawFilePath);
 
-            if (Storage::disk('public')->exists($sourcePath)) {
+            if (Storage::disk(Disk::UPLOADS)->exists($sourcePath)) {
                 // Copy only the file to base folder, no subdirectories
                 $fileName = basename($rawFilePath);
                 $destinationPath = "{$baseDestinationDir}/{$fileName}";
 
-                Storage::disk('public')->copy($sourcePath, $destinationPath);
+                Storage::disk(Disk::UPLOADS)->copy($sourcePath, $destinationPath);
 
                 FundingApplicationDocument::create([
                     'funding_application_id' => $fundingApplicationId,
@@ -433,11 +466,11 @@ class PartnerFundingApplicationService
                     'borrower_doc_type_id' => $document->document_type_id ?? null,
                     'name' => $document->file_name ?? basename($rawFilePath),
                     'path' => $destinationPath,
-                    'disk' => 'public',
+                    'disk' => Disk::UPLOADS,
                     'original_name' => $document->file_name ?? basename($rawFilePath),
                     'extension' => pathinfo($sourcePath, PATHINFO_EXTENSION),
-                    'mime' => Storage::disk('public')->mimeType($sourcePath),
-                    'size' => Storage::disk('public')->size($sourcePath),
+                    'mime' => Storage::disk(Disk::UPLOADS)->mimeType($sourcePath),
+                    'size' => Storage::disk(Disk::UPLOADS)->size($sourcePath),
                 ]);
             }
         }
@@ -462,7 +495,7 @@ class PartnerFundingApplicationService
         foreach ($data['files'] as $index => $file) {
             try {
                 if ($file instanceof \Illuminate\Http\UploadedFile) {
-                    $path = $file->store($destinationDir, 'public');
+                    $path = $file->store($destinationDir, Disk::UPLOADS);
                     $name = $file->getClientOriginalName();
                     $originalName = $file->getClientOriginalName();
                     $extension = $file->getClientOriginalExtension();
@@ -472,7 +505,7 @@ class PartnerFundingApplicationService
                     // It's a string path
                     $sourcePath = $this->normalizePath($borrowerId, $file);
 
-                    if (!Storage::disk('public')->exists($sourcePath)) {
+                    if (!Storage::disk(Disk::UPLOADS)->exists($sourcePath)) {
                         throw new \Exception("File does not exist: {$sourcePath}");
                     }
 
@@ -480,18 +513,18 @@ class PartnerFundingApplicationService
                     $destinationPath = "{$destinationDir}/{$fileName}";
 
                     // Ensure destination directory exists
-                    if (!Storage::disk('public')->exists($destinationDir)) {
-                        Storage::disk('public')->makeDirectory($destinationDir);
+                    if (!Storage::disk(Disk::UPLOADS)->exists($destinationDir)) {
+                        Storage::disk(Disk::UPLOADS)->makeDirectory($destinationDir);
                     }
 
-                    Storage::disk('public')->copy($sourcePath, $destinationPath);
+                    Storage::disk(Disk::UPLOADS)->copy($sourcePath, $destinationPath);
 
                     $path = $destinationPath;
                     $name = $fileName;
                     $originalName = $fileName;
                     $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
-                    $mime = Storage::disk('public')->mimeType($sourcePath);
-                    $size = Storage::disk('public')->size($sourcePath);
+                    $mime = Storage::disk(Disk::UPLOADS)->mimeType($sourcePath);
+                    $size = Storage::disk(Disk::UPLOADS)->size($sourcePath);
                 }
 
                 $documents[] = FundingApplicationDocument::create([
@@ -500,7 +533,7 @@ class PartnerFundingApplicationService
                     'borrower_doc_type_id' => $data['document_type_id'],
                     'name' => $name,
                     'path' => $path,
-                    'disk' => 'public',
+                    'disk' => Disk::UPLOADS,
                     'original_name' => $originalName,
                     'extension' => $extension,
                     'mime' => $mime,
@@ -558,8 +591,8 @@ class PartnerFundingApplicationService
             ->firstOrFail();
 
         // Delete from storage
-        if (Storage::disk('public')->exists($document->path)) {
-            Storage::disk('public')->delete($document->path);
+        if (Storage::disk(Disk::UPLOADS)->exists($document->path)) {
+            Storage::disk(Disk::UPLOADS)->delete($document->path);
         }
 
         // Delete record

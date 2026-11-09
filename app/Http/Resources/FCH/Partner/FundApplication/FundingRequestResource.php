@@ -38,7 +38,9 @@ class FundingRequestResource extends JsonResource
             $fundingReq = FundingRequest::with('fundingSequence')->find($fundingRequestId);
         }
 
-        if (!$fundingReq && auth()->check() && auth()->user()->entity_id) {
+        // Only for a step with no application yet: an application without a
+        // funding request (converted from the embed form) has none to show.
+        if (!$fundingApp && !$fundingReq && auth()->check() && auth()->user()->entity_id) {
             $fundingReq = FundingRequest::with('fundingSequence')
                 ->where('borrower_id', auth()->user()->entity_id)
                 ->where('status', FundingRequest::STATUS_APPROVED)
@@ -97,6 +99,9 @@ class FundingRequestResource extends JsonResource
                 : null,
             'funding_request_id' => $fundingRequestId ? (int)$fundingRequestId : null,
             'funding_sequence_id' => $fundingSequenceId ? (int)$fundingSequenceId : null,
+            // Converted from the embed form: the step's Funding Sequence is a
+            // dropdown (FundingRequestStepFields); otherwise it is read-only.
+            'is_from_embed_form' => $fundingApp ? $fundingApp->isFromEmbedForm() : false,
             'requested_amount' => $requestedAmount,
             'purpose_of_funds' => $purposeOfFunds,
             'approved_funding' => $approvedFunding,
@@ -119,7 +124,7 @@ class FundingRequestResource extends JsonResource
             // acts on: a change to an application the borrower has already signed
             // withdraws *their* signature, so the partner is warned before it
             // happens rather than after.
-            // For the signed-in user: the host's team is never locked out.
+            // Editable only at a status in config `statuses.editable` - for everyone.
             ...($fundingApp ? $fundingApp->editingState($request->user()) : self::noApplicationEditingState()),
         ];
     }
