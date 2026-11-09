@@ -151,7 +151,10 @@ class BorrowerFundingRequestApiTest extends TestCase
         $this->actingAsUser($this->me);
 
         $this->getJson("/api/v1/borrower/funding/requests/{$this->myRequestId}")->assertOk()->assertJsonPath('data.id', $this->myRequestId);
-        $this->getJson("/api/v1/borrower/funding/requests/{$this->theirRequestId}")->assertJsonMissingPath('data.id');
+        // 404 for someone else's and for none at all - the portal shows "Request
+        // not found" for a 404 without an error toast on top.
+        $this->getJson("/api/v1/borrower/funding/requests/{$this->theirRequestId}")->assertNotFound()->assertJsonMissingPath('data.id');
+        $this->getJson('/api/v1/borrower/funding/requests/999999')->assertNotFound();
     }
 
     #[Test]

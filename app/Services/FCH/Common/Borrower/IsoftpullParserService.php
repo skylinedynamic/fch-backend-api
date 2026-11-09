@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
+use App\Rules\FicoScore;
 use Illuminate\Support\Facades\Log;
 
 class IsoftpullParserService implements CreditProfileParserInterface
@@ -119,13 +120,7 @@ class IsoftpullParserService implements CreditProfileParserInterface
             ],
         ];
 
-        if (preg_match('/Score\s+Model:\s*FICO\s*\d*\s*Score:\s*(\d+)/is', $fullText, $m)) {
-            $metrics['fico_score'] = (int)$m[1];
-        } elseif (preg_match('/FICO\s*\d*\s*Score:\s*(\d+)/i', $fullText, $m)) {
-            $metrics['fico_score'] = (int)$m[1];
-        } elseif (preg_match('/FICO.*?(\d{3})\s*\n/is', $fullText, $m)) {
-            $metrics['fico_score'] = (int)$m[1];
-        }
+        $metrics['fico_score'] = $this->parseFicoScore($lines);
         if (preg_match('/Paydex\s*Score:\s*(\d+)/i', $fullText, $m)) {
             $metrics['paydex_score'] = (int)$m[1];
         }
@@ -152,6 +147,41 @@ class IsoftpullParserService implements CreditProfileParserInterface
 
         $metrics = $this->parseAccountAnalysisGrids($lines, $linesCount, $metrics);
         return $metrics;
+    }
+
+    /**
+     * The FICO score, read from the line that names it ("Score Model: FICO 8
+     * Score: 697", "FICO Score: 712", "FICO Score 8 712 (Good)").
+     *
+     * Only ever from that one line: the old last resort took the first
+     * three-digit number ending any line after "FICO", so a report's
+     * "Score range: 300 - 850" became a score of 850. A line giving a range is
+     * skipped, a model number (the 8 in "FICO 8") is not a score, and a number
+     * outside the FICO range is not taken - the host types the score instead.
+     */
+    private function parseFicoScore(array $lines): ?int
+    {
+        foreach ($lines as $line) {
+            if (!preg_match('/\bFICO(.*)$/i', $line, $m)) {
+                continue;
+            }
+            if (preg_match('/\b\d{3}\s*(?:-|to)\s*\d{3}\b/i', $m[1])) {
+                continue;
+            }
+            if (!preg_match_all('/\d+/', $m[1], $numbers)) {
+                continue;
+            }
+            foreach ($numbers[0] as $number) {
+                if (strlen($number) < 3) {
+                    continue; // the model, as in "FICO 8" / "Score 8"
+                }
+                $score = (int) $number;
+
+                return $score >= FicoScore::min() && $score <= FicoScore::max() ? $score : null;
+            }
+        }
+
+        return null;
     }
 
     private function parseAccountAnalysisGrids(array $lines, int $linesCount, array $metrics): array

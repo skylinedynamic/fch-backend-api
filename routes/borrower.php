@@ -82,6 +82,8 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/onboarding/resume', [ProfileCompletionController::class, 'resumeOnboardingStep']);
                     Route::post('/onboarding/path', [ProfileCompletionController::class, 'chooseOnboardingPath']);
                     Route::post('/change-request', [ChangeRequestController::class, 'store']);
+                    Route::get('/change-requests/pending', [ChangeRequestController::class, 'pending']);
+                    Route::delete('/change-requests/{id}', [ChangeRequestController::class, 'cancel'])->whereNumber('id');
                     // The borrower's own pending sign-in email change (started by
                     // saving a new email above, completed by the emailed link).
                     Route::post('/email-change/resend', [ProfileEmailChangeController::class, 'resend'])->middleware('throttle:6,1');
@@ -98,6 +100,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/update-default-payment-method', [BorrowerBillingController::class, 'updateDefaultPaymentMethod']);
             Route::post('/remove-default-payment-method', [BorrowerBillingController::class, 'removeDefaultPaymentMethod']);
             Route::post('/cancel-subscription', [BorrowerBillingController::class, 'cancelSubscription']);
+            Route::post('/resume-subscription', [BorrowerBillingController::class, 'resumeSubscription']);
 
             Route::group(
                 ['prefix' => 'myapplication',],
@@ -143,7 +146,7 @@ Route::prefix('v1/borrower')->group(function () {
                     // Credit Accounts
                     Route::post('/credit-accounts', [CreditAccountController::class, 'index']);
                     Route::get('/credit-accounts/filter-options', [CreditAccountController::class, 'filterOptions']);
-                    Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply']);
+                    Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply'])->whereNumber('id');
                 }
             );
 
@@ -153,13 +156,13 @@ Route::prefix('v1/borrower')->group(function () {
                 Route::get('/overview', [CapitalAccessOverviewController::class, 'index']);
                 Route::get('/strategies-list', [CapitalAccessStrategyController::class, 'listForSelection']);
                 Route::get('/strategies', [CapitalAccessStrategyController::class, 'index']);
-                Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
-                Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview']);
-                Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist']);
-                Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap']);
-                Route::post('/strategies/{id}/start', [CapitalAccessStrategyController::class, 'startPlay']);
-                Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep']);
-                Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep']);
+                Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show'])->whereNumber('id');
+                Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview'])->whereNumber('id');
+                Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist'])->whereNumber('id');
+                Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap'])->whereNumber('id');
+                Route::post('/strategies/{id}/start', [CapitalAccessStrategyController::class, 'startPlay'])->whereNumber('id');
+                Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep'])->whereNumber(['id', 'sequenceId']);
+                Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep'])->whereNumber(['id', 'sequenceId']);
             }
             );
 
@@ -217,6 +220,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/user-details', BorrowerUserDetailController::class);
 
             Route::post('/process-payment', [UnifiedPaymentController::class, 'processPayment']);
+            Route::post('/process-payment/confirm', [UnifiedPaymentController::class, 'confirmPayment']);
 
             // auth profile
             Route::prefix('auth-profile')->group(

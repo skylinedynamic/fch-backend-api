@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\CreatesFundingTypes;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -26,6 +27,7 @@ class WebsitePrequalLeadConversionTest extends TestCase
 {
     use RefreshDatabase;
     use InteractsWithPortalUsers;
+    use CreatesFundingTypes;
 
     private Partner $host;
 
@@ -34,6 +36,8 @@ class WebsitePrequalLeadConversionTest extends TestCase
         parent::setUp();
 
         Mail::fake();
+        // Purpose of Funding is a lender product category (request 2026-11-05).
+        $this->createFundingTypes(["Equipment Financing"]);
         $this->host = $this->makeHostPartner();
         AppConfiguration::create(['partner_id' => $this->host->id, 'module' => AppConfiguration::MODULE_BRANDING, 'key' => 'site_name', 'value' => 'Host']);
         $this->withoutMiddleware(\App\Http\Middleware\VerifyRecaptcha::class);
@@ -46,7 +50,7 @@ class WebsitePrequalLeadConversionTest extends TestCase
             'state_of_incorporation' => 'Florida', 'business_name' => 'QA-TEST Web Prequal Co',
             'industry_type' => 'Beauty, Salon & Spa Services', 'business_structure' => 'S-Corporation',
             'years_in_business' => '1-2 years', 'monthly_revenue' => 20000, 'annual_revenue' => 240000,
-            'funding_requested_amount' => 50000, 'funding_urgency' => 'Within 30 days', 'purpose_of_funding' => 'Equipment',
+            'funding_requested_amount' => 50000, 'funding_urgency' => 'Within 30 days', 'purpose_of_funding' => 'Equipment Financing',
             'personal_credit_score' => '700-749', 'estimated_business_credit_score' => '50-74', 'existing_business_debt' => false,
         ], $overrides))->assertOk();
 

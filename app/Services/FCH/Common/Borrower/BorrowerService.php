@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
+use App\Exceptions\StaleRecordException;
 use App\Services\FCH\Common\Notification\Notifier;
 use Illuminate\Mail\Mailable;
 use App\Models\User\User;
@@ -27,6 +28,9 @@ use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use Illuminate\Validation\ValidationException;
+use App\Support\Files\StoragePath;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 
 
@@ -518,6 +522,14 @@ class BorrowerService
      */
     public function update(Borrower $borrower, array $data)
     {
+        // Saved from a form showing an older copy of the client's details: the
+        // whole form would put back what someone else changed (R2 BUG-065).
+        $expectedVersion = $data['expected_version'] ?? null;
+        unset($data['expected_version']);
+        if ($expectedVersion !== null && $expectedVersion !== '' && $borrower->fresh()->clientInfoVersion() !== $expectedVersion) {
+            throw new StaleRecordException(__('borrower.changed_elsewhere'));
+        }
+
         DB::beginTransaction();
         try {
             $user = $borrower->user;
@@ -536,9 +548,9 @@ class BorrowerService
 
             if (isset($data['business_logo']) && $data['business_logo'] instanceof UploadedFile) {
                 if ($borrower->business_logo) {
-                    $this->deleteFile($borrower->business_logo, 'public');
+                    $this->deleteFile($borrower->business_logo, Disk::UPLOADS);
                 }
-                $upload = $this->uploadFile($data['business_logo'], "borrowers/{$borrower->id}", 'public');
+                $upload = $this->uploadFile($data['business_logo'], Folder::BORROWERS . "/{$borrower->id}", Disk::UPLOADS);
                 $data['business_logo'] = $upload['path'];
             }
             $exceptFields = [
@@ -1135,14 +1147,11 @@ class BorrowerService
             ->get()
             ->map(function ($doc) {
                 $size = '0 KB';
-                $relativePath = $doc->file_path;
-                if ($relativePath && str_contains($relativePath, '/storage/')) {
-                    $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
-                }
+                $relativePath = StoragePath::fromUrl($doc->file_path);
 
                 // Use relative path for storage operations
-                if ($relativePath && Storage::disk('public')->exists($relativePath)) {
-                    $sizeBytes = Storage::disk('public')->size($relativePath);
+                if ($relativePath && Storage::disk(Disk::UPLOADS)->exists($relativePath)) {
+                    $sizeBytes = Storage::disk(Disk::UPLOADS)->size($relativePath);
                     $size = $this->formatSizeUnits($sizeBytes);
                 }
 

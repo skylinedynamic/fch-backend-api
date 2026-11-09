@@ -29,6 +29,7 @@ class RejectBorrowersFromPartnerPortal
         'PUT api/v1/common/appointments/{appointment}',
         'PATCH api/v1/common/appointments/{appointment}',
         'DELETE api/v1/common/appointments/{appointment}',
+        'POST api/v1/common/appointments/{id}/cancel',
         'GET api/v1/common/refresh-user',
         'GET api/v1/common/partner-payment-providers',
         'GET api/v1/common/borrowers-documents/download/{documentId}',

@@ -25,6 +25,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
 use App\Models\Concerns\Archivable;
 use App\Support\Branding\PartnerDomain;
+use App\Support\Files\FileUrl;
 
 class Partner extends Model
 {
@@ -47,6 +48,7 @@ class Partner extends Model
     protected $fillable = [
         'is_host',
         'has_sign',
+        'agreement_required',
         'full_name',
         'company_name',
         'email',
@@ -89,6 +91,7 @@ class Partner extends Model
         'is_host' => 'boolean',
         'archived_at' => 'datetime',
         'has_sign' => 'boolean',
+        'agreement_required' => 'boolean',
         'active_custom_url' => 'boolean',
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',
@@ -310,18 +313,18 @@ class Partner extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('company_name', 'LIKE', "%{$search}%")
-                ->orWhere('email', 'LIKE', "%{$search}%")
-                ->orWhere('phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('full_name', 'LIKE', "%{$search}%")
-                ->orWhere('contact_person', 'LIKE', "%{$search}%")
-                ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
-                ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")
-                ->orWhere('partner_type', 'LIKE', "%{$search}%")
-                ->orWhere('status', 'LIKE', "%{$search}%")
+            $q->whereContains('company_name', $search)
+                ->orWhereContains('email', $search)
+                ->orWhereContains('phone_number', $search)
+                ->orWhereContains('full_name', $search)
+                ->orWhereContains('contact_person', $search)
+                ->orWhereContains('contact_person_email', $search)
+                ->orWhereContains('contact_person_phone_number', $search)
+                ->orWhereContains('partner_type', $search)
+                ->orWhereContains('status', $search)
                 ->orWhereHas('assignedUser', function ($userQ) use ($search) {
-                    $userQ->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('email', 'LIKE', "%{$search}%");
+                    $userQ->whereContains('name', $search)
+                        ->orWhereContains('email', $search);
                 });
         });
     }
@@ -417,7 +420,7 @@ class Partner extends Model
      */
     public function getPartnerImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     public function leads(): HasMany

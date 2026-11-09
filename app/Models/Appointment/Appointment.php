@@ -6,6 +6,7 @@ use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -89,6 +90,17 @@ class Appointment extends Model
     public function details()
     {
         return $this->hasMany(AppointmentDetail::class, 'appointment_id');
+    }
+
+    /** Still ahead, and not already cancelled or completed (R2 BUG-046). */
+    public function isCancellable(): bool
+    {
+        if (in_array($this->status, [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true) || !$this->appointment_date) {
+            return false;
+        }
+
+        // Stored in UTC.
+        return Carbon::parse($this->appointment_date, 'UTC')->isFuture();
     }
 
     public const STATUS_PENDING = 'pending';

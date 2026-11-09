@@ -24,6 +24,8 @@ use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
 use OTPHP\TOTP;
 use Spatie\Permission\Traits\HasRoles;
+use App\Support\Files\FileUrl;
+use App\Support\Files\Folder;
 
 class User extends Authenticatable implements OAuthenticatable
 {
@@ -478,6 +480,20 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
+     * The user's own folder in the file manager (public disk), where a profile
+     * picture is picked from: partners/{id} or employees/{id}. Null for a user
+     * with no such record, whose picture path is stored as sent.
+     */
+    public function profilePictureFolder(): ?string
+    {
+        return match ($this->entity_type) {
+            Partner::class => Folder::PARTNERS . '/' . $this->entity_id,
+            Employee::class => Folder::EMPLOYEES . '/' . $this->entity_id,
+            default => null,
+        };
+    }
+
+    /**
      * Polymorphic relation to the associated entity model.
      */
     public function entity(): MorphTo
@@ -726,7 +742,7 @@ class User extends Authenticatable implements OAuthenticatable
 
     public function getImageAttribute($value)
     {
-        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+        return $value ? FileUrl::for($value) : null;
     }
 
     /**

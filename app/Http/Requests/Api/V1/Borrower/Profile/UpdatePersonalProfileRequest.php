@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
@@ -50,7 +51,7 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             // The full SSN, on every save: the profile read gives it back for
             // the screen to send again, so an empty field is a missing SSN.
             'ssn' => ['required', new Ssn()],
-            'date_of_birth' => 'required|date_format:Y-m-d|before:today',
+            'date_of_birth' => ['required', new DateOfBirth()],
         ];
     }
 
@@ -99,9 +100,6 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'phone_number.regex' => __('borrower_validation.phone_number_regex'),
             'ssn.required' => __('borrower_validation.ssn_required'),
             'date_of_birth.required' => __('borrower_validation.date_of_birth_required'),
-            'date_of_birth.date' => __('borrower_validation.date_of_birth_date'),
-            'date_of_birth.before' => __('borrower_validation.date_of_birth_before'),
-            'date_of_birth.date_format' => __('borrower_validation.date_of_birth_date_format'),
         ];
     }
 }

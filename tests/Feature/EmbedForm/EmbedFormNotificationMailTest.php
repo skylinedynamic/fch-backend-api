@@ -24,9 +24,10 @@ use Tests\TestCase;
  * Two rules, both about not putting a tenant's mail through someone else's
  * mailbox or inbox:
  *
- *   Recipient - the form's own notification_email, otherwise the partner's
- *               `email` column. NOT contact_person_email: that is a contact for
- *               the partner's staff, not the address the platform notifies.
+ *   Recipient - the partner's `email` column. NOT contact_person_email: that
+ *               is a contact for the partner's staff, not the address the
+ *               platform notifies. (The form's notification_email setting was
+ *               never used and has been dropped.)
  *   Sender    - every partner, White-Label included, is mailed the same way:
  *               through its own verified mail configuration, otherwise the
  *               platform fallback kept by the host (still under the partner's
@@ -74,21 +75,6 @@ class EmbedFormNotificationMailTest extends TestCase
         $this->notify($partner);
 
         Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
-    }
-
-    #[Test]
-    public function a_stored_notification_email_is_ignored(): void
-    {
-        // The settings screen no longer offers the field, but rows saved before
-        // it was removed still carry a value - and it must not redirect mail.
-        $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, [
-            'email' => 'partner-column@example.test',
-        ]);
-
-        $this->notify($partner, ['notification_email' => 'stale-form-inbox@example.test']);
-
-        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
-        Mail::assertNotQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('stale-form-inbox@example.test'));
     }
 
     #[Test]

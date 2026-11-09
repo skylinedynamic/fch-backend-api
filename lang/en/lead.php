@@ -21,6 +21,10 @@ return [
     'converted_to_borrower' => 'Lead successfully converted to Borrower.',
     'converted_to_partner' => 'Lead successfully converted to Partner.',
     'conversion_failed' => 'Failed to convert lead.',
+    // Converting a lead whose email is already a client (BUG-018).
+    'already_converted' => 'This lead has already been converted.',
+    'email_already_your_client' => 'This email already belongs to one of your clients.',
+    'email_cannot_be_used' => 'This email cannot be used. Please use a different email.',
     'lead_not_belongs_to_partner' => 'This lead does not belong to your partner account.',
     'cannot_delete_converted_paid_lead' => 'This record cannot be deleted. Please mark it as Suspended or Inactive instead.',
 

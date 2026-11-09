@@ -340,6 +340,10 @@ return [
     'preferred_funding_type_string' => 'Preferred funding type must be a string',
     'preferred_funding_type_max' => 'Preferred funding type cannot exceed 255 characters',
     'additional_funding_type_invalid' => 'Select additional funding types from the list, each once.',
+    'preferred_funding_type_invalid' => 'Select the preferred funding type from the list.',
+    'preferred_funding_type_locked' => 'The preferred funding type of an application cannot be changed.',
+    'funding_sequence_required' => 'Select the funding sequence.',
+    'funding_sequence_invalid' => 'Select a funding sequence offered for the preferred funding type.',
     'additional_funding_type_preferred' => 'The preferred funding type cannot also be an additional funding type.',
     'timeframe_needed_string' => 'Timeframe needed must be a string',
     'timeframe_needed_max' => 'Timeframe needed cannot exceed 255 characters',
@@ -429,4 +433,10 @@ return [
     // Funding request
     'approved_funding_string' => 'Approved funding must be text.',
     'approved_funding_max' => 'Approved funding cannot exceed 255 characters.',
+    // A saved, locked profile field (BUG-054)
+    'locked_field_change_request' => 'This field is locked once saved. Submit a change request to update it.',
+    // Client Business Financials bounds (BUG-006)
+    'amount_min' => 'Enter an amount of 0 or more.',
+    'amount_max' => 'Enter an amount no greater than :max.',
+    'profit_margin_between' => 'Enter a profit margin between :min% and :max%.',
 ];

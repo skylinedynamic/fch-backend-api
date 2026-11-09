@@ -49,7 +49,7 @@ class FundingApplicationDetailAdditionalFundingTypesTest extends TestCase
             'updated_at' => now(),
         ], $attributes));
 
-        return FundingApplication::with('commission', 'partner', 'borrower', 'coborrowers', 'fundingDocuments', 'downloadHistories', 'fundingSequence', 'fundingRequest')
+        return FundingApplication::with('commission', 'partner', 'borrower', 'coborrowers', 'fundingDocuments', 'fundingSequence', 'fundingRequest')
             ->findOrFail($id);
     }
 

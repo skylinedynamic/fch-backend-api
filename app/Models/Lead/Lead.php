@@ -133,29 +133,29 @@ class Lead extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('leads.lead_id', 'like', "%{$search}%")
-                ->orWhere('leads.contact_person', 'like', "%{$search}%")
-                ->orWhere('leads.company_name', 'like', "%{$search}%")
-                ->orWhere('leads.phone_number', 'like', "%{$search}%")
-                ->orWhere('leads.email', 'like', "%{$search}%")
-                ->orWhere('leads.lead_type', 'like', "%{$search}%")
-                ->orWhere('leads.status', 'like', "%{$search}%")
+            $q->whereContains('leads.lead_id', $search)
+                ->orWhereContains('leads.contact_person', $search)
+                ->orWhereContains('leads.company_name', $search)
+                ->orWhereContains('leads.phone_number', $search)
+                ->orWhereContains('leads.email', $search)
+                ->orWhereContains('leads.lead_type', $search)
+                ->orWhereContains('leads.status', $search)
                 ->orWhereHas(
                     'salesperson',
                     function ($sq) use ($search) {
-                        $sq->where('name', 'like', "%{$search}%");
+                        $sq->whereContains('name', $search);
                     }
                 )
                 ->orWhereHas(
                     'partner',
                     function ($sq) use ($search) {
-                        $sq->where('full_name', 'like', "%{$search}%");
+                        $sq->whereContains('full_name', $search);
                     }
                 )
                 ->orWhereHas('referralPartner', function ($sq) use ($search) {
-                    $sq->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('company_name', 'like', "%{$search}%");
+                    $sq->whereContains('first_name', $search)
+                        ->orWhereContains('last_name', $search)
+                        ->orWhereContains('company_name', $search);
                 });
         });
     }

@@ -33,6 +33,7 @@ use App\Mail\AccountCreateNotificationMail;
 use App\Services\FCH\Subscription\SubscriptionCreationService;
 use App\Services\Global\Account\EmailChangeService;
 use Illuminate\Support\Facades\Mail;
+use App\Support\Files\Disk;
 
 class EmployeeService
 {
@@ -416,7 +417,7 @@ class EmployeeService
 
         try {
             if ($employee->image) {
-                $this->deleteFile($employee->getRawOriginal('image'), 'public');
+                $this->deleteFile($employee->getRawOriginal('image'), Disk::UPLOADS);
                 Log::info('Employee image deleted', ['employee_id' => $employee->id]);
             }
 
@@ -533,7 +534,7 @@ class EmployeeService
         $employees = Employee::whereIn('id', $ids)->where('partner_id', auth()->user()->partner_id)->get();
         foreach ($employees as $employee) {
             if ($employee->image) {
-                $this->deleteFile($employee->getRawOriginal('image'), 'public');
+                $this->deleteFile($employee->getRawOriginal('image'), Disk::UPLOADS);
             }
         }
 

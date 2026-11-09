@@ -31,6 +31,8 @@ class InvoiceDetailResourceTest extends TestCase
     private const SHARED_KEYS = [
         'id', 'invoice_id', 'entity_type', 'type', 'status', 'payment_amount',
         'payment_date', 'created_at', 'branding', 'billed_from', 'billed_to',
+        // Both portals warn before a payment that reactivates a cancelled subscription (BUG-069).
+        'reactivates_subscription',
     ];
 
     private Partner $reseller;

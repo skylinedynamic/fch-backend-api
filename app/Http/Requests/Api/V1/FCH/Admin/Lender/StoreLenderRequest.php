@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Lender;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lender\Lender;
+use App\Rules\UniqueLenderLegalName;
 use App\Rules\UsPhoneNumber;
 
 class StoreLenderRequest extends BaseApiRequest
@@ -25,7 +26,8 @@ class StoreLenderRequest extends BaseApiRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'legal_name' => 'required|string|max:255',
+            // Unique (R2 BUG-008): it is what tells two lenders of the same name apart.
+            'legal_name' => ['required', 'string', 'max:255', new UniqueLenderLegalName()],
             'product_categories' => 'required|array',
             'product_categories.*' => 'integer',
             'contact_name' => 'required|string|max:255',
@@ -51,6 +53,7 @@ class StoreLenderRequest extends BaseApiRequest
             'name.string' => __('lender.name_string'),
             'name.max' => __('lender.name_max'),
             'legal_name.required' => __('lender.legal_name_required'),
+            'legal_name.max' => __('lender.legal_name_max'),
             'contact_name.required' => __('lender.contact_name_required'),
             'contact_title.required' => __('lender.contact_title_required'),
             'contact_phone.required' => __('lender.contact_phone_required'),

@@ -66,6 +66,41 @@ class BorrowerBillingApiTest extends TestCase
     }
 
     #[Test]
+    public function the_billing_screen_shows_the_last_installment_adjusted_for_rounding(): void
+    {
+        // BUG-049: 6696.70 over 12 months is 558.06 a month; the last is 558.04.
+        $installments = [
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'total_subscription_amount' => 6696.70,
+            'subscription_amount_per_month' => 558.06,
+        ];
+        $this->subscribe($this->myBorrower(), $installments + ['installments_paid' => 11]);
+        $this->actingAsUser($this->me);
+
+        $this->getJson('/api/v1/borrower/billing-details')
+            ->assertOk()
+            ->assertJsonPath('data.subscription.subscription_amount_per_month', '$558.06')
+            ->assertJsonPath('data.subscription.final_installment_amount', '$558.04');
+    }
+
+    #[Test]
+    public function an_even_split_has_no_separate_last_installment(): void
+    {
+        $this->subscribe($this->myBorrower(), [
+            'installment_type' => 1,
+            'installment_count' => 3,
+            'total_subscription_amount' => 900,
+            'subscription_amount_per_month' => 300,
+        ]);
+        $this->actingAsUser($this->me);
+
+        $this->getJson('/api/v1/borrower/billing-details')
+            ->assertOk()
+            ->assertJsonPath('data.subscription.final_installment_amount', null);
+    }
+
+    #[Test]
     public function a_borrower_cancels_only_their_own_subscription_once(): void
     {
         $mine = $this->subscribe($this->myBorrower());

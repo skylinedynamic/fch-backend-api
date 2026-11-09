@@ -7,6 +7,10 @@ use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessStrategyCont
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
+use App\Models\CreditBuilder\CreditAccountApplication;
+use App\Models\CreditBuilder\Tier;
+use App\Models\CreditBuilder\TierTask;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -144,6 +148,33 @@ class BorrowerCreditBuilderApiTest extends TestCase
             ->assertJsonValidationErrors(['task_ids.0', 'tier_id']);
     }
 
+    /**
+     * BUG-034: a double-click on "Submit for Verification" sent two requests and
+     * the host got two "processing" rows for one task. A task already in review
+     * answers with that request instead of opening a second one; once it is
+     * rejected the borrower can submit it again.
+     */
+    #[Test]
+    public function a_task_already_in_review_is_not_submitted_a_second_time(): void
+    {
+        $tier = Tier::create(['name' => 'Tier 1', 'title' => 'Starter', 'code' => 'T1', 'order' => 1]);
+        $task = TierTask::create(['tier_id' => $tier->id, 'title' => 'Uline', 'order' => 1]);
+        $this->actingAsUser($this->me);
+        $submit = fn () => $this->postJson('/api/v1/borrower/credit-builder/task-verify-request', ['task_ids' => [$task->id], 'tier_id' => $tier->id]);
+        $inReview = fn () => BorrowerTaskVerificationRequest::where('task_id', $task->id)
+            ->where('status', BorrowerTaskVerificationRequest::PROCESSING)->count();
+
+        $first = $submit()->assertOk()->json('data.0.id');
+        $second = $submit()->assertOk()->json('data.0.id');
+
+        $this->assertSame($first, $second);
+        $this->assertSame(1, $inReview());
+
+        BorrowerTaskVerificationRequest::whereKey($first)->update(['status' => BorrowerTaskVerificationRequest::REJECTED]);
+        $this->assertNotSame($first, $submit()->assertOk()->json('data.0.id'));
+        $this->assertSame(1, $inReview());
+    }
+
     #[Test]
     public function a_step_of_another_strategy_cannot_be_submitted_through_this_one(): void
     {
@@ -181,6 +212,31 @@ class BorrowerCreditBuilderApiTest extends TestCase
         $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$account}/apply", ['status' => 'Paid out'])->assertOk()->assertJsonPath('data.status', 'Requested');
 
         $this->assertSame(1, DB::table('credit_account_applications')->where('borrower_id', $this->me->entity_id)->count());
+    }
+
+    /**
+     * BUG-028 (R2-CP-CBA-01) - by design, not a defect. QA expected
+     * Requested -> Processing -> Approved to be enforced. The vendor approves
+     * the account outside the portal; the status is only the borrower's own
+     * note of where that stands, so any status may follow any other - N/A
+     * straight to Approved, and back again. Keep it that way.
+     */
+    #[Test]
+    public function a_borrower_may_mark_any_status_from_any_other_by_design(): void
+    {
+        $account = DB::table('credit_accounts')->insertGetId(['card_name' => 'Net-30 Card', 'issuer' => 'Vendor', 'typical_personal_fico_min' => 0, 'time_in_business_min_months' => 0, 'created_at' => now(), 'updated_at' => now()]);
+        $this->actingAsUser($this->me);
+        $url = "/api/v1/borrower/credit-builder/credit-accounts/{$account}/apply";
+
+        // N/A (no application yet) straight to Approved.
+        $this->postJson($url, ['status' => CreditAccountApplication::STATUS_APPROVED])
+            ->assertOk()
+            ->assertJsonPath('data.status', CreditAccountApplication::STATUS_APPROVED);
+
+        // And back from Approved to Requested.
+        $this->postJson($url, ['status' => CreditAccountApplication::STATUS_REQUESTED])
+            ->assertOk()
+            ->assertJsonPath('data.status', CreditAccountApplication::STATUS_REQUESTED);
     }
 
     /**
@@ -242,6 +298,49 @@ class BorrowerCreditBuilderApiTest extends TestCase
         $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$open}/apply")->assertOk();
 
         $this->assertSame([$open], DB::table('credit_account_applications')->pluck('credit_account_id')->map(fn ($id) => (int) $id)->all());
+    }
+
+    /**
+     * Defect (BUG-052, R2-OP-CACC-02): the borrower requested a card, then the
+     * host raised its FICO minimum above the borrower's score. The card left
+     * their list, and apply answered 404, so they could not see or move their
+     * own request to Processing / Approved. A card they already applied for
+     * stays theirs; borrowers who have not applied still are not offered it.
+     */
+    #[Test]
+    public function a_card_already_requested_stays_with_the_borrower_after_its_minimums_rise(): void
+    {
+        \App\Models\Borrower\Borrower::whereKey($this->me->entity_id)->update([
+            'fico_score' => 760,
+            'business_start_date' => now()->subMonths(36)->toDateString(),
+        ]);
+        $card = DB::table('credit_accounts')->insertGetId([
+            'card_name' => 'Business Platinum', 'status' => 'Active', 'typical_personal_fico_min' => 700, 'time_in_business_min_months' => 0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $other = $this->makeBorrowerUser($this->partner);
+        \App\Models\Borrower\Borrower::whereKey($other->entity_id)->update(['fico_score' => 760]);
+        $listed = fn () => collect($this->postJson('/api/v1/borrower/credit-builder/credit-accounts')->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->actingAsUser($this->me);
+        $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$card}/apply")->assertOk();
+
+        // The host raises both minimums above this borrower.
+        DB::table('credit_accounts')->where('id', $card)->update(['typical_personal_fico_min' => 800, 'time_in_business_min_months' => 120]);
+
+        $this->assertContains($card, $listed());
+        $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$card}/apply", ['status' => CreditAccountApplication::STATUS_APPROVED])->assertOk();
+        $this->assertSame(CreditAccountApplication::STATUS_APPROVED, CreditAccountApplication::where('credit_account_id', $card)->value('status'));
+
+        // A borrower who never applied is no longer offered it.
+        $this->actingAsUser($other);
+        $this->assertNotContains($card, $listed());
+        $this->postJson("/api/v1/borrower/credit-builder/credit-accounts/{$card}/apply")->assertNotFound();
+
+        // Switching the card off still hides it, request or not (BUG-053).
+        DB::table('credit_accounts')->where('id', $card)->update(['status' => 'Inactive']);
+        $this->actingAsUser($this->me);
+        $this->assertNotContains($card, $listed());
     }
 
     /**

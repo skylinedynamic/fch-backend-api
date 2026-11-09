@@ -154,6 +154,18 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        // The payer is paying it by hand right now and their bank is asking for
+        // 3-D Secure (BUG-066). Charging off-session as well could take the money
+        // twice; payments:settle-card-authentications settles or cancels that
+        // attempt within minutes, and a later pass picks the invoice up if needed.
+        if (Payment::awaitingAuthentication()->where('invoice_id', $invoice->id)->exists()) {
+            Log::info('[ChargeSubscriptionInvoiceJob] Skipped: a card payment awaiting bank authentication is open', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+            return;
+        }
+
         // Paid already, whatever the status says: older code recorded a Stripe
         // payment and left the invoice Unpaid, and this job kept charging it
         // twice a day. Stripe forgets an idempotency key after 24 hours, so a

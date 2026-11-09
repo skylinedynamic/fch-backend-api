@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\EmbedForm;
 
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Common\Permission;
@@ -300,8 +301,8 @@ class EmbedFormConversionProfileTest extends TestCase
         $this->assertSame(\App\Services\FCH\Common\Application\SignatureRecorder::METHOD_EMBEDDED_FORM, $signature['signing_method']);
         $this->assertSame('198.51.100.23', $signature['ip_address']);
         $this->assertSame(1, $signature['application_version']);
-        Storage::disk('public')->assertExists($signature['signed_application_path']);
-        Storage::disk('public')->assertExists($signature['certificate_path']);
+        Storage::disk('uploads')->assertExists($signature['signed_application_path']);
+        Storage::disk('uploads')->assertExists($signature['certificate_path']);
     }
 
     #[Test]
@@ -332,9 +333,53 @@ class EmbedFormConversionProfileTest extends TestCase
             'last_4_ssn' => '6789',
         ]);
 
-        $this->convert($this->submission(), ['confirm_existing_borrower' => true])->assertOk();
+        $this->convert($this->submission(), ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
 
         $this->assertSame('123456789', $existing->fresh()->ssn);
+    }
+
+    #[Test]
+    public function other_entity_and_industry_details_reach_the_profile(): void
+    {
+        $submission = $this->submission([
+            'entity_type' => 'Other', 'entity_type_note' => 'Cooperative',
+            'industry_type' => 'Other', 'industry_type_note' => 'Beekeeping',
+        ]);
+
+        $this->convert($submission)->assertOk();
+
+        $borrower = $this->convertedBorrower($submission);
+        $this->assertSame('Other', $borrower->business_entity_type);
+        $this->assertSame('Cooperative', $borrower->business_entity_type_note);
+        $this->assertSame('Other', $borrower->business_industry_type);
+        $this->assertSame('Beekeeping', $borrower->business_industry_type_note);
+    }
+
+    #[Test]
+    public function an_existing_borrowers_entity_type_keeps_its_own_details(): void
+    {
+        // A type and its details are one answer: the client's "Other: LLC-series"
+        // is not half replaced by the submission's details.
+        $existing = Borrower::create([
+            'partner_id' => $this->partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Odessa',
+            'last_name' => 'Mccall',
+            'email' => 'odessa@example.test',
+            'business_entity_type' => 'C-Corporation',
+        ]);
+
+        $this->convert($this->submission([
+            'entity_type' => 'Other', 'entity_type_note' => 'Cooperative',
+            'industry_type' => 'Other', 'industry_type_note' => 'Beekeeping',
+        ]), ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
+
+        $borrower = $existing->fresh();
+        $this->assertSame('C-Corporation', $borrower->business_entity_type);
+        $this->assertNull($borrower->business_entity_type_note);
+        // The blank industry is filled with its details.
+        $this->assertSame('Other', $borrower->business_industry_type);
+        $this->assertSame('Beekeeping', $borrower->business_industry_type_note);
     }
 
     #[Test]
@@ -349,7 +394,7 @@ class EmbedFormConversionProfileTest extends TestCase
             'ssn' => '987654321',
         ]);
 
-        $this->convert($this->submission(), ['confirm_existing_borrower' => true])->assertOk();
+        $this->convert($this->submission(), ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
 
         $this->assertSame('987654321', $existing->fresh()->ssn);
     }
@@ -371,7 +416,7 @@ class EmbedFormConversionProfileTest extends TestCase
         ]);
         $submission = $this->submission();
 
-        $this->convert($submission, ['confirm_existing_borrower' => true])->assertOk();
+        $this->convert($submission, ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
 
         $borrower = $existing->fresh();
         $this->assertSame('(512) 111-2222', $borrower->phone_number);
@@ -381,5 +426,91 @@ class EmbedFormConversionProfileTest extends TestCase
         $this->assertEquals(600000, (float) $borrower->annual_revenue);
         $this->assertSame('C-Corporation', $borrower->business_entity_type);
         $this->assertSame('(512) 987-6543', $borrower->business_phone);
+    }
+
+    // -- BUG-064: the partner sees and agrees to what fills the profile -------
+
+    /**
+     * BUG-064: converting onto an existing client quietly filled its blank
+     * profile fields (address, date of birth, SSN, business details) from an
+     * anonymous submission. The dialog said only that an application would be
+     * added, and the client's Activity had no entry for it.
+     */
+    private function existingClient(array $attributes = []): Borrower
+    {
+        return Borrower::create(array_merge([
+            'partner_id' => $this->partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Odessa',
+            'last_name' => 'Mccall',
+            'email' => 'odessa@example.test',
+            'phone_number' => '(512) 111-2222',
+        ], $attributes));
+    }
+
+    #[Test]
+    public function the_partner_is_shown_which_blank_fields_would_be_filled_with_the_ssn_masked(): void
+    {
+        $this->existingClient();
+        $submission = $this->submission();
+
+        $response = $this->getJson("/api/v1/common/embed-forms/submissions/{$submission->id}/conversion-preview")->assertOk();
+        $fields = collect($response->json('data.existing_borrower.fields_to_fill'));
+
+        $this->assertContains('Date Of Birth', $fields->pluck('label'));
+        $this->assertContains('Business Phone', $fields->pluck('label'));
+        $this->assertNotContains('Phone Number', $fields->pluck('label')); // already on file
+        $this->assertSame('***-**-6789', $fields->firstWhere('field', 'ssn')['value']);
+        $this->assertStringNotContainsString('123456789', $response->getContent());
+
+        // The same list comes with the 409 that asks for confirmation.
+        $this->convert($submission)->assertStatus(409)
+            ->assertJsonPath('data.existing_borrower.fields_to_fill.0.field', $fields->first()['field']);
+    }
+
+    #[Test]
+    public function without_the_partners_consent_the_profile_is_left_alone(): void
+    {
+        $existing = $this->existingClient();
+
+        $this->convert($this->submission(), ['confirm_existing_borrower' => true])->assertOk();
+
+        $borrower = $existing->fresh();
+        $this->assertNull($borrower->business_phone);
+        $this->assertNull($borrower->date_of_birth);
+        $this->assertNull($borrower->ssn);
+        $this->assertSame(1, FundingApplication::where('borrower_id', $existing->id)->count());
+    }
+
+    #[Test]
+    public function with_consent_the_blanks_are_filled_and_the_clients_activity_says_which(): void
+    {
+        $existing = $this->existingClient();
+
+        $this->convert($this->submission(), ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
+
+        $this->assertSame('(512) 987-6543', $existing->fresh()->business_phone);
+        $log = ActivityLog::where('subject_type', Borrower::class)->where('subject_id', $existing->id)
+            ->where('event', 'Profile Filled From Application')->firstOrFail();
+        $this->assertStringContainsString('Business Phone', $log->description);
+        $this->assertStringContainsString('SSN', $log->description);
+        $this->assertStringNotContainsString('123456789', $log->description);
+    }
+
+    #[Test]
+    public function a_partly_filled_address_is_not_mixed_with_the_submissions(): void
+    {
+        // QA saw State Texas (the client's) with City Miami (the submission's).
+        $existing = $this->existingClient(['state' => 'Florida']);
+
+        $this->convert($this->submission(), ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
+
+        $borrower = $existing->fresh();
+        $this->assertSame('Florida', $borrower->state);
+        $this->assertNull($borrower->city);
+        $this->assertNull($borrower->home_address);
+        // A business address that was wholly blank is filled whole.
+        $this->assertSame('Dallas', $borrower->business_city);
+        $this->assertSame('1 Commerce St', $borrower->business_address);
     }
 }

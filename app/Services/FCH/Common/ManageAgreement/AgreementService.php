@@ -65,6 +65,12 @@ class AgreementService
                 return $this->noSignNeeded(__('agreement.already_signed'));
             }
 
+            // The host excused this one partner / client (setRequired()).
+            // Only an explicit false excuses: everyone signs by default.
+            if ($entity->agreement_required === false) {
+                return $this->noSignNeeded(__('agreement.not_required'));
+            }
+
             $hostPartner = $this->getHostPartner();
             if (!$hostPartner) {
                 return $this->noSignNeeded(__('agreement.system_owner_not_found'));
@@ -132,6 +138,75 @@ class AgreementService
             $entity->update(['has_sign' => false]);
             return $user->update(['is_refresh' => '1']);
         });
+    }
+
+    /**
+     * Excuse one partner (from the partner agreement) or one client (from their
+     * borrower agreement), or require it again. The global switch and the
+     * templates' own on/off still apply on top. Returns null when the user, or
+     * the partner / client behind it, does not exist.
+     *
+     * @return array{user_id: int, agreement_required: bool}|null
+     */
+    public function setRequired(int $userId, bool $required): ?array
+    {
+        $user = User::find($userId);
+        $entity = $user ? $this->signingEntity($user) : null;
+        if (!$entity) {
+            return null;
+        }
+
+        DB::transaction(function () use ($user, $entity, $required) {
+            $entity->update(['agreement_required' => $required]);
+            // The portal re-reads the user, so the sign prompt appears or goes.
+            $user->update(['is_refresh' => '1']);
+        });
+
+        return ['user_id' => $user->id, 'agreement_required' => $required];
+    }
+
+    /**
+     * Whether the host can require or excuse this partner / client right now:
+     * only while signing is on in Settings › Agreement and the agreement they
+     * would sign is active (the host's partner agreement for a partner, their
+     * own partner's borrower agreement for a client). Null when the user, or
+     * the partner / client behind it, does not exist.
+     *
+     * @return array{user_id: int, agreement_required: bool, signing_enabled: bool, template_active: bool, can_change: bool, locked_reason: ?string}|null
+     */
+    public function requirementStatus(int $userId): ?array
+    {
+        $user = User::find($userId);
+        $entity = $user ? $this->signingEntity($user) : null;
+        if (!$entity) {
+            return null;
+        }
+
+        $host = $this->getHostPartner();
+        $signingEnabled = $host && filter_var(
+            AppConfiguration::get('agreement_signing_enabled', '0', AppConfiguration::MODULE_AGREEMENT, $host->id),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        [$ownerId, $slug] = $entity instanceof Partner
+            ? [$host?->id, AgreementTemplate::SLUG_PARTNER]
+            : [$entity->partner_id, AgreementTemplate::SLUG_BORROWER];
+        $templateActive = $ownerId && $this->getActiveTemplate((int) $ownerId, $slug) !== null;
+
+        $lockedReason = match (true) {
+            !$signingEnabled => __('agreement.required_locked_globally'),
+            !$templateActive => __("agreement.required_locked_template_{$slug}"),
+            default => null,
+        };
+
+        return [
+            'user_id' => $user->id,
+            'agreement_required' => $entity->agreement_required !== false,
+            'signing_enabled' => (bool) $signingEnabled,
+            'template_active' => (bool) $templateActive,
+            'can_change' => $lockedReason === null,
+            'locked_reason' => $lockedReason,
+        ];
     }
 
     /** Whether the user's partner or client record is marked as signed (has_sign). */

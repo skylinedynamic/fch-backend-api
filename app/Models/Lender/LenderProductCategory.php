@@ -18,4 +18,20 @@ class LenderProductCategory extends Model
         'status',
         'sort_order',
     ];
+
+    /**
+     * The Preferred / Additional Funding Types an application offers: the
+     * Active categories, in their order - the same list a lender is set up
+     * with, so an application's types are the categories it is matched on.
+     *
+     * @return array<int, string>
+     */
+    public static function fundingTypeNames(): array
+    {
+        return self::where('status', self::STATUS_ACTIVE)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+    }
 }

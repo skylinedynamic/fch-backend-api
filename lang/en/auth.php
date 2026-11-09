@@ -5,6 +5,8 @@ return [
     // One answer for an unknown email and a wrong password, so the sign-in
     // form cannot be used to find out which emails have an account.
     'invalid_login' => 'Invalid email or password.',
+    // Forgot password: the same for every email, so it does not say which have an account (BUG-068).
+    'password_reset_link_maybe_sent' => 'If an account exists for this email, a password reset link has been sent.',
     'logged_in' => 'Logged in Successfully',
     'logged_out' => 'Logged out successfully',
     'logout_failed' => 'Logout failed. Please try again.',

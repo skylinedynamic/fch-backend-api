@@ -12,6 +12,7 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Http\UploadedFile;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
+use App\Support\Mail\RecipientName;
 
 class ActivityLogMail extends Mailable implements ShouldQueue
 {
@@ -61,7 +62,7 @@ class ActivityLogMail extends Mailable implements ShouldQueue
         $this->dynamicData['logoUrl']  = $branding['logoUrl'] ?? '';
 
         return new Envelope(
-            subject: $this->emailData['subject'] ?? 'New Email from Activity Log',
+            subject: $this->emailData['subject'] ?? __('activity_log.mail.default_subject'),
         );
     }
 
@@ -70,7 +71,9 @@ class ActivityLogMail extends Mailable implements ShouldQueue
         return new Content(
             view: 'emails.activity_log_mail',
             with: [
-                'subject'           => $this->emailData['subject'] ?? 'New Email from Activity Log',
+                'subject'           => $this->emailData['subject'] ?? __('activity_log.mail.default_subject'),
+                // Greeted by name when the address is someone's in the system.
+                'recipientName'     => RecipientName::for($this->to[0]['address'] ?? null),
                 'body'              => $this->emailData['body'] ?? '',
                 'attachments_count' => count($this->files),
                 'attachment_names'  => $this->attachmentNames,

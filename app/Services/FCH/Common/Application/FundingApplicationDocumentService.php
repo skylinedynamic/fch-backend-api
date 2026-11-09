@@ -4,7 +4,8 @@ namespace App\Services\FCH\Common\Application;
 
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingApplicationCertificate;
-use App\Models\Borrower\DownloadHistory;
+use App\Models\Audit\FundingApplicationAuditEvent;
+use App\Services\Audit\FundingApplicationAuditTrail;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,7 @@ use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Models\Common\AppConfiguration;
 use Illuminate\Support\Carbon;
 use App\Helpers\ApiResponse;
+use App\Support\Files\Disk;
 
 class FundingApplicationDocumentService
 {
@@ -32,11 +34,11 @@ class FundingApplicationDocumentService
     /**
      * Keep the application exactly as signed, with its certificate.
      *
-     * Every signing is a new version of the application - 1, 2, 3 - with its own
-     * folder, funding-applications/{id}/signed/v{n}-{certificate id}/, holding
-     * the application PDF as signed and the certificate for it. A later edit
-     * and re-signing adds the next version; nothing already signed is ever
-     * overwritten. The signature record carries the version, the SHA-256 of the
+     * Every signing is a new version of the application - 1, 2, 3 - and both
+     * PDFs, the application as signed and the certificate for it, are kept in
+     * the audit folder by their SHA-256 (audit/files/{sha256}.pdf), recorded
+     * in the application's audit trail. A later edit and re-signing adds the
+     * next version; nothing already signed is ever overwritten. The signature record carries the version, the SHA-256 of the
      * signed application PDF, both paths, and who the application was for and
      * its status at that moment, so the certificate does not follow later edits.
      */
@@ -45,37 +47,24 @@ class FundingApplicationDocumentService
         try {
             $brandingData = self::getBrandingData($application);
 
-            $version = DownloadHistory::where('funding_application_id', $application->id)
-                ->where('file_type', 'application_pdf')
-                ->where('action', 'generated')
+            $version = FundingApplicationAuditEvent::where('funding_application_id', $application->id)
+                ->where('event', FundingApplicationAuditEvent::EVENT_SIGNED_COPY_KEPT)
+                ->where('context->file_type', FundingApplicationAuditEvent::FILE_APPLICATION_PDF)
                 ->count() + 1;
             $certId = (string) Str::uuid();
-            $folder = "funding-applications/{$application->id}/signed/v{$version}-{$certId}";
+            $trail = app(FundingApplicationAuditTrail::class);
 
             // The application as signed.
             $appPdfBinary = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData))->output();
-            $appSha256 = hash('sha256', $appPdfBinary);
-            $appPdfPath = "{$folder}/application.pdf";
-            Storage::disk('public')->put($appPdfPath, $appPdfBinary);
+            $appCopy = $trail->keepContents($appPdfBinary, 'pdf');
+            $appSha256 = $appCopy['hash'];
+            $appPdfPath = $appCopy['path'];
 
-            $user = Auth::user();
-            $history = [
-                'user_id' => $user?->id,
-                'user_name' => $user ? trim((string) $user->name) : '',
-                'user_type' => $user->user_type ?? '',
-                'funding_application_id' => $application->id,
-                'application_number' => $application->application_number,
-                'application_version' => (string) $version,
-                'certificate_id' => $certId,
-                'action' => 'generated',
-                'ip_address' => request()->ip(),
-                'downloaded_at' => now(),
-            ];
-            DownloadHistory::create($history + ['file_type' => 'application_pdf', 'sha256_hash' => $appSha256]);
+            $this->recordSignedCopy($application, FundingApplicationAuditEvent::FILE_APPLICATION_PDF, $appCopy, (string) $version, $certId);
 
             // No activity-log entry for generating the PDFs: it happens on every
             // submission, and the submit / re-submit entry already says so. The
-            // generation itself is recorded in the download history.
+            // generation itself is recorded in the audit trail.
 
             $signatureData = array_merge($signatureData, [
                 'application_version' => $version,
@@ -92,11 +81,10 @@ class FundingApplicationDocumentService
             // The certificate for that signed version.
             $templateData = SignatureCertificateService::getTemplateData($application, $brandingData, $signatureData);
             $certPdfBinary = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData))->output();
-            $certPath = "{$folder}/signature-certificate.pdf";
-            Storage::disk('public')->put($certPath, $certPdfBinary);
-            DownloadHistory::create($history + ['file_type' => 'signature_certificate', 'sha256_hash' => hash('sha256', $certPdfBinary)]);
+            $certCopy = $trail->keepContents($certPdfBinary, 'pdf');
+            $this->recordSignedCopy($application, FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE, $certCopy, (string) $version, $certId);
 
-            $signatureData['certificate_path'] = $certPath;
+            $signatureData['certificate_path'] = $certCopy['path'];
             $application->update(['signature_data' => $signatureData]);
         } catch (\Exception $e) {
             Log::error('PDF Generation failed: ' . $e->getMessage());
@@ -151,31 +139,7 @@ class FundingApplicationDocumentService
         $pdfBinary = $signedCopy ?? $pdf->output();
         $sha256 = hash('sha256', $pdfBinary);
 
-        $savedPath = 'funding-applications/' . $application->id . '/downloads/' . $filename;
-        Storage::disk('public')->put($savedPath, $pdfBinary);
-
-        $userName = $authUser ? trim($authUser->name) : 'System';
-        if (!$userName) $userName = 'System';
-        $userType = $authUser->user_type ?? 'system';
-
-        DownloadHistory::create([
-            'user_id' => $authUser->id,
-            'user_name' => $userName,
-            'user_type' => $userType,
-            'funding_application_id' => $application->id,
-            'application_number' => $application->application_number,
-            'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
-            'certificate_id' => $brandingData['certId'] ?? null,
-            'file_type' => 'application_pdf',
-            'action' => !empty($password) ? 'downloaded_with_password' : 'downloaded_without_password',
-            'sha256_hash' => $sha256,
-            'ip_address' => request()->ip(),
-            'downloaded_at' => now(),
-            // Never the password itself: whether one was used is the action.
-            'details' => array_filter(array_merge([
-                'file_path' => $savedPath
-            ], $this->getDeviceInfo())),
-        ]);
+        $this->recordDownload($application, FundingApplicationAuditEvent::FILE_APPLICATION_PDF, $sha256, $password, $brandingData);
 
         return response($pdfBinary, 200)
             ->header('Content-Type', 'application/pdf')
@@ -190,11 +154,18 @@ class FundingApplicationDocumentService
     {
         $path = (is_array($application->signature_data) ? $application->signature_data : [])['signed_application_path'] ?? null;
 
-        if (!$path || !Storage::disk('public')->exists($path)) {
+        if (!$path) {
             return null;
         }
 
-        return Storage::disk('public')->get($path);
+        // In the audit folder; a copy signed before it moved there, on the public disk.
+        foreach ([Disk::UPLOADS, Disk::PUBLIC] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                return Storage::disk($disk)->get($path);
+            }
+        }
+
+        return null;
     }
 
     public function downloadSignaturePdf($id, $password = null)
@@ -244,31 +215,7 @@ class FundingApplicationDocumentService
         $pdfBinary = $pdf->output();
         $sha256 = hash('sha256', $pdfBinary);
         
-        $savedPath = 'storage/funding-applications/' . $application->id . '/downloads/' . $filename;
-        Storage::disk('public')->put($savedPath, $pdfBinary);
-
-        $userName = $authUser ? trim($authUser->name) : 'System';
-        if (!$userName) $userName = 'System';
-        $userType = $authUser->user_type ?? 'system';
-
-        DownloadHistory::create([
-            'user_id' => $authUser->id,
-            'user_name' => $userName,
-            'user_type' => $userType,
-            'funding_application_id' => $application->id,
-            'application_number' => $application->application_number,
-            'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
-            'certificate_id' => $brandingData['certId'] ?? null,
-            'file_type' => 'signature_certificate',
-            'action' => !empty($password) ? 'downloaded_with_password' : 'downloaded_without_password',
-            'sha256_hash' => $sha256,
-            'ip_address' => request()->ip(),
-            'downloaded_at' => now(),
-            // Never the password itself: whether one was used is the action.
-            'details' => array_filter(array_merge([
-                'file_path' => $savedPath
-            ], $this->getDeviceInfo())),
-        ]);
+        $this->recordDownload($application, FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE, $sha256, $password, $brandingData);
 
         return response($pdfBinary, 200)
             ->header('Content-Type', 'application/pdf')
@@ -360,66 +307,51 @@ class FundingApplicationDocumentService
         $zipBinary = file_get_contents($zipTempFile);
         $sha256 = hash('sha256', $zipBinary);
 
-        $savedPath = 'funding-applications/' . $application->id . '/downloads/' . $zipFilename;
-        Storage::disk('public')->put($savedPath, $zipBinary);
-
-        $brandingData = self::getBrandingData($application);
-        $userName = $authUser ? trim($authUser->name) : 'System';
-        if (!$userName) $userName = 'System';
-        $userType = $authUser->user_type ?? 'system';
-
-        DownloadHistory::create([
-            'user_id' => $authUser->id,
-            'user_name' => $userName,
-            'user_type' => $userType,
-            'funding_application_id' => $application->id,
-            'application_number' => $application->application_number,
-            'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
-            'certificate_id' => $brandingData['certId'] ?? null,
-            'file_type' => 'application_zip',
-            'action' => !empty($password) ? 'downloaded_with_password' : 'downloaded_without_password',
-            'sha256_hash' => $sha256,
-            'ip_address' => request()->ip(),
-            'downloaded_at' => now(),
-            // Never the password itself: whether one was used is the action.
-            'details' => array_filter(array_merge([
-                'file_path' => $savedPath
-            ], $this->getDeviceInfo())),
-        ]);
+        $this->recordDownload($application, FundingApplicationAuditEvent::FILE_APPLICATION_ZIP, $sha256, $password, self::getBrandingData($application));
 
         return response()->download($zipTempFile, $zipFilename, [
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
     }
 
-    public function downloadFromHistory($historyId)
+    /**
+     * A copy kept as signed, in the audit trail - counted to number the next
+     * signed version.
+     *
+     * @param  array{hash: string, path: string}  $copy  where keepContents() put it
+     */
+    private function recordSignedCopy(FundingApplication $application, string $fileType, array $copy, string $version, string $certId): void
     {
-        $history = DownloadHistory::whereHas('fundingApplication', fn ($applications) => $applications->reviewableBy(Auth::user()))
-            ->find($historyId);
-        if (!$history) {
-            return ApiResponse::error('History record not found.');
-        }
+        app(FundingApplicationAuditTrail::class)->record($application, FundingApplicationAuditEvent::EVENT_SIGNED_COPY_KEPT, null, [
+            'file_type' => $fileType,
+            'application_version' => $version,
+            'certificate_id' => $certId,
+            'name' => ($fileType === FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE ? 'Signature_Certificate_' : 'Funding_Application_')
+                . ($application->application_number ?? $application->id) . "_v{$version}.pdf",
+        ], $copy['hash'], $copy['path']);
+    }
 
-        $details = $history->details;
-        if (empty($details['file_path'])) {
-            return ApiResponse::error('File path not found for this record.');
-        }
-
-        $path = $details['file_path'];
-        if (!Storage::disk('public')->exists($path)) {
-            return ApiResponse::error('File not found on server.');
-        }
-
-        $filename = basename($path);
-        
-        $mime = 'application/pdf';
-        if (Str::endsWith($path, '.zip')) {
-            $mime = 'application/zip';
-        }
-
-        return response(Storage::disk('public')->get($path), 200)
-            ->header('Content-Type', $mime)
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    /**
+     * A download in the application's audit trail: what was handed out (its
+     * SHA-256), whether a password protected it - never the password - and
+     * the browser it went to. No copy of the file is kept: the application as
+     * signed is already kept under signed/, and a copy per download was
+     * overwritten by the next one.
+     */
+    private function recordDownload(FundingApplication $application, string $fileType, string $sha256, ?string $password, array $brandingData): void
+    {
+        app(FundingApplicationAuditTrail::class)->record(
+            $application,
+            FundingApplicationAuditEvent::EVENT_DOWNLOADED,
+            null,
+            array_filter(array_merge([
+                'file_type' => $fileType,
+                'password_protected' => !empty($password),
+                'application_version' => (string) ($application->signature_data['application_version'] ?? '1.0'),
+                'certificate_id' => $brandingData['certId'] ?? null,
+            ], $this->getDeviceInfo()), fn ($value) => $value !== null && $value !== ''),
+            $sha256
+        );
     }
 
     private function generateApplicationPdfContent($application, $password = null)
@@ -530,7 +462,7 @@ class FundingApplicationDocumentService
         int $boxHeight = 60
     ): array {
         $paths = $logoKey && $logoKey !== 'null' ? [
-            \Illuminate\Support\Facades\Storage::disk('public')->path(ltrim($logoKey, '/')),
+            Storage::disk(Disk::UPLOADS)->path(ltrim($logoKey, '/')),
             public_path('storage/' . ltrim($logoKey, '/')),
             public_path(ltrim($logoKey, '/')),
         ] : [];

@@ -149,6 +149,10 @@ jobs:
             echo "Deploy complete!"
 
       - name: Smoke Test - Verify API is Responding
+        env:
+          # Lets the smoke test reach the new build while the maintenance page is
+          # switched on by hand on the server (sudo fch-maintenance on).
+          MAINTENANCE_BYPASS: ${{ secrets.STAGE_MAINTENANCE_BYPASS }}
         run: |
           echo "Waiting for server to stabilise...."
           sleep 5
@@ -156,7 +160,7 @@ jobs:
           echo "Testing endpoint: $API_URL"
           
           # Use a temporary file to store the body and status code separately
-          curl -s -o body.txt -w "%{http_code}" --max-time 10 "$API_URL" > status.txt || echo "000" > status.txt
+          curl -s -o body.txt -w "%{http_code}" --max-time 10 -H "X-Maintenance-Bypass: $MAINTENANCE_BYPASS" "$API_URL" > status.txt || echo "000" > status.txt
           HTTP_STATUS=$(cat status.txt)
           BODY=$(cat body.txt)
 

@@ -6,6 +6,8 @@ use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
 use App\Models\User\User;
 use App\Services\Borrower\Funding\FundingReadinessService;
+use App\Support\Funding\FundingTypeName;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -88,6 +90,29 @@ class FundingSequencing extends Model
     public function type(): BelongsTo
     {
         return $this->belongsTo(LenderProductCategory::class, 'funding_type_id');
+    }
+
+    /**
+     * The funding sequences offered for a funding type (an application's
+     * Preferred Funding Type): Active, of that Active funding type, and not
+     * filed under an inactive group.
+     */
+    public function scopeOfferedFor(Builder $query, ?string $fundingType): Builder
+    {
+        // An application saved under an older name ("Line of Credit") gets the
+        // sequences of the Active type it means ("Business Line of Credit").
+        $activeTypes = LenderProductCategory::fundingTypeNames();
+        $typeName = in_array($fundingType, $activeTypes, true)
+            ? $fundingType
+            : (FundingTypeName::categoryFor($fundingType, $activeTypes) ?? (string) $fundingType);
+
+        return $query->where('status', self::STATUS_ACTIVE)
+            ->whereHas('type', fn (Builder $type) => $type
+                ->where('name', $typeName)
+                ->where('status', LenderProductCategory::STATUS_ACTIVE))
+            ->where(fn (Builder $group) => $group
+                ->whereNull('funding_group_id')
+                ->orWhereHas('group', fn (Builder $g) => $g->where('status', FundingGroup::STATUS_ACTIVE)));
     }
 
     public function scopeSearch($query, $term)

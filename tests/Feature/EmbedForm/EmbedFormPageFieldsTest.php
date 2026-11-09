@@ -5,6 +5,7 @@ namespace Tests\Feature\EmbedForm;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\Partner\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -111,6 +112,26 @@ class EmbedFormPageFieldsTest extends TestCase
             ->assertDontSee('placeholder="YYYY-MM-DD"', false)
             ->assertSee('.fp-yd-trigger', false)
             ->assertSee('background: var(--brand-primary) !important;', false);
+    }
+
+    /**
+     * The date of birth calendar offers every year up to today, opens an empty
+     * field on the latest date that is old enough (18 years back, from the
+     * server), and an under-age pick gets the API's minimum-age message.
+     */
+    #[Test]
+    public function the_date_of_birth_opens_eighteen_years_back_and_explains_an_under_age_pick(): void
+    {
+        Carbon::setTestNow('2026-11-09 12:00:00');
+
+        $this->page()
+            ->assertSee('const LATEST_DOB = "2008-11-09";', false)
+            ->assertSee('const MINIMUM_AGE_MESSAGE = "You must be at least 18 years old to continue.";', false)
+            ->assertSee('maxDate: today,', false)
+            ->assertSee('if (isDob && !selectedDates.length) fp.jumpToDate(LATEST_DOB);', false)
+            ->assertSee("if (el.dataset.datepicker === 'dob' && value > LATEST_DOB) return MINIMUM_AGE_MESSAGE;", false);
+
+        Carbon::setTestNow();
     }
 
     #[Test]

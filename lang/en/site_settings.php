@@ -28,4 +28,7 @@ return [
     'favicon_max' => 'The favicon may not be greater than 1MB.',
     'site_slogan_max' => 'The site slogan may not be greater than 255 characters.',
     'map_iframe_invalid' => 'The map iframe format is invalid. Please use a valid Google Maps embed code.',
+    'apply_form_embed_code_invalid' => 'Paste the embed code exactly as copied from Embed Form Settings: one iframe and, for automatic height, its script.',
+    'apply_form_embed_code_wrong_form' => 'This code is not for the current application form. Copy it again from Embed Form Settings.',
+    'apply_form_embed_code_wrong_script' => 'The script in this code is not the application form\'s own. Copy the code again from Embed Form Settings.',
 ];

@@ -3,6 +3,7 @@
 namespace App\Support\Branding;
 
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 /**
  * A stored logo, as something Dompdf can actually draw.
@@ -46,7 +47,7 @@ final class PdfLogo
             return null;
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Disk::UPLOADS);
 
         // is_file, not exists: a directory passes exists() and then reading it
         // fails. Storage::fileExists() has the same distinction under the hood,

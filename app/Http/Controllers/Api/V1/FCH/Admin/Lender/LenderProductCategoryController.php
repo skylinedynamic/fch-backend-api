@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Admin\Lender;
 
+use App\Exceptions\LenderProductCategoryInUseException;
 use App\Http\Controllers\Controller;
 use App\Models\Lender\LenderProductCategory;
+use App\Services\FCH\Admin\Lender\LenderService;
 use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\FCH\Admin\Lender\StoreLenderProductCategoryRequest;
@@ -11,13 +13,10 @@ use App\Http\Requests\Api\V1\FCH\Admin\Lender\UpdateLenderProductCategoryRequest
 
 class LenderProductCategoryController extends Controller
 {
-    public function index()
+    public function index(LenderService $lenderService)
     {
-        $categories = LenderProductCategory::orderBy('sort_order', 'asc')
-            ->orderBy('name', 'asc')
-            ->get();
-            
-        return ApiResponse::success($categories, __('lender.category_fetched'));
+        // Each with funding_sequences_count, so a category in use is refused at once.
+        return ApiResponse::success($lenderService->productCategoriesWithUsage(), __('lender.category_fetched'));
     }
 
     public function store(StoreLenderProductCategoryRequest $request)
@@ -46,7 +45,7 @@ class LenderProductCategoryController extends Controller
         return ApiResponse::success($category, __('lender.category_updated'));
     }
 
-    public function destroy($id)
+    public function destroy($id, LenderService $lenderService)
     {
         $category = LenderProductCategory::find($id);
 
@@ -54,7 +53,12 @@ class LenderProductCategoryController extends Controller
             return ApiResponse::error('Not found', 404);
         }
 
-        $category->delete();
+        try {
+            $lenderService->deleteProductCategory($category);
+        } catch (LenderProductCategoryInUseException $e) {
+            // Used by a funding sequence - say which, and change nothing.
+            return ApiResponse::error($e->getMessage(), 422, ['blocked' => $e->blocked]);
+        }
 
         return ApiResponse::success(null, __('lender.category_deleted'));
     }
