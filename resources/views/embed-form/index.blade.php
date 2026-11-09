@@ -1943,9 +1943,11 @@
         // When this form is shown in an iframe (the website's /apply page, a
         // partner's site) the page around it cannot see how tall the form is,
         // and scrolling inside an iframe sized to its content moves nothing.
-        // So the form tells that page its height and where to scroll. Only
-        // layout numbers are sent - never a field value - and only to the
-        // framing page's own origin, never '*'. Opened directly, nothing runs.
+        // So the form tells that page its height and where to scroll, and that
+        // a submission was confirmed (the website counts those in analytics).
+        // Only layout numbers and that bare signal are sent - never a field
+        // value or the Reference ID - and only to the framing page's own origin,
+        // never '*'. Opened directly, nothing runs.
         //
         // The framing page's origin comes from the referrer or, when a browser,
         // extension or Referrer-Policy drops it, from that page's 'hello'
@@ -1969,7 +1971,7 @@
 
             // A page opened from a file (or sandboxed) has the origin 'null',
             // which postMessage refuses as a target. It is answered with '*':
-            // only layout numbers are sent, and only to this window's parent.
+            // no field value is ever sent, and only to this window's parent.
             parentOrigin = event.origin === 'null' ? '*' : event.origin;
             // Report afresh: the page may have missed the earlier reports.
             lastHeight = 0;
@@ -3433,6 +3435,7 @@
                         document.getElementById('successRefBadge').textContent = 'Reference ID: ' + json.data.submission_uid;
                     }
                     scrollFormTo(0);
+                    postToParent({ type: 'submitted' });
                 } else {
                     showSubmitErrors(json);
                 }

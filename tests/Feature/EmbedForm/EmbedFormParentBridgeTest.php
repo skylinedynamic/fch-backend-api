@@ -12,7 +12,8 @@ use Tests\TestCase;
  * The website's /apply page sizes its iframe to the form and keeps the active
  * step in view. The form tells the page around it its height and where to
  * scroll, through postMessage, only to that page's own origin, and only
- * layout numbers - never anything the applicant typed.
+ * layout numbers plus a bare "submitted" signal - never anything the applicant
+ * typed.
  */
 class EmbedFormParentBridgeTest extends TestCase
 {
@@ -146,6 +147,37 @@ class EmbedFormParentBridgeTest extends TestCase
         $this->assertStringContainsString("postToParent({ type: 'scroll'", $m[1]);
         $this->assertStringContainsString('window.scrollTo(', $m[1]);
         $this->assertStringNotContainsString('if (!postToParent', $m[1]);
+    }
+
+    /**
+     * Defect (SCRUM-435 S435-BUG-01): the website could not count confirmed
+     * submissions, because nothing told it the form inside the iframe succeeded.
+     */
+    #[Test]
+    public function only_a_confirmed_submission_tells_the_framing_page_and_it_sends_no_data(): void
+    {
+        $matched = preg_match(
+            '/if \(res\.ok && json\.status\) \{(.*?)\} else \{\s*showSubmitErrors\(json\);(.*?)\} catch \(err\) \{(.*?)\} finally \{/s',
+            $this->page(),
+            $m,
+        );
+
+        $this->assertSame(1, $matched, 'The submit handler was not found');
+        [, $success, $rejected, $failed] = $m;
+
+        $this->assertStringContainsString("postToParent({ type: 'submitted' });", $success);
+        $this->assertStringNotContainsString('submitted', $rejected);
+        $this->assertStringNotContainsString("type: 'submitted'", $failed);
+    }
+
+    #[Test]
+    public function the_embed_script_on_partner_sites_only_acts_on_height_and_scroll(): void
+    {
+        $script = file_get_contents(public_path('form/assets/embed.js'));
+
+        $this->assertStringContainsString("data.type === 'resize'", $script);
+        $this->assertStringContainsString("data.type === 'scroll'", $script);
+        $this->assertStringNotContainsString("'submitted'", $script);
     }
 
     #[Test]
