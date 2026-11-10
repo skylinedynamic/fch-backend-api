@@ -34,8 +34,8 @@ Route::prefix('v1/admin')
         // 🧭 Partner routes
         Route::post('partners/fetch-partners', [PartnerController::class, 'index']);
         Route::post('partners', [PartnerController::class, 'store']);
-        Route::put('partners/{id}', [PartnerController::class, 'update']);
-        Route::get('partners-details/{id}', [PartnerController::class, 'details']);
+        Route::put('partners/{id}', [PartnerController::class, 'update'])->whereNumber('id');
+        Route::get('partners-details/{id}', [PartnerController::class, 'details'])->whereNumber('id');
 
         // The profile's Status & Agent tab, saved apart from the partner's details.
         Route::get('partners/{id}/status-agent', [PartnerController::class, 'statusAgent'])->whereNumber('id');
@@ -49,17 +49,17 @@ Route::prefix('v1/admin')
         // behind the same permission as any other partner edit.
         Route::post('partners/archive', [PartnerController::class, 'archive']);
         Route::post('partners/unarchive', [PartnerController::class, 'unarchive']);
-        Route::get('partners/tenant-config/{id}', [PartnerController::class, 'getTenantConfig']);
-        Route::post('partners/tenant-config/{id}', [PartnerController::class, 'updateTenantConfig']);
+        Route::get('partners/tenant-config/{id}', [PartnerController::class, 'getTenantConfig'])->whereNumber('id');
+        Route::post('partners/tenant-config/{id}', [PartnerController::class, 'updateTenantConfig'])->whereNumber('id');
 
-        Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
+        Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount'])->whereNumber('id');
         Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
 
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);
         Route::post('partners/documents', [PartnerDocumentController::class, 'store']);
-        Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download']);
-        Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete']);
+        Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download'])->whereNumber('id');
+        Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete'])->whereNumber('id');
 
         // 💰 Plan & Fee (Admin/Host Partner only)
         Route::post('plan-fee/fetch-subscription-plans', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'index']);
@@ -78,10 +78,10 @@ Route::prefix('v1/admin')
             // Tiers (Manage Tier)
             Route::post('tiers/fetch-tiers', [TierController::class, 'index']);
             Route::post('tiers', [TierController::class, 'store']);
-            Route::get('tiers/{id}', [TierController::class, 'show']);
-            Route::put('tiers/{id}', [TierController::class, 'update']);
+            Route::get('tiers/{id}', [TierController::class, 'show'])->whereNumber('id');
+            Route::put('tiers/{id}', [TierController::class, 'update'])->whereNumber('id');
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
-            Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
+            Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi'])->whereNumber('tier_id');
             // A client's own credit builder progress, read from the client page.
             Route::post('tiers/borrowers/tier-wise-tasklist', [TierController::class, 'getBorrowerTierTaskList']);
             Route::post('tiers/borrowers/progress', [TierController::class, 'getBorrowerProgress']);
@@ -89,8 +89,8 @@ Route::prefix('v1/admin')
             // Tier Tasks (Manage Tier)
             Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
             Route::post('tier-tasks', [TierTaskController::class, 'store']);
-            Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
-            Route::put('tier-tasks/{id}', [TierTaskController::class, 'update']);
+            Route::get('tier-tasks/{id}', [TierTaskController::class, 'show'])->whereNumber('id');
+            Route::put('tier-tasks/{id}', [TierTaskController::class, 'update'])->whereNumber('id');
             Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
             Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus']);
 
@@ -183,8 +183,8 @@ Route::prefix('v1/admin')
         // Change Requests (Borrower Field Update Requests)
         Route::prefix('change-requests')->group(function () {
             Route::post('/', [ChangeRequestController::class, 'index']);
-            Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus']);
-            Route::post('/{id}/reveal', [ChangeRequestController::class, 'reveal']);
+            Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus'])->whereNumber('id');
+            Route::post('/{id}/reveal', [ChangeRequestController::class, 'reveal'])->whereNumber('id');
         });
 
         // 📚 Resources
@@ -241,7 +241,7 @@ Route::prefix('v1/admin')
         // Credit Profile Requests
         Route::prefix('credit-profile-requests')->group(function () {
             Route::post('/', [CreditProfileRequestAdminController::class, 'index']);
-            Route::get('/{id}', [CreditProfileRequestAdminController::class, 'show']);
+            Route::get('/{id}', [CreditProfileRequestAdminController::class, 'show'])->whereNumber('id');
         });
 
         // Payment Provider Management Routes

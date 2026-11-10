@@ -8,6 +8,8 @@ use App\Models\CMS\BlogTag;
 use App\Exceptions\BlogTaxonomyInUseException;
 use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class BlogService
 {
@@ -85,11 +87,11 @@ class BlogService
     public function store(array $data): Blog
     {
         if (isset($data['featured_image']) && $data['featured_image'] instanceof \Illuminate\Http\UploadedFile) {
-            $data['featured_image'] = $data['featured_image']->store('blogs', 'public');
+            $data['featured_image'] = $data['featured_image']->store(Folder::BLOGS, Disk::UPLOADS);
         }
 
         if (isset($data['og_image']) && $data['og_image'] instanceof \Illuminate\Http\UploadedFile) {
-            $data['og_image'] = $data['og_image']->store('blogs', 'public');
+            $data['og_image'] = $data['og_image']->store(Folder::BLOGS, Disk::UPLOADS);
         }
 
         $blog = Blog::create($data);
@@ -102,17 +104,17 @@ class BlogService
         if (isset($data['featured_image']) && $data['featured_image'] instanceof \Illuminate\Http\UploadedFile) {
             // Delete old image if exists
             if ($blog->getRawOriginal('featured_image')) {
-                Storage::disk('public')->delete($blog->getRawOriginal('featured_image'));
+                Storage::disk(Disk::UPLOADS)->delete($blog->getRawOriginal('featured_image'));
             }
-            $data['featured_image'] = $data['featured_image']->store('blogs', 'public');
+            $data['featured_image'] = $data['featured_image']->store(Folder::BLOGS, Disk::UPLOADS);
         }
 
         if (isset($data['og_image']) && $data['og_image'] instanceof \Illuminate\Http\UploadedFile) {
             // Delete old image if exists
             if ($blog->getRawOriginal('og_image')) {
-                Storage::disk('public')->delete($blog->getRawOriginal('og_image'));
+                Storage::disk(Disk::UPLOADS)->delete($blog->getRawOriginal('og_image'));
             }
-            $data['og_image'] = $data['og_image']->store('blogs', 'public');
+            $data['og_image'] = $data['og_image']->store(Folder::BLOGS, Disk::UPLOADS);
         }
 
         $blog->update($data);

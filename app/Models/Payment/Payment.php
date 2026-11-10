@@ -48,6 +48,23 @@ class Payment extends Model
     public const DETAIL_FAILURE_SOURCE = 'source';
     public const FAILURE_SOURCE_CHECKOUT = 'checkout';
 
+    /**
+     * A "Pay Now" card charge the issuer wants authenticated - 3-D Secure,
+     * usually an OTP (BUG-066). It is kept as a PENDING row, marked in details,
+     * while the payer completes the bank's challenge in the browser. The
+     * confirm endpoint, or the payments:settle-card-authentications command for
+     * a payer who closed the tab, then settles it as SUCCEEDED or FAILED.
+     *
+     * The gateway account is kept with it, so the PaymentIntent is read back from
+     * the same Stripe account - and mode - that created it.
+     */
+    public const DETAIL_AWAITING = 'awaiting';
+    public const AWAITING_AUTHENTICATION = 'authentication';
+    public const DETAIL_GATEWAY_ACCOUNT = 'partner_payment_provider_id';
+
+    /** How long a payer has to finish the bank's challenge before it is cancelled. */
+    public const AUTHENTICATION_TIMEOUT_MINUTES = 30;
+
     public const TRANSACTION_TYPE_DEBIT = 'Debit';
     public const TRANSACTION_TYPE_CREDIT = 'Credit';
 
@@ -182,6 +199,25 @@ class Payment extends Model
     /**
      * Create a payment record dynamically.
      */
+    /**
+     * A card payment waiting on the payer's bank authentication (see
+     * DETAIL_AWAITING).
+     */
+    public function isAwaitingAuthentication(): bool
+    {
+        return $this->status === self::STATUS_PENDING
+            && ($this->details[self::DETAIL_AWAITING] ?? null) === self::AWAITING_AUTHENTICATION;
+    }
+
+    /**
+     * Scope: card payments waiting on the payer's bank authentication.
+     */
+    public function scopeAwaitingAuthentication($query)
+    {
+        return $query->where('payments.status', self::STATUS_PENDING)
+            ->where('payments.details->' . self::DETAIL_AWAITING, self::AWAITING_AUTHENTICATION);
+    }
+
     public function createRecord(array $data): self
     {
         // Never guessed: the caller knows which payment method the money was

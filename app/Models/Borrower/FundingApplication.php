@@ -2,8 +2,8 @@
 
 namespace App\Models\Borrower;
 
-use App\Models\Borrower\DownloadHistory;
 use App\Models\Commission\Commission;
+use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Concerns\HasPersonName;
+use App\Models\Audit\FundingApplicationAuditEvent;
 
 class FundingApplication extends Model
 {
@@ -559,23 +560,25 @@ class FundingApplication extends Model
     }
 
     /**
-     * The product categories its lenders are matched on: the funding request's
-     * funding type when it has one (the funding request page's list), else its
-     * own Preferred and Additional Funding Types (converted from a loan
-     * application).
+     * The product categories its lenders are matched on: its own Preferred and
+     * Additional Funding Types (lender product categories) - with a funding
+     * request or without (request 2026-11-05). Only an application with none of
+     * its own falls back to its funding request's funding type.
      *
      * @return array<int, string>
      */
     public function lenderCategories(): array
     {
-        if ($this->funding_request_id && $this->fundingRequest) {
-            return array_filter([$this->fundingRequest->funding_type]);
-        }
-
-        return array_values(array_filter([
+        $own = array_values(array_filter([
             $this->preferred_funding_type,
             ...(array) ($this->additional_funding_types ?? []),
         ]));
+
+        if ($own === [] && $this->funding_request_id && $this->fundingRequest) {
+            return array_values(array_filter([$this->fundingRequest->funding_type]));
+        }
+
+        return $own;
     }
 
     /**
@@ -681,6 +684,18 @@ class FundingApplication extends Model
     }
 
     /**
+     * Which copy of the application a page is showing: its last-saved time.
+     * A wizard step sends it back as `expected_version`, and a save from an
+     * older copy is refused rather than overwriting a newer one (R2 BUG-033).
+     * A save that changes nothing does not touch updated_at, so paging through
+     * the wizard does not move it on.
+     */
+    public function version(): ?string
+    {
+        return $this->updated_at?->format('Y-m-d H:i:s');
+    }
+
+    /**
      * Everything a portal needs to decide what to show: whether the form is
      * open, what an edit will cost, and whether the borrower may start over.
      *
@@ -696,6 +711,8 @@ class FundingApplication extends Model
         $isLocked = ! $this->isEditableBy($user);
 
         return [
+            // The copy the page is showing, sent back with the next save (R2 BUG-033).
+            'version' => $this->version(),
             'status_key' => self::statusKey($this->status),
             'is_locked' => $isLocked,
             'is_editable' => ! $isLocked,
@@ -707,7 +724,13 @@ class FundingApplication extends Model
             // at some point, whatever status it sits at now - On Hold and Draft
             // included. The portal asks before letting an edit through on these;
             // one that was never submitted is just being filled in, so it is not.
-            'edit_needs_confirmation' => ! $isLocked && $this->hasBeenSubmitted(),
+            // A Draft converted from the embed form carries the borrower's
+            // consent signature but was never submitted (SCRUM-434 S434-BUG-04).
+            'edit_needs_confirmation' => ! $isLocked && (
+                $this->invalidatesSignatureOnEditBy($user)
+                || (bool) $this->requires_resign
+                || ! empty($this->previous_signature_data)
+            ),
             'can_start_new_funding_request' => $this->allowsNewFundingRequest(),
             'locked_reason' => $isLocked ? $this->lockedReasonFor($user) : null,
         ];
@@ -872,6 +895,13 @@ class FundingApplication extends Model
         return $this->belongsTo(FundingRequest::class, 'funding_request_id');
     }
 
+    /** Whether an embed form submission was converted into this application. */
+    public function isFromEmbedForm(): bool
+    {
+        return $this->exists
+            && EmbedFormSubmission::where('converted_funding_application_id', $this->id)->exists();
+    }
+
     /*
     | Until the client reaches the Funding step, a started (On Hold) application
     | has no amount, type or purpose of its own. The funding request it was
@@ -906,8 +936,9 @@ class FundingApplication extends Model
     }
 
 
-    public function downloadHistories()
+    /** This application's audit trail, oldest first. */
+    public function auditEvents()
     {
-        return $this->hasMany(DownloadHistory::class, 'funding_application_id')->orderBy('created_at', 'desc');
+        return $this->hasMany(FundingApplicationAuditEvent::class, 'funding_application_id')->orderBy('id');
     }
 }

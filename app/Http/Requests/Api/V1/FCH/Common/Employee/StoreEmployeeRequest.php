@@ -3,13 +3,16 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Employee;
 
 use App\Helpers\ApiResponse;
+use App\Models\Employee\Employee;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use App\Rules\DateOfBirth;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\SafeUpload;
 
 class StoreEmployeeRequest extends BaseApiRequest
 {
@@ -29,7 +32,9 @@ class StoreEmployeeRequest extends BaseApiRequest
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
-            'job_status'     => ['nullable', 'string', 'max:255'],
+            // One of the three statuses - a free string let "[object Object]" be
+            // stored, which the list showed and no filter matched (R2 BUG-029).
+            'job_status'     => ['nullable', 'string', Rule::in(Employee::STATUSES)],
             'joining_date'   => ['nullable', 'date'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'emergency_phone' => ['nullable', 'string', new UsPhoneNumber()],
@@ -48,14 +53,14 @@ class StoreEmployeeRequest extends BaseApiRequest
                 'max:255',
                 Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)->whereNull('deleted_at')),
             ],
-            'date_of_birth'  => ['nullable', 'date', 'before:today'],
+            'date_of_birth'  => ['nullable', new DateOfBirth()],
             'gender'         => ['nullable'],
             'city'           => ['nullable', 'string', 'max:255'],
             'state'          => ['nullable', 'string', 'max:255'],
             'postal_code'    => ['nullable', 'string', new UsPostalCode()],
             'country'        => ['required', 'string', 'max:255'],
             'country_code'   => ['nullable'],
-            'image'          => ['nullable'],
+            'image'          => ['nullable', SafeUpload::image()],
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
             'address'        => ['nullable', 'string', 'max:500'],
@@ -69,6 +74,7 @@ class StoreEmployeeRequest extends BaseApiRequest
     {
         return [
             'first_name.required' => __('employee.first_name_required'),
+            'job_status.in' => __('employee.job_status_in'),
             'phone_number_1.unique' => __('employee.phone_unique'),
             'email.required' => __('employee.email_required'),
             'email.email' => __('employee.email_valid'),

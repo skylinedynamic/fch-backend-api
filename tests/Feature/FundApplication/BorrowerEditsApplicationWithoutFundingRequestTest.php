@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\ConvertsEmbedFormSubmissions;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -32,6 +34,8 @@ class BorrowerEditsApplicationWithoutFundingRequestTest extends TestCase
 {
     use InteractsWithPortalUsers;
     use RefreshDatabase;
+    use ConvertsEmbedFormSubmissions;
+    use CreatesFundingTypes;
 
     private Partner $partner;
 
@@ -42,6 +46,7 @@ class BorrowerEditsApplicationWithoutFundingRequestTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         Storage::fake('public');
         Mail::fake();
@@ -50,6 +55,8 @@ class BorrowerEditsApplicationWithoutFundingRequestTest extends TestCase
         $this->partner = $this->makeHostPartner();
         $this->user = $this->makeBorrowerUser($this->partner);
         $this->applicationId = $this->applicationWithoutRequest(Borrower::findOrFail($this->user->entity_id));
+        // Converted from the embed form, as such an application is.
+        $this->markConvertedFromEmbedForm($this->applicationId);
     }
 
     #[Test]
@@ -83,20 +90,31 @@ class BorrowerEditsApplicationWithoutFundingRequestTest extends TestCase
     public function saving_a_step_keeps_the_application_without_a_funding_request(): void
     {
         $this->approvedRequestFor($this->user->entity_id);
+        // Without a funding request, the step chooses the funding sequence
+        // (FundingSequenceOnFundingRequestStepTest).
+        $termLoans = DB::table('funding_sequencings')->insertGetId([
+            'name' => 'Term Loans',
+            'subtitle' => 'Test sequence',
+            'amount_range' => '10000-250000',
+            'funding_type_id' => DB::table('lender_product_categories')->where('name', 'Term Loan')->value('id'),
+            'status' => 'Active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $this->actingAsUser($this->user);
 
         $this->postJson('/api/v1/borrower/funding-application/funding-request', [
             'id' => $this->applicationId,
             'requested_amount' => 40000,
             'purpose_of_funds' => 'Working Capital',
-            'approved_funding' => 'Term Loans',
+            'funding_sequence_id' => $termLoans,
             'preferred_funding_type' => 'Term Loan',
         ])->assertOk();
 
         $application = FundingApplication::findOrFail($this->applicationId);
         $this->assertSame(40000.0, (float) $application->requested_amount);
         $this->assertNull($application->funding_request_id);
-        $this->assertNull($application->funding_sequence_id);
+        $this->assertSame($termLoans, (int) $application->funding_sequence_id);
     }
 
     private function applicationWithoutRequest(Borrower $borrower): int

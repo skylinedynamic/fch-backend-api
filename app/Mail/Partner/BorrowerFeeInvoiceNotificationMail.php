@@ -45,9 +45,11 @@ class BorrowerFeeInvoiceNotificationMail extends Mailable implements ShouldQueue
 
         $partnerName = $this->partner->company_name ?: $this->partner->full_name;
         $invoiceNumber = $this->invoice->invoice_id ?: $this->invoice->id;
+        // Named as on Plan & Fee and the invoice itself (BUG-194).
+        $feeName = Invoice::typeLabel(Invoice::INVOICE_TYPE_BORROWER_FEE);
 
         return new Envelope(
-            subject: "New Borrower Fee Invoice #{$invoiceNumber} - {$partnerName}",
+            subject: "New {$feeName} Invoice #{$invoiceNumber} - {$partnerName}",
         );
     }
 

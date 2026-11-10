@@ -6,8 +6,10 @@ use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\PartnerFundApplication\PartnerFundingApplicationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
@@ -27,6 +29,8 @@ use Tests\TestCase;
  * borrower has signed sends it back to be signed again, and the portal asks
  * before the edit (edit confirmation modal).
  */
+#[CoversClass(PartnerFundingApplicationService::class)]
+#[CoversClass(FundingApplication::class)]
 class HostEditsOnlyEditableFundingApplicationsTest extends TestCase
 {
     use InteractsWithPortalUsers;
@@ -209,6 +213,86 @@ class HostEditsOnlyEditableFundingApplicationsTest extends TestCase
         $application = FundingApplication::findOrFail($this->applicationId);
         $this->assertContains($application->status, FundingApplication::preSignatureStatuses());
         $this->assertFalse((bool) $application->requires_resign);
+    }
+
+    /**
+     * Defect: saving a step of a Draft converted from the embed form (no
+     * funding request, no federal compliance explanation) moved it to On Hold
+     * with nothing changed - the wizard re-worked a pre-signature status out
+     * from how far it is filled in (SCRUM-434 S434-BUG-04).
+     */
+    #[Test]
+    public function saving_a_step_of_an_embed_form_draft_keeps_it_draft(): void
+    {
+        FundingApplication::whereKey($this->applicationId)->update([
+            'status' => FundingApplication::DRAFT,
+            'funding_request_id' => null,
+            'signature_data' => null,
+            'federal_compliance_disclosures_explanation' => null,
+        ]);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->saveFinancial(['funding_request_id' => null])->assertOk();
+        $this->assertSame(FundingApplication::DRAFT, FundingApplication::findOrFail($this->applicationId)->status);
+
+        $this->saveFinancial(['funding_request_id' => null, 'monthly_revenue' => 51000])->assertOk();
+        $application = FundingApplication::findOrFail($this->applicationId);
+        $this->assertSame(FundingApplication::DRAFT, $application->status);
+        $this->assertNull($application->funding_request_id);
+        $this->assertEquals(51000, $application->monthly_revenue);
+    }
+
+    /**
+     * Defect: the edit pop-up told the host an embed-form Draft "has already
+     * been signed and submitted" and would need re-signing - the embed form
+     * stores the borrower's consent signature, though the Draft was never
+     * submitted and an edit costs no signature (SCRUM-434 S434-BUG-04).
+     */
+    #[Test]
+    public function an_embed_form_draft_opens_for_editing_without_the_submitted_warning(): void
+    {
+        FundingApplication::whereKey($this->applicationId)->update([
+            'status' => FundingApplication::DRAFT,
+            'funding_request_id' => null,
+        ]);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->getJson("/api/v1/common/funding-application/funding-request?funding_application_id={$this->applicationId}")
+            ->assertOk()
+            ->assertJsonPath('data.is_editable', true)
+            ->assertJsonPath('data.edit_requires_resign', false)
+            ->assertJsonPath('data.edit_needs_confirmation', false);
+    }
+
+    #[Test]
+    public function a_draft_waiting_for_a_resign_still_asks_before_an_edit(): void
+    {
+        FundingApplication::whereKey($this->applicationId)->update([
+            'status' => FundingApplication::DRAFT,
+            'requires_resign' => true,
+            'signature_data' => null,
+            'previous_signature_data' => json_encode(['signature_name' => 'Bo Rower']),
+        ]);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->getJson("/api/v1/common/funding-application/funding-request?funding_application_id={$this->applicationId}")
+            ->assertOk()
+            ->assertJsonPath('data.edit_needs_confirmation', true);
+    }
+
+    #[Test]
+    public function an_on_hold_application_still_moves_to_draft_once_federal_compliance_is_on_file(): void
+    {
+        FundingApplication::whereKey($this->applicationId)->update([
+            'status' => FundingApplication::ON_HOLD,
+            'signature_data' => null,
+            'federal_compliance_disclosures_explanation' => 'None',
+        ]);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->saveFinancial()->assertOk();
+
+        $this->assertSame(FundingApplication::DRAFT, FundingApplication::findOrFail($this->applicationId)->status);
     }
 
     /** @return array<string, array{string}> */

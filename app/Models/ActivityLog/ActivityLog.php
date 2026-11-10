@@ -92,6 +92,14 @@ class ActivityLog extends Activity
 
     const TYPE_ACTIVITY = 'activity';
 
+    /**
+     * Whose mail settings a host's New Email goes out with: the partner the
+     * record belongs to (the default) or the host's own (ActivityEmailSender).
+     */
+    const EMAIL_SENDER_PARTNER = 'partner';
+    const EMAIL_SENDER_HOST = 'host';
+    const EMAIL_SENDERS = [self::EMAIL_SENDER_PARTNER, self::EMAIL_SENDER_HOST];
+
     // New Log Types
     const LOG_TYPE_EMAIL_UPDATE = 'email_update';
 
@@ -163,6 +171,11 @@ class ActivityLog extends Activity
     const LOG_TYPE_CHECKLIST_UPDATE = 'checklist_update';
 
     const LOG_TYPE_TASK_VERIFICATION = 'task_verification';
+
+    // A client's credit profile saved or removed on Client > Credit Profile (BUG-075).
+    const LOG_TYPE_CREDIT_PROFILE_SAVE = 'credit_profile_save';
+
+    const LOG_TYPE_CREDIT_PROFILE_DELETE = 'credit_profile_delete';
 
     const LOG_TYPE_FUNDING_REQUEST_CREATE = 'funding_request_create';
 

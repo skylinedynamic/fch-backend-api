@@ -106,6 +106,12 @@ trait MailConfig
         return config('queue.mail_backoff', 60);
     }
 
+    /** The partner whose mail settings this message goes out with. */
+    public function sendingPartnerId(): ?int
+    {
+        return $this->mailPartnerId;
+    }
+
     /**
      * Set the partner ID for dynamic SMTP configuration.
      */

@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common\Application;
 
 use App\Exceptions\FundingApplicationLockedException;
+use App\Exceptions\StaleRecordException;
 use App\Models\Borrower\FundingApplication;
 use App\Models\User\User;
 
@@ -47,6 +48,27 @@ class FundingApplicationEditGuard
         // One status rule for everyone: host, partners and borrowers.
         if (! $application->isEditableBy($editor)) {
             throw FundingApplicationLockedException::for($application, $editor);
+        }
+    }
+
+    /**
+     * Refuse a save made from an older copy of the application (R2 BUG-033).
+     *
+     * Each step re-sends the whole step, so a tab left open on an earlier copy
+     * silently undid what another tab (or another person) had saved since. The
+     * wizard sends the version it last received; a different stored version
+     * means the application moved on. No version sent, no check.
+     *
+     * @throws StaleRecordException
+     */
+    public function assertCurrent(?FundingApplication $application, ?string $expectedVersion): void
+    {
+        if (! $application || ! $application->exists || $expectedVersion === null || $expectedVersion === '') {
+            return;
+        }
+
+        if ($application->version() !== $expectedVersion) {
+            throw new StaleRecordException(__('application.funding_application_changed'), $application->version());
         }
     }
 

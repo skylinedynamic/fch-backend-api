@@ -176,6 +176,23 @@ class PartnerAccountApiTest extends TestCase
     }
 
     #[Test]
+    public function my_subscription_shows_the_last_installment_adjusted_for_rounding(): void
+    {
+        // BUG-049: 6696.70 over 12 months is 558.06 a month; the last is 558.04.
+        $this->subscribe($this->partner, [
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'total_subscription_amount' => 6696.70,
+            'subscription_amount_per_month' => 558.06,
+        ]);
+        $this->actingAsUser($this->admin);
+
+        $this->getJson('/api/v1/common/my-subscription')
+            ->assertOk()
+            ->assertJsonPath('data.subscription.final_installment_amount', '$558.04');
+    }
+
+    #[Test]
     public function the_host_has_no_subscription_screen(): void
     {
         $this->actingAsUser($this->makePartnerAdmin($this->host));

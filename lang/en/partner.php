@@ -63,6 +63,7 @@ return [
             'gt' => 'Monthly platform fee must be greater than 0.',
         ],
         'document_file' => [
+            'folder' => "Pick the document from the partner's own documents folder.",
             'required' => 'Document file is required.',
             'max' => 'Document file size must not exceed 50MB.',
         ],

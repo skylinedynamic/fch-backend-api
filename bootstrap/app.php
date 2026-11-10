@@ -29,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class
         );
 
+        // Clickjacking and content-type hardening on every response (BUG-013).
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         // Trust the reverse proxy / load balancer in front of the API.
         //
         // Without this, request()->ip() returns the socket peer - the proxy

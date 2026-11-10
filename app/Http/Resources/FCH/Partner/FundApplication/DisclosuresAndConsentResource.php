@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\FCH\Partner\FundApplication;
 
+use App\Http\Resources\Concerns\CarriesApplicationVersion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class DisclosuresAndConsentResource extends JsonResource
 {
+    use CarriesApplicationVersion;
+
     /**
      * Transform the resource into an array.
      *
@@ -15,6 +18,8 @@ class DisclosuresAndConsentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            // Sent back with the next save; see CarriesApplicationVersion.
+            'version' => $this->applicationVersion(),
             'id' => isset($this->borrower_id) ? $this->id : null,
             'credit_pull_authorization' => $this->credit_pull_authorization ? true : false,
             'terms_conditions_acceptance' => $this->terms_conditions_acceptance ? true : false,

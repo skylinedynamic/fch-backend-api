@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
+use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
@@ -12,10 +13,12 @@ use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\FicoScore;
 use App\Rules\PartnerTeamMember;
 use App\Rules\BusinessCreditScore;
+use App\Rules\SafeUpload;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -80,7 +83,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'other_city'   => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'home_address' => ['nullable', 'string', 'max:255'],
-            'date_of_birth'=> ['nullable'],
+            'date_of_birth'=> ['nullable', DateOfBirth::acceptingUsFormat()],
             // Full SSN, digits only or dashed (123456789 / 123-45-6789). Replaces
             // the stored value entirely — omit the field to leave it unchanged.
             'ssn'          => ['nullable', 'string', new Ssn()],
@@ -102,10 +105,10 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_industry_type'=> ['nullable', 'string', 'max:255'],
             'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_description'  => ['nullable', 'string'],
-            'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120'],
+            'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120', SafeUpload::image()],
             'duns_number'           => ['nullable', 'string', new DunsNumber()],
             'state_file_number'     => ['nullable', 'string', 'max:255'],
-            'business_start_date'   => ['nullable'],
+            'business_start_date'   => ['nullable', new NotFutureDate()], // BUG-007
 
             // ── Other ───────────────────────────────────────────────────────
             'partner_id'       => ['nullable', 'integer', 'exists:partners,id'],
@@ -113,6 +116,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'current_tier'     => ['nullable'],
             'assign_id'        => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner($borrower), $borrower?->assign_id, __('borrower_validation.assign_id_not_in_team'))],
             'notes'            => ['nullable', 'string'],
+            // The client_info_version the form loaded - a save from an older copy is refused (R2 BUG-065).
+            'expected_version' => ['nullable', 'string', 'max:64'],
             'additional_data'  => ['nullable', 'json'],
             'fico_score'       => ['nullable', new FicoScore()],
             'paydex_score'     => ['nullable', new BusinessCreditScore()],

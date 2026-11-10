@@ -46,6 +46,8 @@ class InvoiceResource extends JsonResource
                 ? $this->latestPayment?->id
                 : ($this->relationLoaded('payments') ? $this->payments->first()?->id : $this->payments()->latest('id')->value('id')),
             'type' => $this->getFormattedType(),
+            // Paying it reactivates a cancelled subscription (BUG-069).
+            'reactivates_subscription' => $this->reactivatesSubscription(),
             'details' => $this->details,
             'branding' => $this->resolveBrandingData(),
             'can_approve' => (bool) $this->canApproveForUser($request->user()),
@@ -78,7 +80,7 @@ class InvoiceResource extends JsonResource
             return ucwords(Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')';
         }
 
-        return ucwords(str_replace('_', ' ', (string) $this->type));
+        return $this->resource->typeName();
     }
 
     /**

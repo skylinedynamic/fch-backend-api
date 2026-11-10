@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Admin\Funding;
 
+use App\Exceptions\FundingGroupInUseException;
 use App\Exceptions\FundingSequenceInUseException;
 use App\Http\Resources\FCH\Funding\FundingSequencingResource;
 use Illuminate\Support\Facades\DB;
@@ -415,5 +416,45 @@ class FundingSequencingService
         return FundingGroup::with(['sequencings' => function ($query) {
             $query->where('status', 'Active')->orderBy('sort_order', 'asc');
         }, 'sequencings.type'])->where('status', 'Active')->orderBy('sort_order', 'asc')->get();
+    }
+
+    /**
+     * Funding groups, each with funding_sequences_count: how many live funding
+     * sequences are filed under it - so the portal can refuse a delete at once
+     * instead of asking "Are you sure?" first.
+     */
+    public function groupsWithUsage()
+    {
+        $usage = FundingSequencing::query()
+            ->whereColumn('funding_sequencings.funding_group_id', 'funding_groups.id')
+            ->selectRaw('COUNT(*)');
+
+        return FundingGroup::query()
+            ->select('id', 'name', 'status')
+            ->selectSub($usage, 'funding_sequences_count')
+            ->orderBy('sort_order')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->each(fn (FundingGroup $group) => $group->funding_sequences_count = (int) $group->funding_sequences_count);
+    }
+
+    /**
+     * Delete a funding group no live funding sequence is filed under
+     * (funding_sequencings.funding_group_id); one in use is kept. A deleted
+     * sequence no longer counts.
+     *
+     * @throws FundingGroupInUseException
+     */
+    public function deleteGroup(FundingGroup $group): void
+    {
+        $sequences = FundingSequencing::where('funding_group_id', $group->id)->count();
+
+        if ($sequences > 0) {
+            throw new FundingGroupInUseException(__('funding_sequencing.group_in_use'), [
+                ['id' => $group->id, 'name' => $group->name, 'count' => $sequences],
+            ]);
+        }
+
+        $group->delete();
     }
 }

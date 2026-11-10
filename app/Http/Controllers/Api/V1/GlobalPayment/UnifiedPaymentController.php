@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1\GlobalPayment;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\GlobalPayment\ConfirmPaymentRequest;
 use App\Http\Requests\Api\V1\GlobalPayment\ProcessPaymentRequest;
+use App\Models\Payment\Payment;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
@@ -36,7 +38,33 @@ class UnifiedPaymentController extends Controller
         try {
             $result = $this->paymentService->processPayment($request->validated());
 
-            return ApiResponse::success($result, __('payment.processed'));
+            // A card whose bank wants 3-D Secure: nothing is paid yet, the
+            // browser runs the challenge and then calls confirmPayment().
+            $message = !empty($result['requires_action'])
+                ? __('payment.authentication_required')
+                : __('payment.processed');
+
+            return ApiResponse::success($result, $message);
+        } catch (Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Finish a card payment once the payer's bank challenge (3-D Secure) is
+     * done in the browser. The outcome comes from the gateway: paid, still
+     * waiting, or failed (400 with the bank's reason).
+     */
+    public function confirmPayment(ConfirmPaymentRequest $request): JsonResponse
+    {
+        try {
+            $result = $this->paymentService->confirmAuthenticatedPayment((int) $request->validated('payment_id'));
+
+            $message = $result['status'] === Payment::STATUS_SUCCEEDED
+                ? __('payment.processed')
+                : __('payment.authentication_pending');
+
+            return ApiResponse::success($result, $message);
         } catch (Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }

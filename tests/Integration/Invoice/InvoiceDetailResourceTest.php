@@ -31,6 +31,8 @@ class InvoiceDetailResourceTest extends TestCase
     private const SHARED_KEYS = [
         'id', 'invoice_id', 'entity_type', 'type', 'status', 'payment_amount',
         'payment_date', 'created_at', 'branding', 'billed_from', 'billed_to',
+        // Both portals warn before a payment that reactivates a cancelled subscription (BUG-069).
+        'reactivates_subscription',
     ];
 
     private Partner $reseller;
@@ -149,13 +151,17 @@ class InvoiceDetailResourceTest extends TestCase
         $this->assertKeys(['site_name', 'logo_document_full_url', 'logo_sidebar_full_url'], $data['branding']);
     }
 
+    /**
+     * Defect (BUG-194): the fee is named "Client Activation Fee" (Plan & Fee);
+     * the invoice still called it "Borrower Fee".
+     */
     #[Test]
     public function a_borrower_fee_carries_its_own_amount_and_none_of_the_borrowers_plan(): void
     {
         $data = $this->toArray(FchInvoiceDetailResource::class, $this->borrowerFee());
 
         $this->assertSame(800.0, $data['payment_amount']);
-        $this->assertSame('Borrower Fee', $data['type']);
+        $this->assertSame('Client Activation Fee', $data['type']);
         $this->assertArrayNotHasKey('enrollment_type', $data);
         $this->assertArrayNotHasKey('payable_amount_sub', $data);
         $this->assertArrayNotHasKey('monthly_platform_fee', $data);

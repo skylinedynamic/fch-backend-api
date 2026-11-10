@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -265,6 +266,40 @@ class EmployeeApiTest extends TestCase
         $this->postJson('/api/v1/common/employees', $this->newEmployeePayload(['email' => 'elsewhere@example.test']))->assertCreated();
     }
 
+    /**
+     * Defect: R2 BUG-029 - an employee was stored with job status
+     * "[object Object]" (the portal sent an object), shown as such in the list
+     * and never matched by the Status filter. Only a known status is taken.
+     */
+    #[Test]
+    public function the_job_status_must_be_active_inactive_or_suspended(): void
+    {
+        $employee = $this->employeeOf($this->partner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload(['job_status' => '[object Object]']))
+            ->assertStatus(422)->assertJsonValidationErrors(['job_status' => __('employee.job_status_in')]);
+        $this->putJson("/api/v1/common/employees/{$employee->id}", $this->newEmployeePayload(['email' => $employee->email, 'job_status' => 'active-ish']))
+            ->assertStatus(422)->assertJsonValidationErrors(['job_status']);
+
+        $this->putJson("/api/v1/common/employees/{$employee->id}", $this->newEmployeePayload(['email' => $employee->email, 'job_status' => Employee::STATUS_SUSPENDED]))
+            ->assertOk();
+        $this->assertSame(Employee::STATUS_SUSPENDED, $employee->fresh()->job_status);
+    }
+
+    /** R2 BUG-029: rows already stored as "[object Object]" are repaired on deploy. */
+    #[Test]
+    public function the_migration_repairs_an_unreadable_job_status(): void
+    {
+        $broken = $this->employeeOf($this->partner, ['job_status' => '[object Object]']);
+        $suspended = $this->employeeOf($this->partner, ['job_status' => Employee::STATUS_SUSPENDED]);
+
+        (require database_path('migrations/2026_10_28_100100_repair_unreadable_employee_job_status.php'))->up();
+
+        $this->assertSame(Employee::STATUS_ACTIVE, $broken->fresh()->job_status);
+        $this->assertSame(Employee::STATUS_SUSPENDED, $suspended->fresh()->job_status);
+    }
+
     #[Test]
     public function i_open_and_edit_my_employee(): void
     {
@@ -376,5 +411,25 @@ class EmployeeApiTest extends TestCase
         $this->actingAsUser($this->partnerAdmin);
 
         $this->getJson('/api/v1/common/employees-next-id')->assertOk()->assertJsonStructure(['data' => ['next_id']]);
+    }
+
+    /**
+     * Defect: an employee's date of birth was only `before:today`, so a team
+     * member could be saved as 10 years old.
+     */
+    #[Test]
+    public function an_employee_must_be_at_least_the_platform_minimum_age(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload([
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->addDay()->toDateString(),
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+        ]);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload([
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->toDateString(),
+        ]))->assertCreated();
     }
 }

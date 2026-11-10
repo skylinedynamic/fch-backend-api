@@ -41,31 +41,17 @@ class ChangeRequestService
         // FQCN stored in entity_type — resolved from the mapping
         $modelClass  = $mapping['model'];
 
-        $oldValue = null;
-        $entityId = $data['entity_id'] ?? null;
+        // The value on file. A row field (e.g. a bank account) must name one of
+        // this borrower's own rows, or approving it would change nothing - or
+        // the wrong row; a profile column belongs to the borrower itself.
+        $current = app(ChangeRequestGuard::class)->current($borrower, $fieldName, $data['entity_id'] ?? null);
 
-        // Handle child table fields (e.g. BorrowerBankAccount): the request
-        // must name one of this borrower's own rows, or approving it would
-        // change nothing - or the wrong row.
-        if (isset($mapping['table'])) {
-            $tableName = $mapping['table'];
-            $childRecord = $entityId
-                ? \Illuminate\Support\Facades\DB::table($tableName)
-                    ->where('id', $entityId)
-                    ->where('borrower_id', $borrower->id)
-                    ->first()
-                : null;
-
-            if (!$childRecord) {
-                throw new \Exception(__('borrower.change_request_record_not_found'));
-            }
-
-            $oldValue = $childRecord->{$dbColumn};
-        } else {
-            // Standard borrower table field — entity_id is the borrower's own id
-            $entityId = $borrower->id;
-            $oldValue = $borrower->{$dbColumn};
+        if (!$current) {
+            throw new \Exception(__('borrower.change_request_record_not_found'));
         }
+
+        $entityId = $current['entity_id'];
+        $oldValue = $current['value'];
 
         $changeRequest = BorrowerChangeRequest::create([
             "partner_id"         => $borrower->partner_id,
@@ -90,5 +76,31 @@ class ChangeRequestService
 
         return $changeRequest;
     }
-}
 
+    /**
+     * The borrower withdraws a request still waiting for review. It is removed
+     * for good (force delete), not kept as trashed: nothing was decided, so
+     * there is no history to keep. Null when it is not this borrower's.
+     *
+     * @return bool|null true when removed, false when it was already reviewed
+     */
+    public function cancel(int $userId, int $id): ?bool
+    {
+        $borrowerId = User::where('id', $userId)->value('entity_id');
+        $request = $borrowerId
+            ? BorrowerChangeRequest::where('borrower_id', $borrowerId)->find($id)
+            : null;
+
+        if (!$request) {
+            return null;
+        }
+
+        if ($request->status !== BorrowerChangeRequest::STATUS_PENDING) {
+            return false;
+        }
+
+        $request->forceDelete();
+
+        return true;
+    }
+}

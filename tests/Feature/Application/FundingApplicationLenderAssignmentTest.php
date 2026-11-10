@@ -3,15 +3,20 @@
 namespace Tests\Feature\Application;
 
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
+use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
+use App\Models\Lender\Lender;
+use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Http\Requests\Api\V1\FCH\Common\Application\AssignFundingApplicationLenderRequest;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource;
 use App\Models\ActivityLog\ActivityLog;
+use App\Models\Audit\FundingApplicationAuditEvent;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Application\RequestApplicationService;
+use App\Support\Audit\AuditLabels;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +49,10 @@ use Tests\TestCase;
 #[CoversClass(AssignFundingApplicationLenderRequest::class)]
 #[CoversClass(FundingApplicationResource::class)]
 #[CoversClass(FundingApplication::class)]
+#[CoversClass(FundingRequest::class)]
+#[CoversClass(FundingRequestService::class)]
+#[CoversClass(FundingRequestController::class)]
+#[CoversClass(Lender::class)]
 class FundingApplicationLenderAssignmentTest extends TestCase
 {
     use InteractsWithPortalUsers;
@@ -96,15 +105,60 @@ class FundingApplicationLenderAssignmentTest extends TestCase
         $this->assertSame([], $data['assigned_lender_ids']);
     }
 
+    /**
+     * Request 2026-11-05: an application with a funding request is matched on
+     * its own Preferred and Additional Funding Types too (they are the lender
+     * product categories), not only on the request's one funding type.
+     */
     #[Test]
-    public function an_application_with_a_request_is_matched_on_the_requests_funding_type(): void
+    public function an_application_with_a_request_is_matched_on_its_preferred_and_additional_funding_types(): void
+    {
+        $requestId = $this->request('Equipment Financing');
+        $id = $this->application([
+            'funding_request_id' => $requestId,
+            'preferred_funding_type' => 'Term Loan',
+            'additional_funding_types' => json_encode(['Business Line of Credit']),
+        ]);
+
+        $names = array_column($this->details($this->hostAdmin, $id)['matched_lenders'], 'name');
+        sort($names);
+
+        $this->assertSame(['Fundbox Financing', 'LendingClub'], $names);
+    }
+
+    /**
+     * Request 2026-11-05: the funding request page's Lender Information is the
+     * same list as its application's page - matched on the application's
+     * Preferred + Additional Funding Types. A request with no application keeps
+     * its own funding type.
+     */
+    #[Test]
+    public function the_funding_request_page_matches_on_its_applications_funding_types(): void
+    {
+        $requestId = $this->request('Equipment Financing');
+        $id = $this->application([
+            'funding_request_id' => $requestId,
+            'preferred_funding_type' => 'Term Loan',
+            'additional_funding_types' => json_encode(['Business Line of Credit']),
+        ]);
+        $alone = $this->request('Equipment Financing');
+        $this->actingAsUser($this->hostAdmin);
+
+        $onRequestPage = array_column($this->getJson("/api/v1/common/funding-request/{$requestId}")->assertOk()->json('data.matched_lenders'), 'name');
+        $onApplicationPage = array_column($this->details($this->hostAdmin, $id)['matched_lenders'], 'name');
+
+        $this->assertSame($onApplicationPage, $onRequestPage);
+        $this->assertEqualsCanonicalizing(['Fundbox Financing', 'LendingClub'], $onRequestPage);
+        $this->assertSame(['Balboa Capital'], array_column($this->getJson("/api/v1/common/funding-request/{$alone}")->assertOk()->json('data.matched_lenders'), 'name'));
+    }
+
+    #[Test]
+    public function an_application_with_a_request_and_no_funding_types_of_its_own_is_matched_on_the_requests_type(): void
     {
         $requestId = $this->request('Business Line of Credit');
-        $id = $this->application(['funding_request_id' => $requestId, 'preferred_funding_type' => 'Term Loan']);
+        $id = $this->application(['funding_request_id' => $requestId]);
 
-        $data = $this->details($this->hostAdmin, $id);
-
-        $this->assertSame(['LendingClub'], array_column($data['matched_lenders'], 'name'));
+        $this->assertSame(['LendingClub'], array_column($this->details($this->hostAdmin, $id)['matched_lenders'], 'name'));
     }
 
     #[Test]
@@ -217,6 +271,26 @@ class FundingApplicationLenderAssignmentTest extends TestCase
     }
 
     #[Test]
+    public function assigning_a_lender_is_recorded_in_the_audit_trail(): void
+    {
+        $id = $this->application(['status' => FundingApplication::APPROVED_FINAL, 'preferred_funding_type' => 'Term Loan']);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assign($id, $this->termLoanLenderId)->assertOk();
+
+        $event = FundingApplicationAuditEvent::where('funding_application_id', $id)
+            ->where('event', FundingApplicationAuditEvent::EVENT_UPDATED)
+            ->latest('id')
+            ->firstOrFail();
+        $changes = collect($event->changes)->keyBy('field');
+        $this->assertSame((string) $this->termLoanLenderId, $changes['assign_lender']['new']);
+        $this->assertNotNull($changes['lender_ids']['new']);
+        $this->assertSame(__('audit.fields.assign_lender'), AuditLabels::field('assign_lender'));
+        $this->assertSame(__('audit.fields.lender_ids'), AuditLabels::field('lender_ids'));
+        $this->assertNotSame('audit.fields.lender_ids', __('audit.fields.lender_ids'));
+    }
+
+    #[Test]
     public function an_application_with_a_request_shares_the_requests_lender(): void
     {
         $requestId = $this->request('Business Line of Credit');
@@ -242,6 +316,171 @@ class FundingApplicationLenderAssignmentTest extends TestCase
         $this->assign($id, $this->lineOfCreditLenderId)->assertStatus(422);
 
         $this->assertSame($this->termLoanLenderId, (int) FundingRequest::findOrFail($requestId)->assign_lender);
+    }
+
+    /**
+     * Defect (SCRUM-434 S434-BUG-05): app 90 / Funding Request 47 - Closed
+     * (Completed), lender R2 Lender A assigned, then made Inactive - showed the
+     * lock notice and an empty table ("The assigned lender is not among the
+     * lenders matched for this application"). The BUG-02 fix drops Inactive
+     * lenders from the matched list, and the locked view shows the assigned
+     * lender only from that list. Once the lender is fixed it is shown whatever
+     * its status, on both pages, marked Inactive.
+     */
+    #[Test]
+    #[DataProvider('nonEditableStatuses')]
+    public function a_fixed_lender_made_inactive_is_still_shown_on_both_pages(string $status): void
+    {
+        $lenderId = $this->lenderIn('Term Loan', 'R2 Lender A', ['min_fico' => 450]);
+        $requestId = $this->request('Term Loan', ['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+        $id = $this->application(['status' => $status, 'funding_request_id' => $requestId, 'preferred_funding_type' => 'Term Loan']);
+        DB::table('lenders')->where('id', $lenderId)->update(['status' => 'Inactive']);
+
+        $data = $this->details($this->hostAdmin, $id);
+        $this->assertFalse($data['can_assign_lender']);
+        $this->assertSame([$lenderId], $data['assigned_lender_ids']);
+        $shown = collect($data['matched_lenders'])->firstWhere('id', $lenderId);
+        $this->assertNotNull($shown, 'The assigned lender must be shown once it is fixed');
+        $this->assertSame('R2 Lender A', $shown['name']);
+        $this->assertFalse($shown['is_active']);
+        $this->assertSame('Term Loan', $shown['product_category']);
+        $this->assertSame(100.0, (float) $shown['score']);
+
+        $request = $this->getJson("/api/v1/common/funding-request/{$requestId}")->assertOk()->json('data');
+        $this->assertFalse($request['can_assign_lender']);
+        $this->assertContains($lenderId, array_column($request['matched_lenders'], 'id'));
+        $this->assertFalse(collect($request['matched_lenders'])->firstWhere('id', $lenderId)['is_active']);
+    }
+
+    /**
+     * S434-BUG-05 exactly as reported: app 90 (Closed (Completed)), Funding
+     * Request 47, lender R2 Lender A made Inactive. Both pages show it alone.
+     */
+    #[Test]
+    public function qa_app_90_closed_completed_shows_its_inactive_lender_on_both_pages(): void
+    {
+        $lenderId = $this->lenderIn('Term Loan', 'R2 Lender A');
+        $requestId = $this->request('Term Loan', ['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+        $id = $this->application([
+            'status' => FundingApplication::CLOSED_COMPLETED,
+            'funding_request_id' => $requestId,
+            'preferred_funding_type' => 'Term Loan',
+        ]);
+        DB::table('lenders')->where('id', $lenderId)->update(['status' => Lender::STATUS_INACTIVE]);
+
+        $application = $this->details($this->hostAdmin, $id);
+        $request = $this->getJson("/api/v1/common/funding-request/{$requestId}")->assertOk()->json('data');
+
+        foreach (['application' => $application, 'funding request' => $request] as $page => $data) {
+            $this->assertFalse($data['can_assign_lender'], "{$page}: the lender is fixed");
+            // The application page names it assigned_lender_ids, the request page lender_ids.
+            $this->assertSame([$lenderId], array_map('intval', $data['assigned_lender_ids'] ?? $data['lender_ids']), "{$page}: assigned lender");
+            $assigned = collect($data['matched_lenders'])->firstWhere('id', $lenderId);
+            $this->assertNotNull($assigned, "{$page}: the assigned lender is listed, so the card shows it");
+            $this->assertSame('R2 Lender A', $assigned['name']);
+            $this->assertFalse($assigned['is_active']);
+        }
+    }
+
+    /** Guard for S434-BUG-02: while the lender can still be chosen, an Inactive one is not offered. */
+    #[Test]
+    public function an_inactive_lender_is_not_offered_while_the_lender_can_still_be_chosen(): void
+    {
+        $lenderId = $this->lenderIn('Term Loan', 'R2 Lender A');
+        $requestId = $this->request('Term Loan', ['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+        $id = $this->application(['status' => FundingApplication::DRAFT, 'funding_request_id' => $requestId, 'preferred_funding_type' => 'Term Loan']);
+        DB::table('lenders')->where('id', $lenderId)->update(['status' => 'Inactive']);
+
+        $data = $this->details($this->hostAdmin, $id);
+        $this->assertTrue($data['can_assign_lender']);
+        $this->assertNotContains($lenderId, array_column($data['matched_lenders'], 'id'));
+        // Every lender offered is an Active one.
+        foreach ($data['matched_lenders'] as $lender) {
+            $this->assertTrue($lender['is_active']);
+        }
+    }
+
+    /**
+     * Defect: an Inactive lender could be assigned (SCRUM-434 S434-BUG-02).
+     */
+    #[Test]
+    public function an_inactive_lender_cannot_be_assigned_on_either_page(): void
+    {
+        $inactiveId = $this->lenderIn('Term Loan', 'R2 Lender A');
+        DB::table('lenders')->where('id', $inactiveId)->update(['status' => 'Inactive']);
+        $requestId = $this->request('Term Loan');
+        $id = $this->application(['preferred_funding_type' => 'Term Loan']);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assign($id, $inactiveId)->assertStatus(422)->assertJsonValidationErrors('lender_ids.0');
+        $this->assignOnRequestPage($requestId, $inactiveId)->assertStatus(422)->assertJsonValidationErrors('lender_ids.0');
+
+        $this->assertNull(FundingApplication::findOrFail($id)->assign_lender);
+        $this->assertNull(FundingRequest::findOrFail($requestId)->assign_lender);
+    }
+
+    /**
+     * Defect: the funding request page still changed the lender of its
+     * application once the application was past the editable statuses, where
+     * the lender is fixed (SCRUM-434 S434-BUG-03, findings O76).
+     */
+    #[Test]
+    #[DataProvider('nonEditableStatuses')]
+    public function the_funding_request_page_cannot_change_the_lender_of_an_application_past_the_editable_statuses(string $status): void
+    {
+        $requestId = $this->request('Term Loan', ['assign_lender' => $this->termLoanLenderId, 'lender_ids' => json_encode([$this->termLoanLenderId])]);
+        $this->application(['status' => $status, 'funding_request_id' => $requestId]);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assignOnRequestPage($requestId, $this->lineOfCreditLenderId)
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('application.lender_locked', ['status' => $status]));
+        $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $requestId, 'lender_ids' => []])->assertStatus(422);
+
+        $request = FundingRequest::findOrFail($requestId);
+        $this->assertSame($this->termLoanLenderId, (int) $request->assign_lender);
+        $this->assertSame([$this->termLoanLenderId], $request->lender_ids);
+    }
+
+    #[Test]
+    public function the_funding_request_page_assigns_once_to_an_application_past_the_editable_statuses_with_no_lender(): void
+    {
+        $requestId = $this->request('Term Loan');
+        $this->application(['status' => FundingApplication::CLOSED_COMPLETED, 'funding_request_id' => $requestId]);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assignOnRequestPage($requestId, $this->termLoanLenderId)->assertOk();
+        $this->assignOnRequestPage($requestId, $this->lineOfCreditLenderId)->assertStatus(422);
+
+        $this->assertSame($this->termLoanLenderId, (int) FundingRequest::findOrFail($requestId)->assign_lender);
+    }
+
+    #[Test]
+    public function the_funding_request_page_changes_the_lender_while_its_application_is_editable(): void
+    {
+        $requestId = $this->request('Term Loan', ['assign_lender' => $this->termLoanLenderId, 'lender_ids' => json_encode([$this->termLoanLenderId])]);
+        $this->application(['status' => FundingApplication::DRAFT, 'funding_request_id' => $requestId]);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assignOnRequestPage($requestId, $this->lineOfCreditLenderId)->assertOk();
+
+        $this->assertSame($this->lineOfCreditLenderId, (int) FundingRequest::findOrFail($requestId)->assign_lender);
+    }
+
+    #[Test]
+    public function the_funding_request_says_whether_its_lender_can_be_assigned(): void
+    {
+        $lockedId = $this->request('Term Loan', ['assign_lender' => $this->termLoanLenderId, 'lender_ids' => json_encode([$this->termLoanLenderId])]);
+        $this->application(['status' => FundingApplication::CLOSED_COMPLETED, 'funding_request_id' => $lockedId]);
+        $openId = $this->request('Term Loan');
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->assertFalse(FundingRequest::findOrFail($lockedId)->canAssignLender());
+        $this->assertTrue(FundingRequest::findOrFail($openId)->canAssignLender());
+
+        // The request details page reads it to offer Assign or show the fixed lender.
+        $this->getJson("/api/v1/common/funding-request/{$lockedId}")->assertOk()->assertJsonPath('data.can_assign_lender', false);
+        $this->getJson("/api/v1/common/funding-request/{$openId}")->assertOk()->assertJsonPath('data.can_assign_lender', true);
     }
 
     #[Test]
@@ -358,6 +597,11 @@ class FundingApplicationLenderAssignmentTest extends TestCase
     private function assign(int $id, int $lenderId)
     {
         return $this->postJson("/api/v1/common/request-application/funding-application/{$id}/assign-lender", ['lender_ids' => [$lenderId]]);
+    }
+
+    private function assignOnRequestPage(int $requestId, int $lenderId)
+    {
+        return $this->postJson('/api/v1/common/funding-request/assign-lender', ['id' => $requestId, 'lender_ids' => [$lenderId]]);
     }
 
     private function setStatus(int $id, string $status)

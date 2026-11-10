@@ -18,6 +18,7 @@ use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
@@ -179,6 +180,9 @@ class FundingRequestService
         // the application's lifecycle key, not from a list of status names.
         $review->fundingApplication?->append(['status_key', 'is_editable']);
 
+        // Lender Information offers Assign only while the lender may change.
+        $review->setAttribute('can_assign_lender', $review->canAssignLender());
+
         // When each status was reached, so the tracker keeps the dates of the
         // steps in between once the request is decided (BUG-070).
         $review->setAttribute('status_dates', $this->statusDates($review));
@@ -216,11 +220,47 @@ class FundingRequestService
     {
         $authUser = Auth::user();
 
-        $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
-            ->where('id', $data['id'])
-            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
-                $q->where('partner_id', $authUser->partner_id);
-            })->first();
+        // The read, the stale check and the write happen under a row lock, so
+        // two decisions on the same request are taken one after the other and
+        // the second sees what the first did (R2 BUG-048).
+        [$review, $oldStatus] = DB::transaction(function () use ($data, $authUser) {
+            $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
+                ->where('id', $data['id'])
+                ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
+                    $q->where('partner_id', $authUser->partner_id);
+                })
+                ->lockForUpdate()
+                ->first();
+
+            if (!$review) {
+                return [null, null];
+            }
+
+            $oldStatus = $review->status;
+
+            // Decided on a page that still showed an older status - e.g. a tab
+            // left on Pending after the request was approved elsewhere. Nothing
+            // is written and nobody is notified.
+            if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
+                return [$review, $oldStatus];
+            }
+
+            $review->status = $data['status'];
+
+            if ($data['status'] === FundingRequest::STATUS_APPROVED) {
+                $review->approved_at = Carbon::now();
+                $review->approved_by = $authUser?->id;
+                $review->reject_reason = null;
+            } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
+                $review->reject_reason = $data['reject_reason'] ?? null;
+                $review->approved_at = Carbon::now();
+                $review->approved_by = $authUser?->id;
+            }
+
+            $review->save();
+
+            return [$review, $oldStatus];
+        });
 
         if (!$review) {
             Log::warning("fundingRequestStatusUpdate: Funding request not found or unauthorized.", [
@@ -231,20 +271,14 @@ class FundingRequestService
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
-        $oldStatus = $review->status;
-        $review->status = $data['status'];
-        
-        if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-            $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser?->id;
-            $review->reject_reason = null; 
-        } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
-            $review->reject_reason = $data['reject_reason'] ?? null;
-            $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser?->id;
+        if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
+            return ApiResponse::error(
+                __('funding_request.status_changed_elsewhere', ['status' => $oldStatus]),
+                409,
+                ['status' => $oldStatus]
+            );
         }
 
-        $review->save();
         $review->loadMissing(['borrower.user', 'partner', 'fundingSequence']);
 
         $borrower = $review->borrower;
@@ -282,23 +316,30 @@ class FundingRequestService
                 'host_email'         => $hostEmail,
             ]);
 
-            // Bell + email per audience. The bell goes out even when there is no
-            // address to email; the email goes exactly where it always did.
+            // Bell + email per audience. The bell goes out on every change, even
+            // when there is no address to email; only a decision (Approved,
+            // Rejected, Cancelled) is emailed.
             $notifier = app(Notifier::class);
             $isApproved = $data['status'] === FundingRequest::STATUS_APPROVED;
             $notificationData = ['id' => $review->id, 'status' => $data['status']];
 
+            $sendsEmail = in_array($data['status'], FundingRequest::EMAILED_STATUSES, true);
+
+            if (!$sendsEmail) {
+                Log::info(__('funding_request.logs.status_not_emailed', ['id' => $review->id, 'status' => $data['status']]));
+            }
+
             // --- 1. BORROWER ---
-            if (!$borrowerEmail) {
+            if ($sendsEmail && !$borrowerEmail) {
                 Log::warning("FundingRequest #{$review->id}: Skipped borrower email - No valid email address found for borrower ID {$review->borrower_id}");
             }
 
             try {
-                $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData, mail: $borrowerEmail
+                $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData, mail: $sendsEmail && $borrowerEmail
                     ? ($isApproved ? new BorrowerFundingRequestApproved($review) : new UnderwritingStatusUpdated($review))->to($borrowerEmail)
                     : null);
 
-                if ($borrowerEmail) {
+                if ($sendsEmail && $borrowerEmail) {
                     Log::info(__('funding_request.logs.dispatched_to_borrower', [
                         'id' => $review->id,
                         'mailable' => $isApproved ? 'BorrowerFundingRequestApproved' : "UnderwritingStatusUpdated ({$data['status']})",
@@ -314,16 +355,16 @@ class FundingRequestService
 
             // --- 2. PARTNER (if non-host partner) ---
             if ($isNonHostPartner) {
-                if (!$partnerEmail) {
+                if ($sendsEmail && !$partnerEmail) {
                     Log::warning("FundingRequest #{$review->id}: Skipped partner email - Non-host partner ID {$partner->id} ({$partner->company_name}) has no email or contact_person_email configured.");
                 }
 
                 try {
-                    $notifier->send('partner.funding_request.status_changed', $partner, $notificationData, mail: $partnerEmail
-                        ? ($isApproved ? new PartnerFundingRequestApproved($review, $partner, false) : new UnderwritingStatusUpdated($review))->to($partnerEmail)
+                    $notifier->send('partner.funding_request.status_changed', $partner, $notificationData, mail: $sendsEmail && $partnerEmail
+                        ? ($isApproved ? new PartnerFundingRequestApproved($review, $partner, false) : new UnderwritingStatusUpdated($review, UnderwritingStatusUpdated::AUDIENCE_PARTNER))->to($partnerEmail)
                         : null);
 
-                    if ($partnerEmail) {
+                    if ($sendsEmail && $partnerEmail) {
                         Log::info(__('funding_request.logs.dispatched_to_partner', [
                             'id' => $review->id,
                             'mailable' => $isApproved ? 'PartnerFundingRequestApproved' : 'UnderwritingStatusUpdated',
@@ -433,11 +474,17 @@ class FundingRequestService
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
+        // Past its application's editable statuses the lender assigned is fixed.
+        if (! $review->canAssignLender()) {
+            return ApiResponse::error(__('application.lender_locked', ['status' => $review->fundingApplication->status]), 422);
+        }
+
         $review->lender_ids = $data['lender_ids'] ?? [];
         $review->assign_lender = !empty($data['lender_ids']) ? $data['lender_ids'][0] : null;
         $review->save();
 
-        $lenderNames = Lender::whereIn('id', $review->lender_ids)->pluck('name')->toArray();
+        // Named as on screen, "Lender Name - Legal Name" (R2 BUG-008).
+        $lenderNames = Lender::whereIn('id', $review->lender_ids)->get()->map(fn (Lender $lender) => $lender->displayName())->all();
         $lendersStr = empty($lenderNames) ? 'None' : implode(', ', $lenderNames);
 
         app(ActivityLogService::class)->logSystemEvent(

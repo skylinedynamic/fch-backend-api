@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -36,6 +38,7 @@ use Tests\TestCase;
 class PartnerFundingApplicationStepsTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
 
     private Partner $host;
@@ -50,6 +53,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         Storage::fake('public');
         $this->host = $this->makeHostPartner();
@@ -174,6 +178,23 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->assertSame('234567890', FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->ssn);
     }
 
+    /** Defect: R2 BUG-033, on the partner's form too: a save from an older copy is refused. */
+    #[Test]
+    public function a_partners_save_from_an_older_copy_is_refused(): void
+    {
+        $this->travelTo('2026-10-21 10:00:00');
+        DB::table('funding_applications')->where('id', $this->myApplicationId)->update(['updated_at' => now()]);
+        $this->actingAsUser($this->partnerAdmin);
+        $step = array_merge(self::steps()['funding request'][1], ['id' => $this->myApplicationId, 'funding_request_id' => $this->myRequestId]);
+
+        $this->travelTo('2026-10-21 10:01:00');
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1 Month', 'expected_version' => '2026-10-21 10:00:00'])->assertOk();
+
+        $this->postJson($this->url('funding-request'), $step + ['timeframe_needed' => '1-2 Weeks', 'expected_version' => '2026-10-21 10:00:00'])
+            ->assertStatus(409);
+        $this->assertSame('1 Month', FundingApplication::find($this->myApplicationId)->timeframe_needed);
+    }
+
     /** Defect: BUG-108, on the partner's form too. */
     #[Test]
     public function a_partner_cannot_save_more_than_100_percent_ownership(): void
@@ -209,6 +230,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
             'co_borrowers.0.mobile_phone' => __('embed_form.phone_invalid'),
         ]);
     }
+
 
     /**
      * The document step opens the borrower's file folder (borrowers/{id}). The
@@ -385,5 +407,56 @@ class PartnerFundingApplicationStepsTest extends TestCase
 
         $this->assertDatabaseHas('funding_application_documents', ['id' => $documentId]);
         $this->assertSame(1, DB::table('funding_application_documents')->where('funding_application_id', $this->theirApplicationId)->count());
+    }
+
+    /**
+     * Defect: on the admin/partner wizard the owner's date of birth was only
+     * `date`, and a co-borrower saved with the step was not checked at all.
+     */
+    #[Test]
+    public function on_the_partner_wizard_the_owner_and_each_co_borrower_must_be_at_least_the_minimum_age(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $underAge = DateOfBirth::latestAllowedDate()->addDay()->toDateString();
+        $turning18 = DateOfBirth::latestAllowedDate()->toDateString();
+        $minimumAge = __('common.date_of_birth_minimum_age', ['age' => 18]);
+        $step = fn (string $dob, string $coDob) => array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'funding_request_id' => $this->myRequestId,
+            'ownership' => 60,
+            'date_of_birth' => $dob,
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'date_of_birth' => $coDob]],
+        ]);
+
+        $this->postJson($this->url('ownership-info'), $step($underAge, $underAge))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => $minimumAge, 'co_borrowers.0.date_of_birth' => $minimumAge]);
+
+        $this->postJson($this->url('ownership-info'), $step(now()->addYear()->toDateString(), '2000-02-30'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'date_of_birth' => __('common.date_of_birth_future'),
+                'co_borrowers.0.date_of_birth' => __('common.date_of_birth_invalid'),
+            ]);
+
+        $this->postJson($this->url('ownership-info'), $step($turning18, $turning18))->assertOk();
+        $this->assertSame($turning18, toDateOnly(FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->date_of_birth));
+    }
+
+    #[Test]
+    public function the_partner_co_borrower_check_refuses_an_under_age_co_borrower(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('co-borrower-validation'), [
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->addDay()->toDateString(),
+        ])->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+        ]);
+
+        $this->postJson($this->url('co-borrower-validation'), [
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->toDateString(),
+        ])->assertJsonMissingValidationErrors(['date_of_birth']);
     }
 }

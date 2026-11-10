@@ -9,6 +9,7 @@ use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
@@ -72,6 +73,33 @@ class PartnerStatusAgentApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.assign_to', null)
             ->assertJsonPath('data.agent', null);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function statusesASuspendedPartnerCanReturnTo(): iterable
+    {
+        yield 'Active' => [Partner::STATUS_ACTIVE];
+        yield 'Inactive' => [Partner::STATUS_INACTIVE];
+        yield 'OnBoarding' => [Partner::STATUS_ONBOARDING];
+    }
+
+    /**
+     * BUG-171 (OP-PART-22): a partner saved as Suspended could not be set back;
+     * the chosen status (Active, Inactive or OnBoarding) must save on Update.
+     */
+    #[Test]
+    #[DataProvider('statusesASuspendedPartnerCanReturnTo')]
+    public function a_suspended_partner_can_be_reactivated(string $status): void
+    {
+        $agent = $this->makeUser();
+        $partner = $this->makeCertifiedPartner(['status' => Partner::STATUS_SUSPENDED, 'assign_to' => $agent->id]);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->putJson($this->url($partner), ['status' => $status, 'assign_to' => $agent->id])
+            ->assertOk()
+            ->assertJsonPath('data.status', $status);
+
+        $this->assertSame($status, $partner->fresh()->status);
     }
 
     #[Test]

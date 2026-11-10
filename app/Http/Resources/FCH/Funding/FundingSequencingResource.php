@@ -62,7 +62,7 @@ class FundingSequencingResource extends JsonResource
                 return $this->lenderVisibilities->map(function ($lfs) {
                     return array_merge(
                         $lfs->toArray(),
-                        ['lender' => $lfs->lender ? ['id' => $lfs->lender->id, 'name' => $lfs->lender->name] : null]
+                        ['lender' => $lfs->lender ? ['id' => $lfs->lender->id, 'name' => $lfs->lender->name, 'display_name' => $lfs->lender->displayName()] : null]
                     );
                 });
             }),

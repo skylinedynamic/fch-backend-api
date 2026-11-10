@@ -12,6 +12,8 @@ use App\Models\Borrower\BorrowerDocument;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
 
 class BorrowerDocumentService
 {
@@ -56,19 +58,19 @@ class BorrowerDocumentService
 
         // Actually store the file if it's an UploadedFile
         if ($file instanceof \Illuminate\Http\UploadedFile) {
-            $file->storeAs("borrowers/{$borrowerId}", $dbPath, 'public');
+            $file->storeAs(Folder::BORROWERS . "/{$borrowerId}", $dbPath, Disk::UPLOADS);
         }
 
-        if (Storage::disk('public')->exists($borrowerPath)) {
+        if (Storage::disk(Disk::UPLOADS)->exists($borrowerPath)) {
              try {
-                $size = $this->formatSize(Storage::disk('public')->size($borrowerPath));
+                $size = $this->formatSize(Storage::disk(Disk::UPLOADS)->size($borrowerPath));
              } catch (\Exception $e) {
                 // Ignore size error
              }
         } 
-        elseif (Storage::disk('public')->exists(ltrim($file, '/'))) {
+        elseif (Storage::disk(Disk::UPLOADS)->exists(ltrim($file, '/'))) {
              try {
-                $size = $this->formatSize(Storage::disk('public')->size(ltrim($file, '/')));
+                $size = $this->formatSize(Storage::disk(Disk::UPLOADS)->size(ltrim($file, '/')));
              } catch (\Exception $e) {
              }
         }

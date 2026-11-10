@@ -140,16 +140,18 @@ class BorrowerProfileApiTest extends TestCase
             'average_monthly_deposits' => 9000,
             'annual_personal_income' => 80000,
             'bank_accounts' => [
-                ['id' => $kept->id, 'bank_name' => 'Renamed Bank'],
+                // A saved bank name is locked (BUG-054): sent back unchanged.
+                // Renaming it is covered by LockedProfileFieldsTest.
+                ['id' => $kept->id, 'bank_name' => 'Old Bank'],
                 ['id' => $theirs->id, 'bank_name' => 'Hijacked'],
                 ['bank_name' => 'New Bank'],
             ],
         ])->assertOk();
 
-        $this->assertSame('Renamed Bank', $kept->fresh()->bank_name);
+        $this->assertSame('Old Bank', $kept->fresh()->bank_name);
         $this->assertNull($dropped->fresh());
         $this->assertSame('Their Bank', $theirs->fresh()->bank_name);
-        $this->assertEqualsCanonicalizing(['Renamed Bank', 'New Bank'], BorrowerBankAccount::where('borrower_id', $this->me->entity_id)->pluck('bank_name')->all());
+        $this->assertEqualsCanonicalizing(['Old Bank', 'New Bank'], BorrowerBankAccount::where('borrower_id', $this->me->entity_id)->pluck('bank_name')->all());
 
         $this->getJson('/api/v1/borrower/profile/financial-info')->assertOk();
     }
@@ -172,6 +174,40 @@ class BorrowerProfileApiTest extends TestCase
             'entity_id' => $this->me->entity_id,
             'status' => BorrowerChangeRequest::STATUS_PENDING,
         ]);
+    }
+
+    /**
+     * BY DESIGN (BUG-071): a business email may be any address, including one
+     * another account signs in with. Nothing is mailed to it - mail goes to the
+     * client's own sign-in email, and the business email is only shown on the
+     * profile and printed on documents - and two clients of one company may
+     * share an office address. Do not add a uniqueness rule for it.
+     */
+    #[Test]
+    public function a_business_email_may_be_another_accounts_email_by_design(): void
+    {
+        $other = $this->makeBorrowerUser($this->partner);
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'business_email', 'new_value' => $other->email])
+            ->assertOk();
+
+        $this->assertDatabaseHas('borrower_change_requests', [
+            'borrower_id' => $this->me->entity_id,
+            'field_name' => 'business_email',
+            'new_value' => $other->email,
+        ]);
+    }
+
+    /** BUG-007: a change request may not set a business start date in the future. */
+    #[Test]
+    public function a_business_start_date_change_request_in_the_future_is_refused(): void
+    {
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/profile/change-request', ['field_name' => 'business_start_date', 'new_value' => now()->addYear()->toDateString()])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('new_value');
     }
 
     #[Test]

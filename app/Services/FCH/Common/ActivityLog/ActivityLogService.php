@@ -29,6 +29,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use App\Support\Files\StoredFileName;
+use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
+use App\Support\Files\Folder;
+use App\Services\FCH\Common\ActivityLog\ActivityEmailSender;
 
 class ActivityLogService
 {
@@ -129,8 +134,9 @@ class ActivityLogService
             foreach ($attachments as $file) {
                 if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
                     $originalName = $file->getClientOriginalName();
-                    $fileName = time() . '_' . str_replace(' ', '_', $originalName);
-                    $path = $file->storeAs('attachments', $fileName, 'public');
+                    // Name first, then the time; same name at once gets _1, _2 (locked).
+                    $path = StoredFileName::store($file, Storage::disk(Disk::UPLOADS), Folder::ATTACHMENTS);
+                    $fileName = basename((string) $path);
 
                     $attachmentNames[] = $originalName;
                     $attachmentFiles[] = [
@@ -284,7 +290,7 @@ class ActivityLogService
 
             // Handle Email Sending if log_type is email
             if ($logType === ActivityLog::TYPE_EMAIL) {
-                $this->sendEmail($data, $attachmentNames, $attachments);
+                $this->sendEmail($data, $attachmentNames, $attachments, $targetPartnerId);
             }
 
             DB::commit();
@@ -498,12 +504,14 @@ class ActivityLogService
         $subjectPattern = config('activity_messages.subjects.default', ':model :action');
         $subject = $customSubject ?? str_replace([':model', ':action'], [$modelName, $action], $subjectPattern);
 
-        $displayName = $model->name
+        // Names, emails and subjects come from users and the portals render
+        // descriptions as HTML: each goes in escaped, as text (BUG-004).
+        $displayName = e($model->name
             ?? $model->full_name
             ?? $model->company_name
             ?? $model->contact_person
             ?? $model->subject
-            ?? (isset($model->first_name) ? "{$model->first_name} {$model->last_name}" : ($model->customer_name ?? 'Record'));
+            ?? (isset($model->first_name) ? "{$model->first_name} {$model->last_name}" : ($model->customer_name ?? 'Record')));
 
         // Resolve Final Description logic
         $descDefaultPattern = config('activity_messages.descriptions.default', ':model profile :action for :display_name');
@@ -520,7 +528,7 @@ class ActivityLogService
             $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
         } elseif ($logType === ActivityLog::LOG_TYPE_EMAIL_UPDATE) {
             $descPattern = config('activity_messages.descriptions.email_update', ':model contact email was updated to :new_email for :display_name.');
-            $newEmail = $extraProperties['new_email'] ?? 'N/A';
+            $newEmail = e($extraProperties['new_email'] ?? 'N/A');
             $description = $customDescription ?? str_replace(
                 [':model', ':new_email', ':display_name'],
                 [$modelName, $newEmail, $displayName],
@@ -584,7 +592,7 @@ class ActivityLogService
             $appointmentDescPattern = config('activity_messages.descriptions.appointment', 'Appointment (:subject) :action for :entity_name on :time.');
             $description = $customDescription ?? str_replace(
                 [':subject', ':action', ':entity_name', ':time'],
-                [$model->subject, $descriptionAction, $entityName, $timeStr],
+                [e($model->subject), $descriptionAction, e($entityName), $timeStr],
                 $appointmentDescPattern
             );
         } elseif ($model instanceof Payment) {
@@ -615,8 +623,12 @@ class ActivityLogService
         );
     }
 
-    private function sendEmail(array $data, array $attachmentNames, array $attachments): void
+    private function sendEmail(array $data, array $attachmentNames, array $attachments, ?int $recordPartnerId = null): void
     {
+        // The host sends with the client's partner's mail settings, or its own
+        // (send_from); anyone else's mail chooses as before (null).
+        $sendingPartnerId = app(ActivityEmailSender::class)->partnerIdFor(Auth::user(), $data['send_from'] ?? null, $recordPartnerId);
+
         $recipients = $data['to_emails'] ?? [];
         if (is_string($recipients)) {
             $decoded = json_decode($recipients, true);
@@ -624,7 +636,7 @@ class ActivityLogService
         }
 
         $emailData = [
-            'subject' => $data['subject'] ?? 'New Email from Activity Log',
+            'subject' => $data['subject'] ?? __('activity_log.mail.default_subject'),
             'body' => $data['description'] ?? '',
         ];
 
@@ -635,7 +647,7 @@ class ActivityLogService
 
             try {
                 app(Notifier::class)->send('activity_log.email',
-                    mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->to($recipient));
+                    mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->setMailPartnerId($sendingPartnerId)->to($recipient));
             } catch (\Throwable $e) {
                 Log::error('ActivityLog: Failed to send email to recipient', [
                     'recipient' => $recipient,
@@ -847,7 +859,7 @@ class ActivityLogService
             foreach ($data['attachments'] as $file) {
                 if ($file instanceof \Illuminate\Http\UploadedFile) {
                     $hasAttachmentChanges = true;
-                    $path = $file->store('attachments', 'public');
+                    $path = $file->store(Folder::ATTACHMENTS, Disk::UPLOADS);
                     $newAttachmentFiles[] = [
                         'name' => $file->getClientOriginalName(),
                         'path' => 'storage/' . $path,
@@ -1334,10 +1346,11 @@ class ActivityLogService
                 $fileName = $document->file_name ?? basename($rawPath);
 
                 $possiblePaths = [
+                    Storage::disk(Disk::UPLOADS)->path(BorrowerDocument::storagePathFor($document->borrower_id, $rawPath)),
                     public_path('storage/borrowers/' . $document->borrower_id . '/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('borrowers/' . $document->borrower_id . '/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::BORROWERS . '/' . $document->borrower_id . '/' . $rawPath),
                     public_path('storage/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::BORROWERS . '/' . $document->borrower_id . '/' . Folder::DOCUMENTS . '/' . $rawPath),
                 ];
             } else {
                 $document = PartnerDocument::withTrashed()->find($documentId);
@@ -1349,10 +1362,11 @@ class ActivityLogService
                 $fileName = $document->document_name ?? basename($rawPath);
 
                 $possiblePaths = [
+                    Storage::disk(Disk::UPLOADS)->path(PartnerDocument::storagePathFor($document->partner_id, $rawPath)),
                     public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('partners/' . $document->partner_id . '/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::PARTNERS . '/' . $document->partner_id . '/' . $rawPath),
                     public_path('storage/partners/' . $document->partner_id . '/documents/' . $rawPath),
-                    \Illuminate\Support\Facades\Storage::disk('public')->path('partners/' . $document->partner_id . '/documents/' . $rawPath),
+                    Storage::disk(Disk::UPLOADS)->path(Folder::PARTNERS . '/' . $document->partner_id . '/' . Folder::DOCUMENTS . '/' . $rawPath),
                 ];
             }
 
@@ -1372,7 +1386,7 @@ class ActivityLogService
         if (!file_exists($absolutePath)) {
             // check storage/app/public too if it's a storage link
             $cleanPath = ltrim(str_replace('storage/', '', $file['path']), '/');
-            $storagePath = \Illuminate\Support\Facades\Storage::disk('public')->path($cleanPath);
+            $storagePath = Storage::disk(Disk::UPLOADS)->path($cleanPath);
             if (file_exists($storagePath)) {
                 return response()->download($storagePath);
             }

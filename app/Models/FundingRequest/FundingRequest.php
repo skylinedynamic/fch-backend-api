@@ -23,6 +23,17 @@ class FundingRequest extends Model
     const STATUS_ACCEPTED = 'Accepted';
     const STATUS_REJECTED = 'Rejected';
     const STATUS_CANCELED = 'Cancelled';
+
+    /**
+     * The statuses a change to is emailed (product decision 2026-11-04) - each
+     * time the request reaches one. Pending, In Progress and Accepted are told
+     * in the bell only.
+     */
+    const EMAILED_STATUSES = [self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_CANCELED];
+
+    /** The longest rejection note (the admin's Reason / Note counter shows the same). */
+    const REJECT_REASON_MAX_LENGTH = 10000;
+
     const APPLICATION_STATUS_NOT_STARTED = 'Not Started';
     // const STATUS_APPLICATION_STARTED = 'Funding Application Started';
     // const STATUS_APPLICATION_IN_PROGRESS = 'Funding Application In Progress';
@@ -146,7 +157,39 @@ class FundingRequest extends Model
      */
     public function getMatchedLendersAttribute()
     {
+        // The same list as its application's page: the application's Preferred
+        // + Additional Funding Types (request 2026-11-05). With no application,
+        // the request's own funding type.
+        $application = $this->fundingApplication;
+        if ($application) {
+            $application->setRelation('fundingRequest', $this);
+
+            // Once the lender is fixed it is always listed, even if made
+            // Inactive since - the locked view shows it alone (S434-BUG-05).
+            return app(LenderMatchService::class)->match(
+                $this->borrower,
+                $application->lenderCategories(),
+                $application->canAssignLender() ? [] : $application->assignedLenderIds(),
+            );
+        }
+
         return app(LenderMatchService::class)->match($this->borrower, [$this->funding_type]);
+    }
+
+    /**
+     * Whether the lender may be assigned or changed now: its funding
+     * application's rule (FundingApplication::canAssignLender) when it has one -
+     * past the editable statuses the lender is fixed, from either page.
+     */
+    public function canAssignLender(): bool
+    {
+        $application = $this->fundingApplication;
+        if (! $application) {
+            return true;
+        }
+        $application->setRelation('fundingRequest', $this);
+
+        return $application->canAssignLender();
     }
 
     public function getLenderNamesAttribute()
@@ -154,7 +197,8 @@ class FundingRequest extends Model
         if (empty($this->assign_lender)) {
             return '';
         }
-        return Lender::where('id', $this->assign_lender)->value('name') ?: '';
+        // "Lender Name - Legal Name", as everywhere a lender is shown (R2 BUG-008).
+        return Lender::find($this->assign_lender)?->displayName() ?? '';
     }
 
     public function partner()

@@ -58,6 +58,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
+use App\Http\Controllers\Api\V1\Global\General\FundingSequenceOptionController;
+use App\Http\Controllers\Api\V1\Global\General\LenderProductCategoryController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
@@ -65,6 +67,7 @@ use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Common\Audit\FundingApplicationAuditTrailController;
 
 
 
@@ -137,6 +140,12 @@ Route::prefix('v1')->group(function () {
     // Location routes
     Route::get('common/locations', [LocationController::class, 'index']);
 
+    // Funding types - the one list every funding type field uses (Preferred /
+    // Additional Funding Types in every portal's wizard; the embed form reads
+    // the same service): the Active lender product categories. Public
+    // reference data, like locations.
+    Route::get('common/funding-types', [LenderProductCategoryController::class, 'index']);
+
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
 
     // Branding only — skips the email-config and payment-provider queries that
@@ -155,6 +164,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/status', [V1TwoFaController::class, 'status']);
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
+
+        // Funding sequences offered for a funding type - the Funding Sequence
+        // dropdown on the funding application's Funding Request step. Outside
+        // the partner-portal group: the borrower wizard shows it too.
+        Route::get('common/funding-sequences', [FundingSequenceOptionController::class, 'index']);
         // Partner portal API; borrowers only reach the routes the borrower
         // portal calls - see RejectBorrowersFromPartnerPortal.
         Route::prefix('common')->middleware('partner-portal')->group(function () {
@@ -217,7 +231,7 @@ Route::prefix('v1')->group(function () {
                 Route::delete('borrowers/{borrowerId}/credit-profile', [BorrowerController::class, 'deleteCreditProfile'])
                     ->whereNumber('borrowerId');
             });
-            Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
+            Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile'])->whereNumber('borrowerId');
 
             // The PDF sent to iSoftPull when they ask us to prove a client
             // authorised a pull. Host partner only, enforced in the controller.
@@ -225,7 +239,7 @@ Route::prefix('v1')->group(function () {
             // Only the file has a route of its own - the records themselves ride
             // along with the credit profile request details, which is the screen
             // that shows them.
-            Route::get('credit-authorizations/{id}/download', [CreditAuthorizationConsentController::class, 'download']);
+            Route::get('credit-authorizations/{id}/download', [CreditAuthorizationConsentController::class, 'download'])->whereNumber('id');
 
             // Borrower routes
             // MUST stay above the wildcard `borrowers/{id}` below: routes match in
@@ -252,30 +266,33 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
 
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
-            Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
+            Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount'])
+                ->whereNumber('borrowerId');
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
 
 
-            Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus']);
+            Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus'])->whereNumber('id');
             Route::post('borrowers-documents-delete/{id}', [BorrowerController::class, 'deleteDocument']);
-            Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
+            Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument'])->whereNumber('documentId');
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
             Route::get('doc-types', [BorrowerController::class, 'documentTypes']);
-            Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile']);
+            Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile'])->whereNumber('borrowerId');
 
 
             //Request Application
             Route::prefix('request-application')->group(function () {
                 Route::post('pre-qualification', [RequestApplicationController::class, 'getPreQualification']);
-                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
-                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
+                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
                 Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
                 Route::post('pre-qualification/{id}/run-ai', [RequestApplicationController::class, 'runAiPreQualification']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
-                Route::post('funding-application/{id}/audit-history', [RequestApplicationController::class, 'getAuditHistory']);
+                // The application's audit trail (replaces audit-history / download-history).
+                Route::get('funding-application/{id}/audit-trail', [FundingApplicationAuditTrailController::class, 'index'])->whereNumber('id');
+                Route::get('funding-application/{id}/audit-trail/export', [FundingApplicationAuditTrailController::class, 'export'])->whereNumber('id');
+                Route::get('funding-application/{id}/audit-trail/{eventId}/file', [FundingApplicationAuditTrailController::class, 'file'])->whereNumber(['id', 'eventId']);
                 // Host's team only (AssignFundingApplicationLenderRequest).
                 Route::post('funding-application/{id}/assign-lender', [RequestApplicationController::class, 'assignFundingApplicationLender'])->whereNumber('id');
                 Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
@@ -285,7 +302,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
                 Route::post('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
                 Route::post('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
-                Route::get('download-history/{historyId}/download', [RequestApplicationController::class, 'downloadFromHistory']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
 
@@ -362,6 +378,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('fetch-all', [AppointmentController::class, 'index']);
                 Route::post('fetch-selectable-users', [AppointmentController::class, 'selectableUsers']);
             });
+            // Cancel (not delete) - also open to the person the appointment is with (R2 BUG-046).
+            Route::post('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
             Route::apiResource('appointments', AppointmentController::class);
 
             // Contact routes
@@ -374,6 +392,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('fetch-all-activities', [ActivityLogController::class, 'index']);
                 Route::post('attachments/download', [ActivityLogController::class, 'downloadAttachment']);
                 Route::get('/', [ActivityLogController::class, 'index']);
+                // Who New Email goes out from; before /{id}, which would take it.
+                Route::get('email-sender', [ActivityLogController::class, 'emailSender']);
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
                 Route::post('/', [ActivityLogController::class, 'store']);
                 Route::match(['patch', 'post'], '/{id}/visibility', [ActivityLogController::class, 'updateVisibility']);
@@ -433,7 +453,7 @@ Route::prefix('v1')->group(function () {
 
             // 💳 Billing
             Route::post('billing/fetch-upcoming', [BillingController::class, 'fetchUpcoming']);
-            Route::get('billing/{id}', [BillingController::class, 'details']);
+            Route::get('billing/{id}', [BillingController::class, 'details'])->whereNumber('id');
 
             // 📋 Non-Host Partner My Subscription Module
             Route::prefix('my-subscription')->group(function () {
@@ -441,6 +461,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
                 Route::post('remove-default-payment-method', [MySubscriptionController::class, 'removeDefaultPaymentMethod']);
                 Route::post('cancel-subscription', [MySubscriptionController::class, 'cancelSubscription']);
+                Route::post('resume-subscription', [MySubscriptionController::class, 'resumeSubscription']);
             });
 
 
@@ -459,12 +480,12 @@ Route::prefix('v1')->group(function () {
             Route::prefix('subscriptions')->group(function () {
                 Route::post('fetch-all', [CommonSubscriptionController::class, 'index']);
                 Route::get('partner-borrower-fee', [CommonSubscriptionController::class, 'getPartnerBorrowerFee']);
-                Route::get('{id}', [CommonSubscriptionController::class, 'show']);
+                Route::get('{id}', [CommonSubscriptionController::class, 'show'])->whereNumber('id');
             });
 
             // Commissions
             Route::prefix('commissions')->group(function () {
-                Route::get('/{id}', [CommissionController::class, 'show']);
+                Route::get('/{id}', [CommissionController::class, 'show'])->whereNumber('id');
                 Route::post('/', [CommissionController::class, 'index']);
             });
 
@@ -565,13 +586,15 @@ Route::prefix('v1')->group(function () {
                 Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
                 Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
                 Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
+                Route::get('/required/{userId}', [AgreementSignController::class, 'requirement'])->whereNumber('userId');
+                Route::post('/required/{userId}', [AgreementSignController::class, 'setRequired'])->whereNumber('userId');
             });
 
             // 📚 Resources
             Route::prefix('resources')->group(function () {
                 Route::get('/', [CommonResourceController::class, 'index']);
-                Route::get('/{id}', [CommonResourceController::class, 'show']);
-                Route::get('/download/{id}', [CommonResourceController::class, 'download']);
+                Route::get('/{id}', [CommonResourceController::class, 'show'])->whereNumber('id');
+                Route::get('/download/{id}', [CommonResourceController::class, 'download'])->whereNumber('id');
             });
 
             // 📝 Embedded Form Management (Internal / Authenticated)
@@ -588,6 +611,10 @@ Route::prefix('v1')->group(function () {
 
                 Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions'])
                     ->middleware('permission:view application');
+                // Applications not yet converted only; see EmbedFormService::deleteSubmissions().
+                // No role permission for now (product decision); the controller
+                // still limits a partner to their own applications.
+                Route::post('submissions/delete', [EmbedFormController::class, 'deleteSubmissions']);
                 Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission'])
                     ->whereNumber('id')
                     ->middleware('permission:view application');
@@ -633,11 +660,13 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::post('process-payment', [UnifiedPaymentController::class, 'processPayment']);
+        Route::post('process-payment/confirm', [UnifiedPaymentController::class, 'confirmPayment']);
         Route::post('process-payment-for-users', [UnifiedPaymentController::class, 'processPayment']);
 
         // Unified Multi-Gateway Payment Routes
         Route::prefix('payment')->group(function () {
             Route::post('process', [UnifiedPaymentController::class, 'processPayment']);
+            Route::post('confirm', [UnifiedPaymentController::class, 'confirmPayment']);
             Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
             Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });

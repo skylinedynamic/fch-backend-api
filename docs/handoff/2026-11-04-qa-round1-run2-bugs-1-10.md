@@ -38,7 +38,7 @@ Backend (`fch-backend-api`)
 - `app/Services/FCH/Common/FundingRequest/FundingRequestService.php` - reason in the rejection activity (159)
 - `app/Services/Borrower/PreQualification/PreQualificationService.php` - Funding Needs on GET (167); atomic submit/retry claim (168)
 - `app/Models/Borrower/PreQualificationRequest.php` - outcome from the stored status (168)
-- `docs/test-findings.md` - F177-F186, O80
+- `docs/test-findings.md` - F233-F242, O81
 
 Admin (`Fch-admin-frontend-react`)
 - `src/pages/applications/funding-request/FundingRequestDetail.tsx`, `components/ReviewProgressCard.tsx` (159)
@@ -62,7 +62,7 @@ Each defect test was written first and seen to fail.
 _(filled in after the full runs)_
 
 ## Open / follow-up
-- **O80** - "Everyone" client notes appear only inside an application's Activity panel; a client with no application never sees them (product decision).
+- **O81** - "Everyone" client notes appear only inside an application's Activity panel; a client with no application never sees them (product decision).
 - The BUG-168 race can't be run truly concurrently in-process. The Feature test simulates a second submit claiming the draft between the read and the write.
 - The four touched PHP files already failed `pint --test` before this work (import order, indentation). They were not reformatted, to keep the diff to the fixes.
 - Bugs 11-17 of the plan (174, 175, 176, 182, 184, 186, 199) are not started; 174 and 175 wait on the decisions in the plan.

@@ -94,6 +94,8 @@ class SubscriptionDetailsResource extends JsonResource
             'payable_amount' => currencyFormat($this->payable_amount),
             'total_subscription_amount' => currencyFormat($this->total_subscription_amount),
             'subscription_amount_per_month' => currencyFormat($this->subscription_amount_per_month),
+            // The last installment, when it takes up the monthly rounding (BUG-049).
+            'final_installment_amount' => currencyFormat($this->resource->adjustedFinalInstallmentAmount()),
             'down_payment' => currencyFormat($this->down_payment),
             'monthly_platform_fee' => $isPartner ? currencyFormat($this->monthly_platform_fee) : null,
             'borrower_fee_amount' => !is_null($this->borrower_fee_amount) ? currencyFormat($this->borrower_fee_amount) : null,

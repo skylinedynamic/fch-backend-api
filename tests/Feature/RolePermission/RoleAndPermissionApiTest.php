@@ -241,6 +241,47 @@ class RoleAndPermissionApiTest extends TestCase
             ->assertJsonCount(1, 'data.users');
     }
 
+    /**
+     * Round 2 BUG-011: the seeded Admin role (static) could be renamed and
+     * stripped of its permissions - pushed onto everyone holding it, so the
+     * only admin could lock itself out. A static role is read-only.
+     */
+    #[Test]
+    public function a_static_role_cannot_be_edited(): void
+    {
+        $static = $this->roleFor($this->partner, 'Admin', [$this->viewLeads]);
+        $static->update(['is_static' => true]);
+        $member = $this->makeStaffUser($this->partner);
+        $member->assignRole($static);
+        $member->syncPermissions([$this->viewLeads]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/roles/{$static->id}", [
+            'name' => 'Renamed',
+            'permission_ids' => [$this->notForCertified->id],
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('message', __('role_permission.role_static_cannot_update'));
+
+        $static->refresh();
+        $this->assertSame('Admin', $static->name);
+        $this->assertTrue($static->hasPermissionTo('view leads'));
+        $this->assertFalse($static->hasPermissionTo('view cms'));
+        $this->assertTrue($member->fresh()->hasPermissionTo('view leads'));
+    }
+
+    #[Test]
+    public function a_role_says_whether_it_is_static(): void
+    {
+        $static = $this->roleFor($this->partner, 'Admin');
+        $static->update(['is_static' => true]);
+        $editable = $this->roleFor($this->partner, 'Sales');
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson("/api/v1/common/roles/{$static->id}")->assertOk()->assertJsonPath('data.is_static', true);
+        $this->getJson("/api/v1/common/roles/{$editable->id}")->assertOk()->assertJsonPath('data.is_static', false);
+    }
+
     #[Test]
     public function an_unused_role_is_deleted_but_one_with_members_or_a_static_one_is_kept(): void
     {

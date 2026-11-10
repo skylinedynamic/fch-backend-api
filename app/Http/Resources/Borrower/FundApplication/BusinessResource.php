@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\Borrower\FundApplication;
 
+use App\Http\Resources\Concerns\CarriesApplicationVersion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class BusinessResource extends JsonResource
 {
+    use CarriesApplicationVersion;
+
     /**
      * Transform the resource into an array.
      *
@@ -38,6 +41,8 @@ class BusinessResource extends JsonResource
             : ($this->years_in_business ?? ($borrower?->years_in_business ? $borrower->years_in_business . ' Years' : null));
 
         return [
+            // Sent back with the next save; see CarriesApplicationVersion.
+            'version' => $this->applicationVersion(),
             'id' => isset($this->borrower_id) ? $this->id : null,
             'full_name' => $fullName,
             'business_name' => $businessName,

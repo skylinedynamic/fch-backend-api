@@ -33,6 +33,9 @@ class ParseCreditProfileRejectsNonReportTest extends TestCase
 
     private Borrower $borrower;
 
+    /** The lines an iSoftPull report starts with. */
+    private const REPORT = ['Name: Owner Client', "Score Model: FICO 8	Score: 712", 'Credit Limit: $5000'];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -68,10 +71,14 @@ class ParseCreditProfileRejectsNonReportTest extends TestCase
         ]), [], 'api');
     }
 
-    /** A real, one-page PDF with selectable text. */
-    private function pdfWithText(string $text, string $name): UploadedFile
+    /** A real, one-page PDF with selectable text, one line per array item. */
+    private function pdfWithText(string|array $text, string $name): UploadedFile
     {
-        $stream = "BT /F1 12 Tf 72 720 Td ({$text}) Tj ET";
+        $ops = 'BT /F1 12 Tf 72 720 Td';
+        foreach ((array) $text as $i => $line) {
+            $ops .= ($i ? ' 0 -16 Td' : '') . " ({$line}) Tj";
+        }
+        $stream = "{$ops} ET";
         $objects = [
             '<< /Type /Catalog /Pages 2 0 R >>',
             '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -123,6 +130,38 @@ class ParseCreditProfileRejectsNonReportTest extends TestCase
         $this->assertNothingKept();
     }
 
+    /**
+     * Defect: any PDF with a "Name:" in it passed as a credit report - a
+     * commission invoice ("Payee Name: ...", an address and a phone) was
+     * accepted on Client > Credit Profile and filed with the client's
+     * documents. A name, an address or a phone is on every business document;
+     * only credit data (a score, trade lines or inquiries) makes a credit report.
+     */
+    #[Test]
+    public function an_invoice_with_a_name_address_and_phone_is_refused_and_nothing_is_kept(): void
+    {
+        $this->parse($this->pdfWithText([
+            'Invoice No: #INV-00000000001', 'ADDRESS', 'Four Corner Funding', '100 Main St', 'Tampa, Florida 33601',
+            'Phone: (555) 555-0100', 'PARTNER DETAILS', 'Pat Partner', 'TOTAL AMOUNT', '$1,250.00',
+            'Payee Name: Pat Partner', 'Date Of Birth: 01/02/1980', 'Total Amount: $1,250.00', 'NOTES: Cheque Payment',
+        ], 'invoice.pdf'))
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('borrower.credit_profile_not_a_report'));
+
+        $this->assertNothingKept();
+    }
+
+    /** A page that only explains FICO scores is not a report either. */
+    #[Test]
+    public function a_pdf_that_only_mentions_the_fico_range_is_refused(): void
+    {
+        $this->parse($this->pdfWithText(['About your credit', 'FICO scores range from 300 to 850', 'Higher is better'], 'guide.pdf'))
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('borrower.credit_profile_not_a_report'));
+
+        $this->assertNothingKept();
+    }
+
     #[Test]
     public function a_broken_pdf_gets_a_plain_message_not_the_parsers_error(): void
     {
@@ -139,9 +178,10 @@ class ParseCreditProfileRejectsNonReportTest extends TestCase
     #[Test]
     public function a_credit_report_is_still_read_and_its_pdf_kept_but_not_saved_as_the_profile(): void
     {
-        $this->parse($this->pdfWithText('Name: Owner Client', 'isoftpull-report.pdf'))
+        $this->parse($this->pdfWithText(self::REPORT, 'isoftpull-report.pdf'))
             ->assertOk()
-            ->assertJsonPath('data.extracted_data.personal_info.name', 'Owner Client');
+            ->assertJsonPath('data.extracted_data.personal_info.name', 'Owner Client')
+            ->assertJsonPath('data.extracted_data.metrics.fico_score', 712);
 
         // Kept for the host to review; the profile is only written on Save.
         $this->assertSame(1, BorrowerDocument::where('borrower_id', $this->borrower->id)->count());
@@ -159,7 +199,7 @@ class ParseCreditProfileRejectsNonReportTest extends TestCase
         Notification::fake();
         Mail::fake();
 
-        $this->parse($this->pdfWithText('Name: Owner Client', 'isoftpull-report.pdf'))->assertOk();
+        $this->parse($this->pdfWithText(self::REPORT, 'isoftpull-report.pdf'))->assertOk();
 
         Notification::assertNothingSent();
         Mail::assertNothingOutgoing();

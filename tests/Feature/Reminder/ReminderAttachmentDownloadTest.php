@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * GET /common/reminders/{id}/attachments/download?path=... - a file attached to
@@ -45,7 +46,7 @@ class ReminderAttachmentDownloadTest extends TestCase
         $this->relative = 'attachments/reminder-' . uniqid() . '.txt';
         // Through the public disk, which is where uploads put it and the
         // download reads it from (findings O16).
-        \Illuminate\Support\Facades\Storage::disk('public')->put($this->relative, 'call notes');
+        Storage::disk('uploads')->put($this->relative, 'call notes');
     }
 
     protected function tearDown(): void

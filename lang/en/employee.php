@@ -29,6 +29,7 @@ return [
     'city_required'       => 'City is required.',
     'state_required'      => 'State is required.',
     'country_required'    => 'Country is required.',
+    'job_status_in'       => 'Job status must be Active, Inactive or Suspended.',
     'date_of_birth_before'=> 'Date of birth must be a valid date before today.',
     'gender_invalid'      => 'Selected gender is invalid. Allowed values: male, female, other.',
     'role_required_if_create_account' => 'Role is required.',

@@ -206,6 +206,10 @@ class ReapplyAfterSettledApplicationTest extends TestCase
     /**
      * Defect: submitting after a rejection overwrote the rejected request in
      * place (amount, purpose, status, reason) instead of starting a new one.
+     *
+     * Still true for "Start Funding Request" on the funding option (no
+     * `funding_request_id`). "Update Application" on the rejected request sends
+     * its id and resubmits that request instead - see below.
      */
     #[Test]
     public function a_rejected_request_is_kept_and_a_new_request_is_created(): void
@@ -224,6 +228,112 @@ class ReapplyAfterSettledApplicationTest extends TestCase
         $this->assertSame(FundingRequest::STATUS_REJECTED, $old->status);
         $this->assertSame('Revenue too low', $old->reject_reason);
         $this->assertEquals(30000, $old->requested_amount);
+    }
+
+    private function rejectTheRequest(): void
+    {
+        DB::table('funding_requests')->where('id', $this->fundingRequestId)->update([
+            'status' => FundingRequest::STATUS_REJECTED,
+            'reject_reason' => 'Revenue too low',
+            'approved_at' => now(),
+            'approved_by' => 1,
+        ]);
+    }
+
+    private function updateRejectedRequest(int $fundingRequestId)
+    {
+        return $this->postJson('/api/v1/borrower/funding/requests', [
+            'funding_request_id' => $fundingRequestId,
+            'funding_sequence_id' => $this->fundingSequenceId,
+            'funding_type' => 'Business Line of Credit',
+            'requested_amount' => 45000,
+            'use_of_funds' => 'Working Capital',
+        ]);
+    }
+
+    /**
+     * Defect: "Update Application" on a rejected request inserted a new funding
+     * request every time it was submitted, leaving the rejected one behind -
+     * one rejection turned into several rows for the same request.
+     */
+    #[Test]
+    public function updating_a_rejected_request_resubmits_that_request_and_inserts_none(): void
+    {
+        $this->rejectTheRequest();
+
+        $response = $this->updateRejectedRequest($this->fundingRequestId)->assertStatus(201);
+
+        $this->assertSame($this->fundingRequestId, $response->json('data.id'));
+        $this->assertSame(1, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+
+        $request = FundingRequest::findOrFail($this->fundingRequestId);
+        $this->assertSame(FundingRequest::STATUS_PENDING, $request->status);
+        $this->assertEquals(45000, $request->requested_amount);
+        $this->assertSame('Working Capital', $request->use_of_funds);
+        $this->assertNull($request->reject_reason);
+        $this->assertNull($request->approved_at);
+        $this->assertNull($request->approved_by);
+    }
+
+    /**
+     * Only a rejected request can be updated. Once resubmitted it is Pending, so
+     * sending the same update again (a double click, a second tab) inserts
+     * nothing and changes nothing.
+     */
+    #[Test]
+    public function a_request_that_is_not_rejected_cannot_be_updated(): void
+    {
+        $this->rejectTheRequest();
+        $this->updateRejectedRequest($this->fundingRequestId)->assertStatus(201);
+
+        $this->postJson('/api/v1/borrower/funding/requests', [
+            'funding_request_id' => $this->fundingRequestId,
+            'funding_sequence_id' => $this->fundingSequenceId,
+            'requested_amount' => 12000,
+        ])->assertStatus(422)->assertJsonValidationErrors('funding_request_id');
+
+        $this->assertSame(1, FundingRequest::where('borrower_id', $this->borrowerId)->count());
+        $this->assertEquals(45000, FundingRequest::findOrFail($this->fundingRequestId)->requested_amount);
+    }
+
+    #[Test]
+    public function another_borrowers_rejected_request_cannot_be_updated(): void
+    {
+        $otherBorrowerId = DB::table('borrowers')->insertGetId([
+            'first_name' => 'Other', 'last_name' => 'Borrower', 'email' => 'other-'.uniqid().'@example.com',
+            'partner_id' => $this->partnerId, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $theirsId = DB::table('funding_requests')->insertGetId([
+            'borrower_id' => $otherBorrowerId,
+            'partner_id' => $this->partnerId,
+            'funding_sequence_id' => $this->fundingSequenceId,
+            'requested_amount' => 20000,
+            'status' => FundingRequest::STATUS_REJECTED,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->updateRejectedRequest($theirsId)->assertStatus(422)->assertJsonValidationErrors('funding_request_id');
+
+        $this->assertSame(FundingRequest::STATUS_REJECTED, FundingRequest::findOrFail($theirsId)->status);
+        $this->assertEquals(20000, FundingRequest::findOrFail($theirsId)->requested_amount);
+    }
+
+    #[Test]
+    public function a_rejected_request_cannot_be_updated_onto_another_funding_option(): void
+    {
+        $this->rejectTheRequest();
+        $otherSequenceId = DB::table('funding_sequencings')->insertGetId([
+            'name' => 'Term Loans', 'status' => 'Active', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/borrower/funding/requests', [
+            'funding_request_id' => $this->fundingRequestId,
+            'funding_sequence_id' => $otherSequenceId,
+            'requested_amount' => 45000,
+        ])->assertStatus(422)->assertJsonValidationErrors('funding_request_id');
+
+        $this->assertSame(FundingRequest::STATUS_REJECTED, FundingRequest::findOrFail($this->fundingRequestId)->status);
     }
 
     /**

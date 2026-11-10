@@ -39,6 +39,9 @@ class FakeStripeHttpClient implements ClientInterface
     /** @var array<string, array{0: int, 1: array}> Endpoints that answer with an error. */
     private array $failures = [];
 
+    /** @var array<string, array<int, array>> Exact "method path" answers, see on(). */
+    private array $routes = [];
+
     public function __construct()
     {
         $this->responses = [
@@ -99,6 +102,46 @@ class FakeStripeHttpClient implements ClientInterface
         $this->failures[$resource] = [$status, $error];
 
         return $this;
+    }
+
+    /**
+     * Answer one exact request - method plus path under /v1/ - with a series of
+     * bodies, one per call; the last keeps answering once the others are used.
+     * Checked before willReturn()/willFail(), so a test can tell apart creating a
+     * PaymentIntent from reading or cancelling one:
+     *
+     *   on('post', 'payment_intents', $needsAuthentication)
+     *   on('get', 'payment_intents/pi_3ds', $succeeded)
+     *   on('post', 'payment_intents/pi_3ds/cancel', $canceled)
+     *
+     * A body holding an 'error' key and a '_status' is answered as that error.
+     */
+    public function on(string $method, string $path, array ...$bodies): self
+    {
+        $this->routes[strtolower($method) . ' ' . trim($path, '/')] = $bodies;
+
+        return $this;
+    }
+
+    /**
+     * The requests made to one exact method + path, in order.
+     *
+     * @return array<int, array{method: string, url: string, headers: array, params: array}>
+     */
+    public function requestsTo(string $method, string $path): array
+    {
+        return array_values(array_filter(
+            $this->requests,
+            fn (array $request) => strtolower($request['method']) === strtolower($method)
+                && $this->pathOf($request['url']) === trim($path, '/')
+        ));
+    }
+
+    private function pathOf(string $url): string
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+
+        return trim(preg_replace('#^/v1/#', '', $path), '/');
     }
 
     /**
@@ -189,6 +232,19 @@ class FakeStripeHttpClient implements ClientInterface
 
         if (is_callable($this->onRequest)) {
             ($this->onRequest)($absUrl);
+        }
+
+        $route = strtolower($method) . ' ' . $this->pathOf($absUrl);
+        if (isset($this->routes[$route])) {
+            $body = count($this->routes[$route]) > 1
+                ? array_shift($this->routes[$route])
+                : $this->routes[$route][0];
+
+            if (isset($body['error'], $body['_status'])) {
+                return [json_encode(['error' => $body['error']]), $body['_status'], []];
+            }
+
+            return [json_encode($body), 200, []];
         }
 
         foreach ($this->failures as $resource => [$status, $error]) {

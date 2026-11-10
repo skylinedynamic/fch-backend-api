@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -278,6 +279,44 @@ class BorrowerRecordsApiTest extends TestCase
             ->assertJsonPath('data.first_name', 'New');
 
         $this->assertSame('New', $borrower->fresh()->first_name);
+    }
+
+    /**
+     * Defect: R2 BUG-065 - the partner owner changed client 162's phone, then a
+     * staff user whose page was opened earlier saved a new home address: the
+     * whole form went back, and the phone silently reverted. A save from a page
+     * showing older client details is refused (409); a change in another
+     * section (business financials) does not make the form stale.
+     */
+    #[Test]
+    public function a_client_info_save_from_an_older_page_is_refused(): void
+    {
+        $borrower = $this->makeBorrower($this->partner, ['phone_number' => '5555550802', 'home_address' => '1 Old St']);
+        $staff = $this->makeStaffUser($this->partner);
+
+        // Both open the client.
+        $this->actingAsUser($this->partnerAdmin);
+        $loaded = $this->getJson("/api/v1/common/borrowers/{$borrower->id}")->assertOk()->json('data.client_info_version');
+        $this->assertNotEmpty($loaded);
+
+        // The owner saves the phone; the response carries the new version.
+        $ownerVersion = $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => $borrower->first_name, 'phone_number' => '5555550812', 'expected_version' => $loaded])
+            ->assertOk()->json('data.client_info_version');
+        $this->assertNotSame($loaded, $ownerVersion);
+
+        // The staff page still holds the old copy.
+        $this->actingAsUser($staff);
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => $borrower->first_name, 'phone_number' => '5555550802', 'home_address' => '2 New St', 'expected_version' => $loaded])
+            ->assertStatus(409)
+            ->assertJsonPath('message', __('borrower.changed_elsewhere'));
+        $this->assertSame('5555550812', $borrower->fresh()->phone_number);
+        $this->assertSame('1 Old St', $borrower->fresh()->home_address);
+
+        // Another section's save leaves the owner's copy current.
+        $this->actingAsUser($this->partnerAdmin);
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}/business-financials", ['monthly_revenue' => 42000])->assertOk();
+        $this->postJson("/api/v1/common/borrowers/{$borrower->id}", ['first_name' => $borrower->first_name, 'home_address' => '3 Owner St', 'expected_version' => $ownerVersion])->assertOk();
+        $this->assertSame('3 Owner St', $borrower->fresh()->home_address);
     }
 
     #[Test]
@@ -818,5 +857,36 @@ class BorrowerRecordsApiTest extends TestCase
         $this->actingAsUser($this->partnerAdmin);
 
         $this->postJson('/api/v1/common/borrowers-tiers')->assertOk()->assertJsonPath('status', true);
+    }
+
+    /**
+     * Defect: a client's date of birth was `nullable` with no other rule, so an
+     * admin could add a 10-year-old client, and a date that does not exist
+     * (02-30-1990) was quietly saved as no date of birth at all.
+     */
+    #[Test]
+    public function a_clients_date_of_birth_must_be_a_real_date_and_at_least_the_minimum_age(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $underAge = DateOfBirth::latestAllowedDate()->addDay()->format('m-d-Y');
+
+        $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['date_of_birth' => $underAge]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18])]);
+
+        $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['date_of_birth' => '02-30-1990']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_invalid')]);
+
+        // The admin form posts MM-DD-YYYY; someone turning 18 today may be added.
+        $turning18 = DateOfBirth::latestAllowedDate();
+        $id = $this->postJson('/api/v1/common/borrowers', $this->newBorrowerPayload(['date_of_birth' => $turning18->format('m-d-Y')]))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertSame($turning18->toDateString(), toDateOnly(Borrower::findOrFail($id)->date_of_birth));
+
+        $this->postJson("/api/v1/common/borrowers/{$id}", ['first_name' => 'Ada', 'date_of_birth' => $underAge])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18])]);
     }
 }

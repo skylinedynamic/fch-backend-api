@@ -515,12 +515,19 @@ class InvoiceService
         }
 
 
+        // A last installment adjusted for rounding says so (BUG-049).
+        $finalInstallment = $invoice->finalInstallmentNote();
+
         try {
-            app(Notifier::class)->send('invoice.sent', $invoice->is_partner_paying ? $invoice->partner : $invoice->borrower, [
+            app(Notifier::class)->send($finalInstallment ? 'invoice.final_installment' : 'invoice.sent', $invoice->is_partner_paying ? $invoice->partner : $invoice->borrower, [
                 'id' => $invoice->id,
                 'invoice' => $invoice->invoice_id ?: $invoice->id,
                 'amount' => ($invoice->currency ?: 'USD') . ' ' . number_format((float) $invoice->payment_amount, 2),
-            ], mail: (new InvoiceMail($invoice, $pdfContent))->to($recipientEmail));
+            ] + ($finalInstallment ? [
+                'difference' => $finalInstallment['difference'],
+                'monthly' => $finalInstallment['monthly'],
+                'total' => $finalInstallment['total'],
+            ] : []), mail: (new InvoiceMail($invoice, $pdfContent))->to($recipientEmail));
         } catch (\Exception $e) {
             Log::error('Failed to send invoice email', ['error' => $e->getMessage()]);
         }

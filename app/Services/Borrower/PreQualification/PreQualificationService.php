@@ -3,6 +3,7 @@
 namespace App\Services\Borrower\PreQualification;
 
 use App\Services\FCH\Common\Notification\Notifier;
+use App\Exceptions\PreQualificationConflictException;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Borrower\PreQualification\PreQualificationResource;
 use App\Models\Borrower\Borrower;
@@ -20,6 +21,16 @@ class PreQualificationService
     use PaginatesApi;
 
 
+    /**
+     * Whether the id is one of this borrower's pre-qualification requests, in
+     * any status - so a refusal can say "already submitted" instead of "not found".
+     */
+    private function ownsRequest(?Borrower $borrower, mixed $id): bool
+    {
+        return $borrower !== null && $id !== null
+            && PreQualificationRequest::whereKey($id)->where('borrower_id', $borrower->id)->exists();
+    }
+
     public function submit(array $data)
     {
         $user = Auth::user();
@@ -32,9 +43,15 @@ class PreQualificationService
             ->where('status', PreQualificationRequest::ON_HOLD)
             ->first();
 
-        // Typed so the controller can answer 404 with the reason, rather than
-        // reporting a caller-side state problem as a server error.
+        // Typed so the controller can answer with the reason, rather than
+        // reporting a caller-side state problem as a server error: the
+        // borrower's own request that is past On Hold was already submitted
+        // (409, BUG-168); any other id is not theirs to submit (404).
         if (!$record) {
+            if ($this->ownsRequest($borrower, $data['id'] ?? null)) {
+                throw new PreQualificationConflictException(__('borrower.pre_qualification_already_submitted'));
+            }
+
             throw new ModelNotFoundException(__('borrower.pre_qualification_request_not_found'));
         }
 
@@ -53,7 +70,7 @@ class PreQualificationService
             ]);
 
         if ($claimed === 0) {
-            throw new ModelNotFoundException(__('borrower.pre_qualification_request_not_found'));
+            throw new PreQualificationConflictException(__('borrower.pre_qualification_already_submitted'));
         }
 
         $record->refresh();
@@ -116,7 +133,13 @@ class PreQualificationService
             ->where('gpt_status', PreQualificationRequest::GPT_FAILED)
             ->first();
 
+        // The borrower's own request whose review is not Failed has nothing to
+        // retry (409); any other id is not theirs (404).
         if (!$record) {
+            if ($this->ownsRequest($borrower, $data['id'] ?? null)) {
+                throw new PreQualificationConflictException(__('borrower.pre_qualification_retry_not_available'));
+            }
+
             throw new ModelNotFoundException(__('borrower.pre_qualification_retry_not_available'));
         }
 
@@ -130,7 +153,7 @@ class PreQualificationService
             ->update(['gpt_status' => PreQualificationRequest::GPT_PENDING, 'gpt_generated_at' => null, 'updated_at' => now()]);
 
         if ($claimed === 0) {
-            throw new ModelNotFoundException(__('borrower.pre_qualification_retry_not_available'));
+            throw new PreQualificationConflictException(__('borrower.pre_qualification_retry_not_available'));
         }
 
         $record->refresh();
@@ -275,6 +298,18 @@ class PreQualificationService
             // (their row becoming PENDING) the next load spawned an empty duplicate draft.
             // The row is now created when the borrower actually saves the first step.
             $mergedData = array_merge(['id' => null], $this->borrowerPrefill($borrower));
+
+            // A new application starts with blank Funding Needs - never an
+            // earlier submission's answers.
+            $mergedData['funding_requested_amount'] = null;
+            $mergedData['funding_urgency'] = null;
+            $mergedData['purpose_of_funding'] = null;
+            $mergedData['purpose_note'] = null;
+            $mergedData['personal_credit_score'] = null;
+            $mergedData['estimated_business_credit_score'] = null;
+            $mergedData['existing_business_debt'] = false;
+            $mergedData['debt_balance'] = null;
+            $mergedData['notes'] = null;
         } else {
             $mergedData['id'] = $prequalificationRequest->id;
             foreach ($prequalificationRequest->toArray() as $key => $value) {
@@ -286,10 +321,11 @@ class PreQualificationService
             }
         }
 
-        // Funding Needs comes back as saved on this draft, like every other step,
-        // so a borrower who leaves and returns resumes where they were
-        // (BUG-167). Only the On Hold draft is read, so nothing from an earlier,
-        // submitted request is carried in; a new draft starts blank (prefill).
+        // The in-progress draft keeps its own Funding Needs answers, like every
+        // other step: they used to be blanked here on every load, so a borrower
+        // who left after step 3 came back to an empty step (BUG-167, R2 BUG-026).
+        // Only the On Hold draft is read, so nothing from an earlier, submitted
+        // request is carried in; a new application starts blank (above).
 
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;

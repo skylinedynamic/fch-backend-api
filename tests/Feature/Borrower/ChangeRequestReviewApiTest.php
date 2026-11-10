@@ -112,6 +112,39 @@ class ChangeRequestReviewApiTest extends TestCase
         $this->assertSame($this->reviewer->id, (int) BorrowerChangeRequest::find($id)->updated_by);
     }
 
+    /**
+     * BUG-040: two pending requests for one field, both filed when it was
+     * "Old Co". After the first was approved, the second still showed "Old Co"
+     * as the current value and kept it as its old value in the history, though
+     * "First Co" was what it actually replaced.
+     *
+     * Since R2 BUG-039 the portal refuses a second request while one is
+     * pending, so the second one here is a row filed before that rule - such
+     * rows exist (QA left three for one field on staging) and still need this.
+     */
+    #[Test]
+    public function approving_one_change_updates_the_current_value_of_the_others_for_that_field(): void
+    {
+        $this->myBorrower()->update(['business_name' => 'Old Co']);
+        $first = $this->file(['field_name' => 'business_name', 'new_value' => 'First Co']);
+        $second = BorrowerChangeRequest::find($first)->replicate()->fill(['new_value' => 'Second Co']);
+        $second->save();
+        $second = $second->id;
+        $this->actingAsUser($this->reviewer);
+
+        $this->patchJson("/api/v1/admin/change-requests/{$first}", ['status' => BorrowerChangeRequest::STATUS_APPROVED])->assertOk();
+
+        $listed = collect($this->postJson('/api/v1/admin/change-requests', ['status' => BorrowerChangeRequest::STATUS_PENDING])
+            ->assertOk()->json('data'))->firstWhere('id', $second);
+        $this->assertSame('First Co', $listed['old_value']);
+
+        $this->patchJson("/api/v1/admin/change-requests/{$second}", ['status' => BorrowerChangeRequest::STATUS_APPROVED])->assertOk();
+
+        $this->assertSame('Second Co', $this->myBorrower()->business_name);
+        $this->assertSame('Old Co', BorrowerChangeRequest::find($first)->old_value);
+        $this->assertSame('First Co', BorrowerChangeRequest::find($second)->old_value);
+    }
+
     #[Test]
     public function an_approved_ssn_change_replaces_the_full_ssn_on_file(): void
     {

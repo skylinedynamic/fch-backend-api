@@ -4,10 +4,12 @@ namespace Tests\Integration\Funding;
 
 use App\Models\Borrower\Borrower;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lender\Lender;
 use App\Services\FCH\Common\Funding\LenderMatchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
@@ -80,6 +82,24 @@ class LenderMatchServiceTest extends TestCase
         $this->lenderIn('Term Loan', 'High', ['min_fico' => 600]);
 
         $this->assertSame(['High', 'Low'], array_column($this->matcher->match($this->borrower, ['Term Loan']), 'name'));
+    }
+
+    /**
+     * Request 2026-11-05: the highest match % first (100% at the top), whatever
+     * the funding type. On an equal %, a lender of the Preferred Funding Type
+     * (the first category given) comes before one of an Additional type.
+     */
+    #[Test]
+    public function the_highest_match_comes_first_and_the_preferred_type_breaks_a_tie(): void
+    {
+        $this->lenderIn('Business Line of Credit', 'Additional 100', ['min_fico' => 600]);
+        $this->lenderIn('Term Loan', 'Preferred 50', ['min_fico' => 600, 'min_monthly_revenue' => 50000]);
+        $this->lenderIn('Term Loan', 'Preferred 100', ['min_fico' => 600]);
+        $this->lenderIn('Business Line of Credit', 'Additional 0', ['min_fico' => 800]);
+
+        $names = array_column($this->matcher->match($this->borrower, ['Term Loan', 'Business Line of Credit']), 'name');
+
+        $this->assertSame(['Preferred 100', 'Additional 100', 'Preferred 50', 'Additional 0'], $names);
     }
 
     #[Test]
@@ -197,10 +217,102 @@ class LenderMatchServiceTest extends TestCase
         );
     }
 
-    private function lenderIn(string $category, string $name, array $requirements = []): int
+    /**
+     * Defect: the funding application's Lender Information could only show a
+     * lender's name - the match had no legal name - so it could not show
+     * "Lender Name - Legal Name" (R2 BUG-008).
+     */
+    #[Test]
+    public function each_match_carries_the_lenders_legal_name(): void
+    {
+        $this->lenderIn('Term Loan', 'LendingClub', [], 'LendingClub Bank, N.A.');
+        $this->lenderIn('Term Loan', 'OnDeck');
+
+        $byName = collect($this->matcher->match($this->borrower, ['Term Loan']))->keyBy('name');
+
+        $this->assertSame('LendingClub Bank, N.A.', $byName['LendingClub']['legal_name']);
+        // A lender from before the legal name was required has none.
+        $this->assertNull($byName['OnDeck']['legal_name']);
+    }
+
+    /** @return array<string, array{string, string}> loan application funding type => lender category */
+    public static function loanApplicationFundingTypes(): array
+    {
+        return [
+            'Line of Credit' => ['Line of Credit', 'Business Line of Credit'],
+            'SBA Loan' => ['SBA Loan', 'SBA Financing'],
+            'Refinance / Debt Consolidation' => ['Refinance / Debt Consolidation', 'Debt Consolidation / Refinance'],
+        ];
+    }
+
+    /**
+     * Defect: the loan application's funding types "Line of Credit", "SBA Loan"
+     * and "Refinance / Debt Consolidation" are named differently from the
+     * lender categories, and matching was by exact name, so they matched no
+     * lender (SCRUM-434 S434-BUG-01).
+     */
+    #[Test]
+    #[DataProvider('loanApplicationFundingTypes')]
+    public function a_loan_application_funding_type_matches_the_lenders_of_its_lender_category(string $fundingType, string $category): void
+    {
+        $this->lenderIn($category, 'Bluevine Capital');
+
+        [$match] = $this->matcher->match($this->borrower, [$fundingType]);
+
+        $this->assertSame('Bluevine Capital', $match['name']);
+        $this->assertSame($category, $match['product_category']);
+    }
+
+    #[Test]
+    public function a_category_with_other_words_is_not_matched(): void
+    {
+        $this->lenderIn('Equipment Leasing', 'Leasing Co');
+        $this->lenderIn('Business Credit Cards', 'Cards Co');
+        $this->lenderIn('Equipment Financing', 'Balboa Capital');
+
+        $this->assertSame(['Balboa Capital'], array_column($this->matcher->match($this->borrower, ['Equipment Financing', 'Unsecured Business Credit']), 'name'));
+    }
+
+    #[Test]
+    public function a_category_name_is_matched_whatever_its_case(): void
+    {
+        $this->lenderIn('Term Loan', 'Fundbox');
+
+        $this->assertSame(['Fundbox'], array_column($this->matcher->match($this->borrower, ['term loan']), 'name'));
+    }
+
+    /**
+     * Defect: an Inactive lender was listed in Lender Information with its
+     * match, and could be assigned (SCRUM-434 S434-BUG-02).
+     */
+    #[Test]
+    public function an_inactive_lender_is_not_matched(): void
+    {
+        $inactive = $this->lenderIn('Term Loan', 'R2 Lender A');
+        DB::table('lenders')->where('id', $inactive)->update(['status' => 'Inactive']);
+        $this->lenderIn('Term Loan', 'Fundbox');
+
+        $this->assertSame(['Fundbox'], array_column($this->matcher->match($this->borrower, ['Term Loan']), 'name'));
+    }
+
+    /** R2 BUG-008: each match carries "Lender Name - Legal Name", as the screens show it. */
+    #[Test]
+    public function each_match_carries_the_lenders_display_name(): void
+    {
+        $id = $this->lenderIn('Term Loan', 'Kabbage');
+        DB::table('lenders')->where('id', $id)->update(['legal_name' => 'Kabbage Funding LLC']);
+
+        [$match] = $this->matcher->match($this->borrower, ['Term Loan']);
+
+        $this->assertSame(Lender::findOrFail($id)->displayName(), $match['display_name']);
+        $this->assertSame('Kabbage - Kabbage Funding LLC', $match['display_name']);
+    }
+
+    private function lenderIn(string $category, string $name, array $requirements = [], ?string $legalName = null): int
     {
         $lenderId = DB::table('lenders')->insertGetId([
             'name' => $name,
+            'legal_name' => $legalName,
             'contact_phone' => '(888) 555-0102',
             'status' => 'Active',
             'created_at' => now(),

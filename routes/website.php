@@ -30,6 +30,9 @@ Route::prefix('v1/website')->group(function () {
     // SEO
     Route::get('seo', [SeoController::class, 'show']);
 
+    // Application form embedded on the /apply page
+    Route::get('embed-form', [PublicEmbedFormController::class, 'hostForm']);
+
     // Site Settings
     Route::get('settings', [SiteSettingsController::class, 'index']);
     Route::get('ping', function() { return response()->json(['ping' => 'pong']); });

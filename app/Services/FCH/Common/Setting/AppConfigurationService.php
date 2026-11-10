@@ -6,6 +6,7 @@ use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Files\Disk;
 
 class AppConfigurationService
 {
@@ -153,6 +154,24 @@ class AppConfigurationService
             now()->addHours(6),
             fn () => $this->buildBrandingSettings($partnerId, $inheritLogosFromHost)
         );
+    }
+
+    /**
+     * The site name this partner set for itself, or null when it set none.
+     *
+     * getBrandingSettings() fills a missing site_name from the host, which is
+     * wrong where the name says who an applicant is dealing with: the embedded
+     * form would thank them for applying with, and have them authorize, a
+     * different company.
+     */
+    public function ownSiteName(int $partnerId): ?string
+    {
+        $siteName = trim((string) AppConfiguration::where('partner_id', $partnerId)
+            ->where('module', AppConfiguration::MODULE_BRANDING)
+            ->where('key', 'site_name')
+            ->value('value'));
+
+        return $siteName === '' || $siteName === 'null' ? null : $siteName;
     }
 
     /**
@@ -381,7 +400,7 @@ class AppConfigurationService
             // The disk's url (BASE_API_URL, config/filesystems.php) is the same
             // answer for every caller, which is what makes it safe to cache.
             $resolvedLogos[$imageKey . '_full_url'] = $resolved
-                ? encodeUrl(Storage::disk('public')->url($resolved))
+                ? encodeUrl(Storage::disk(Disk::UPLOADS)->url($resolved))
                 : ($inheritThisKey ? null : $placeholder);
         }
 

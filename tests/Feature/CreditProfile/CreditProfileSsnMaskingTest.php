@@ -80,6 +80,8 @@ class CreditProfileSsnMaskingTest extends TestCase
     {
         $this->postJson('/api/v1/common/borrowers/save-credit-profile', [
             'borrower_id' => $this->borrower->id,
+            // Every save carries a FICO score (BUG-074).
+            'metrics' => ['fico_score' => 740],
             'personal_info' => ['ssn' => '987-65-4321'],
         ])->assertOk();
 

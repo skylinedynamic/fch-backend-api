@@ -231,7 +231,7 @@ class RecordMailRenderTest extends TestCase
 
         $this->assertStringContainsString("https://app.fourcorner.example/fund-application/{$this->request->id}", (new BorrowerFundingRequestApproved($this->request))->render());
         $this->assertStringContainsString("https://app.fourcorner.example/fund-application/{$this->request->id}", (new BorrowerFundingApplicationReminder($this->request))->render());
-        $this->assertStringContainsString('https://app.fourcorner.example/funding-requests', (new UnderwritingStatusUpdated($this->request))->render());
+        $this->assertStringContainsString("https://app.fourcorner.example/funding-requests/{$this->request->id}", (new UnderwritingStatusUpdated($this->request))->render());
 
         $this->partner->forceFill(['borrower_domain' => 'portal.lakeside.example'])->save();
         $this->assertStringContainsString("portal.lakeside.example/fund-application/{$this->request->id}", (new BorrowerFundingRequestApproved($this->request->fresh()))->render());
@@ -275,6 +275,46 @@ class RecordMailRenderTest extends TestCase
         $html = (new EmbedFormConverted($this->submission(), $this->application, false))->render();
 
         $this->assertStringContainsString('https://app.fourcorner.example/login', $html);
+    }
+
+    /**
+     * Defect: the status-update email is sent to the borrower and to a non-host
+     * partner, but its button always opened the borrower portal's funding
+     * request list - the partner landed on a portal they cannot sign in to, and
+     * neither reader landed on the request itself.
+     */
+    #[Test]
+    public function the_status_update_email_links_each_reader_to_the_request_in_their_own_portal(): void
+    {
+        config(['app.frontend_borrower_url' => 'https://app.fourcorner.example']);
+        $this->partner->forceFill(['partner_domain' => 'https://partners.lakeside.example'])->save();
+        $request = $this->request->fresh();
+
+        $borrowerHtml = (new UnderwritingStatusUpdated($request))->render();
+        $this->assertStringContainsString("https://app.fourcorner.example/funding-requests/{$request->id}", $borrowerHtml);
+        $this->assertStringNotContainsString('intake-review', $borrowerHtml);
+
+        $partnerHtml = (new UnderwritingStatusUpdated($request, UnderwritingStatusUpdated::AUDIENCE_PARTNER))->render();
+        $this->assertStringContainsString("https://partners.lakeside.example/intake-review/funding-request/{$request->id}", $partnerHtml);
+        $this->assertStringNotContainsString('/funding-requests/', $partnerHtml);
+    }
+
+    /**
+     * Defect (BUG-194): the fee is named "Client Activation Fee" (Plan & Fee),
+     * but the host's email about a new one still said "Borrower Fee" in its
+     * subject and amount.
+     */
+    #[Test]
+    public function the_new_fee_invoice_email_names_it_a_client_activation_fee(): void
+    {
+        $mail = new BorrowerFeeInvoiceNotificationMail($this->invoice(), $this->borrower, $this->partner, 'Four Corner Funding', $this->host->id);
+
+        $this->assertStringStartsWith('New Client Activation Fee Invoice #INV-0088', $mail->envelope()->subject);
+
+        $html = $mail->render();
+        $this->assertStringContainsString('Client Activation Fee Amount', $html);
+        $this->assertStringNotContainsString('Borrower Fee', $html);
+        $this->assertStringNotContainsString('borrower fee', $html);
     }
 
     /** Defect (D12): the host's "change requested" email showed an EIN's old and new value in full. */
