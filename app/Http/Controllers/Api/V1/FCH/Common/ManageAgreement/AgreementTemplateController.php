@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateStoreRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateShowRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementMergeFieldsRequest;
+use App\Services\FCH\Common\ManageAgreement\AgreementPlanFields;
 use App\Http\Resources\FCH\Common\ManageAgreement\AgreementTemplateResource;
 use App\Services\FCH\Common\ManageAgreement\AgreementService;
 use App\Services\FCH\Partner\PartnerConfigurationChangeRecorder;
@@ -104,6 +106,18 @@ class AgreementTemplateController extends Controller
         $partner = Partner::find($this->templateOwnerId($request));
 
         return ApiResponse::success((new AgreementMergeFields())->ownerValues($partner), __('agreement.retrieved_successfully'));
+    }
+
+    /**
+     * The Plan & Fee dynamic values the builder offers for this type of
+     * agreement, each with the price signing fills it with (AgreementPlanFields).
+     */
+    public function mergeFields(AgreementMergeFieldsRequest $request)
+    {
+        return ApiResponse::success(
+            (new AgreementPlanFields())->fields($request->validated('type')),
+            __('agreement.retrieved_successfully')
+        );
     }
 
     /**

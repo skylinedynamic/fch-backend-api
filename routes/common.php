@@ -576,6 +576,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/save/{id?}', [AgreementTemplateController::class, 'store']);
                 Route::post('/show', [AgreementTemplateController::class, 'show']);
                 Route::post('/preview-values', [AgreementTemplateController::class, 'previewValues']);
+                Route::post('/merge-fields', [AgreementTemplateController::class, 'mergeFields']);
                 Route::post('/update-status/{id}', [AgreementTemplateController::class, 'updateStatus']);
             });
 
