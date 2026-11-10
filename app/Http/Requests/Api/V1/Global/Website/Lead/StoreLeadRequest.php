@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Global\Website\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Lead\Lead;
 use App\Rules\ReCaptcha;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPhoneNumber;
@@ -30,6 +31,9 @@ class StoreLeadRequest extends BaseApiRequest
             ],
             'company_name' => ['nullable', 'string', 'max:255'],
             'requirements_details' => ['nullable', 'string'],
+            // "What brings you here today?" on the contact page; decides the
+            // lead type. Optional: the home page form does not ask it.
+            'interest' => ['nullable', 'string', Rule::in(Lead::WEBSITE_INTERESTS)],
             // The contact page runs reCAPTCHA v3 as "contact_form" (findings D5/O29).
             // Required once a secret is configured; until then leads keep coming in.
             'recaptcha_token' => [
