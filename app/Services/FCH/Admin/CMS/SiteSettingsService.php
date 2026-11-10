@@ -14,6 +14,9 @@ class SiteSettingsService
 {
     use UploadsFiles;
 
+    /** The form's request to delete the saved reCAPTCHA secret. */
+    public const REMOVE_RECAPTCHA_SECRET = 'remove_recaptcha_secret_key';
+
     private const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
@@ -72,8 +75,20 @@ class SiteSettingsService
      */
     public function updateSettings(?int $partnerId, array $data): array
     {
+        // "Remove" on the reCAPTCHA secret: a blank secret means "keep" (the
+        // form never holds it), so deleting one has to be asked for.
+        $removeSecret = filter_var($data[self::REMOVE_RECAPTCHA_SECRET] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data[self::REMOVE_RECAPTCHA_SECRET]);
+        if ($removeSecret) {
+            unset($data['recaptcha_secret_key']);
+        }
+
         DB::beginTransaction();
         try {
+            if ($removeSecret) {
+                AppConfiguration::set('recaptcha_secret_key', '', AppConfiguration::MODULE_WEBSITE, $partnerId);
+            }
+
             foreach ($data as $key => $value) {
                 if (AppConfiguration::keepsStoredSecret($key, $value)) {
                     // Masked or left blank: the form never holds the secret.

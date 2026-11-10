@@ -25,8 +25,25 @@ class Lead extends Model
 
     protected $guarded = [];
 
+    /**
+     * The lead type for a website enquiry: Partner when the visitor chose
+     * partnership; Borrower when they chose client, or did not say (the home
+     * page form, pre-qualification).
+     */
+    public static function leadTypeForInterest(?string $interest): string
+    {
+        return $interest === self::PARTNER_TYPE_LEAD ? self::PARTNER_TYPE_LEAD : self::BORROWER_TYPE_LEAD;
+    }
+
     const PARTNER_TYPE_LEAD = 'Partner';
     const BORROWER_TYPE_LEAD = 'Borrower';
+
+    /**
+     * The answers the website contact page's "What brings you here today?" may
+     * send as `interest`: the lead type itself - Borrower for "Explore becoming
+     * a client", Partner for "Explore partnership opportunities".
+     */
+    const WEBSITE_INTERESTS = [self::BORROWER_TYPE_LEAD, self::PARTNER_TYPE_LEAD];
 
     const DEFAULT_COUNTRY_CODE = '+1';
     // The website pre-qualification asks for a US state of incorporation.
