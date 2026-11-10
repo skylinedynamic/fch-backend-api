@@ -233,15 +233,19 @@ class PortalMetaTest extends TestCase
         $response->assertDontSee('host-doc.png', false);
     }
 
+    /**
+     * Defect: BUG-166 - a white-label partner with no favicon was lent the
+     * host's, so its tab showed the host's mark. It now borrows its own logo.
+     */
     #[Test]
-    public function a_partner_with_no_favicon_shows_the_one_its_portal_tab_shows(): void
+    public function a_partner_with_no_favicon_shows_its_own_logo_never_the_hosts(): void
     {
-        // Branding deliberately lends the host's favicon to a tenant without one.
         $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['borrower_domain' => 'apply.acme.test']);
         $this->brand($partner, ['site_name' => 'Acme Capital', 'logo_document' => 'partners/acme/doc.png']);
 
         $this->meta('apply.acme.test')
-            ->assertSee('<link rel="icon" href="' . self::API_BASE . '/storage/site-settings/host-fav.png">', false);
+            ->assertSee('<link rel="icon" href="' . self::API_BASE . '/storage/partners/acme/doc.png">', false)
+            ->assertDontSee('host-fav.png', false);
     }
 
     #[Test]

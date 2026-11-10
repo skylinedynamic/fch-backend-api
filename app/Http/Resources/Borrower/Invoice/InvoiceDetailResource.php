@@ -62,7 +62,7 @@ class InvoiceDetailResource extends JsonResource
             return ucwords(\App\Models\Invoice\Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', \App\Models\Invoice\Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')';
         }
 
-        return ucwords(str_replace('_', ' ', (string) $this->type));
+        return $this->resource->typeName();
     }
 
     private function resolveBrandingData()

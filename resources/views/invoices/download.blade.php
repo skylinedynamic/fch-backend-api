@@ -365,11 +365,9 @@
         <tbody>
             @php
                 // Named by what the invoice charges for, as the invoice window does
-                // ("Borrower Fee", "Down Payment"...), with the plan under it only on
-                // an invoice that bills for the plan.
-                $defaultItemDescription = $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
-                    ? 'Commission Payout'
-                    : (filled($invoice->type) ? ucwords(str_replace('_', ' ', $invoice->type)) : 'Invoice');
+                // ("Client Activation Fee", "Down Payment"...), with the plan under it
+                // only on an invoice that bills for the plan.
+                $defaultItemDescription = $invoice->typeName() ?: 'Invoice';
                 $planName = $invoice->billsSubscriptionPlan() ? $invoice->subscription?->enrollment_type : null;
                 $items = $invoice->details['items'] ?? [['description' => $defaultItemDescription, 'detail' => $planName, 'amount' => $invoice->payment_amount]];
             @endphp

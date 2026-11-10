@@ -3,6 +3,7 @@
 namespace App\Services\Borrower\PreQualification;
 
 use App\Services\FCH\Common\Notification\Notifier;
+use App\Exceptions\PreQualificationConflictException;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Borrower\PreQualification\PreQualificationResource;
 use App\Models\Borrower\Borrower;
@@ -20,6 +21,16 @@ class PreQualificationService
     use PaginatesApi;
 
 
+    /**
+     * Whether the id is one of this borrower's pre-qualification requests, in
+     * any status - so a refusal can say "already submitted" instead of "not found".
+     */
+    private function ownsRequest(?Borrower $borrower, mixed $id): bool
+    {
+        return $borrower !== null && $id !== null
+            && PreQualificationRequest::whereKey($id)->where('borrower_id', $borrower->id)->exists();
+    }
+
     public function submit(array $data)
     {
         $user = Auth::user();
@@ -32,19 +43,37 @@ class PreQualificationService
             ->where('status', PreQualificationRequest::ON_HOLD)
             ->first();
 
-        // Typed so the controller can answer 404 with the reason, rather than
-        // reporting a caller-side state problem as a server error.
+        // Typed so the controller can answer with the reason, rather than
+        // reporting a caller-side state problem as a server error: the
+        // borrower's own request that is past On Hold was already submitted
+        // (409, BUG-168); any other id is not theirs to submit (404).
         if (!$record) {
+            if ($this->ownsRequest($borrower, $data['id'] ?? null)) {
+                throw new PreQualificationConflictException(__('borrower.pre_qualification_already_submitted'));
+            }
+
             throw new ModelNotFoundException(__('borrower.pre_qualification_request_not_found'));
         }
 
         // $zapierResponse = $this->sendToZapier($record);
 
-        $record->update([
-            'status' => PreQualificationRequest::PENDING,
-            'gpt_status' => PreQualificationRequest::GPT_PENDING,
-            'gpt_generated_at' => null,
-        ]);
+        // Claimed in one statement, only while still On Hold: submits sent at the
+        // same instant all read the draft as On Hold above, and each used to go on
+        // to start its own underwriting run (BUG-168). Only one claim succeeds.
+        $claimed = PreQualificationRequest::whereKey($record->id)
+            ->where('status', PreQualificationRequest::ON_HOLD)
+            ->update([
+                'status' => PreQualificationRequest::PENDING,
+                'gpt_status' => PreQualificationRequest::GPT_PENDING,
+                'gpt_generated_at' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($claimed === 0) {
+            throw new PreQualificationConflictException(__('borrower.pre_qualification_already_submitted'));
+        }
+
+        $record->refresh();
 
         // The evaluation makes up to three OpenAI calls (roughly 1-2.5 minutes),
         // longer than the gateway in front of the API holds a request open. Run
@@ -104,16 +133,31 @@ class PreQualificationService
             ->where('gpt_status', PreQualificationRequest::GPT_FAILED)
             ->first();
 
+        // The borrower's own request whose review is not Failed has nothing to
+        // retry (409); any other id is not theirs (404).
         if (!$record) {
+            if ($this->ownsRequest($borrower, $data['id'] ?? null)) {
+                throw new PreQualificationConflictException(__('borrower.pre_qualification_retry_not_available'));
+            }
+
             throw new ModelNotFoundException(__('borrower.pre_qualification_retry_not_available'));
         }
 
         // Same as submit: answer first, evaluate after the response is delivered.
         // Being reviewed again, so it is no longer Failed; the outcome of this
         // run sets it from here.
+        // Claimed only while still Failed, so two retries at once start one run
+        // (BUG-168).
+        $claimed = PreQualificationRequest::whereKey($record->id)
+            ->where('gpt_status', PreQualificationRequest::GPT_FAILED)
+            ->update(['gpt_status' => PreQualificationRequest::GPT_PENDING, 'gpt_generated_at' => null, 'updated_at' => now()]);
+
+        if ($claimed === 0) {
+            throw new PreQualificationConflictException(__('borrower.pre_qualification_retry_not_available'));
+        }
+
+        $record->refresh();
         $record->applyUnderwritingOutcome(true);
-        $record->gpt_status = PreQualificationRequest::GPT_PENDING;
-        $record->gpt_generated_at = null;
         $record->save();
 
         $userId = Auth::id();
@@ -277,9 +321,11 @@ class PreQualificationService
             }
         }
 
-        // The in-progress draft keeps its own Funding Needs answers: they used
-        // to be blanked here on every load, so a borrower who left after step 3
-        // came back to an empty step (R2 BUG-026).
+        // The in-progress draft keeps its own Funding Needs answers, like every
+        // other step: they used to be blanked here on every load, so a borrower
+        // who left after step 3 came back to an empty step (BUG-167, R2 BUG-026).
+        // Only the On Hold draft is read, so nothing from an earlier, submitted
+        // request is carried in; a new application starts blank (above).
 
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;

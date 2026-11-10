@@ -655,13 +655,12 @@ class PartnerAdminApiTest extends TestCase
     }
 
     #[Test]
-    public function archiving_needs_the_update_partners_permission(): void
+    public function the_hosts_team_archives_and_restores_a_partner(): void
     {
+        // No per-permission gate on the route (decided 2026-11-08): the admin
+        // route group's role check is what admits the host's team.
         $partner = $this->makeCertifiedPartner();
         $this->actingAsUser($this->hostAdmin);
-        $this->postJson('/api/v1/admin/partners/archive', ['ids' => [$partner->id]])->assertForbidden();
-
-        $this->actingAsUser($this->grant($this->hostAdmin, ['update partners']));
         $this->postJson('/api/v1/admin/partners/archive', ['ids' => [$partner->id]])->assertOk();
         $this->assertNotNull($partner->fresh()->archived_at);
 

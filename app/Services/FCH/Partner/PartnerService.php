@@ -415,14 +415,7 @@ class PartnerService
             $oldTrialEndDate = $partner->free_trail_end_date;
             $partner->update($partnerData);
 
-            // Sync user status if partner status changed
-            if ($partner->status !== $oldStatus) {
-                if (in_array($partner->status, [Partner::STATUS_SUSPENDED, Partner::STATUS_INACTIVE])) {
-                    $this->restrictPartnerUsers($partner);
-                } elseif ($partner->status === Partner::STATUS_ACTIVE) {
-                    $this->reactivatePartnerUsers($partner);
-                }
-            }
+            $this->syncUsersWithStatus($partner, $oldStatus);
 
             $changes = $partner->getChanges();
 
@@ -585,6 +578,84 @@ class PartnerService
                 'error' => $e->getMessage(),
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * A partner's status and agent, as the Status & Agent tab shows them.
+     */
+    public function findStatusAgent(int $id): ?Partner
+    {
+        return Partner::with('assignedUser')->find($id);
+    }
+
+    /**
+     * Save the Status & Agent tab. Only status and agent change, so the save is
+     * never held up by the partner's other details (an old phone number, ...).
+     * A suspended or inactive partner's login is signed out, as on any status change.
+     */
+    public function updateStatusAgent(Partner $partner, array $data): Partner
+    {
+        return DB::transaction(function () use ($partner, $data) {
+            $oldStatus = $partner->status;
+            $oldAgent = $partner->assign_to;
+
+            $partner->update([
+                'status' => $data['status'],
+                'assign_to' => $data['assign_to'],
+            ]);
+
+            $this->syncUsersWithStatus($partner, $oldStatus);
+
+            $changes = $partner->getChanges();
+            unset($changes['updated_at']);
+
+            if (!empty($changes)) {
+                $changedFields = [];
+                $extraProps = [];
+
+                if (array_key_exists('status', $changes)) {
+                    $changedFields[] = __('partner.field_updated', ['field' => 'Status', 'value' => $partner->status]);
+                }
+
+                if (array_key_exists('assign_to', $changes)) {
+                    $owner = $this->activityLogService->describeOwnerChange(
+                        __('activity_log.owner_label_partner'),
+                        $oldAgent,
+                        $partner->assign_to
+                    );
+                    $changedFields[] = $owner['sentence'];
+                    $extraProps['changes']['assign_to'] = $owner['change'];
+                }
+
+                $this->activityLogService->logModelEvent(
+                    $partner,
+                    ActivityLog::LOG_TYPE_PARTNER_UPDATE,
+                    $extraProps,
+                    array_keys($changes) === ['assign_to'] ? __('activity_log.owner_subject_partner') : null,
+                    implode(', ', $changedFields) . '.'
+                );
+            }
+
+            $partner->partnerUser?->update(['is_refresh' => true]);
+
+            return $partner->fresh('assignedUser');
+        });
+    }
+
+    /**
+     * Signs a partner's login out when it becomes suspended or inactive.
+     */
+    private function syncUsersWithStatus(Partner $partner, ?string $oldStatus): void
+    {
+        if ($partner->status === $oldStatus) {
+            return;
+        }
+
+        if (in_array($partner->status, [Partner::STATUS_SUSPENDED, Partner::STATUS_INACTIVE])) {
+            $this->restrictPartnerUsers($partner);
+        } elseif ($partner->status === Partner::STATUS_ACTIVE) {
+            $this->reactivatePartnerUsers($partner);
         }
     }
 

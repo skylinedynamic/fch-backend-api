@@ -437,6 +437,13 @@ class FundingRequestService
             $description = "Status updated to: " . ucfirst(strtolower($data['status']));
         }
 
+        // Staff read why a request was declined here too, not only the client
+        // on their Decision Details (BUG-159).
+        $rejectReason = trim((string) ($data['reject_reason'] ?? ''));
+        if ($data['status'] === FundingRequest::STATUS_REJECTED && $rejectReason !== '') {
+            $description .= " Reason: {$rejectReason}";
+        }
+
         app(ActivityLogService::class)->logSystemEvent(
             FundingRequest::class,
             $review->id,

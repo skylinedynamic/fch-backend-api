@@ -127,12 +127,76 @@ class TenantLogoFallbackTest extends TestCase
         }
     }
 
+    /**
+     * Defect: BUG-166 - a white-label tenant with no Square mark was given the
+     * host's favicon, so its browser tab and collapsed sidebar showed the host's
+     * diamond mark.
+     */
     #[Test]
-    public function the_favicon_is_exempt_and_still_inherits(): void
+    public function a_tenant_without_a_square_mark_never_shows_the_hosts(): void
     {
-        // A 230x70 placeholder is unreadable at 16px, so the tab icon keeps the
-        // host's rather than being blanked.
         $resolved = $this->resolve(self::NO_LOGOS, inheritLogosFromHost: false);
+
+        $this->assertNull($resolved['favicon'], 'favicon borrowed the host upload');
+        $this->assertStringNotContainsString('host-', (string) $resolved['favicon_full_url']);
+    }
+
+    /** Defect: BUG-166 - the Branding page promises "those places will borrow one of your other logos". */
+    #[Test]
+    public function a_tenant_without_a_square_mark_borrows_one_of_its_own_logos(): void
+    {
+        $resolved = $this->resolve(
+            array_merge(self::NO_LOGOS, ['logo_sidebar' => 'branding/northwind-sidebar.png']),
+            inheritLogosFromHost: false
+        );
+
+        $this->assertSame('branding/northwind-sidebar.png', $resolved['favicon']);
+        $this->assertStringContainsString('northwind-sidebar.png', $resolved['favicon_full_url']);
+    }
+
+    #[Test]
+    public function a_tenant_without_a_square_mark_prefers_its_mobile_logo(): void
+    {
+        $resolved = $this->resolve(
+            array_merge(self::NO_LOGOS, [
+                'logo_sidebar' => 'branding/northwind-sidebar.png',
+                'logo_mobile' => 'branding/northwind-mobile.png',
+            ]),
+            inheritLogosFromHost: false
+        );
+
+        $this->assertSame('branding/northwind-mobile.png', $resolved['favicon']);
+    }
+
+    #[Test]
+    public function a_tenant_with_no_logo_at_all_gets_a_square_placeholder_with_its_initial(): void
+    {
+        // The 230x70 name placeholder is unreadable at 16px, so the tab icon
+        // gets a square one with the tenant's first letter.
+        $resolved = $this->resolve(self::NO_LOGOS, inheritLogosFromHost: false);
+
+        // PNG: a tab icon must not depend on the browser rendering an SVG.
+        $this->assertSame('https://placehold.co/64x64/png?text=N', $resolved['favicon_full_url']);
+    }
+
+    #[Test]
+    public function a_tenants_own_square_mark_wins(): void
+    {
+        $resolved = $this->resolve(
+            array_merge(self::NO_LOGOS, [
+                'logo_mobile' => 'branding/northwind-mobile.png',
+                'favicon' => 'branding/northwind-mark.png',
+            ]),
+            inheritLogosFromHost: false
+        );
+
+        $this->assertSame('branding/northwind-mark.png', $resolved['favicon']);
+    }
+
+    #[Test]
+    public function an_inheriting_tenant_still_gets_the_hosts_square_mark(): void
+    {
+        $resolved = $this->resolve(self::NO_LOGOS, inheritLogosFromHost: true);
 
         $this->assertSame('branding/host-favicon.png', $resolved['favicon']);
         $this->assertStringContainsString('host-favicon.png', $resolved['favicon_full_url']);

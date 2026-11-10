@@ -82,6 +82,7 @@ return [
     'pre_qualification_funding_info_failed' => 'Failed to update pre-qualification funding information. Please try again.',
     'pre_qualification_request_not_found' => 'Pre-qualification request not found',
     'pre_qualification_retry_not_available' => 'There is no failed underwriting review to retry for this request.',
+    'pre_qualification_already_submitted' => 'This pre-qualification request has already been submitted.',
     'pre_qualification_not_found' => 'Pre-qualification application not found',
     'pre_qualification_retrieved_successfully' => 'Pre-qualification application retrieved successfully',
     'pre_qualification_retrieval_failed' => 'Failed to retrieve pre-qualification application. Please try again.',

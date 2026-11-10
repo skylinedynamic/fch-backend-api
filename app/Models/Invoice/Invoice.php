@@ -158,6 +158,37 @@ class Invoice extends Model
     ];
 
     /**
+     * Names shown for a type where the stored value is not the name: the
+     * partner's fee per client is stored as borrower_fee but named "Client
+     * Activation Fee", as on Plan & Fee (BUG-194). Any other type is shown as
+     * its stored value in words.
+     */
+    const INVOICE_TYPE_LABELS = [
+        self::INVOICE_TYPE_BORROWER_FEE => 'Client Activation Fee',
+    ];
+
+    /**
+     * The name an invoice type is shown by ("borrower_fee" -> "Client Activation Fee",
+     * "user_seat" -> "User Seat"); empty for an untyped (older) invoice.
+     */
+    public static function typeLabel(?string $type): string
+    {
+        if ($type === null || $type === '') {
+            return '';
+        }
+
+        return self::INVOICE_TYPE_LABELS[$type] ?? ucwords(str_replace('_', ' ', $type));
+    }
+
+    /**
+     * The name this invoice's type is shown by.
+     */
+    public function typeName(): string
+    {
+        return self::typeLabel($this->type);
+    }
+
+    /**
      * Whether this invoice bills for its subscription's plan.
      */
     public function billsSubscriptionPlan(): bool
