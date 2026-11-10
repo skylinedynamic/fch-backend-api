@@ -24,9 +24,15 @@ class Appointment extends Model
         'entity_type',
         'entity_id',
         'appointment_code',
+        'source',
         'microsoft_event_id',
+        'calendly_event_uri',
+        'calendly_invitee_uri',
+        'calendly_event_type_uri',
         'scheduled_by',
         'assigned_for',
+        'invitee_name',
+        'invitee_email',
         'subject',
         'description',
         'appointment_date',
@@ -35,8 +41,17 @@ class Appointment extends Model
         'status',
         'meeting_type',
         'location',
+        'join_url',
+        'cancel_url',
+        'reschedule_url',
         'remarks',
     ];
+
+    /** Booked in FCH. */
+    public const SOURCE_FCH = 'fch';
+
+    /** A meeting on the company Calendly account, mirrored here. */
+    public const SOURCE_CALENDLY = 'calendly';
 
     /**
      * Polymorphic relation to the associated entity model.
@@ -90,6 +105,12 @@ class Appointment extends Model
     public function details()
     {
         return $this->hasMany(AppointmentDetail::class, 'appointment_id');
+    }
+
+    /** A mirror of a Calendly meeting: its time is Calendly's, and cancelling it cancels it there. */
+    public function isFromCalendly(): bool
+    {
+        return !empty($this->calendly_event_uri);
     }
 
     /** Still ahead, and not already cancelled or completed (R2 BUG-046). */

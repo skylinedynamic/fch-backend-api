@@ -126,6 +126,15 @@ Schedule::command('task:reminder-check')
     ->withoutOverlapping(5)
     ->onFailure($onFailure('task:reminder-check'));
 
+// Catch-up for the company Calendly account: webhooks bring meetings in as they
+// are booked; this picks up any delivery that was lost. Hourly keeps it well
+// inside the Free plan's API rate limit.
+Schedule::command('calendly:sync')
+    ->hourlyAt(15)
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('calendly:sync'));
+
 /*
 |--------------------------------------------------------------------------
 | Scheduler Health Heartbeat

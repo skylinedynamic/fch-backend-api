@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Appointment\CheckAvailabilityRequest;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Models\Appointment\Appointment;
 use App\Services\FCH\Common\Appointment\AppointmentService;
+use App\Services\Global\Calendly\CalendlyException;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -69,7 +70,13 @@ class AppointmentController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
         $appointment = $this->ownAppointment()->findOrFail($id);
-        $this->appointmentService->delete($appointment);
+
+        try {
+            $this->appointmentService->delete($appointment);
+        } catch (CalendlyException $e) {
+            return ApiResponse::error($e->getMessage(), $e->httpStatus());
+        }
+
         return ApiResponse::success(null, __('appointment.deleted'));
     }
 
@@ -86,7 +93,12 @@ class AppointmentController extends Controller
             return ApiResponse::error(__('appointment.cannot_cancel'), 422);
         }
 
-        $cancelled = $this->appointmentService->cancel($appointment, auth()->user());
+        try {
+            $cancelled = $this->appointmentService->cancel($appointment, auth()->user());
+        } catch (CalendlyException $e) {
+            // Calendly refused, so it is not cancelled here either.
+            return ApiResponse::error($e->getMessage(), $e->httpStatus());
+        }
 
         return ApiResponse::success(new AppointmentResource($cancelled), __('appointment.cancelled'));
     }

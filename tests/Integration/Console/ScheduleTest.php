@@ -27,6 +27,8 @@ class ScheduleTest extends TestCase
         'payments:settle-card-authentications' => '*/5 * * * *',
         'funding:application-reminders' => '0 14 * * *',
         'task:reminder-check' => '*/5 * * * *',
+        // Catch-up for Calendly webhooks that did not arrive.
+        'calendly:sync' => '15 * * * *',
         'scheduler:heartbeat' => '* * * * *',
         'horizon:snapshot' => '*/5 * * * *',
         'logs:prune-months' => '0 3 * * *',

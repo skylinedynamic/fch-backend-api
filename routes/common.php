@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Calendly\CalendlyController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
@@ -152,6 +153,14 @@ Route::prefix('v1')->group(function () {
     // get-theme also runs, so the portals can paint the brand without waiting on
     // them. Returns the precomputed CSS variable map alongside the raw values.
     Route::get('common/branding', [BrandingController::class, 'show']);
+
+    // Calendly calls these, not the portals: the OAuth redirect (a browser
+    // coming back from Calendly - no API token; the one-time state proves it)
+    // and the webhook (its signature proves it).
+    Route::prefix('calendly')->group(function () {
+        Route::get('callback', [CalendlyController::class, 'callback'])->middleware('throttle:20,1');
+        Route::post('webhook', [CalendlyController::class, 'webhook'])->middleware('throttle:300,1');
+    });
 
     Route::middleware('auth:api')->group(function () {
 
@@ -381,6 +390,22 @@ Route::prefix('v1')->group(function () {
             // Cancel (not delete) - also open to the person the appointment is with (R2 BUG-046).
             Route::post('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
             Route::apiResource('appointments', AppointmentController::class);
+
+            // The company Calendly account: both portals see whether it is on
+            // and book into it; only the host's team connects, syncs or
+            // disconnects it.
+            Route::prefix('calendly')->group(function () {
+                Route::get('status', [CalendlyController::class, 'status']);
+                Route::get('event-types', [CalendlyController::class, 'eventTypes']);
+                Route::post('available-times', [CalendlyController::class, 'availableTimes']);
+                Route::post('book', [CalendlyController::class, 'book'])->middleware('throttle:20,1');
+
+                Route::middleware('host-partner')->group(function () {
+                    Route::get('connect-url', [CalendlyController::class, 'connectUrl']);
+                    Route::post('sync', [CalendlyController::class, 'sync'])->middleware('throttle:6,1');
+                    Route::delete('connection', [CalendlyController::class, 'disconnect']);
+                });
+            });
 
             // Contact routes
             Route::post('contacts/fetch-contacts', [ContactController::class, 'fetchContacts']);

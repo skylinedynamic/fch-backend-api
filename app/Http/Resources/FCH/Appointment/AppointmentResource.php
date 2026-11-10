@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Support\Appointment\AppointmentTime;
 
+use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
@@ -54,6 +55,15 @@ class AppointmentResource extends JsonResource
                 })($this->assignedFor),
             ] : null,
             'microsoft_event_id' => $this->microsoft_event_id,
+            // A Calendly meeting: its time is changed with reschedule_url, and
+            // invitee_* name who booked when they are not an FCH user.
+            'source' => $this->source ?? Appointment::SOURCE_FCH,
+            'is_calendly' => $this->resource->isFromCalendly(),
+            'join_url' => $this->join_url,
+            'cancel_url' => $this->cancel_url,
+            'reschedule_url' => $this->reschedule_url,
+            'invitee_name' => $this->invitee_name,
+            'invitee_email' => $this->invitee_email,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
