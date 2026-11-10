@@ -53,6 +53,8 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'google_measurement_id' => ['nullable', 'string', 'max:255'],
             'recaptcha_site_key' => ['nullable', 'string', 'max:255'],
             'recaptcha_secret_key' => ['nullable', 'string', 'max:255'],
+            // A blank secret means "keep"; this deletes the saved one.
+            'remove_recaptcha_secret_key' => ['sometimes', 'boolean'],
         ];
     }
 

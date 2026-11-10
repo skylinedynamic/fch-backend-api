@@ -40,17 +40,31 @@ class ReCaptcha implements ValidationRule
     }
 
     /**
+     * Whether reCAPTCHA is set up: Site Settings holds both the secret and the
+     * site key. With only one it is off - the website makes a token only with
+     * the site key, and only the secret can check it, so demanding a token from
+     * a half-filled Site Settings would turn every lead away.
+     */
+    public static function isConfigured(): bool
+    {
+        $siteKey = AppConfiguration::platform('recaptcha_site_key', AppConfiguration::MODULE_WEBSITE);
+
+        return self::secret() !== null && !empty($siteKey);
+    }
+
+    /**
      * Run the validation rule.
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         $secretKey = self::secret();
 
+        if ($this->skipWhenUnconfigured && !self::isConfigured()) {
+            Log::warning('reCAPTCHA not checked: Site Settings does not hold both the site key and the secret.');
+            return;
+        }
+
         if (empty($secretKey)) {
-            if ($this->skipWhenUnconfigured) {
-                Log::warning('reCAPTCHA not checked: no secret is set in Site Settings.');
-                return;
-            }
 
             $fail(__('auth.recaptcha_secret_not_configured'));
             return;

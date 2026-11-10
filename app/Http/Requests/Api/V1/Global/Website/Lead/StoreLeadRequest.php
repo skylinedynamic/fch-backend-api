@@ -35,9 +35,9 @@ class StoreLeadRequest extends BaseApiRequest
             // lead type. Optional: the home page form does not ask it.
             'interest' => ['nullable', 'string', Rule::in(Lead::WEBSITE_INTERESTS)],
             // The contact page runs reCAPTCHA v3 as "contact_form" (findings D5/O29).
-            // Required once a secret is configured; until then leads keep coming in.
+            // Required once Site Settings holds both keys; until then leads keep coming in.
             'recaptcha_token' => [
-                Rule::requiredIf(fn () => ReCaptcha::secret() !== null),
+                Rule::requiredIf(fn () => ReCaptcha::isConfigured()),
                 'nullable',
                 'string',
                 new ReCaptcha('contact_form', skipWhenUnconfigured: true),
