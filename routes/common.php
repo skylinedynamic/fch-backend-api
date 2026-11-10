@@ -58,6 +58,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
+use App\Http\Controllers\Api\V1\Global\General\FundingSequenceOptionController;
+use App\Http\Controllers\Api\V1\Global\General\LenderProductCategoryController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
@@ -138,6 +140,12 @@ Route::prefix('v1')->group(function () {
     // Location routes
     Route::get('common/locations', [LocationController::class, 'index']);
 
+    // Funding types - the one list every funding type field uses (Preferred /
+    // Additional Funding Types in every portal's wizard; the embed form reads
+    // the same service): the Active lender product categories. Public
+    // reference data, like locations.
+    Route::get('common/funding-types', [LenderProductCategoryController::class, 'index']);
+
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
 
     // Branding only — skips the email-config and payment-provider queries that
@@ -156,6 +164,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/status', [V1TwoFaController::class, 'status']);
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
+
+        // Funding sequences offered for a funding type - the Funding Sequence
+        // dropdown on the funding application's Funding Request step. Outside
+        // the partner-portal group: the borrower wizard shows it too.
+        Route::get('common/funding-sequences', [FundingSequenceOptionController::class, 'index']);
         // Partner portal API; borrowers only reach the routes the borrower
         // portal calls - see RejectBorrowersFromPartnerPortal.
         Route::prefix('common')->middleware('partner-portal')->group(function () {
@@ -270,8 +283,7 @@ Route::prefix('v1')->group(function () {
             //Request Application
             Route::prefix('request-application')->group(function () {
                 Route::post('pre-qualification', [RequestApplicationController::class, 'getPreQualification']);
-                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
-                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
+                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
                 Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
                 Route::post('pre-qualification/{id}/run-ai', [RequestApplicationController::class, 'runAiPreQualification']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
@@ -574,6 +586,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
                 Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
                 Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
+                Route::get('/required/{userId}', [AgreementSignController::class, 'requirement'])->whereNumber('userId');
+                Route::post('/required/{userId}', [AgreementSignController::class, 'setRequired'])->whereNumber('userId');
             });
 
             // 📚 Resources

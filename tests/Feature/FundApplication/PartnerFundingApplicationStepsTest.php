@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
+use Tests\Support\CreatesFundingTypes;
 use Tests\TestCase;
 
 /**
@@ -36,6 +38,7 @@ use Tests\TestCase;
 class PartnerFundingApplicationStepsTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesFundingTypes;
     use InteractsWithPortalUsers;
 
     private Partner $host;
@@ -50,6 +53,7 @@ class PartnerFundingApplicationStepsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->createFundingTypes();
 
         Storage::fake('public');
         $this->host = $this->makeHostPartner();
@@ -431,5 +435,56 @@ class PartnerFundingApplicationStepsTest extends TestCase
 
         $this->assertDatabaseHas('funding_application_documents', ['id' => $documentId]);
         $this->assertSame(1, DB::table('funding_application_documents')->where('funding_application_id', $this->theirApplicationId)->count());
+    }
+
+    /**
+     * Defect: on the admin/partner wizard the owner's date of birth was only
+     * `date`, and a co-borrower saved with the step was not checked at all.
+     */
+    #[Test]
+    public function on_the_partner_wizard_the_owner_and_each_co_borrower_must_be_at_least_the_minimum_age(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $underAge = DateOfBirth::latestAllowedDate()->addDay()->toDateString();
+        $turning18 = DateOfBirth::latestAllowedDate()->toDateString();
+        $minimumAge = __('common.date_of_birth_minimum_age', ['age' => 18]);
+        $step = fn (string $dob, string $coDob) => array_merge(self::steps()['ownership'][1], [
+            'id' => $this->myApplicationId,
+            'funding_request_id' => $this->myRequestId,
+            'ownership' => 60,
+            'date_of_birth' => $dob,
+            'has_co_borrower' => true,
+            'co_borrowers' => [['first_name' => 'Co', 'last_name' => 'Owner', 'ownership' => 40, 'date_of_birth' => $coDob]],
+        ]);
+
+        $this->postJson($this->url('ownership-info'), $step($underAge, $underAge))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth' => $minimumAge, 'co_borrowers.0.date_of_birth' => $minimumAge]);
+
+        $this->postJson($this->url('ownership-info'), $step(now()->addYear()->toDateString(), '2000-02-30'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'date_of_birth' => __('common.date_of_birth_future'),
+                'co_borrowers.0.date_of_birth' => __('common.date_of_birth_invalid'),
+            ]);
+
+        $this->postJson($this->url('ownership-info'), $step($turning18, $turning18))->assertOk();
+        $this->assertSame($turning18, toDateOnly(FundingApplicationCoBorrower::where('funding_application_id', $this->myApplicationId)->firstOrFail()->date_of_birth));
+    }
+
+    #[Test]
+    public function the_partner_co_borrower_check_refuses_an_under_age_co_borrower(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('co-borrower-validation'), [
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->addDay()->toDateString(),
+        ])->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+        ]);
+
+        $this->postJson($this->url('co-borrower-validation'), [
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->toDateString(),
+        ])->assertJsonMissingValidationErrors(['date_of_birth']);
     }
 }

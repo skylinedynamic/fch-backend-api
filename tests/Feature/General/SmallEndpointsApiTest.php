@@ -16,6 +16,7 @@ use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\CreatesFundingTypes;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -37,6 +38,7 @@ class SmallEndpointsApiTest extends TestCase
 {
     use RefreshDatabase;
     use InteractsWithPortalUsers;
+    use CreatesFundingTypes;
 
     private Partner $partner;
 
@@ -121,11 +123,13 @@ class SmallEndpointsApiTest extends TestCase
     {
         $this->actingAsUser($this->makeBorrowerUser($this->partner));
         $band = array_key_first(config('prequalification_aue.personal_credit_bands', []));
+        // The purpose is a lender product category (request 2026-11-05).
+        $this->createFundingTypes(['Working Capital']);
 
         $this->postJson('/api/v1/borrower/pre-qualification/funding-info', [
             'funding_requested_amount' => 50000,
             'funding_urgency' => 'Within 30 days',
-            'purpose_of_funding' => 'Working capital',
+            'purpose_of_funding' => 'Working Capital',
             'personal_credit_score' => $band,
             'estimated_business_credit_score' => '50-79',
             'existing_business_debt' => false,

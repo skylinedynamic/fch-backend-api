@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\OwnershipWithinTotal;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 
 class CoBorrowerValidationRequest extends BaseApiRequest
@@ -51,7 +52,7 @@ class CoBorrowerValidationRequest extends BaseApiRequest
             'email' => 'required|email|max:255',
             'mobile_phone' => ['required', 'string', new UsPhoneNumber()],
             'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
-            'date_of_birth' => 'required|date',
+            'date_of_birth' => ['required', new DateOfBirth()],
             'ssn' => ['required', new Ssn()],
             'street_address' => 'required|string|max:255',
             'country' => 'required|string|max:255',

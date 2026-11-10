@@ -251,7 +251,10 @@ class EmbedFormSubmissionsApiTest extends TestCase
     {
         $this->actingAsUser($this->partnerAdmin);
 
-        $this->getJson('/api/v1/common/embed-forms/config')->assertSuccessful();
+        $this->getJson('/api/v1/common/embed-forms/config')
+            ->assertSuccessful()
+            // The settings screen builds the auto-height embed code with it.
+            ->assertJsonPath('data.embed_script_url', fn ($url) => is_string($url) && str_ends_with($url, '/form/assets/embed.js'));
     }
 
     #[Test]

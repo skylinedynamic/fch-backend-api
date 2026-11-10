@@ -85,6 +85,76 @@ class ConvertLeadEmailTakenTest extends TestCase
     }
 
     #[Test]
+    public function the_neutral_refusal_is_a_validation_response_not_a_server_error(): void
+    {
+        $this->convert($this->leadOf($this->host), $this->host)->assertOk();
+
+        $this->convert($this->leadOf($this->wanda), $this->wanda)->assertUnprocessable();
+    }
+
+    private function seenBy(Partner $partner, Lead $lead): mixed
+    {
+        $this->actingAsUser($this->makePartnerAdmin($partner));
+
+        return $this->getJson("/api/v1/common/leads/{$lead->id}")->assertOk()->json('data.convert_email_already');
+    }
+
+    #[Test]
+    public function the_lead_does_not_show_that_the_email_is_another_partners_client(): void
+    {
+        // Retest 08-Nov-26: Wanda's lead showed "Already a Borrower" and hid
+        // Convert, because convert_email_already looked at every partner's
+        // clients - the host's client leaked through it.
+        $this->convert($this->leadOf($this->host), $this->host)->assertOk();
+        $wandaLead = $this->leadOf($this->wanda);
+
+        $this->assertFalse($this->seenBy($this->wanda, $wandaLead));
+    }
+
+    #[Test]
+    public function the_lead_list_does_not_show_it_either(): void
+    {
+        $this->convert($this->leadOf($this->host), $this->host)->assertOk();
+        $wandaLead = $this->leadOf($this->wanda);
+        $this->actingAsUser($this->makePartnerAdmin($this->wanda));
+
+        foreach ([$this->getJson('/api/v1/common/leads'), $this->postJson('/api/v1/common/leads/fetch-leads')] as $list) {
+            $row = collect($list->assertOk()->json('data'))->firstWhere('id', $wandaLead->id);
+
+            $this->assertNotNull($row, 'Wanda\'s lead is in her list');
+            $this->assertFalse($row['convert_email_already']);
+        }
+    }
+
+    #[Test]
+    public function the_lead_still_shows_the_partners_own_client(): void
+    {
+        $this->convert($this->leadOf($this->wanda), $this->wanda)->assertOk();
+        $second = $this->leadOf($this->wanda);
+
+        $this->assertSame('Borrower', $this->seenBy($this->wanda, $second));
+    }
+
+    #[Test]
+    public function a_partners_lead_does_not_show_that_the_email_is_a_partner_on_the_platform(): void
+    {
+        // Partners are the host's own book; another partner may not learn of them.
+        $this->makeCertifiedPartner(['email' => self::EMAIL]);
+        $wandaLead = $this->leadOf($this->wanda);
+
+        $this->assertFalse($this->seenBy($this->wanda, $wandaLead));
+    }
+
+    #[Test]
+    public function the_hosts_lead_still_shows_an_existing_partner(): void
+    {
+        $this->makeCertifiedPartner(['email' => self::EMAIL]);
+        $hostLead = $this->leadOf($this->host);
+
+        $this->assertSame('Partner', $this->seenBy($this->host, $hostLead));
+    }
+
+    #[Test]
     public function the_partners_own_client_is_named_as_theirs(): void
     {
         $first = $this->leadOf($this->wanda);

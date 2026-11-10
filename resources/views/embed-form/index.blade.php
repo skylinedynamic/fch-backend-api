@@ -759,20 +759,24 @@
             outline: none !important;
         }
 
-        /* Stepper styles with clean underlying track to prevent line bleed */
+        /* Stepper: every step has one width (--stepper-node), so the line can run
+           exactly from the first step's centre to the last one's. A fixed
+           10%-90% left a gap after step 1 and before step 8 on a wide form. */
         .stepper-wrapper {
+            --stepper-pad: 10px;
+            --stepper-node: 72px;
             display: flex;
             justify-content: space-between;
             position: relative;
             margin-bottom: 28px;
-            padding: 0 10px;
+            padding: 0 var(--stepper-pad);
         }
 
         .stepper-track {
             position: absolute;
             top: 18px;
-            left: 10%;
-            right: 10%;
+            left: calc(var(--stepper-pad) + var(--stepper-node) / 2);
+            right: calc(var(--stepper-pad) + var(--stepper-node) / 2);
             height: 2px;
             background: #e2e8f0;
             z-index: 1;
@@ -789,6 +793,7 @@
             position: relative;
             z-index: 3;
             display: flex;
+            flex: 0 0 var(--stepper-node);
             flex-direction: column;
             align-items: center;
             text-align: center;
@@ -896,6 +901,15 @@
 
         .tab-step.active {
             display: block;
+        }
+
+        /* Bootstrap's .badge never wraps, and an ID has no spaces to wrap at, so on
+           a phone the Reference ID ran past the form and was clipped. */
+        #successRefBadge {
+            white-space: normal;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            line-height: 1.4;
         }
 
         .honeypot {
@@ -1061,16 +1075,99 @@
             .step-name {
                 display: none !important;
             }
+
+            /* Counters only: each step is just its counter wide. */
+            .stepper-wrapper {
+                --stepper-node: 36px;
+            }
+        }
+
+        /* A phone: eight 36px counters do not fit, so they are 30px. */
+        @media (max-width: 575.98px) {
+            .stepper-wrapper {
+                --stepper-node: 30px;
+                --stepper-pad: 0px;
+            }
+
+            .step-counter {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+
+            .stepper-track {
+                top: 15px;
+            }
+        }
+
+        /* Display options from the embed code's link (EmbedFormDisplay):
+           the page background, and the form card's frame. */
+        body.form-bg-white {
+            background: #ffffff;
+        }
+
+        body.form-bg-transparent {
+            background: transparent;
+        }
+
+        /* A colour code from the link (bg=rrggbb), checked by EmbedFormDisplay. */
+        body.form-bg-custom {
+            background: var(--form-bg);
+        }
+
+        /* Frameless: no outer card, so the form sits flush on the page around
+           the iframe. 4px of room keeps the focus rings of the outermost
+           fields inside the iframe. */
+        body.is-frameless {
+            min-height: 0;
+            padding-bottom: 0;
+        }
+
+        body.is-frameless > .container {
+            max-width: none !important;
+            padding: 4px !important;
+        }
+
+        body.is-frameless .embed-main-card {
+            border: 0;
+            box-shadow: none;
+            background: transparent;
+            padding: 0 !important;
+        }
+
+        /* An option's badge in a select2 list - the preferred funding type in
+           Additional Funding Types, listed but not selectable: "Selected as Preferred". */
+        .select2-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .select2-option__badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            line-height: 1.4;
+            color: var(--brand-primary);
+            background: rgba(var(--bs-primary-rgb), 0.12);
+            border: 1px solid rgba(var(--bs-primary-rgb), 0.25);
+        }
+
+        .select2-results__option--disabled {
+            cursor: not-allowed;
         }
     </style>
 </head>
 
-<body>
+<body class="{{ implode(' ', $display->bodyClasses()) }}"@if($display->backgroundColor()) style="--form-bg: {{ $display->backgroundColor() }}"@endif>
 
     <div class="container py-4" style="max-width: 860px;">
 
-        {{-- Header with Partner Branding --}}
-        <div class="card card-custom mb-3 text-center p-4">
+        {{-- Header with Partner Branding; off when the framing page shows its own --}}
+        @if($display->showHeader())
+        <div class="card card-custom mb-3 text-center p-4" id="embedBrandHeader">
             <div class="d-flex justify-content-center align-items-center mb-3">
                 @if(!empty($logoUrl))
                     <img src="{{ $logoUrl }}" alt="{{ $partnerName }} Logo" class="brand-logo-img">
@@ -1087,9 +1184,10 @@
                         class="bi bi-shield-check text-success me-1"></i>Secure Application</span>
             </p>
         </div>
+        @endif
 
         {{-- Main Form Card --}}
-        <div class="card card-custom p-4 p-md-5">
+        <div class="card card-custom embed-main-card p-4 p-md-5">
 
             {{-- Stepper Progress, one node per funding application step --}}
             <div class="stepper-wrapper mb-4">
@@ -1126,26 +1224,27 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Contact Full Name <span
+                            <label class="form-label fw-semibold small mb-1" for="full_name">Business Contact Full Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="full_name" id="full_name" data-req
                                 placeholder="e.g. John Doe">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Legal Business Name <span
+                            <label class="form-label fw-semibold small mb-1" for="business_name">Legal Business Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_name" id="business_name" data-req
                                 placeholder="e.g. Acme Holdings LLC">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Email <span
+                            <label class="form-label fw-semibold small mb-1" for="business_email">Business Email <span
                                     class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="business_email" id="business_email" data-req
                                 data-type="email" placeholder="accounts@acme.com">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Phone <span
+                            <label class="form-label fw-semibold small mb-1" for="business_phone_no">Business Phone <span
                                     class="text-danger">*</span></label>
+                            <label class="visually-hidden" for="business_country_select">Business phone country</label>
                             <div class="input-group">
                                 <select class="form-select select2 flex-grow-0" id="business_country_select"
                                     style="width: 132px;" data-req>
@@ -1160,13 +1259,13 @@
                             <input type="hidden" name="business_country_code" id="business_country_code">
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Business Street Address <span
+                            <label class="form-label fw-semibold small mb-1" for="business_address">Business Street Address <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_address" id="business_address"
                                 data-req placeholder="123 Commerce Way, Suite 200">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">State <span
+                            <label class="form-label fw-semibold small mb-1" for="business_state">State <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="business_state" id="business_state" data-req
                                 data-placeholder="Select state...">
@@ -1174,7 +1273,7 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">City <span
+                            <label class="form-label fw-semibold small mb-1" for="business_city_select">City <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="business_city_select" id="business_city_select"
                                 data-req data-placeholder="Select city...">
@@ -1185,19 +1284,19 @@
                             <input type="hidden" name="business_city" id="business_city">
                         </div>
                         <div class="col-md-4" id="businessOtherCityWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Other City <span
+                            <label class="form-label fw-semibold small mb-1" for="business_other_city">Other City <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="business_other_city" placeholder="Enter city">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small mb-1">Postal Code <span
+                            <label class="form-label fw-semibold small mb-1" for="business_postal_code">Postal Code <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_postal_code"
                                 id="business_postal_code" data-req data-type="postal" inputmode="numeric"
                                 maxlength="{{ $postalCodeLength }}" placeholder="10001">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Industry Type <span
+                            <label class="form-label fw-semibold small mb-1" for="industry_type">Industry Type <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="industry_type" id="industry_type" data-req
                                 data-placeholder="Select industry...">
@@ -1207,8 +1306,20 @@
                                 @endforeach
                             </select>
                         </div>
+                        {{-- What "Other" is, as the borrower profile asks it - beside
+                        its own select, so each type and its details share a row. --}}
+                        <div class="col-md-6" id="industryTypeNoteWrap" style="display: none;">
+                            <label class="form-label fw-semibold small mb-1" for="industry_type_note">Industry Type
+                                Details <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="industry_type_note" id="industry_type_note"
+                                maxlength="255" placeholder="Enter industry type details">
+                        </div>
+                        {{-- Holds the row when only Entity Type is "Other", so Entity Type
+                        starts the next row with its details beside it. --}}
+                        <div class="col-md-6 d-none d-md-block" id="typeNoteSpacer" style="display: none !important;"
+                            aria-hidden="true"></div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Entity Type <span
+                            <label class="form-label fw-semibold small mb-1" for="entity_type">Entity Type <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="entity_type" id="entity_type" data-req
                                 data-placeholder="Select entity type...">
@@ -1218,16 +1329,22 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="col-md-6" id="entityTypeNoteWrap" style="display: none;">
+                            <label class="form-label fw-semibold small mb-1" for="entity_type_note">Entity Type
+                                Details <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="entity_type_note" id="entity_type_note"
+                                maxlength="255" placeholder="Enter entity type details">
+                        </div>
                         {{-- Years in business is not asked: it is worked out from the
                         Business Start Date on the financial step. --}}
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business EIN</label>
+                            <label class="form-label fw-semibold small mb-1" for="business_ein">Business EIN</label>
                             <input type="text" class="form-control" name="business_ein" id="business_ein"
                                 data-type="ein" inputmode="numeric" maxlength="10" placeholder="XX-XXXXXXX"
                                 autocomplete="off">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Number of Employees</label>
+                            <label class="form-label fw-semibold small mb-1" for="number_of_employees">Number of Employees</label>
                             <input type="number" class="form-control" name="number_of_employees"
                                 id="number_of_employees" min="0" placeholder="e.g. 12">
                         </div>
@@ -1242,38 +1359,38 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">First Name <span
+                            <label class="form-label fw-semibold small mb-1" for="first_name">First Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="first_name" id="first_name" data-req
                                 placeholder="e.g. John">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Last Name <span
+                            <label class="form-label fw-semibold small mb-1" for="last_name">Last Name <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="last_name" id="last_name" data-req
                                 placeholder="e.g. Doe">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Email Address <span
+                            <label class="form-label fw-semibold small mb-1" for="email">Email Address <span
                                     class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="email" id="email" data-req data-type="email"
                                 placeholder="john@example.com">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Mobile Phone <span
+                            <label class="form-label fw-semibold small mb-1" for="phone">Mobile Phone <span
                                     class="text-danger">*</span></label>
                             <input type="tel" class="form-control" name="phone" id="phone" data-req data-type="phone"
                                 placeholder="(555) 000-0000">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Date of Birth <span
+                            <label class="form-label fw-semibold small mb-1" for="date_of_birth">Date of Birth <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="date_of_birth" id="date_of_birth" data-req
                                 data-datepicker="dob" placeholder="Select date of birth" autocomplete="off">
                             <div class="form-text fs-12 text-muted">Applicants must be at least {{ $minimumAge }}.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Social Security Number <span
+                            <label class="form-label fw-semibold small mb-1" for="ssn">Social Security Number <span
                                     class="text-danger">*</span></label>
                             {{-- The portals' SSN field: masked ***-**-1234 at rest, dots while
                                  typed, the digits on the eye button. The number itself travels
@@ -1286,7 +1403,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Citizenship Status <span
+                            <label class="form-label fw-semibold small mb-1" for="citizenship_status">Citizenship Status <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="citizenship_status" id="citizenship_status"
                                 data-req data-placeholder="Select status...">
@@ -1297,7 +1414,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Ownership Percentage <span
+                            <label class="form-label fw-semibold small mb-1" for="ownership">Ownership Percentage <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <input type="number" class="form-control" name="ownership" id="ownership" data-req
@@ -1306,13 +1423,13 @@
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Home Street Address <span
+                            <label class="form-label fw-semibold small mb-1" for="street_address">Home Street Address <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="street_address" id="street_address" data-req
                                 placeholder="123 Main Street, Apt 4B">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">Country <span
+                            <label class="form-label fw-semibold small mb-1" for="country">Country <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="country" id="country" data-req
                                 data-placeholder="Select country...">
@@ -1320,7 +1437,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">State <span
+                            <label class="form-label fw-semibold small mb-1" for="state">State <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="state" id="state" data-req
                                 data-placeholder="Select state...">
@@ -1328,7 +1445,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">City <span
+                            <label class="form-label fw-semibold small mb-1" for="city_select">City <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="city_select" id="city_select" data-req
                                 data-placeholder="Select city...">
@@ -1337,12 +1454,12 @@
                             <input type="hidden" name="city" id="city">
                         </div>
                         <div class="col-12" id="ownerOtherCityWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Other City <span
+                            <label class="form-label fw-semibold small mb-1" for="other_city">Other City <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="other_city" placeholder="Enter city">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small mb-1">ZIP Code <span
+                            <label class="form-label fw-semibold small mb-1" for="zip_code">ZIP Code <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="zip_code" id="zip_code" data-req data-type="postal"
                                 inputmode="numeric" maxlength="{{ $postalCodeLength }}" placeholder="10001">
@@ -1375,7 +1492,7 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Average Monthly Revenue <span
+                            <label class="form-label fw-semibold small mb-1" for="monthly_revenue">Average Monthly Revenue <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">$</span>
@@ -1384,7 +1501,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Annual Revenue</label>
+                            <label class="form-label fw-semibold small mb-1" for="annual_revenue">Annual Revenue</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">$</span>
                                 <input type="number" class="form-control" name="annual_revenue" id="annual_revenue"
@@ -1392,20 +1509,20 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Bank Name</label>
+                            <label class="form-label fw-semibold small mb-1" for="business_bank_name">Business Bank Name</label>
                             <input type="text" class="form-control" name="business_bank_name" id="business_bank_name"
                                 placeholder="e.g. Chase">
                         </div>
                         <div class="col-md-6">
                             {{-- Stored in business_checking_start_date. --}}
-                            <label class="form-label fw-semibold small mb-1">Business Start Date <span
+                            <label class="form-label fw-semibold small mb-1" for="business_checking_start_date">Business Start Date <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="business_checking_start_date"
                                 id="business_checking_start_date" data-req data-datepicker="past"
                                 placeholder="Select business start date" autocomplete="off">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">
+                            <label class="form-label fw-semibold small mb-1" for="credit_score">
                                 Estimated Credit Score
                                 <span class="badge bg-light text-secondary border ms-1"
                                     style="font-weight: 500;">Self-reported</span>
@@ -1418,7 +1535,7 @@
                             <div class="form-text fs-12" id="creditScoreBandHint"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Business Credit Score</label>
+                            <label class="form-label fw-semibold small mb-1" for="self_reported_business_credit_score">Business Credit Score</label>
                             <select class="form-select select2" name="self_reported_business_credit_score"
                                 id="self_reported_business_credit_score" data-placeholder="Select range...">
                                 <option value=""></option>
@@ -1429,9 +1546,10 @@
                         </div>
                         <div class="col-12">
                             <div class="compliance-row">
-                                <p class="fw-semibold">Do you have existing business debt? <span
+                                <p class="fw-semibold" id="question-has_business_debt">Do you have existing business debt? <span
                                         class="text-danger">*</span></p>
-                                <div class="answer-group" data-req-group="has_business_debt">
+                                <div class="answer-group" data-req-group="has_business_debt" role="radiogroup"
+                                    aria-labelledby="question-has_business_debt" aria-required="true">
                                     <label class="answer-option">
                                         <input type="radio" name="has_business_debt" value="1"
                                             onchange="toggleDebtBalance(true)">
@@ -1446,7 +1564,7 @@
                             </div>
                         </div>
                         <div class="col-md-6" id="debtBalanceWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Outstanding Debt Balance <span
+                            <label class="form-label fw-semibold small mb-1" for="debt_balance">Outstanding Debt Balance <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">$</span>
@@ -1465,7 +1583,7 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Requested Amount <span
+                            <label class="form-label fw-semibold small mb-1" for="requested_amount">Requested Amount <span
                                     class="text-danger">*</span></label>
                             <div class="input-group">
                                 <select class="form-select flex-grow-0" name="currency" id="currency"
@@ -1480,29 +1598,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Preferred Funding Type <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select select2" name="preferred_funding_type"
-                                id="preferred_funding_type" data-req data-placeholder="Select funding type...">
-                                <option value=""></option>
-                                @foreach($options['funding_types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold small mb-1">Additional Funding Types</label>
-                            {{-- Every funding type except the preferred one, which the
-                            script takes out whenever the preferred type changes. --}}
-                            <select class="form-select select2" name="additional_funding_types[]"
-                                id="additional_funding_types" multiple data-placeholder="Select any others...">
-                                @foreach($options['funding_types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Purpose of Funds <span
+                            <label class="form-label fw-semibold small mb-1" for="purpose_of_funds">Purpose of Funds <span
                                     class="text-danger">*</span></label>
                             <select class="form-select select2" name="purpose_of_funds" id="purpose_of_funds" data-req
                                 data-placeholder="Select purpose...">
@@ -1513,7 +1609,18 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Timeframe Needed</label>
+                            <label class="form-label fw-semibold small mb-1" for="preferred_funding_type">Preferred Funding Type <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select select2" name="preferred_funding_type"
+                                id="preferred_funding_type" data-req data-placeholder="Select funding type...">
+                                <option value=""></option>
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small mb-1" for="timeframe_needed">Timeframe Needed</label>
                             <select class="form-select select2" name="timeframe_needed" id="timeframe_needed"
                                 data-placeholder="Select timeframe...">
                                 <option value=""></option>
@@ -1523,13 +1630,24 @@
                             </select>
                         </div>
                         <div class="col-12" id="purposeNoteWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Tell us more about the purpose <span
+                            <label class="form-label fw-semibold small mb-1" for="purpose_note">Tell us more about the purpose <span
                                     class="text-danger">*</span></label>
                             <textarea class="form-control" name="purpose_note" id="purpose_note" rows="2"
                                 maxlength="500" placeholder="Describe what the funds will be used for"></textarea>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small mb-1" for="additional_funding_types">Additional Funding Types</label>
+                            {{-- The same list as Preferred; the script marks the preferred
+                            type "Selected as Preferred" (disabled) - see refreshAdditionalFundingTypes. --}}
+                            <select class="form-select select2" name="additional_funding_types[]"
+                                id="additional_funding_types" multiple data-placeholder="Select any others...">
+                                @foreach($options['funding_types'] as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Collateral Available</label>
+                            <label class="form-label fw-semibold small mb-1" for="collateral_available">Collateral Available</label>
                             <select class="form-select select2" name="collateral_available" id="collateral_available"
                                 data-placeholder="Select collateral...">
                                 <option value=""></option>
@@ -1555,12 +1673,12 @@
                     <div class="row g-3">
                         @foreach($docTypes as $docType)
                             <div class="col-12">
-                                <label class="form-label fw-semibold small mb-1">{{ $docType['name'] }}</label>
+                                <label class="form-label fw-semibold small mb-1" for="doc-file-{{ $docType['id'] }}">{{ $docType['name'] }}</label>
                                 <div class="upload-dropzone" id="zone-{{ $docType['id'] }}"
                                     ondragover="dragOver(event, '{{ $docType['id'] }}')"
                                     ondragleave="dragLeave('{{ $docType['id'] }}')"
                                     ondrop="dropFiles(event, '{{ $docType['id'] }}')">
-                                    <input type="file" multiple
+                                    <input type="file" id="doc-file-{{ $docType['id'] }}" multiple
                                         accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif"
                                         onchange="fileInputChanged(event, '{{ $docType['id'] }}')">
                                     <i class="bi bi-cloud-arrow-up fs-4 text-primary"></i>
@@ -1627,8 +1745,9 @@
                             'any_outstanding_judgments_owner' => 'Are there outstanding judgments or liens against any owner?',
                         ] as $field => $question)
                         <div class="compliance-row">
-                            <p>{{ $question }} <span class="text-danger">*</span></p>
-                            <div class="answer-group" data-req-group="{{ $field }}">
+                            <p id="question-{{ $field }}">{{ $question }} <span class="text-danger">*</span></p>
+                            <div class="answer-group" data-req-group="{{ $field }}" role="radiogroup"
+                                aria-labelledby="question-{{ $field }}" aria-required="true">
                                 <label class="answer-option">
                                     <input type="radio" name="{{ $field }}" value="1"
                                         onchange="syncComplianceExplanation()">
@@ -1647,7 +1766,7 @@
                     @endforeach
 
                     <div class="mt-3" id="complianceExplanationWrap" style="display: none;">
-                        <label class="form-label fw-semibold small mb-1">
+                        <label class="form-label fw-semibold small mb-1" for="federal_compliance_disclosures_explanation">
                             Explanation <span class="text-danger">*</span>
                         </label>
                         <textarea class="form-control" name="federal_compliance_disclosures_explanation"
@@ -1670,7 +1789,7 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Sales Representative (if assigned)</label>
+                            <label class="form-label fw-semibold small mb-1" for="sales_rep_user_id">Sales Representative (if assigned)</label>
                             <select class="form-select select2" name="sales_rep_user_id" id="sales_rep_user_id"
                                 data-placeholder="Select representative...">
                                 <option value=""></option>
@@ -1680,7 +1799,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small mb-1">Referral Source</label>
+                            <label class="form-label fw-semibold small mb-1" for="referral_source">Referral Source</label>
                             <select class="form-select select2" name="referral_source" id="referral_source"
                                 data-placeholder="How did you hear about us?">
                                 <option value=""></option>
@@ -1690,7 +1809,7 @@
                             </select>
                         </div>
                         <div class="col-12" id="referralOtherWrap" style="display: none;">
-                            <label class="form-label fw-semibold small mb-1">Please tell us more <span
+                            <label class="form-label fw-semibold small mb-1" for="referral_source_other">Please tell us more <span
                                     class="text-danger">*</span></label>
                             <input type="text" class="form-control form-control-sm" name="referral_source_other"
                                 id="referral_source_other" maxlength="255" placeholder="Where did you hear about us?">
@@ -1698,7 +1817,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold small mb-1">Type your full legal name as your electronic
+                        <label class="form-label fw-semibold small mb-1" for="signature_name">Type your full legal name as your electronic
                             signature <span class="text-danger">*</span></label>
                         <input type="text" class="form-control signature-input" name="signature_name"
                             id="signature_name" data-req data-type="signature" placeholder="John A. Doe">
@@ -1787,7 +1906,8 @@
                 <h3 class="fw-bold text-dark mb-2">Application Submitted!</h3>
                 <p class="text-muted mb-4">
                     Thank you for applying with <strong>{{ $partnerName }}</strong>. Our team has received your
-                    application and will contact you shortly.
+                    application and will review it. If we need anything else or have an update, we'll contact you
+                    using the details you provided. Submitting an application does not guarantee approval or funding.
                 </p>
                 <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 mb-3"
                     id="successRefBadge">
@@ -1804,9 +1924,11 @@
         </div>
 
         {{-- Footer --}}
+        @if($display->showFooter())
         <div class="text-center mt-3 text-muted small">
             &copy; {{ date('Y') }} {{ $partnerName }}. All rights reserved.
         </div>
+        @endif
 
     </div>
 
@@ -1830,12 +1952,119 @@
         const API_BASE = '{{ $apiBase }}';
         const PUBLIC_KEY = '{{ $publicKey }}';
 
+        /* ─────────────────────── Page around the iframe ───────────────────── */
+        // When this form is shown in an iframe (the website's /apply page, a
+        // partner's site) the page around it cannot see how tall the form is,
+        // and scrolling inside an iframe sized to its content moves nothing.
+        // So the form tells that page its height and where to scroll, and that
+        // a submission was confirmed (the website counts those in analytics).
+        // Only layout numbers and that bare signal are sent - never a field
+        // value or the Reference ID - and only to the framing page's own origin,
+        // never '*'. Opened directly, nothing runs.
+        //
+        // The framing page's origin comes from the referrer or, when a browser,
+        // extension or Referrer-Policy drops it, from that page's 'hello'
+        // message (embed.js and the website send one when the iframe loads).
+        // Only a message from this window's own parent is believed.
+        let parentOrigin = (() => {
+            if (window.parent === window || !document.referrer) return null;
+            try { return new URL(document.referrer).origin; } catch (e) { return null; }
+        })();
+
+        // The page this form is framed on, kept with the submission so staff can
+        // see where an application came from. Only the framing page's own address
+        // the browser gives out; opened directly there is none. The referrer is
+        // the whole address from the same site, and only its origin from another.
+        function framingPage() {
+            if (window.parent === window) return null;
+            if (document.referrer) return document.referrer;
+            return parentOrigin && parentOrigin !== '*' ? parentOrigin : null;
+        }
+
+        function postToParent(message) {
+            if (!parentOrigin) return false;
+            window.parent.postMessage({ source: 'fch-embed-form', ...message }, parentOrigin);
+            return true;
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.source !== window.parent || window.parent === window) return;
+            const data = event.data;
+            if (!data || data.source !== 'fch-embed-form' || data.type !== 'hello') return;
+
+            // A page opened from a file (or sandboxed) has the origin 'null',
+            // which postMessage refuses as a target. It is answered with '*':
+            // no field value is ever sent, and only to this window's parent.
+            parentOrigin = event.origin === 'null' ? '*' : event.origin;
+            // Report afresh: the page may have missed the earlier reports.
+            lastHeight = 0;
+            reportHeight();
+        });
+
+        // The body has min-height: 100vh, which inside an iframe is the iframe's
+        // own height - measuring the document would never let it shrink. Measure
+        // the content instead, plus any open dropdown or calendar hanging below it.
+        function formHeight() {
+            const bottoms = [document.querySelector('body > .container')]
+                .concat([...document.querySelectorAll('.select2-container--open .select2-dropdown, .flatpickr-calendar.open')])
+                .filter(Boolean)
+                .map(el => el.getBoundingClientRect().bottom + window.scrollY);
+            return Math.ceil(Math.max(0, ...bottoms) + BOTTOM_SPACE);
+        }
+
+        // Room below the content: the page's own spacing, or almost none when the
+        // form is frameless and the page around the iframe provides it.
+        const BOTTOM_SPACE = @json($display->framed()) ? 40 : 8;
+
+        let lastHeight = 0;
+        function reportHeight() {
+            const height = formHeight();
+            if (height !== lastHeight) {
+                lastHeight = height;
+                postToParent({ type: 'resize', height });
+            }
+        }
+
+        /**
+         * Scroll to a point in the form. Framed, the page around the iframe is
+         * asked to scroll too - but this window always scrolls itself as well:
+         * with a fixed-height iframe (no embed script listening) the form scrolls
+         * inside it, and with automatic height there is nothing here to scroll.
+         */
+        function scrollFormTo(top) {
+            postToParent({ type: 'scroll', top: Math.max(0, Math.round(top)) });
+            window.scrollTo({ top, behavior: 'smooth' });
+        }
+
+        /** Bring a field into view, centred where the framing page can show it. */
+        function scrollFormToElement(el) {
+            if (!parentOrigin) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            const rect = el.getBoundingClientRect();
+            scrollFormTo(rect.top + window.scrollY - 120);
+        }
+
+        if (window.parent !== window) {
+            new ResizeObserver(reportHeight).observe(document.querySelector('body > .container'));
+            document.addEventListener('DOMContentLoaded', reportHeight);
+            window.addEventListener('load', reportHeight);
+            // Dropdowns and calendars open outside the observed layout.
+            ['click', 'keyup', 'focusin'].forEach(evt => document.addEventListener(evt, () => setTimeout(reportHeight, 50)));
+        }
+
         // Country / state / city data, and the document buckets, both rendered from
         // the same server-side source the portal's own application uses.
         const LOCATIONS = @json($locations);
         const DOC_TYPES = @json($docTypes);
         const CO_BORROWER_ROLES = @json($options['co_borrower_roles']);
         const PURPOSE_OTHER = @json($options['purpose_other']);
+        // Industry / entity type "Other" asks for its details (config/borrower.php).
+        const TYPE_NOTES = [
+            { select: 'industry_type', wrap: 'industryTypeNoteWrap', note: 'industry_type_note', other: @json(config('borrower.industry_type_other')) },
+            { select: 'entity_type', wrap: 'entityTypeNoteWrap', note: 'entity_type_note', other: @json(config('borrower.entity_type_other')) },
+        ];
         const FUNDING_TYPES = @json($options['funding_types']);
         const CURRENCIES = @json($currencies);
         const REFERRAL_OTHER = @json($referralSourceOther);
@@ -1844,7 +2073,8 @@
         const CREDIT_SCORE = @json($creditScore);
         const OTHER_CITY = 'Others';
         const POSTAL_LENGTH = @json($postalCodeLength);
-        const MIN_AGE = @json($minimumAge);
+        const LATEST_DOB = @json($latestDateOfBirth);
+        const MINIMUM_AGE_MESSAGE = @json(__('common.date_of_birth_minimum_age', ['age' => $minimumAge]));
 
         // One DataTransfer per document type id, so a file can be removed from a
         // bucket without clearing the whole input.
@@ -1862,6 +2092,7 @@
         $(document).ready(function () {
             populateCountries();
             initSelect2();
+            refreshAdditionalFundingTypes();
             initDatePickers();
 
             document.getElementById('timezone').value =
@@ -1871,7 +2102,7 @@
             // hidden and stays that way until something is switched to Yes.
             syncComplianceExplanation();
 
-            showStep(1);
+            showStep(1, false);
         });
 
         /**
@@ -2069,9 +2300,6 @@
         function initDatePickers(scope) {
             const root = scope || document;
             const today = new Date();
-            const adultCutoff = new Date(
-                today.getFullYear() - MIN_AGE, today.getMonth(), today.getDate()
-            );
 
             root.querySelectorAll('[data-datepicker]').forEach(el => {
                 if (el._flatpickr) return;
@@ -2086,10 +2314,16 @@
                     // the phone's native date input.
                     disableMobile: true,
                     plugins: [yearDropdownPlugin(1900)],
-                    maxDate: isDob ? adultCutoff : today,
-                    // A date of birth is decades back, so opening on the current
-                    // month would mean a long scroll on every single application.
+                    // Every year up to today can be picked; an under-age date of
+                    // birth gets the minimum-age message (fieldError), as the API.
+                    maxDate: today,
                     defaultDate: null,
+                    // A date of birth is decades back: an empty one opens on the
+                    // latest date that is old enough (from the server, so the
+                    // calendar and the API agree), a picked one on that date.
+                    onOpen: (selectedDates, dateStr, fp) => {
+                        if (isDob && !selectedDates.length) fp.jumpToDate(LATEST_DOB);
+                    },
                     onChange: () => validateField(el),
                     // Opening and dismissing the calendar counts as visiting it.
                     onClose: () => {
@@ -2098,6 +2332,41 @@
                         validateField(el);
                     },
                 });
+                nameDatePicker(el);
+            });
+        }
+
+        /**
+         * The box a date picker shows is a copy of the field, with no id, and the
+         * field itself is hidden. Point the label at the box a person reaches.
+         */
+        function nameDatePicker(el) {
+            const label = el.id && document.querySelector(`label[for="${el.id}"]`);
+            if (!label) return;
+
+            const shown = el._flatpickr.altInput;
+            shown.id = `${el.id}_display`;
+            label.htmlFor = shown.id;
+        }
+
+        /**
+         * select2 hides the <select> and draws its own box, named only by the
+         * current choice, so a screen reader never hears the field's label.
+         * Name that box, the multi-select's typing area and the dropdown's search
+         * by the label too. The current choice stays in the box's name.
+         */
+        function nameSelect2(select) {
+            const label = select.id && document.querySelector(`label[for="${select.id}"]`);
+            if (!label) return;
+
+            label.id = label.id || `${select.id}_label`;
+            const box = $(select).next('.select2-container').find('.select2-selection');
+            box.attr('aria-labelledby', [label.id, box.attr('aria-labelledby')].filter(Boolean).join(' '));
+            box.find('.select2-search__field').attr('aria-labelledby', label.id);
+
+            $(select).on('select2:open', () => {
+                $('.select2-container--open .select2-search--dropdown .select2-search__field')
+                    .attr('aria-labelledby', label.id);
             });
         }
 
@@ -2111,8 +2380,17 @@
                     placeholder: $(this).data('placeholder') || '',
                     allowClear: !$(this).is('[data-req]'),
                     // Several picks in a row without reopening the list.
-                    closeOnSelect: !$(this).prop('multiple')
+                    closeOnSelect: !$(this).prop('multiple'),
+                    // An option with data-badge shows it beside its text.
+                    templateResult: function (item) {
+                        const badge = item.element && item.element.dataset ? item.element.dataset.badge : '';
+                        if (!badge) return item.text;
+                        return $('<span class="select2-option">')
+                            .append($('<span>').text(item.text))
+                            .append($('<span class="select2-option__badge">').text(badge).attr('title', 'Already selected as the Preferred Funding Type'));
+                    }
                 });
+                nameSelect2(this);
             });
 
             // select2 replaces the element, so its own events drive validation -
@@ -2290,7 +2568,7 @@
 
         /* ──────────────────────────── Navigation ─────────────────────────── */
 
-        function showStep(step) {
+        function showStep(step, scroll = true) {
             document.querySelectorAll('.tab-step').forEach(tab => tab.classList.remove('active'));
             document.getElementById(`tab-${step}`)?.classList.add('active');
 
@@ -2315,7 +2593,7 @@
                 renderReviewSummary();
             }
 
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (scroll) scrollFormTo(0);
         }
 
         let stepCheckPending = false;
@@ -2421,7 +2699,7 @@
             });
 
             if (first) {
-                errorAnchor(first).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollFormToElement(errorAnchor(first));
             }
 
             if (unplaced.length || !first) {
@@ -2463,6 +2741,8 @@
             'business_other_city',
             'other_city',
             'purpose_note',
+            'industry_type_note',
+            'entity_type_note',
             'referral_source_other',
             'federal_compliance_disclosures_explanation',
         ];
@@ -2573,6 +2853,8 @@
             if (type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
                 return 'Enter a valid email address.';
             }
+            // YYYY-MM-DD strings compare in date order.
+            if (el.dataset.datepicker === 'dob' && value > LATEST_DOB) return MINIMUM_AGE_MESSAGE;
             if (type === 'ssn' && value.replace(/\D/g, '').length !== 9) return 'SSN must be 9 digits.';
             if (type === 'ein' && !/^\d{2}-?\d{7}$/.test(value)) return 'EIN must be 9 digits, written XX-XXXXXXX.';
             if (type === 'signature' && value.length < 3) return 'Type your full legal name (at least 3 characters).';
@@ -2664,7 +2946,7 @@
             });
 
             if (firstInvalid) {
-                errorAnchor(firstInvalid).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollFormToElement(errorAnchor(firstInvalid));
                 if (firstInvalid.matches('input:not([type="hidden"]):not([type="checkbox"]), textarea')) {
                     firstInvalid.focus({ preventScroll: true });
                 }
@@ -2770,9 +3052,10 @@
         });
 
         /**
-         * The additional funding types are every type but the preferred one.
-         * The list is rebuilt rather than an option hidden, so the preferred type
-         * cannot be picked twice; what was already chosen stays chosen.
+         * The additional funding types are the same list as the preferred one.
+         * The type chosen as Preferred is listed "Selected as Preferred" and
+         * disabled, so it is not picked twice (the API refuses it too); what was
+         * already chosen otherwise stays chosen.
          */
         function refreshAdditionalFundingTypes() {
             const preferred = document.getElementById('preferred_funding_type').value;
@@ -2780,13 +3063,44 @@
             const chosen = ($additional.val() || []).filter(type => type !== preferred);
 
             $additional.empty();
-            FUNDING_TYPES.filter(type => type !== preferred).forEach(type => {
-                $additional.append(new Option(type, type, false, chosen.includes(type)));
+            FUNDING_TYPES.forEach(type => {
+                const option = new Option(type, type, false, chosen.includes(type));
+                if (type === preferred) {
+                    option.disabled = true;
+                    option.dataset.badge = 'Selected as Preferred';
+                }
+                $additional.append(option);
             });
             $additional.trigger('change.select2');
         }
 
         $(document).on('change', '#preferred_funding_type', refreshAdditionalFundingTypes);
+        // A Preferred type can be in place without a change (the browser restores
+        // it, or it was chosen before this step showed), so mark the list again
+        // every time it opens - and once when the page is set up.
+        $(document).on('select2:opening', '#additional_funding_types', refreshAdditionalFundingTypes);
+
+        TYPE_NOTES.forEach(({ select, wrap, note, other }) => {
+            $(document).on('change', `#${select}`, function () {
+                const isOther = this.value === other;
+                document.getElementById(wrap).style.display = isOther ? 'block' : 'none';
+                if (!isOther) {
+                    const input = document.getElementById(note);
+                    input.value = '';
+                    clearInvalid(input);
+                }
+                placeTypeNotes();
+            });
+        });
+
+        // Each type shares a row with its details. With only the entity type on
+        // "Other", a spacer fills the industry row so the entity type and its
+        // details start the next one together.
+        function placeTypeNotes() {
+            const [industry, entity] = TYPE_NOTES.map(t => document.getElementById(t.select).value === t.other);
+            const spacer = document.getElementById('typeNoteSpacer');
+            spacer.style.setProperty('display', entity && !industry ? '' : 'none', 'important');
+        }
 
         $(document).on('change', '#purpose_of_funds', function () {
             const isOther = this.value === PURPOSE_OTHER;
@@ -2820,75 +3134,75 @@
             </div>
             <div class="row g-2">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">First Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][first_name]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_first_name">First Name <span class="text-danger">*</span></label>
+                    <input id="co_${index}_first_name" type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][first_name]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Last Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][last_name]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_last_name">Last Name <span class="text-danger">*</span></label>
+                    <input id="co_${index}_last_name" type="text" class="form-control form-control-sm" data-co-req name="co_borrowers[${index}][last_name]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Email <span class="text-danger">*</span></label>
-                    <input type="email" class="form-control form-control-sm" data-co-req data-type="email" name="co_borrowers[${index}][email]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_email">Email <span class="text-danger">*</span></label>
+                    <input id="co_${index}_email" type="email" class="form-control form-control-sm" data-co-req data-type="email" name="co_borrowers[${index}][email]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Title / Role</label>
-                    <select class="form-select form-select-sm" name="co_borrowers[${index}][title_role]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_title_role">Title / Role</label>
+                    <select id="co_${index}_title_role" class="form-select form-select-sm" name="co_borrowers[${index}][title_role]">
                         <option value=""></option>
                         ${roleOptions}
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Ownership %</label>
-                    <input type="number" class="form-control form-control-sm" min="0" max="100" step="0.01" name="co_borrowers[${index}][ownership_percentage]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_ownership_percentage">Ownership %</label>
+                    <input id="co_${index}_ownership_percentage" type="number" class="form-control form-control-sm" min="0" max="100" step="0.01" name="co_borrowers[${index}][ownership_percentage]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Mobile Phone</label>
-                    <input type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][mobile_phone]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_mobile_phone">Mobile Phone</label>
+                    <input id="co_${index}_mobile_phone" type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][mobile_phone]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Home Phone</label>
-                    <input type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][home_phone]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_home_phone">Home Phone</label>
+                    <input id="co_${index}_home_phone" type="tel" class="form-control form-control-sm" name="co_borrowers[${index}][home_phone]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Date of Birth</label>
-                    <input type="text" class="form-control form-control-sm" data-datepicker="dob" placeholder="Select date of birth" autocomplete="off" name="co_borrowers[${index}][date_of_birth]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_date_of_birth">Date of Birth</label>
+                    <input id="co_${index}_date_of_birth" type="text" class="form-control form-control-sm" data-datepicker="dob" placeholder="Select date of birth" autocomplete="off" name="co_borrowers[${index}][date_of_birth]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">SSN</label>
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_ssn">SSN</label>
                     <div class="input-group input-group-sm">
-                        <input type="password" class="form-control form-control-sm ssn-field" maxlength="11" placeholder="XXX-XX-XXXX" autocomplete="off" inputmode="numeric">
+                        <input id="co_${index}_ssn" type="password" class="form-control form-control-sm ssn-field" maxlength="11" placeholder="XXX-XX-XXXX" autocomplete="off" inputmode="numeric">
                         <button type="button" class="btn ssn-eye" tabindex="-1" aria-label="Show SSN" title="Show SSN"><i class="bi bi-eye"></i></button>
                         <input type="hidden" class="ssn-value" name="co_borrowers[${index}][ssn]">
                     </div>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-semibold small mb-1">Street Address</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][street_address]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_street_address">Street Address</label>
+                    <input id="co_${index}_street_address" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][street_address]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">City</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][city]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_city">City</label>
+                    <input id="co_${index}_city" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][city]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">State</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][state]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_state">State</label>
+                    <input id="co_${index}_state" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][state]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">ZIP Code</label>
-                    <input type="text" class="form-control form-control-sm co-zip" inputmode="numeric" maxlength="${POSTAL_LENGTH}" name="co_borrowers[${index}][zip_code]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_zip_code">ZIP Code</label>
+                    <input id="co_${index}_zip_code" type="text" class="form-control form-control-sm co-zip" inputmode="numeric" maxlength="${POSTAL_LENGTH}" name="co_borrowers[${index}][zip_code]">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small mb-1">Country</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][country]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_country">Country</label>
+                    <input id="co_${index}_country" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][country]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Driver's License Number</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_number]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_drivers_license_number">Driver's License Number</label>
+                    <input id="co_${index}_drivers_license_number" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_number]">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold small mb-1">Driver's License State</label>
-                    <input type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_state]">
+                    <label class="form-label fw-semibold small mb-1" for="co_${index}_drivers_license_state">Driver's License State</label>
+                    <input id="co_${index}_drivers_license_state" type="text" class="form-control form-control-sm" name="co_borrowers[${index}][drivers_license_state]">
                 </div>
             </div>
         `;
@@ -3095,7 +3409,9 @@
                     ['Business Phone', [val('business_country_code'), val('business_phone_no')].filter(Boolean).join(' ') || null],
                     ['Address', [val('business_address'), val('business_city'), val('business_state'), val('business_postal_code')].filter(Boolean).join(', ') || null],
                     ['Industry', val('industry_type')],
+                    ['Industry Type Details', val('industry_type_note')],
                     ['Entity Type', val('entity_type')],
+                    ['Entity Type Details', val('entity_type_note')],
                     ['Business EIN', val('business_ein')],
                     ['Employees', val('number_of_employees')],
                 ]],
@@ -3179,6 +3495,8 @@
             document.getElementById('consents_data').value = JSON.stringify(consentTimestamps);
 
             const formData = buildFormData(true);
+            const source = framingPage();
+            if (source) formData.set('origin_page', source);
 
             try {
                 const res = await fetch(`${API_BASE}/v1/embed/submit/${PUBLIC_KEY}`, {
@@ -3196,7 +3514,8 @@
                     if (json.data?.submission_uid) {
                         document.getElementById('successRefBadge').textContent = 'Reference ID: ' + json.data.submission_uid;
                     }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    scrollFormTo(0);
+                    postToParent({ type: 'submitted' });
                 } else {
                     showSubmitErrors(json);
                 }

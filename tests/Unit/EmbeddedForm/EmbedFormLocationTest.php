@@ -144,6 +144,21 @@ class EmbedFormLocationTest extends TestCase
     }
 
     #[Test]
+    public function the_auto_height_script_is_served_beside_the_form(): void
+    {
+        // Under /form/ so the proxy that forwards the form to the partner's
+        // domain forwards the script with it.
+        $this->inProduction(function () {
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_WHITE_LABEL,
+                ['partner_domain' => 'admin.northwind.com']
+            ));
+
+            $this->assertSame('https://admin.northwind.com/form/assets/embed.js', $location->embedScriptUrl());
+        });
+    }
+
+    #[Test]
     public function an_inactive_custom_url_falls_back_to_the_subdomain(): void
     {
         // The single most common case in the live data: 14 of 24 White-Label
@@ -348,7 +363,7 @@ class EmbedFormLocationTest extends TestCase
             ));
 
             $this->assertNull($location->formUrl('abc123'));
-            $this->assertNull($location->embedSnippet('abc123'));
+            $this->assertNull($location->embedScriptUrl());
             $this->assertNull($location->host());
         });
     }
@@ -408,7 +423,7 @@ class EmbedFormLocationTest extends TestCase
         $location = EmbedFormLocation::forPartner($this->partner(Partner::PARTNER_TYPE_WHITE_LABEL));
 
         $this->assertNull($location->formUrl('abc123'));
-        $this->assertNull($location->embedSnippet('abc123'));
+        $this->assertNull($location->embedScriptUrl());
         $this->assertNull($location->host());
     }
 
@@ -429,29 +444,12 @@ class EmbedFormLocationTest extends TestCase
     // -- Shape of what gets published ----------------------------------
 
     #[Test]
-    public function the_snippet_embeds_the_same_url_as_the_direct_link(): void
-    {
-        $this->inProduction(function () {
-            $location = EmbedFormLocation::forPartner($this->partner(
-                Partner::PARTNER_TYPE_WHITE_LABEL,
-                ['partner_domain' => 'admin.northwind.com']
-            ));
-
-            $this->assertStringContainsString(
-                'src="' . $location->formUrl('abc123') . '"',
-                $location->embedSnippet('abc123')
-            );
-        });
-    }
-
-    #[Test]
     public function a_partner_with_no_key_yet_has_no_link(): void
     {
         $location = EmbedFormLocation::forPartner($this->partner(Partner::PARTNER_TYPE_CERTIFIED));
 
         $this->assertTrue($location->isAvailable());
         $this->assertNull($location->formUrl(null));
-        $this->assertNull($location->embedSnippet(null));
     }
 
     #[Test]

@@ -80,6 +80,28 @@ class EmbedFormSubmission extends Model
     protected $hidden = ['ssn_encrypted'];
 
     /**
+     * Each "Other" type and the details written for it, as the borrower profile
+     * pairs them (config/borrower.php names the "Other" value).
+     */
+    public const TYPE_NOTES = [
+        'entity_type' => ['note' => 'entity_type_note', 'other' => 'borrower.entity_type_other'],
+        'industry_type' => ['note' => 'industry_type_note', 'other' => 'borrower.industry_type_other'],
+    ];
+
+    protected static function booted(): void
+    {
+        // Details belong to "Other" only: ones left from an earlier "Other" are
+        // dropped when a listed type is chosen.
+        static::saving(function (self $submission) {
+            foreach (self::TYPE_NOTES as $type => $pair) {
+                if ($submission->getAttribute($type) !== config($pair['other'])) {
+                    $submission->setAttribute($pair['note'], null);
+                }
+            }
+        });
+    }
+
+    /**
      * Columns the public form no longer collects.
      *
      * Kept on the table because pre-rewrite submissions hold their only copy of

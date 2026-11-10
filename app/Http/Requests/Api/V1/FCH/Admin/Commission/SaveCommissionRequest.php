@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Commission;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Validation\Validator;
 
 class SaveCommissionRequest extends BaseApiRequest
 {
@@ -25,6 +26,26 @@ class SaveCommissionRequest extends BaseApiRequest
             'admin_commission' => ['required', 'numeric', 'min:1', 'max:100'],
             'partner_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'requested_amount' => ['nullable', 'numeric'],
+        ];
+    }
+
+    /**
+     * A partner client's success fee is split admin / partner, all of it:
+     * the two rates add up to 100%.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($validator->errors()->isNotEmpty() || ! $this->filled('partner_commission')) {
+                    return;
+                }
+
+                $total = (float) $this->input('admin_commission') + (float) $this->input('partner_commission');
+                if (abs($total - 100) > 0.001) {
+                    $validator->errors()->add('partner_commission', __('application.commission_split_must_total_100'));
+                }
+            },
         ];
     }
 

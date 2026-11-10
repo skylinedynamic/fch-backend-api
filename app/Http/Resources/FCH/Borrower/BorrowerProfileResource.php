@@ -172,6 +172,8 @@ class BorrowerProfileResource extends JsonResource
             'partner_name' => $this->partner?->full_name,
             'partner_email' => $this->partner?->email,
             'has_sign' => (bool) $this->signedAgreement()->exists(),
+            // Whether the host still asks them to sign (false: excused).
+            'agreement_required' => $this->agreement_required !== false,
         ];
     }
 }

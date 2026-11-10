@@ -56,10 +56,15 @@ class EmbedFormService
     /** The client's Activity entry when a conversion fills its blank profile fields. */
     public const PROFILE_FILLED_EVENT = 'Profile Filled From Application';
 
-    /** Profile fields that make up one address; filled together or not at all. */
-    private const ADDRESS_GROUPS = [
+    /**
+     * Profile fields that make up one answer - an address, or a type with the
+     * details written for "Other"; filled together or not at all.
+     */
+    private const FILLED_TOGETHER = [
         ['home_address', 'city', 'state', 'postal_code'],
         ['business_address', 'business_city', 'business_state', 'business_postal_code'],
+        ['business_entity_type', 'business_entity_type_note'],
+        ['business_industry_type', 'business_industry_type_note'],
     ];
 
     /**
@@ -313,11 +318,13 @@ class EmbedFormService
      * Reduce a URL or bare domain to a comparable lowercase host.
      */
     /**
-     * The sites the browser may show the form page in an iframe on - only the
-     * Allowed Domains, each with and without "www." (BUG-092). The submit's
-     * Origin check above cannot do this: inside an iframe the form's own page
-     * sends the request, so the browser reports the form's host, never the
-     * site around it. Null when the list is empty: unrestricted.
+     * The sites the browser may show the form page in an iframe on - the
+     * Allowed Domains, each with and without "www." (BUG-092) - plus the
+     * partner's own admin panel, so the embed preview keeps working once a
+     * partner lists its sites. The submit's Origin check above cannot do this:
+     * inside an iframe the form's own page sends the request, so the browser
+     * reports the form's host, never the site around it. Null when the list is
+     * empty: unrestricted.
      */
     public function frameAncestors(EmbedFormConfig $config): ?string
     {
@@ -337,7 +344,56 @@ class EmbedFormService
             }
         }
 
-        return $sources ? implode(' ', array_values(array_unique($sources))) : null;
+        if (! $sources) {
+            return null;
+        }
+
+        array_push($sources, ...$this->platformFrameOrigins($config));
+
+        return implode(' ', array_values(array_unique($sources)));
+    }
+
+    /**
+     * Where this form's partner opens the admin panel, whose Embed Form
+     * Settings preview frames the form: BASE_PARTNER_PORTAL for the host, and
+     * for any other partner its own `partner_domain` and `partner_subdomain`.
+     *
+     * @return list<string>
+     */
+    private function platformFrameOrigins(EmbedFormConfig $config): array
+    {
+        $partner = $config->partner;
+
+        $addresses = (! $partner || $partner->is_host)
+            ? [config('app.frontend_partner_url')]
+            : [$partner->partner_domain, $partner->partner_subdomain];
+
+        $origins = array_map(fn ($address) => $this->frameSource((string) $address), $addresses);
+
+        return array_values(array_filter($origins));
+    }
+
+    /**
+     * A CSP source for an address: scheme, host and port, no path. An address
+     * stored without a scheme ("localhost:5174") stays scheme-less, which the
+     * browser matches against the form page's own scheme.
+     */
+    private function frameSource(string $address): ?string
+    {
+        $address = trim($address);
+        if ($address === '') {
+            return null;
+        }
+
+        $hasScheme = (bool) preg_match('#^https?://#i', $address);
+        $parts = parse_url($hasScheme ? $address : "https://{$address}");
+        if (empty($parts['host'])) {
+            return null;
+        }
+
+        $source = strtolower($parts['host']).(isset($parts['port']) ? ":{$parts['port']}" : '');
+
+        return $hasScheme ? strtolower($parts['scheme'])."://{$source}" : $source;
     }
 
     protected function normalizeHost(?string $value): ?string
@@ -380,6 +436,28 @@ class EmbedFormService
     public function findConfig(int $partnerId): ?EmbedFormConfig
     {
         return EmbedFormConfig::with('partner')->where('partner_id', $partnerId)->first();
+    }
+
+    /**
+     * The host's live application form, as the marketing site's /apply page
+     * embeds it: its title and link, nothing else. Null when the host has no
+     * active form or nowhere to publish one. Never creates a form - this is
+     * answered to anonymous visitors.
+     *
+     * @return array{form_title: string, form_url: string}|null
+     */
+    public function hostFormDetails(): ?array
+    {
+        $host = Partner::host();
+        $config = $host ? $this->findConfig($host->id) : null;
+
+        if (!$config || !$config->is_active) {
+            return null;
+        }
+
+        $url = EmbedFormLocation::forPartner($host)->formUrl($config->public_key);
+
+        return $url ? ['form_title' => $config->form_title, 'form_url' => $url] : null;
     }
 
     /**
@@ -456,7 +534,10 @@ class EmbedFormService
                     'form_config_id' => $config->id,
                     'status' => EmbedFormSubmission::STATUS_NEW,
                     'ip_address' => $request->ip(),
-                    'origin_url' => $request->headers->get('referer'),
+                    // The page the form was framed on, from the form itself. Not
+                    // the Referer: the form sends this request, so that only ever
+                    // names the form's own address.
+                    'origin_url' => $data['origin_page'] ?? null,
                     'sales_rep_user_id' => $data['sales_rep_user_id'] ?? null,
                     // Denormalised alongside the id so the name a partner saw at
                     // submission time survives the user being renamed or removed.
@@ -509,7 +590,10 @@ class EmbedFormService
             'business_state' => $data['business_state'] ?? null,
             'business_postal_code' => $data['business_postal_code'] ?? null,
             'industry_type' => $data['industry_type'] ?? null,
+            // Kept for "Other" only (EmbedFormSubmission::booted).
+            'industry_type_note' => $data['industry_type_note'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
+            'entity_type_note' => $data['entity_type_note'] ?? null,
             // Nine digits, as the borrower profile keeps an EIN.
             'business_ein' => BusinessEin::normalize($data['business_ein'] ?? null),
             'number_of_employees' => $data['number_of_employees'] ?? null,
@@ -1162,7 +1246,9 @@ class EmbedFormService
                 : null,
             'currency' => $submission->currency,
             'business_entity_type' => $submission->entity_type,
+            'business_entity_type_note' => $submission->entity_type_note,
             'business_industry_type' => $submission->industry_type,
+            'business_industry_type_note' => $submission->industry_type_note,
             'number_of_employees' => $submission->number_of_employees,
 
             'monthly_revenue' => $submission->monthly_revenue,
@@ -1250,7 +1336,8 @@ class EmbedFormService
 
         // An address is filled whole or not at all: half the client's address
         // and half the submission's is no address (BUG-064, Texas + Miami).
-        foreach (self::ADDRESS_GROUPS as $group) {
+        // The same for a type and its "Other" details.
+        foreach (self::FILLED_TOGETHER as $group) {
             $onFile = array_filter($group, fn (string $field) => !in_array($borrower->getAttribute($field), [null, ''], true));
             if ($onFile !== []) {
                 $blanks = array_diff_key($blanks, array_flip($group));

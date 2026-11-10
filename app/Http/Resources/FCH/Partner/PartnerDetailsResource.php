@@ -53,6 +53,8 @@ class PartnerDetailsResource extends JsonResource
             'active_custom_url' => (bool) $this->active_custom_url,
             'is_host' => $this->is_host ?? false,
             'has_sign' => $this->has_sign,
+            // Whether the host still asks them to sign (false: excused).
+            'agreement_required' => $this->agreement_required !== false,
             'tax_id' => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website' => $this->website ?? null, // Assuming model accessor or field exists
             'enrollment_details' => [

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\UsPhoneNumber;
 use App\Rules\UsPostalCode;
@@ -96,7 +97,7 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
                 'nullable',
                 new Ssn(),
             ],
-            'date_of_birth' => 'required|date',
+            'date_of_birth' => ['required', new DateOfBirth()],
             'phone' => ['required', new UsPhoneNumber()],
             'email' => 'required|email|max:255',
 

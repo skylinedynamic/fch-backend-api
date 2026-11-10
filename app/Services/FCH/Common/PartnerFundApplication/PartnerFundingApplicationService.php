@@ -17,6 +17,7 @@ use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
+use App\Services\FCH\Common\Application\FundingRequestStepFields;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +27,8 @@ class PartnerFundingApplicationService
 {
     public function __construct(
         private FundingApplicationEditGuard $editGuard,
-        private FundingApplicationAuditLogger $auditLogger
+        private FundingApplicationAuditLogger $auditLogger,
+        private FundingRequestStepFields $fundingRequestStepFields
     ) {
     }
 
@@ -41,6 +43,12 @@ class PartnerFundingApplicationService
      */
     private function preparationStatus(array $data, $existing = null): string
     {
+        // Draft is never undone by a step save: one converted from the embed
+        // form is Draft without the explanation (SCRUM-434 S434-BUG-04).
+        if ($existing && $existing->status === FundingApplication::DRAFT) {
+            return FundingApplication::DRAFT;
+        }
+
         $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation'])
             || ($existing && $existing->federal_compliance_disclosures_explanation !== null);
 
@@ -223,6 +231,10 @@ class PartnerFundingApplicationService
             } else {
                 $existing = FundingApplication::visibleTo(auth()->user())->findOrFail($matchId);
             }
+
+            // Read-only Preferred Funding Type; the funding sequence chosen
+            // or kept (FundingRequestStepFields).
+            $data = $this->fundingRequestStepFields->apply($existing, $data);
 
             $isNew = empty($existing);
 

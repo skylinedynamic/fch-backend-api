@@ -339,6 +339,50 @@ class EmbedFormConversionProfileTest extends TestCase
     }
 
     #[Test]
+    public function other_entity_and_industry_details_reach_the_profile(): void
+    {
+        $submission = $this->submission([
+            'entity_type' => 'Other', 'entity_type_note' => 'Cooperative',
+            'industry_type' => 'Other', 'industry_type_note' => 'Beekeeping',
+        ]);
+
+        $this->convert($submission)->assertOk();
+
+        $borrower = $this->convertedBorrower($submission);
+        $this->assertSame('Other', $borrower->business_entity_type);
+        $this->assertSame('Cooperative', $borrower->business_entity_type_note);
+        $this->assertSame('Other', $borrower->business_industry_type);
+        $this->assertSame('Beekeeping', $borrower->business_industry_type_note);
+    }
+
+    #[Test]
+    public function an_existing_borrowers_entity_type_keeps_its_own_details(): void
+    {
+        // A type and its details are one answer: the client's "Other: LLC-series"
+        // is not half replaced by the submission's details.
+        $existing = Borrower::create([
+            'partner_id' => $this->partner->id,
+            'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Odessa',
+            'last_name' => 'Mccall',
+            'email' => 'odessa@example.test',
+            'business_entity_type' => 'C-Corporation',
+        ]);
+
+        $this->convert($this->submission([
+            'entity_type' => 'Other', 'entity_type_note' => 'Cooperative',
+            'industry_type' => 'Other', 'industry_type_note' => 'Beekeeping',
+        ]), ['confirm_existing_borrower' => true, 'fill_profile_fields' => true])->assertOk();
+
+        $borrower = $existing->fresh();
+        $this->assertSame('C-Corporation', $borrower->business_entity_type);
+        $this->assertNull($borrower->business_entity_type_note);
+        // The blank industry is filled with its details.
+        $this->assertSame('Other', $borrower->business_industry_type);
+        $this->assertSame('Beekeeping', $borrower->business_industry_type_note);
+    }
+
+    #[Test]
     public function an_existing_borrowers_full_ssn_is_kept(): void
     {
         $existing = Borrower::create([

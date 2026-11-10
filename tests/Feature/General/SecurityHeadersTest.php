@@ -70,10 +70,18 @@ class SecurityHeadersTest extends TestCase
     #[Test]
     public function the_embedded_form_keeps_its_allowed_domains_as_its_framing_rule(): void
     {
+        // Pinned, so the result does not depend on the machine's .env. The
+        // host's admin panel is allowed too, for its Embed Form Settings
+        // preview (EmbedFormService::platformFrameOrigins).
+        config(['app.frontend_partner_url' => 'https://partner.fourcornerfunding.com']);
+
         $response = $this->embedForm(['https://partner-one.com']);
 
         $response->assertHeaderMissing('X-Frame-Options');
-        $response->assertHeader('Content-Security-Policy', 'frame-ancestors https://partner-one.com https://www.partner-one.com');
+        $response->assertHeader(
+            'Content-Security-Policy',
+            'frame-ancestors https://partner-one.com https://www.partner-one.com https://partner.fourcornerfunding.com'
+        );
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 

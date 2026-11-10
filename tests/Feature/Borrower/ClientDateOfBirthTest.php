@@ -9,7 +9,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
-use App\Rules\AdultDateOfBirth;
+use App\Rules\DateOfBirth;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Passport\Passport;
@@ -22,6 +22,8 @@ use Tests\TestCase;
  * (17) on create, and client 153 born 01 Jan 1920 on edit - date_of_birth was
  * only `nullable`. A borrower must be 18 to 120; the same holds on the
  * borrower's own profile and on a change request for the date of birth.
+ * (Checked by the platform-wide App\Rules\DateOfBirth, which replaced the
+ * client-only AdultDateOfBirth.)
  */
 class ClientDateOfBirthTest extends TestCase
 {
@@ -83,7 +85,7 @@ class ClientDateOfBirthTest extends TestCase
     public static function outOfRangeDates(): iterable
     {
         // The admin form sends MM-DD-YYYY.
-        yield 'QA: 17 years old' => ['01-01-2009', 'common.date_of_birth_min_age'];
+        yield 'QA: 17 years old' => ['01-01-2009', 'common.date_of_birth_minimum_age'];
         yield 'over 120' => ['01-01-1900', 'common.date_of_birth_max_age'];
     }
 
@@ -91,7 +93,7 @@ class ClientDateOfBirthTest extends TestCase
     #[DataProvider('outOfRangeDates')]
     public function editing_a_client_refuses_an_age_outside_18_to_120(string $dob, string $message): void
     {
-        $age = $message === 'common.date_of_birth_min_age' ? 18 : 120;
+        $age = $message === 'common.date_of_birth_minimum_age' ? 18 : 120;
 
         $this->postJson("/api/v1/common/borrowers/{$this->borrower->id}", ['date_of_birth' => $dob])
             ->assertStatus(422)
@@ -123,11 +125,11 @@ class ClientDateOfBirthTest extends TestCase
     #[DataProvider('dateOfBirthRequests')]
     public function every_client_date_of_birth_is_checked_with_the_shared_rule(string $requestClass): void
     {
-        $rules = (new $requestClass())->rules();
+        $rules = (new $requestClass)->rules();
 
         $this->assertTrue(
-            collect((array) $rules['date_of_birth'])->contains(fn ($rule) => $rule instanceof AdultDateOfBirth),
-            "{$requestClass} must validate date_of_birth with AdultDateOfBirth"
+            collect((array) $rules['date_of_birth'])->contains(fn ($rule) => $rule instanceof DateOfBirth),
+            "{$requestClass} must validate date_of_birth with DateOfBirth"
         );
     }
 
@@ -137,8 +139,8 @@ class ClientDateOfBirthTest extends TestCase
         $request = StoreChangeRequest::create('/', 'POST', ['field_name' => 'date_of_birth', 'new_value' => '2009-01-01']);
 
         $this->assertTrue(
-            collect((array) $request->rules()['new_value'])->contains(fn ($rule) => $rule instanceof AdultDateOfBirth),
-            'A date_of_birth change request must validate new_value with AdultDateOfBirth'
+            collect((array) $request->rules()['new_value'])->contains(fn ($rule) => $rule instanceof DateOfBirth),
+            'A date_of_birth change request must validate new_value with DateOfBirth'
         );
     }
 }

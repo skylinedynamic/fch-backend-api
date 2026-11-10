@@ -3,11 +3,24 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Http\Requests\Api\V1\Concerns\FundingRequestStepRules;
+use App\Models\Borrower\FundingApplication;
+use App\Rules\KnownFundingType;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class StoreFundingRequestRequest extends BaseApiRequest
 {
+    use FundingRequestStepRules;
+
+    /** The signed-in borrower's own application this save is for. */
+    protected function targetApplication(): ?FundingApplication
+    {
+        $id = $this->targetApplicationId();
+
+        return $id === null ? null : FundingApplication::where('borrower_id', Auth::user()?->entity_id)->find($id);
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -26,19 +39,18 @@ class StoreFundingRequestRequest extends BaseApiRequest
         return [
             'id' => ['nullable', Rule::exists('funding_applications', 'id')->where('borrower_id', Auth::user()?->entity_id)],
             'funding_request_id' => ['nullable', Rule::exists('funding_requests', 'id')->where('borrower_id', Auth::user()?->entity_id)],
-            'funding_sequence_id' => 'nullable',
             'requested_amount' => 'required|numeric|min:0',
             'purpose_of_funds' => 'required|string|max:500',
-            'approved_funding' => 'required|string|max:255',
             'purpose_note' => 'nullable|string|max:500',
-            'preferred_funding_type' => 'required|string|max:255',
+            // funding_sequence_id, approved_funding, preferred_funding_type.
+            ...$this->fundingSequenceRules(),
             // The other funding types the applicant would also consider - never
             // the preferred one again, each once, from the same list.
             'additional_funding_types' => ['nullable', 'array'],
             'additional_funding_types.*' => [
                 'string',
                 'distinct',
-                Rule::in(config('funding_application.options.funding_types', [])),
+                new KnownFundingType,
                 'different:preferred_funding_type',
             ],
             'timeframe_needed' => 'nullable|string|max:255',
@@ -65,13 +77,13 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'purpose_note.max' => __('borrower_validation.purpose_note_max'),
             'preferred_funding_type.string' => __('borrower_validation.preferred_funding_type_string'),
             'preferred_funding_type.max' => __('borrower_validation.preferred_funding_type_max'),
-            'additional_funding_types.*.in' => __('borrower_validation.additional_funding_type_invalid'),
             'additional_funding_types.*.distinct' => __('borrower_validation.additional_funding_type_invalid'),
             'additional_funding_types.*.different' => __('borrower_validation.additional_funding_type_preferred'),
             'timeframe_needed.string' => __('borrower_validation.timeframe_needed_string'),
             'timeframe_needed.max' => __('borrower_validation.timeframe_needed_max'),
             'collateral_available.string' => __('borrower_validation.collateral_available_string'),
             'collateral_available.max' => __('borrower_validation.collateral_available_max'),
+            ...$this->fundingSequenceMessages(),
         ];
     }
 }

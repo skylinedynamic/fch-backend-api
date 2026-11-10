@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Application;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\FundingApplication;
+use App\Models\Lender\Lender;
 
 /**
  * Assign a lender to a funding application - the host's team only, as Lender
@@ -20,7 +21,14 @@ class AssignFundingApplicationLenderRequest extends BaseApiRequest
     {
         return [
             'lender_ids' => ['required', 'array', 'size:1'],
-            'lender_ids.*' => ['integer', 'exists:lenders,id'],
+            'lender_ids.*' => ['integer', Lender::assignableRule()],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'lender_ids.*.exists' => __('application.lender_not_active'),
         ];
     }
 }

@@ -37,9 +37,12 @@ jobs:
       # test config. All a fresh checkout lacks is storage/, which is gitignored
       # in full, so the directories and the Passport keys have to be made here -
       # without them every Passport::actingAs() test dies on "Invalid key supplied".
+      # The empty .env only silences dotenv's "Failed to open stream" warning,
+      # which every test raised and which buried the real failures in the log.
       - name: Prepare Test Environment
         run: |
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
+          touch .env
           php artisan passport:keys --force
 
       # Run as separate steps so the log shows plainly that every suite ran.
@@ -149,6 +152,10 @@ jobs:
             echo "Deploy complete!"
 
       - name: Smoke Test - Verify API is Responding
+        env:
+          # Lets the smoke test reach the new build while the maintenance page is
+          # switched on by hand on the server (sudo fch-maintenance on).
+          MAINTENANCE_BYPASS: ${{ secrets.STAGE_MAINTENANCE_BYPASS }}
         run: |
           echo "Waiting for server to stabilise...."
           sleep 5
@@ -156,7 +163,7 @@ jobs:
           echo "Testing endpoint: $API_URL"
           
           # Use a temporary file to store the body and status code separately
-          curl -s -o body.txt -w "%{http_code}" --max-time 10 "$API_URL" > status.txt || echo "000" > status.txt
+          curl -s -o body.txt -w "%{http_code}" --max-time 10 -H "X-Maintenance-Bypass: $MAINTENANCE_BYPASS" "$API_URL" > status.txt || echo "000" > status.txt
           HTTP_STATUS=$(cat status.txt)
           BODY=$(cat body.txt)
 
