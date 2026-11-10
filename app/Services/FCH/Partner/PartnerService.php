@@ -12,6 +12,8 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
@@ -583,6 +585,72 @@ class PartnerService
                 'error' => $e->getMessage(),
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Set a partner's commission - its share (%) of the success fee - or clear
+     * it with null. The host partner has none: the admin keeps the whole fee
+     * on the host's own clients.
+     *
+     * @throws ValidationException for the host partner
+     */
+    public function updateCommission(Partner $partner, ?float $commission): Partner
+    {
+        if ($partner->is_host) {
+            throw ValidationException::withMessages([
+                'commission' => __('partner.validation.commission.host'),
+            ]);
+        }
+
+        $before = $partner->commission !== null ? (float) $partner->commission : null;
+
+        $partner->update(['commission' => $commission]);
+
+        $this->logCommissionChange($partner, $before, $commission);
+
+        return $partner;
+    }
+
+    /**
+     * Partner profile › Commissions: an entry on the partner's activity log -
+     * "Commission added / updated / removed", old → new in its "Show changes"
+     * table. Host staff only (internal). Nothing when the rate did not change.
+     * A failure is logged, never thrown: the commission is already saved.
+     */
+    private function logCommissionChange(Partner $partner, ?float $before, ?float $after): void
+    {
+        if ($before === $after) {
+            return;
+        }
+
+        $rate = static fn (?float $value): ?string => $value === null ? null : rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.') . '%';
+        $by = Auth::user()?->name ?: 'The host';
+
+        [$event, $description] = match (true) {
+            $before === null => [__('partner.activity.commission_added'), __('partner.activity.commission_added_description', ['user' => $by, 'to' => $rate($after)])],
+            $after === null => [__('partner.activity.commission_removed'), __('partner.activity.commission_removed_description', ['user' => $by, 'from' => $rate($before)])],
+            default => [__('partner.activity.commission_updated'), __('partner.activity.commission_updated_description', ['user' => $by, 'from' => $rate($before), 'to' => $rate($after)])],
+        };
+
+        try {
+            $this->activityLogService->logSystemEvent(
+                Partner::class,
+                $partner->id,
+                $partner->id,
+                null,
+                $event,
+                $description,
+                ActivityLog::LOG_TYPE_PARTNER_COMMISSION_UPDATE,
+                ['changes' => ['commission' => [
+                    'label' => __('partner.activity.commission_label'),
+                    'from' => $rate($before),
+                    'to' => $rate($after),
+                ]]],
+                ActivityLog::VISIBILITY_INTERNAL
+            );
+        } catch (Throwable $e) {
+            Log::error('Failed to log a partner commission change', ['partner_id' => $partner->id, 'error' => $e->getMessage()]);
         }
     }
 

@@ -5,6 +5,7 @@ namespace App\Http\Resources\FCH\Common\Application;
 use App\Http\Resources\Borrower\FundApplication\CoBorrowerResource;
 use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
 use App\Models\Borrower\FundingApplication;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Funding\LenderMatchService;
 use Illuminate\Http\Request;
@@ -138,6 +139,9 @@ class FundingApplicationResource extends JsonResource
             'total_commission_amount' => $this->commission?->total_commission_amount,
             'admin_commission_amount' => $this->commission?->admin_commission_amount,
             'partner_commission_amount' => $this->commission?->partner_commission_amount,
+            // The partner's own commission (Partner profile › Commissions): the
+            // split opens at it until one is saved. None for a host client.
+            'partner_default_commission' => $this->partnerDefaultCommission(),
             'commission_status' => $this->commission?->commission_status,
             'payment_status' => $this->commission?->payment_status,
 
@@ -177,6 +181,20 @@ class FundingApplicationResource extends JsonResource
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
+    }
+
+    /** The application's partner's commission (%), or null when unset or the host's. */
+    private function partnerDefaultCommission(): ?float
+    {
+        $partner = $this->relationLoaded('partner')
+            ? $this->partner
+            : Partner::query()->select(['id', 'is_host', 'commission'])->find($this->partner_id);
+
+        if (!$partner || $partner->is_host || $partner->commission === null) {
+            return null;
+        }
+
+        return (float) $partner->commission;
     }
 
     /** @return array<string, mixed> */

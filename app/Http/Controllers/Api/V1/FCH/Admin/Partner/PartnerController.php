@@ -15,6 +15,7 @@ use App\Http\Resources\FCH\Partner\PartnerDetailsResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerCommissionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
 use App\Mail\AccountCreateNotificationMail;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\ArchivePartnerRequest;
@@ -165,6 +166,30 @@ class PartnerController extends Controller
         return ApiResponse::success(
             new PartnerDetailsResource($partner),
             __('partner.success.retrieved')
+        );
+    }
+
+    /**
+     * Partner profile › Commissions: set the partner's share (%) of the success
+     * fee, which the funding application's commission split opens at.
+     */
+    public function updateCommission(UpdatePartnerCommissionRequest $request, int $id)
+    {
+        $partner = $this->partnerService->findById($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        $commission = $request->validated('commission');
+        $partner = $this->partnerService->updateCommission($partner, $commission !== null ? (float) $commission : null);
+
+        return ApiResponse::success(
+            [
+                'id' => $partner->id,
+                'commission' => $partner->commission !== null ? (float) $partner->commission : null,
+            ],
+            __('partner.success.commission_updated')
         );
     }
 

@@ -49,6 +49,7 @@ class Partner extends Model
         'is_host',
         'has_sign',
         'agreement_required',
+        'commission',
         'full_name',
         'company_name',
         'email',
@@ -92,6 +93,7 @@ class Partner extends Model
         'archived_at' => 'datetime',
         'has_sign' => 'boolean',
         'agreement_required' => 'boolean',
+        'commission' => 'decimal:2',
         'active_custom_url' => 'boolean',
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',
@@ -357,6 +359,13 @@ class Partner extends Model
 
     /** Seats a partner gets when neither its subscription nor Plan & Fee says. */
     public const DEFAULT_USER_SEATS = 3;
+
+    /**
+     * The range of a partner's commission - its share (%) of the success fee.
+     * The commission split keeps at least 1% for the admin, so 99% at most.
+     */
+    public const COMMISSION_MIN = 0;
+    public const COMMISSION_MAX = 99;
 
     /** Logins that take a seat: the partner's own and its employees'. */
     public function usedUserSeats(): int

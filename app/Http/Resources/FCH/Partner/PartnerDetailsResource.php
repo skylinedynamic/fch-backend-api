@@ -55,6 +55,8 @@ class PartnerDetailsResource extends JsonResource
             'has_sign' => $this->has_sign,
             // Whether the host still asks them to sign (false: excused).
             'agreement_required' => $this->agreement_required !== false,
+            // Its share (%) of the success fee; the funding application's split opens at it.
+            'commission' => $this->commission !== null ? (float) $this->commission : null,
             'tax_id' => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website' => $this->website ?? null, // Assuming model accessor or field exists
             'enrollment_details' => [

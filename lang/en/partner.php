@@ -136,6 +136,13 @@ return [
         'monthly_platform_fee_numeric' => 'Monthly platform fee must be a number.',
         'monthly_platform_fee_gt' => 'Monthly platform fee must be greater than 0.',
         'monthly_platform_fee_regex' => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
+        'commission' => [
+            'present' => 'Commission is required. Leave it blank to clear it.',
+            'numeric' => 'Commission must be a number.',
+            'min' => 'Commission must be at least 0%.',
+            'max' => 'Commission must be at most 99%. The admin keeps at least 1% of the success fee.',
+            'host' => 'The host partner has no commission: the admin keeps the whole success fee on its clients.',
+        ],
     ],
 
     /*
@@ -157,6 +164,20 @@ return [
         'document_deleted' => 'Document deleted successfully.',
         'tenant_config_retrieved' => 'Tenant configuration retrieved successfully.',
         'tenant_config_updated' => 'Tenant configuration updated successfully.',
+        'commission_updated' => 'Partner commission updated successfully.',
+    ],
+
+    /*
+    | Activity log entries (Partner profile › Activity)
+    */
+    'activity' => [
+        'commission_label' => 'Commission',
+        'commission_added' => 'Commission added',
+        'commission_updated' => 'Commission updated',
+        'commission_removed' => 'Commission removed',
+        'commission_added_description' => ':user set the commission to :to.',
+        'commission_updated_description' => ':user changed the commission from :from to :to.',
+        'commission_removed_description' => ':user removed the commission (was :from).',
     ],
 
     'error' => [
@@ -166,6 +187,7 @@ return [
         'unarchive_failed' => 'Could not restore the selected partner(s). Please try again.',
         'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
         'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
+        'commission_update_failed' => 'Could not update the partner commission. Please try again.',
         'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
         'delete_blocked' => "This partner has related records and cannot be deleted. Please change the partner's status instead.",
         'delete_blocked_named' => 'Some selected partners have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',
