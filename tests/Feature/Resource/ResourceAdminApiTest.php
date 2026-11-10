@@ -109,6 +109,68 @@ class ResourceAdminApiTest extends TestCase
     }
 
     /**
+     * BUG-181: a resource was saved without the link or document its type
+     * needs, and went live as an empty "Visit Link" item. The API now refuses
+     * it, and reports every missing field at once.
+     */
+    #[Test]
+    public function a_new_resource_needs_the_link_or_document_its_type_uses(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/admin/resources', $this->resource([
+            'resource_type' => Resource::TYPE_TRAINING_ACADEMY, 'title' => '', 'file' => null, 'link' => '',
+        ]))->assertUnprocessable()
+            ->assertJsonValidationErrors(['title', 'link'])
+            ->assertJsonPath('errors.link', __('resource.validation.link_required'));
+
+        foreach ([Resource::TYPE_LEGAL_REGISTRATION, Resource::TYPE_DOWNLOAD_ASSETS, Resource::TYPE_EDUCATION_HELP] as $type) {
+            $this->postJson('/api/v1/admin/resources', $this->resource(['resource_type' => $type, 'file' => '']))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['file'])
+                ->assertJsonPath('errors.file', __('resource.validation.file_required'));
+        }
+
+        $this->assertSame(0, Resource::count());
+
+        // With what the type uses, each saves; Business Services lists its
+        // providers' links instead of one of its own.
+        $this->postJson('/api/v1/admin/resources', $this->resource([
+            'resource_type' => Resource::TYPE_TRAINING_ACADEMY, 'file' => null, 'link' => 'https://academy.example.org',
+        ]))->assertCreated();
+        $this->postJson('/api/v1/admin/resources', $this->resource())->assertCreated();
+        $this->postJson('/api/v1/admin/resources', $this->resource([
+            'resource_type' => Resource::TYPE_BUSINESS_SERVICES, 'file' => null, 'link' => '',
+        ]))->assertCreated();
+    }
+
+    #[Test]
+    public function an_edit_cannot_clear_the_link_or_document_its_type_uses(): void
+    {
+        $this->actingAsUser($this->admin);
+        $academy = $this->postJson('/api/v1/admin/resources', $this->resource([
+            'resource_type' => Resource::TYPE_TRAINING_ACADEMY, 'file' => null, 'link' => 'https://academy.example.org',
+        ]))->assertCreated()->json('data.id');
+        $guide = $this->postJson('/api/v1/admin/resources', $this->resource())->assertCreated()->json('data.id');
+
+        $this->postJson("/api/v1/admin/resources/{$academy}", ['link' => ''])
+            ->assertUnprocessable()->assertJsonValidationErrors(['link']);
+        $this->postJson("/api/v1/admin/resources/{$guide}", ['file' => ''])
+            ->assertUnprocessable()->assertJsonValidationErrors(['file']);
+
+        // Changing the type to one that needs a link, without giving one.
+        $this->postJson("/api/v1/admin/resources/{$guide}", ['resource_type' => Resource::TYPE_TRAINING_ACADEMY])
+            ->assertUnprocessable()->assertJsonValidationErrors(['link']);
+
+        $this->assertSame('https://academy.example.org', Resource::find($academy)->link);
+        $this->assertSame('resources/guide.pdf', Resource::find($guide)->file);
+
+        // An edit that leaves them out keeps what is saved.
+        $this->postJson("/api/v1/admin/resources/{$academy}", ['title' => 'Academy 2026'])->assertOk();
+        $this->postJson("/api/v1/admin/resources/{$guide}", ['status' => false])->assertOk();
+    }
+
+    /**
      * Defect: the admin show reused the portals' lookup, which only finds
      * published resources - so the host team, whose own library lists their
      * drafts, could not open one.

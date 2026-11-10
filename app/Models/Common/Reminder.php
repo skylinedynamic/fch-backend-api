@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
 class Reminder extends Model
 {
@@ -368,14 +369,23 @@ class Reminder extends Model
         });
     }
 
-    public function scopeDateBetween($query, ?string $startDate, ?string $endDate)
+    /**
+     * Whole days in $timezone (the viewer's), turned into UTC bounds for the
+     * stored set_date_time / send_at - not the UTC day (BUG-152). An unknown
+     * or missing zone falls back to the app's.
+     */
+    public function scopeDateBetween($query, ?string $startDate, ?string $endDate, ?string $timezone = null)
     {
         if (!$startDate || !$endDate) {
             return $query;
         }
 
-        $start = $startDate . ' 00:00:00';
-        $end = $endDate . ' 23:59:59';
+        $timezone = $timezone && in_array($timezone, \DateTimeZone::listIdentifiers(), true)
+            ? $timezone
+            : config('app.timezone', 'UTC');
+
+        $start = Carbon::parse($startDate, $timezone)->startOfDay()->utc()->format('Y-m-d H:i:s');
+        $end = Carbon::parse($endDate, $timezone)->endOfDay()->utc()->format('Y-m-d H:i:s');
 
         return $query->where(function ($q) use ($start, $end) {
             $q->whereBetween('set_date_time', [$start, $end])

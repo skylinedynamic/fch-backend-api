@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Borrower\PreQualification;
 
+use App\Exceptions\PreQualificationConflictException;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\Borrower\PreQualification\BusinessInfoRequest;
@@ -131,6 +132,10 @@ class PreQualificationController extends Controller
         try {
             return $this->service->retryUnderwriting($request->validated());
 
+        } catch (PreQualificationConflictException $e) {
+            // Their own request, but no failed review to retry (BUG-168).
+            return ApiResponse::error($e->getMessage(), $e->getStatusCode());
+
         } catch (ModelNotFoundException $e) {
             return ApiResponse::notFound($e->getMessage());
 
@@ -153,10 +158,15 @@ class PreQualificationController extends Controller
         try {
             return $this->service->submit($request->validated());
 
+        } catch (PreQualificationConflictException $e) {
+            // Their own request, already submitted: refused as such (409), not
+            // reported as missing (BUG-168).
+            return ApiResponse::error($e->getMessage(), $e->getStatusCode());
+
         } catch (ModelNotFoundException $e) {
-            // No submittable draft: wrong id, another borrower's request, or one
-            // that was already submitted. That is a caller-side state problem, so
-            // it answers 404 with the reason instead of a blank server error.
+            // No submittable draft: a wrong id or another borrower's request.
+            // That is a caller-side problem, so it answers 404 with the reason
+            // instead of a blank server error.
             return ApiResponse::notFound($e->getMessage());
 
         } catch (\Throwable $e) {

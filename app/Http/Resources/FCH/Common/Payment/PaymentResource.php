@@ -49,6 +49,7 @@ class PaymentResource extends JsonResource
             'raw_details' => $rawDetails,
             'invoice_id' => $this->invoice?->invoice_id ?? $this->invoice_id,
             'invoice_no' => $this->invoice?->invoice_id,
+            'invoice_type' => $this->invoice?->type,
             'transaction_id' => $this->transaction_id,
             'amount' => currencyFormat($this->amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'currency' => $this->currency,

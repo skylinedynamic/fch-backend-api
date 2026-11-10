@@ -43,8 +43,8 @@ class StoreResourceRequest extends BaseApiRequest
             'is_partner' => ['nullable', 'boolean'],
             'is_borrower' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer'],
-            'file' => ['nullable', 'string', 'regex:/\.pdf$/i'],
-            'link' => ['nullable', 'url', 'max:255'],
+            'file' => [Rule::requiredIf(fn () => $this->typeNeeds(Resource::TYPES_REQUIRING_FILE)), 'nullable', 'string', 'regex:/\.pdf$/i'],
+            'link' => [Rule::requiredIf(fn () => $this->typeNeeds(Resource::TYPES_REQUIRING_LINK)), 'nullable', 'url', 'max:255'],
             'overview_text' => ['nullable', 'string'],
             'impact_text' => ['nullable', 'string'],
             'overview' => ['nullable', 'array'],
@@ -95,11 +95,19 @@ class StoreResourceRequest extends BaseApiRequest
             'resource_type.in' => __('resource.validation.resource_type_invalid'),
             'title.required' => __('resource.validation.title_required'),
             'file.regex' => __('resource.validation.file_pdf'),
+            'file.required' => __('resource.validation.file_required'),
+            'link.required' => __('resource.validation.link_required'),
             'link.url' => __('resource.validation.link_invalid'),
             'is_borrower.boolean' => __('resource.validation.is_borrower_boolean'),
             'is_partner.boolean' => __('resource.validation.is_partner_boolean'),
             'providers.*.link.url' => __('resource.validation.provider_link_invalid'),
             'providers.*.desc_list.array' => __('resource.validation.provider_desc_list_array'),
         ];
+    }
+
+    /** Whether the chosen type is one of $types (BUG-181). */
+    private function typeNeeds(array $types): bool
+    {
+        return in_array($this->input('resource_type'), $types, true);
     }
 }

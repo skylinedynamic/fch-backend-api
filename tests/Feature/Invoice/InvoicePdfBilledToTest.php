@@ -119,14 +119,19 @@ class InvoicePdfBilledToTest extends TestCase
         $this->assertStringNotContainsString('Card Holder: QA-TEST Retest033', $text);
     }
 
+    /**
+     * Defect (BUG-194): the fee is named "Client Activation Fee" (Plan & Fee);
+     * the PDF still described it as "Borrower Fee".
+     */
     #[Test]
-    public function a_borrower_fee_is_named_a_borrower_fee_not_an_enrollment(): void
+    public function a_borrower_fee_is_named_a_client_activation_fee_not_an_enrollment(): void
     {
         $text = $this->borrowerFee();
 
         $this->assertStringNotContainsString('Enrollment', $text);
         $this->assertStringContainsString('Description', $text);
-        $this->assertStringContainsString('Borrower Fee $800.00', $text);
+        $this->assertStringContainsString('Client Activation Fee $800.00', $text);
+        $this->assertStringNotContainsString('Borrower Fee', $text);
     }
 
     /** A client's own invoice is still addressed to the client. */

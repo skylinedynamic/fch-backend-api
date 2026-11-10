@@ -21,6 +21,10 @@ use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Appointment\Appointment;
+use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
@@ -333,22 +337,22 @@ class BorrowerService
     public function getBorrowerProfileStats(int $id)
     {
         Borrower::visibleTo(auth()->user())->findOrFail($id);
-        $borrowerClass = str_replace('\\', '\\\\', Borrower::class);
 
-        $stats = DB::table('borrowers as b')
-            ->select([
-                'b.id',
-                DB::raw("(SELECT COUNT(*) FROM appointments WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id) as total_meetings"),
-                DB::raw("(SELECT COUNT(*) FROM invoices WHERE borrower_id = b.id OR (entity_type = '{$borrowerClass}' AND entity_id = b.id)) as total_invoices"),
-                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM subscriptions WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id ORDER BY id DESC LIMIT 1), 'N/A')) as enrollment_type"),
-                DB::raw("(SELECT COUNT(*) FROM pre_qualification_requests WHERE borrower_id = b.id) as total_prequalification"),
-                DB::raw("0 as total_tickets"),
-                DB::raw("(SELECT COUNT(*) FROM borrower_documents WHERE borrower_id = b.id) as total_documents")
-            ])
-            ->where('b.id', $id)
-            ->first();
+        // Counted through the models, so soft-deleted rows are left out, and
+        // Documents counts what the Documents tab lists - no credit reports
+        // (BUG-155). The raw sub-selects counted deleted rows too.
+        $ofBorrower = fn ($query) => $query->where('entity_type', Borrower::class)->where('entity_id', $id);
 
-        return $stats;
+        return (object) [
+            'id' => $id,
+            'total_meetings' => Appointment::where($ofBorrower)->count(),
+            'total_invoices' => Invoice::where(fn ($q) => $q->where('borrower_id', $id)->orWhere($ofBorrower))->count(),
+            // Latest subscription row as before (not a count, unchanged here).
+            'enrollment_type' => Subscription::withTrashed()->where($ofBorrower)->orderByDesc('id')->value('enrollment_type') ?? 'N/A',
+            'total_prequalification' => PreQualificationRequest::where('borrower_id', $id)->count(),
+            'total_tickets' => 0,
+            'total_documents' => BorrowerDocument::where('borrower_id', $id)->withoutCreditReports()->count(),
+        ];
     }
 
     /**
@@ -1163,7 +1167,8 @@ class BorrowerService
                     'rejection_reason' => $doc->rejection_reason ?? '',
                     'size' => $doc->file_size ?: '0 KB',
                     'status' => $doc->status ?: BorrowerDocument::STATUS_UPLOADED,
-                    'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
+                    // The viewer's day (X-Timezone), not the UTC one (BUG-154).
+                    'date' => toTimezone($doc->created_at) ?? 'N/A',
                     'document_url' => $doc->file_path,
                     'url' => $doc->file_path,
                     'download_url' => url("api/v1/common/borrowers-documents/download/{$doc->id}"),

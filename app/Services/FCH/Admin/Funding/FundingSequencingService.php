@@ -92,6 +92,14 @@ class FundingSequencingService
             $query->leftJoin('lender_product_categories', 'funding_sequencings.funding_type_id', '=', 'lender_product_categories.id')
                   ->orderBy('lender_product_categories.name', $sortOrder)
                   ->select('funding_sequencings.*');
+        } elseif ($sortField === 'amount_range') {
+            // Stored as "min-max" text: sort by the numbers, min then max (BUG-176).
+            // SUBSTR/INSTR run on MySQL and SQLite alike.
+            $query->orderByRaw(
+                "CAST(CASE WHEN INSTR(amount_range, '-') > 0 THEN SUBSTR(amount_range, 1, INSTR(amount_range, '-') - 1) ELSE amount_range END AS DECIMAL(20,2)) {$sortOrder}"
+            )->orderByRaw(
+                "CAST(CASE WHEN INSTR(amount_range, '-') > 0 THEN SUBSTR(amount_range, INSTR(amount_range, '-') + 1) ELSE amount_range END AS DECIMAL(20,2)) {$sortOrder}"
+            )->orderBy('id', $sortOrder);
         } elseif ($sortField) {
             $query->orderBy($sortField, $sortOrder);
         } else {

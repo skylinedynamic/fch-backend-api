@@ -174,6 +174,84 @@ class BorrowerInvoicesAndPaymentsTest extends TestCase
         $this->assertSame([$mine->id], $ids->all());
     }
 
+    /** One of my payments, with the method, type and status given. */
+    private function myPayment(array $attributes): Payment
+    {
+        $payment = $this->paymentFor($this->me, $this->invoiceFor($this->me));
+        $payment->forceFill($attributes)->save();
+
+        return $payment;
+    }
+
+    private function myPaymentIds(array $filters): array
+    {
+        $this->actingAsUser($this->me);
+
+        return collect($this->postJson('/api/v1/borrower/payments/fetch-payments', $filters)->assertOk()->json('data'))
+            ->pluck('id')->sort()->values()->all();
+    }
+
+    /** BUG-169: Method was sent but ignored - a Stripe payment stayed under "Square". */
+    #[Test]
+    public function the_payment_list_filters_by_method(): void
+    {
+        $stripe = $this->myPayment(['payment_from' => 'Stripe', 'payment_type' => 'Card']);
+        $square = $this->myPayment(['payment_from' => 'Square', 'payment_type' => 'Card']);
+
+        $this->assertSame([$square->id], $this->myPaymentIds(['payment_from' => 'Square']));
+        $this->assertSame([$stripe->id], $this->myPaymentIds(['payment_from' => 'Stripe']));
+        $this->assertSame([], $this->myPaymentIds(['payment_from' => 'PayPal']));
+        $this->assertSame([$stripe->id, $square->id], $this->myPaymentIds(['payment_from' => null]));
+    }
+
+    /** Environment was sent but ignored - "Production" still listed sandbox payments. */
+    #[Test]
+    public function the_payment_list_filters_by_environment(): void
+    {
+        $live = $this->myPayment(['payment_from' => 'Stripe', 'is_environment' => true]);
+        $sandbox = $this->myPayment(['payment_from' => 'Stripe', 'is_environment' => false]);
+
+        $this->assertSame([$live->id], $this->myPaymentIds(['is_environment' => 1]));
+        $this->assertSame([$sandbox->id], $this->myPaymentIds(['is_environment' => 0]));
+        $this->assertSame([$live->id, $sandbox->id], $this->myPaymentIds(['is_environment' => null]));
+    }
+
+    /**
+     * BUG-169: Type was sent but ignored. For a borrower a refund or a payout is
+     * a Credit and every other payment a Debit - the same rule the DEBIT/CREDIT
+     * column shows (Payment::getTransactionTypeForUser).
+     */
+    #[Test]
+    public function the_payment_list_filters_by_type_as_the_table_shows_it(): void
+    {
+        $paid = $this->myPayment(['payment_from' => 'Stripe', 'payment_type' => 'Card', 'status' => Payment::STATUS_SUCCEEDED]);
+        $noType = $this->myPayment(['payment_from' => 'Stripe', 'payment_type' => null, 'status' => Payment::STATUS_SUCCEEDED]);
+        $refund = $this->myPayment(['payment_from' => 'Stripe', 'payment_type' => 'Card', 'status' => Payment::STATUS_REFUNDED]);
+        $payout = $this->myPayment(['payment_from' => 'Stripe', 'payment_type' => Payment::TYPE_PAYOUT, 'status' => Payment::STATUS_SUCCEEDED]);
+
+        $this->assertSame([$refund->id, $payout->id], $this->myPaymentIds(['transaction_type' => Payment::TRANSACTION_TYPE_CREDIT]));
+        $this->assertSame([$paid->id, $noType->id], $this->myPaymentIds(['transaction_type' => Payment::TRANSACTION_TYPE_DEBIT]));
+
+        $this->actingAsUser($this->me);
+        $types = collect($this->postJson('/api/v1/borrower/payments/fetch-payments')->json('data'))->pluck('transaction_type', 'id');
+        $this->assertSame(Payment::TRANSACTION_TYPE_CREDIT, $types[$refund->id]);
+        $this->assertSame(Payment::TRANSACTION_TYPE_DEBIT, $types[$paid->id]);
+    }
+
+    #[Test]
+    public function method_type_and_status_filters_apply_together(): void
+    {
+        $this->myPayment(['payment_from' => 'Stripe', 'payment_type' => 'Card', 'status' => Payment::STATUS_SUCCEEDED]);
+        $match = $this->myPayment(['payment_from' => 'Square', 'payment_type' => 'Card', 'status' => Payment::STATUS_SUCCEEDED]);
+        $this->myPayment(['payment_from' => 'Square', 'payment_type' => 'Card', 'status' => Payment::STATUS_REFUNDED]);
+
+        $this->assertSame([$match->id], $this->myPaymentIds([
+            'payment_from' => 'Square',
+            'transaction_type' => Payment::TRANSACTION_TYPE_DEBIT,
+            'status' => Payment::STATUS_SUCCEEDED,
+        ]));
+    }
+
     #[Test]
     public function the_payment_list_validates_its_filters(): void
     {

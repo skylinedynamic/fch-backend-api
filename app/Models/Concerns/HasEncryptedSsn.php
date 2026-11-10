@@ -55,4 +55,14 @@ trait HasEncryptedSsn
     {
         return strlen((string) $this->ssn) === Ssn::digits();
     }
+
+    /**
+     * The full SSN on file, or null when there is only its last four digits
+     * (or none) - for prefilling a form that needs the whole number. Its last
+     * four would show as a filled SSN and fail validation on save (BUG-158).
+     */
+    public function fullSsn(): ?string
+    {
+        return $this->hasFullSsn() ? $this->ssn : null;
+    }
 }

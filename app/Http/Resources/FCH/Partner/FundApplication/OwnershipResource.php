@@ -39,7 +39,7 @@ class OwnershipResource extends JsonResource
                     }
                 }
             }
-            $ssn = $owner->ssn ?? $this->ssn ?? $borrower?->last_4_ssn ?? null;
+            $ssn = $owner->ssn ?? $this->ssn ?? $borrower?->fullSsn();
             $streetAddress = $owner->street_address ?? $this->street_address ?? $borrower?->home_address ?? null;
             $city = $owner->city ?? $this->city ?? $borrower?->city ?? null;
             $state = $owner->state ?? $this->state ?? $borrower?->state ?? null;
@@ -69,7 +69,7 @@ class OwnershipResource extends JsonResource
                 }
             }
                 
-            $ssn = $this->ssn ?? $borrower?->last_4_ssn ?? null;
+            $ssn = $this->ssn ?? $borrower?->fullSsn();
             $streetAddress = $this->street_address ?? $borrower?->home_address ?? null;
             $city = $this->city ?? $borrower?->city ?? null;
             $state = $this->state ?? $borrower?->state ?? null;

@@ -127,9 +127,22 @@ class PreQualificationRequest extends Model
      * Only ever moves between those two. Once a reviewer has taken the file
      * further (Intake Received, In Review, Approved, Declined) a re-run must
      * not undo their decision. The caller saves.
+     *
+     * Decided from the status as stored now, not as this copy loaded it: a run
+     * can take minutes, and an overlapping one may have stored Failed meanwhile.
+     * On a stale Pending copy, setting Pending changed nothing Eloquent could
+     * see, so it was never saved and the request stayed Failed (BUG-168).
      */
     public function applyUnderwritingOutcome(bool $succeeded): void
     {
+        if ($this->exists) {
+            $stored = static::whereKey($this->getKey())->value('status');
+            if ($stored !== null) {
+                $this->status = $stored;
+                $this->syncOriginalAttribute('status');
+            }
+        }
+
         if (!in_array($this->status, [self::PENDING, self::FAILED], true)) {
             return;
         }

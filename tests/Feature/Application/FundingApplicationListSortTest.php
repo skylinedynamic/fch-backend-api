@@ -3,6 +3,7 @@
 namespace Tests\Feature\Application;
 
 use App\Models\Borrower\FundingApplication;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Application\RequestApplicationService;
@@ -160,6 +161,44 @@ class FundingApplicationListSortTest extends TestCase
         $this->assertSame([$ids[$expected]], collect($response->json('data'))->pluck('id')->all());
         // ... and its DATE column says the 20th, in that viewer's timezone.
         $this->assertSame('20 Oct 2026', $response->json('data.0.date'));
+    }
+
+    /**
+     * Defect (BUG-153, OP-FAPP-04): an application started but not yet at the
+     * Funding step (On Hold) has no requested_amount of its own; since BUG-136
+     * the list shows its funding request's amount instead - but the sort still
+     * used the empty stored column, so a row showing $350,000 sorted as the
+     * lowest. The sort follows the amount the column shows.
+     */
+    #[Test]
+    public function requested_amount_sorts_by_the_amount_shown_for_an_application_without_its_own(): void
+    {
+        $host = Partner::where('is_host', true)->first();
+        $requestId = FundingRequest::create([
+            'partner_id' => $host->id,
+            'funding_sequence_id' => DB::table('funding_sequencings')->insertGetId([
+                'name' => 'MCA', 'status' => 'Active', 'created_at' => now(), 'updated_at' => now(),
+            ]),
+            'borrower_id' => $this->makeBorrower($host)->id,
+            'funding_type' => 'MCA',
+            'requested_amount' => 350000,
+            'status' => FundingRequest::STATUS_APPROVED,
+        ])->id;
+        $onHold = DB::table('funding_applications')->insertGetId([
+            'partner_id' => $host->id,
+            'borrower_id' => $this->makeBorrower($host)->id,
+            'funding_request_id' => $requestId,
+            'requested_amount' => null,
+            'status' => FundingApplication::ON_HOLD,
+            'created_at' => '2026-10-21 10:00:00',
+            'updated_at' => '2026-10-21 10:00:00',
+        ]);
+
+        // A $300,000 < On Hold $350,000 < C $400,000 < B $500,000
+        $expected = [$this->rows['A'], $onHold, $this->rows['C'], $this->rows['B']];
+
+        $this->assertSame($expected, $this->list('requested_amount', 'asc'));
+        $this->assertSame(array_reverse($expected), $this->list('requested_amount', 'desc'));
     }
 
     #[Test]

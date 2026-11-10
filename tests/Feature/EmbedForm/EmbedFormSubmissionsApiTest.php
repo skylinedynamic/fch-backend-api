@@ -127,6 +127,31 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->assertSame([$large, $legacy, $small], $sorted('desc'));
     }
 
+    /**
+     * BUG-191 (decision D6): amounts in different currencies were sorted by
+     * face value, so £15,000 sat between $6,546 and $20,000. They are grouped
+     * by currency in the form's order (USD, EUR, GBP) - an amount with no
+     * currency is the form's default - and sorted by amount within each.
+     */
+    #[Test]
+    public function desired_funding_sorts_by_currency_then_amount(): void
+    {
+        $usdSmall = $this->submissionFor($this->partner, ['requested_amount' => 6546, 'currency' => 'USD']);
+        $gbp = $this->submissionFor($this->partner, ['requested_amount' => 15000, 'currency' => 'GBP']);
+        $usdLarge = $this->submissionFor($this->partner, ['requested_amount' => 25000, 'currency' => 'USD']);
+        $eur = $this->submissionFor($this->partner, ['requested_amount' => 9000, 'currency' => 'EUR']);
+        $untyped = $this->submissionFor($this->partner, ['requested_amount' => 20000, 'currency' => null]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $sorted = fn (string $order) => collect($this->postJson('/api/v1/common/embed-forms/submissions/fetch', [
+            'sort_field' => 'desired_funding_amount',
+            'sort_order' => $order,
+        ])->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$usdSmall, $untyped, $usdLarge, $eur, $gbp], $sorted('asc'));
+        $this->assertSame([$usdLarge, $untyped, $usdSmall, $eur, $gbp], $sorted('desc'));
+    }
+
     #[Test]
     public function an_unknown_sort_field_falls_back_to_newest_first(): void
     {

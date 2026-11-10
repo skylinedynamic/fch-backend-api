@@ -43,8 +43,8 @@ class UpdateResourceRequest extends BaseApiRequest
             'is_partner' => ['nullable', 'boolean'],
             'is_borrower' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer'],
-            'file' => ['nullable', 'string', 'regex:/\.pdf$/i'],
-            'link' => ['nullable', 'url', 'max:255'],
+            'file' => [Rule::requiredIf(fn () => $this->mustKeep('file', Resource::TYPES_REQUIRING_FILE)), 'nullable', 'string', 'regex:/\.pdf$/i'],
+            'link' => [Rule::requiredIf(fn () => $this->mustKeep('link', Resource::TYPES_REQUIRING_LINK)), 'nullable', 'url', 'max:255'],
             'overview_text' => ['nullable', 'string'],
             'impact_text' => ['nullable', 'string'],
             'overview' => ['nullable', 'array'],
@@ -95,11 +95,30 @@ class UpdateResourceRequest extends BaseApiRequest
             'resource_type.in' => __('resource.validation.resource_type_invalid'),
             'title.required' => __('resource.validation.title_required'),
             'file.regex' => __('resource.validation.file_pdf'),
+            'file.required' => __('resource.validation.file_required'),
+            'link.required' => __('resource.validation.link_required'),
             'link.url' => __('resource.validation.link_invalid'),
             'is_borrower.boolean' => __('resource.validation.is_borrower_boolean'),
             'is_partner.boolean' => __('resource.validation.is_partner_boolean'),
             'providers.*.link.url' => __('resource.validation.provider_link_invalid'),
             'providers.*.desc_list.array' => __('resource.validation.provider_desc_list_array'),
         ];
+    }
+
+    /**
+     * BUG-181: an edit may not leave a resource without the link or document
+     * its type uses - by clearing it, or by switching to such a type without
+     * one. An edit that leaves the field out keeps what is saved.
+     */
+    private function mustKeep(string $field, array $types): bool
+    {
+        $resource = Resource::find($this->route('id'));
+        $type = $this->input('resource_type', $resource?->resource_type);
+
+        if (!in_array($type, $types, true)) {
+            return false;
+        }
+
+        return $this->has($field) || blank($resource?->{$field});
     }
 }

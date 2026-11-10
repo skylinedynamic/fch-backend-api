@@ -299,6 +299,24 @@ class RecordMailRenderTest extends TestCase
         $this->assertStringNotContainsString('/funding-requests/', $partnerHtml);
     }
 
+    /**
+     * Defect (BUG-194): the fee is named "Client Activation Fee" (Plan & Fee),
+     * but the host's email about a new one still said "Borrower Fee" in its
+     * subject and amount.
+     */
+    #[Test]
+    public function the_new_fee_invoice_email_names_it_a_client_activation_fee(): void
+    {
+        $mail = new BorrowerFeeInvoiceNotificationMail($this->invoice(), $this->borrower, $this->partner, 'Four Corner Funding', $this->host->id);
+
+        $this->assertStringStartsWith('New Client Activation Fee Invoice #INV-0088', $mail->envelope()->subject);
+
+        $html = $mail->render();
+        $this->assertStringContainsString('Client Activation Fee Amount', $html);
+        $this->assertStringNotContainsString('Borrower Fee', $html);
+        $this->assertStringNotContainsString('borrower fee', $html);
+    }
+
     /** Defect (D12): the host's "change requested" email showed an EIN's old and new value in full. */
     #[Test]
     public function the_host_change_request_email_masks_an_ein(): void

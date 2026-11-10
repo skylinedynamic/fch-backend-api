@@ -44,6 +44,9 @@ class Invoice extends Model
         'note',
         'created_by',
         'updated_by',
+        // Who paid it and who approved its manual payment (BUG-202).
+        'paid_by',
+        'approved_by',
     ];
 
 
@@ -78,8 +81,46 @@ class Invoice extends Model
     const INVOICE_TYPE_INSTALLMENT = 'installment';
     const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';
     const INVOICE_TYPE_BORROWER_FEE = 'borrower_fee';
+
+    /**
+     * Shows Pay Now to a partner user for the partner's own invoices (BUG-202).
+     * Checked by the panel only; the API lets the partner's staff pay either
+     * way. Seeded by PayInvoicePermissionSeeder.
+     */
+    const PERMISSION_PAY = 'Pay Invoice';
     const INVOICE_TYPE_USER_SEAT = 'user_seat';
     const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
+
+    /** Every invoice type, in the order the Invoices Type filter offers them. */
+    const INVOICE_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_BORROWER_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+        self::INVOICE_TYPE_COMMISSION_PAYOUT,
+    ];
+
+    /**
+     * What a partner pays the host: its own plan, its staff seats and the
+     * borrower fee for each client it activates. A commission payout is money
+     * going the other way.
+     */
+    const PARTNER_BILL_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+        self::INVOICE_TYPE_BORROWER_FEE,
+    ];
+
+    /**
+     * Still owed: never paid, or paid by a manual method whose approval is
+     * pending (a Processing payment has not reached the receiver yet).
+     */
+    const OPEN_STATUSES = [self::STATUS_UNPAID, self::STATUS_PROCESSING];
 
     /**
      * The invoice types that ARE this subscription's own billing cycle.
@@ -115,6 +156,37 @@ class Invoice extends Model
         self::INVOICE_TYPE_DOWN_PAYMENT,
         self::INVOICE_TYPE_INSTALLMENT,
     ];
+
+    /**
+     * Names shown for a type where the stored value is not the name: the
+     * partner's fee per client is stored as borrower_fee but named "Client
+     * Activation Fee", as on Plan & Fee (BUG-194). Any other type is shown as
+     * its stored value in words.
+     */
+    const INVOICE_TYPE_LABELS = [
+        self::INVOICE_TYPE_BORROWER_FEE => 'Client Activation Fee',
+    ];
+
+    /**
+     * The name an invoice type is shown by ("borrower_fee" -> "Client Activation Fee",
+     * "user_seat" -> "User Seat"); empty for an untyped (older) invoice.
+     */
+    public static function typeLabel(?string $type): string
+    {
+        if ($type === null || $type === '') {
+            return '';
+        }
+
+        return self::INVOICE_TYPE_LABELS[$type] ?? ucwords(str_replace('_', ' ', $type));
+    }
+
+    /**
+     * The name this invoice's type is shown by.
+     */
+    public function typeName(): string
+    {
+        return self::typeLabel($this->type);
+    }
 
     /**
      * Whether this invoice bills for its subscription's plan.

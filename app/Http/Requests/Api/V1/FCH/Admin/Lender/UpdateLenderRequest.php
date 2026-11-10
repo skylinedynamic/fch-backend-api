@@ -9,6 +9,8 @@ use App\Rules\UsPhoneNumber;
 
 class UpdateLenderRequest extends BaseApiRequest
 {
+    use NormalizesLenderWebsite;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -35,7 +37,7 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_email' => 'required|email|max:255',
             // Not unique: lenders share support lines, and create never required it (O31).
             'contact_phone' => ['required', 'string', new UsPhoneNumber()],
-            'website' => 'nullable|max:255',
+            'website' => 'nullable|url:http,https|max:255',
             'submission_method' => 'nullable|string|max:255',
             'submission_email' => 'nullable|email|max:255',
             'submission_portal_link' => 'nullable|max:255',
@@ -61,6 +63,7 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_email.required' => __('lender.contact_email_required'),
             'contact_email.email' => __('lender.contact_email_email'),
             'contact_phone.max' => __('lender.contact_phone_max'),
+            'website.url' => __('lender.website_url'),
             'website.max' => __('lender.website_max'),
             'submission_email.email' => __('lender.submission_email_email'),
             'submission_portal_link.max' => __('lender.submission_portal_link_max'),

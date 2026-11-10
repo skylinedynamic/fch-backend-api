@@ -11,6 +11,8 @@ use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use App\Models\Invoice\Invoice;
+use App\Models\Appointment\Appointment;
+use App\Models\SupportTicket\SupportTicket;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
@@ -413,14 +415,7 @@ class PartnerService
             $oldTrialEndDate = $partner->free_trail_end_date;
             $partner->update($partnerData);
 
-            // Sync user status if partner status changed
-            if ($partner->status !== $oldStatus) {
-                if (in_array($partner->status, [Partner::STATUS_SUSPENDED, Partner::STATUS_INACTIVE])) {
-                    $this->restrictPartnerUsers($partner);
-                } elseif ($partner->status === Partner::STATUS_ACTIVE) {
-                    $this->reactivatePartnerUsers($partner);
-                }
-            }
+            $this->syncUsersWithStatus($partner, $oldStatus);
 
             $changes = $partner->getChanges();
 
@@ -583,6 +578,84 @@ class PartnerService
                 'error' => $e->getMessage(),
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * A partner's status and agent, as the Status & Agent tab shows them.
+     */
+    public function findStatusAgent(int $id): ?Partner
+    {
+        return Partner::with('assignedUser')->find($id);
+    }
+
+    /**
+     * Save the Status & Agent tab. Only status and agent change, so the save is
+     * never held up by the partner's other details (an old phone number, ...).
+     * A suspended or inactive partner's login is signed out, as on any status change.
+     */
+    public function updateStatusAgent(Partner $partner, array $data): Partner
+    {
+        return DB::transaction(function () use ($partner, $data) {
+            $oldStatus = $partner->status;
+            $oldAgent = $partner->assign_to;
+
+            $partner->update([
+                'status' => $data['status'],
+                'assign_to' => $data['assign_to'],
+            ]);
+
+            $this->syncUsersWithStatus($partner, $oldStatus);
+
+            $changes = $partner->getChanges();
+            unset($changes['updated_at']);
+
+            if (!empty($changes)) {
+                $changedFields = [];
+                $extraProps = [];
+
+                if (array_key_exists('status', $changes)) {
+                    $changedFields[] = __('partner.field_updated', ['field' => 'Status', 'value' => $partner->status]);
+                }
+
+                if (array_key_exists('assign_to', $changes)) {
+                    $owner = $this->activityLogService->describeOwnerChange(
+                        __('activity_log.owner_label_partner'),
+                        $oldAgent,
+                        $partner->assign_to
+                    );
+                    $changedFields[] = $owner['sentence'];
+                    $extraProps['changes']['assign_to'] = $owner['change'];
+                }
+
+                $this->activityLogService->logModelEvent(
+                    $partner,
+                    ActivityLog::LOG_TYPE_PARTNER_UPDATE,
+                    $extraProps,
+                    array_keys($changes) === ['assign_to'] ? __('activity_log.owner_subject_partner') : null,
+                    implode(', ', $changedFields) . '.'
+                );
+            }
+
+            $partner->partnerUser?->update(['is_refresh' => true]);
+
+            return $partner->fresh('assignedUser');
+        });
+    }
+
+    /**
+     * Signs a partner's login out when it becomes suspended or inactive.
+     */
+    private function syncUsersWithStatus(Partner $partner, ?string $oldStatus): void
+    {
+        if ($partner->status === $oldStatus) {
+            return;
+        }
+
+        if (in_array($partner->status, [Partner::STATUS_SUSPENDED, Partner::STATUS_INACTIVE])) {
+            $this->restrictPartnerUsers($partner);
+        } elseif ($partner->status === Partner::STATUS_ACTIVE) {
+            $this->reactivatePartnerUsers($partner);
         }
     }
 
@@ -1066,6 +1139,12 @@ class PartnerService
      */
     public function archive(array $ids)
     {
+        // The host is refused, not quietly skipped: skipping it still answered
+        // "archived successfully" (BUG-205).
+        if ($this->selectsHost($ids)) {
+            return ApiResponse::error(__('partner.error.host_protected'), 422);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -1124,7 +1203,12 @@ class PartnerService
 
     public function delete(array $ids)
     {
-        // The host is the platform itself - never deleted from a list of partners.
+        // The host is the platform itself - never deleted from a list of
+        // partners. Refused with a message rather than skipped (BUG-205).
+        if ($this->selectsHost($ids)) {
+            return ApiResponse::error(__('partner.error.host_protected'), 422);
+        }
+
         $partners = Partner::whereIn('id', $ids)->where('is_host', false)->get();
 
         // A partner with a paid invoice (or borrowers/users still under it) is
@@ -1166,6 +1250,12 @@ class PartnerService
         }
     }
 
+    /** Whether a selection of partner ids includes the host company. */
+    private function selectsHost(array $ids): bool
+    {
+        return Partner::whereIn('id', $ids)->where('is_host', true)->exists();
+    }
+
     /**
      * Check if multiple partners are deletable
      */
@@ -1191,28 +1281,7 @@ class PartnerService
 
     public function getPartnerProfileStats(int $id)
     {
-        $partnerClass = addslashes(\App\Models\Partner\Partner::class);
-
-        $stats = DB::table('partners as p')
-            ->select(
-                'p.id',
-                DB::raw("(SELECT COUNT(DISTINCT id) FROM appointments WHERE (entity_type = '{$partnerClass}' AND entity_id = p.id) OR scheduled_by IN (SELECT id FROM users WHERE partner_id = p.id) OR assigned_for IN (SELECT id FROM users WHERE partner_id = p.id)) AS total_meetings"),
-                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = p.id) AS total_clients'),
-                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = p.id) AS total_invoice'),
-                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = p.id) AS total_tickets'),
-                DB::raw("(SELECT COALESCE(
-                    (SELECT enrollment_type
-                    FROM subscriptions
-                    WHERE entity_id = p.id AND entity_type = '{$partnerClass}'
-                    ORDER BY id DESC
-                    LIMIT 1),
-                    'N/A'
-                    )) AS enrollment_type")
-            )
-            ->where('p.id', $id)
-            ->first();
-
-        if (!$stats) {
+        if (!Partner::whereKey($id)->exists()) {
             return (object) [
                 'id' => $id,
                 'total_meetings' => 0,
@@ -1223,7 +1292,28 @@ class PartnerService
             ];
         }
 
-        return $stats;
+        // Eloquent counts, not raw sub-selects: a deleted (soft-deleted) client,
+        // invoice, ticket or meeting is not counted (BUG-173), so each card
+        // matches the partner's tabs.
+        $partnerUserIds = User::where('partner_id', $id)->select('id');
+
+        return (object) [
+            'id' => $id,
+            // The partner's own meetings, and those its users scheduled or are assigned to.
+            'total_meetings' => Appointment::where(fn ($q) => $q
+                ->where(fn ($own) => $own->where('entity_type', Partner::class)->where('entity_id', $id))
+                ->orWhereIn('scheduled_by', $partnerUserIds)
+                ->orWhereIn('assigned_for', $partnerUserIds))
+                ->count(),
+            // Archived clients leave the working list (Clients menu, "Active Only").
+            'total_clients' => Borrower::where('partner_id', $id)->notArchived()->count(),
+            'total_invoice' => Invoice::where('partner_id', $id)->count(),
+            'total_tickets' => SupportTicket::where('partner_id', $id)->count(),
+            // Latest subscription row, as before (not a count, unchanged here).
+            'enrollment_type' => Subscription::withTrashed()
+                ->where('entity_type', Partner::class)->where('entity_id', $id)
+                ->orderByDesc('id')->value('enrollment_type') ?? 'N/A',
+        ];
     }
 
     /**

@@ -9,7 +9,7 @@
         </h4>
 
         <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
-            A new borrower account has been created by partner <strong>{{ $partner->company_name ?: $partner->full_name }}</strong>. Below are the borrower details and the generated borrower fee invoice:
+            A new borrower account has been created by partner <strong>{{ $partner->company_name ?: $partner->full_name }}</strong>. Below are the borrower details and the generated Client Activation Fee invoice:
         </p>
 
         {{-- Borrower Details --}}
@@ -71,14 +71,14 @@
             </div>
         </div>
 
-        {{-- Borrower Fee Invoice Details --}}
+        {{-- Client Activation Fee Invoice Details --}}
         <div class="box-light invoice-summary-card"
             style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0; border-radius: 4px; margin-bottom: 24px; text-align: left; overflow: hidden;">
             <div class="invoice-summary-header"
                 style="background-color: #f0f7ff; padding: 20px; text-align: center; border-bottom: 1px solid #e2e8f0;">
                 <span class="label invoice-summary-label"
                     style="display: block; margin-bottom: 6px; color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
-                    Borrower Fee Amount
+                    Client Activation Fee Amount
                 </span>
                 <span class="value invoice-summary-amount"
                     style="font-size: 26px; color: #1e3a8a; font-weight: 700;">${{ number_format($invoice->payment_amount, 2) }}</span>
