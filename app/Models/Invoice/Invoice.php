@@ -339,6 +339,12 @@ class Invoice extends Model
         return $this->belongsTo(Subscription::class, 'subscription_id');
     }
 
+    /** The user who paid it (BUG-202). */
+    public function paidBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Payment::class, 'invoice_id');

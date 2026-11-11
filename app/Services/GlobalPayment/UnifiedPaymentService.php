@@ -107,6 +107,9 @@ class UnifiedPaymentService
             'payment_type' => $data['payment_type'] ?? null,
             // Who is paying - kept on the payment, and on the invoice once paid.
             'paid_by' => auth()->id(),
+            // A card is kept as the payer's default only when they ticked
+            // "Save card as default payment method".
+            'save_card' => filter_var($data['save_card'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
 
         // The gateway call deliberately runs OUTSIDE any transaction.
@@ -170,6 +173,7 @@ class UnifiedPaymentService
                         'currency' => $invoice->currency ?? 'USD',
                         'payment_method_id' => $data['payment_method_id'],
                         'payment_token' => $data['payment_token'] ?? null,
+                        'save_card' => $checkout['save_card'],
                         'invoice_id' => $invoice->id,
                         'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
                     ]);
@@ -327,10 +331,14 @@ class UnifiedPaymentService
                 ]);
             }
 
-            // Save default_payment_method and stripe_customer_id on first payment / when card details are missing
+            // The card becomes the payer's default only when they ticked "Save
+            // card as default payment method" (the gateway driver has already
+            // made it the Stripe default then). Otherwise nothing is kept - it
+            // used to be saved silently, even a partner's staff member's card.
             $payer = $invoice->entity;
+            $keepPaymentMethod = $payer && !($isStripe && empty($checkout['save_card']));
 
-            if ($payer) {
+            if ($keepPaymentMethod) {
                 $rawCustId = $gatewayResult['customer_id'] ?? ($gatewayResult['raw']['customer'] ?? null);
                 $cardName = $gatewayResult['card_name'] ?? null;
                 $cardNo = $gatewayResult['card_no'] ?? null;

@@ -47,6 +47,15 @@ class PaymentResource extends JsonResource
             'note' => is_array($this->details) ? ($this->details['approval_note'] ?? $this->details['note'] ?? null) : null,
             'rejection_reason' => is_array($this->details) ? ($this->details['rejection_reason'] ?? $this->details['reason'] ?? null) : null,
             'raw_details' => $rawDetails,
+            // Who paid, approved or rejected it, by their current name (BUG-202).
+            // A payment from before those were kept falls back to the name
+            // written into its details at the time. Details screen only - the
+            // list does not load these users.
+            $this->mergeWhen($this->relationLoaded('paidBy'), fn () => [
+                'paid_by_name' => $this->paidBy?->name,
+                'approved_by_name' => $this->approvedBy?->name ?? $this->detailName($rawDetails, 'approved_by'),
+                'rejected_by_name' => $this->rejectedBy?->name ?? $this->detailName($rawDetails, 'rejected_by'),
+            ]),
             'invoice_id' => $this->invoice?->invoice_id ?? $this->invoice_id,
             'invoice_no' => $this->invoice?->invoice_id,
             'invoice_type' => $this->invoice?->type,
@@ -70,6 +79,14 @@ class PaymentResource extends JsonResource
             'address' => $this->entity?->address_line_1 ?? $this->entity?->business_address_line_1 ?? $this->entity?->postal_code ?? $this->entity?->business_postal_code,
             'created_at' => toTimezone($this->created_at),
         ];
+    }
+
+    /** A name kept in the payment's details, before the user ids were stored. */
+    private function detailName(mixed $details, string $key): ?string
+    {
+        $name = is_array($details) ? ($details[$key] ?? null) : null;
+
+        return is_string($name) && trim($name) !== '' && !is_numeric($name) ? $name : null;
     }
 
     /**

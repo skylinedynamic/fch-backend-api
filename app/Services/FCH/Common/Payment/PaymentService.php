@@ -462,7 +462,7 @@ class PaymentService
     public function find($id)
     {
         $authUser = Auth::user();
-        $query = Payment::query()->with(['partner', 'borrower', 'invoice', 'entity']);
+        $query = Payment::query()->with(['partner', 'borrower', 'invoice', 'entity', 'paidBy', 'approvedBy', 'rejectedBy']);
 
         $this->applyRbacScope($query, $authUser);
 

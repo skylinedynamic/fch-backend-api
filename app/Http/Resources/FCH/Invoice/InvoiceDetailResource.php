@@ -34,6 +34,8 @@ class InvoiceDetailResource extends InvoiceResource
             // Paying it reactivates a cancelled subscription (BUG-069).
             'reactivates_subscription' => $this->reactivatesSubscription(),
             'status' => $this->status,
+            // The user who paid it, by their current name (BUG-202), when loaded.
+            'paid_by_name' => $this->whenLoaded('paidBy', fn () => $this->paidBy?->name),
             'payment_amount' => (float) $this->payment_amount,
             'displayable_payment_amount' => currencyFormat(
                 $this->payment_amount,

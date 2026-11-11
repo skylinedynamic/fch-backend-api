@@ -329,6 +329,22 @@ class Payment extends Model
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'invoice_id');
     }
 
+    /** Who paid, approved or rejected it (BUG-202). */
+    public function paidBy()
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
     /**
      * Polymorphic relation to the associated entity model.
      */

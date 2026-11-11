@@ -484,7 +484,7 @@ class InvoiceService
     public function find($id)
     {
         $authUser = Auth::user();
-        $query = Invoice::query()->with(['partner', 'borrower', 'subscription'])->select('invoices.*');
+        $query = Invoice::query()->with(['partner', 'borrower', 'subscription', 'paidBy'])->select('invoices.*');
         $this->applyRbacScope($query, $authUser);
 
         return (clone $query)->where('invoices.id', $id)->first()
