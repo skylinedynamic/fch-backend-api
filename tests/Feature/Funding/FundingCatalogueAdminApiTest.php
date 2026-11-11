@@ -6,7 +6,6 @@ use App\Http\Requests\Api\V1\FCH\Admin\Lender\StoreLenderRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Lender\UpdateLenderRequest;
 use App\Http\Resources\FCH\Lender\LenderResource;
 use App\Http\Resources\FCH\Funding\FundingSequencingResource;
-use App\Rules\UniqueLenderLegalName;
 use App\Services\FCH\Admin\Lender\LenderService;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
@@ -38,7 +37,6 @@ use Tests\TestCase;
 #[CoversClass(LenderResource::class)]
 #[CoversClass(FundingSequencingResource::class)]
 #[CoversClass(Lender::class)]
-#[CoversClass(UniqueLenderLegalName::class)]
 #[CoversClass(LenderService::class)]
 #[CoversClass(FundingGroupController::class)]
 #[CoversClass(FundingTypeController::class)]
@@ -283,7 +281,7 @@ class FundingCatalogueAdminApiTest extends TestCase
 
         $categories = [$this->productCategory()];
 
-        // Each has its own legal name (unique since R2 BUG-008); the phone is shared.
+        // Each has its own legal name (they may repeat since 2026-11-11); the phone is shared.
         $first = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'First Lender', 'legal_name' => 'First Lender LLC', 'product_categories' => $categories]))->assertCreated()->json('data.id');
         $second = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'Second Lender', 'legal_name' => 'Second Lender LLC', 'product_categories' => $categories]))->assertCreated()->json('data.id');
 
@@ -293,9 +291,12 @@ class FundingCatalogueAdminApiTest extends TestCase
 
     // -- R2 BUG-008: duplicate lender ----------------------------------------
     //
-    // Add Lender saved a second "Kabbage" and nothing told the two apart. The
-    // legal name is now unique (case and spaces ignored) and a lender is shown
-    // everywhere as "Lender Name - Legal Name".
+    // Add Lender saved a second "Kabbage" and nothing told the two apart. A
+    // lender is shown everywhere as "Lender Name - Legal Name", and since
+    // 2026-11-11 every lender has its own Lender ID (LND-1234). The legal name
+    // was made unique for BUG-008; that requirement changed on 2026-11-11 -
+    // names and legal names may repeat, Add/Edit Lender warns
+    // (tests/Feature/Lender/LenderCodeAndDuplicatesApiTest.php).
 
     /** @return iterable<string, array{string}> */
     public static function sameLegalName(): iterable
@@ -305,34 +306,29 @@ class FundingCatalogueAdminApiTest extends TestCase
         yield 'extra spaces' => ['  Kabbage   Inc. '];
     }
 
-    /** Defect: R2 BUG-008 - a second lender with the same legal name was saved. */
     #[Test]
     #[DataProvider('sameLegalName')]
-    public function add_lender_refuses_a_legal_name_another_lender_has(string $legalName): void
+    public function add_lender_accepts_a_legal_name_another_lender_has(string $legalName): void
     {
         $this->actingAsUser($this->admin);
         $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->assertCreated();
 
-        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => $legalName]))
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.legal_name', __('lender.legal_name_unique'));
+        $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => $legalName]))->assertCreated();
 
-        $this->assertSame(1, Lender::where('name', 'Kabbage')->count());
+        $this->assertSame(2, Lender::where('name', 'Kabbage')->count());
     }
 
     #[Test]
-    public function edit_lender_refuses_another_lenders_legal_name_but_keeps_its_own(): void
+    public function edit_lender_accepts_another_lenders_legal_name_and_keeps_its_own(): void
     {
         $this->actingAsUser($this->admin);
         $kabbage = $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'Kabbage', 'legal_name' => 'Kabbage Inc.']))->json('data.id');
         $other = $this->postJson('/api/v1/admin/lenders', $this->addable(['name' => 'OnDeck', 'legal_name' => 'OnDeck Capital']))->json('data.id');
 
-        $this->putJson("/api/v1/admin/lenders/{$other}", $this->addable(['name' => 'OnDeck', 'legal_name' => 'kabbage inc.']))
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.legal_name', __('lender.legal_name_unique'));
+        $this->putJson("/api/v1/admin/lenders/{$other}", $this->addable(['name' => 'OnDeck', 'legal_name' => 'kabbage inc.']))->assertOk();
         $this->putJson("/api/v1/admin/lenders/{$kabbage}", $this->addable(['name' => 'Kabbage Renamed', 'legal_name' => 'Kabbage Inc.']))->assertOk();
 
-        $this->assertSame('OnDeck Capital', Lender::find($other)->legal_name);
+        $this->assertSame('kabbage inc.', Lender::find($other)->legal_name);
     }
 
     #[Test]

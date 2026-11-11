@@ -30,10 +30,13 @@ class IntakeReviewPartnerFilterTest extends TestCase
     use RefreshDatabase;
 
     private const APPLICATIONS = '/api/v1/common/request-application/funding-application';
+
     private const REQUESTS = '/api/v1/common/funding-request';
 
     private User $hostAdmin;
+
     private Partner $wanda;
+
     private Partner $bravo;
 
     /** @var array<string, int> application id by label */
@@ -77,8 +80,8 @@ class IntakeReviewPartnerFilterTest extends TestCase
             'partner_id' => $partner->id,
             'borrower_id' => DB::table('funding_requests')->where('id', $requestId)->value('borrower_id'),
             'funding_request_id' => $requestId,
-            'full_name' => 'Client of ' . $partner->full_name,
-            'application_number' => 'FUND-' . $requestId,
+            'full_name' => 'Client of '.$partner->full_name,
+            'application_number' => 'FUND-'.$requestId,
             'requested_amount' => 100000,
             'status' => FundingApplication::PENDING,
             'created_at' => now(),

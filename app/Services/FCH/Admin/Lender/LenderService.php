@@ -46,6 +46,7 @@ class LenderService
                 'skip_sorting' => false,
                 'aliases' => [
                     'name' => 'lenders.name',
+                    'lender_code' => 'lenders.lender_code',
                     'legal_name' => 'lenders.legal_name',
                     'contact_name' => 'lenders.contact_name',
                     'contact_email' => 'lenders.contact_email',
@@ -85,9 +86,25 @@ class LenderService
     public function getAllActiveLenders()
     {
         return Lender::where('status', Lender::STATUS_ACTIVE)
-            ->select('id', 'name', 'legal_name', 'status', 'product_categories', 'contact_phone')
+            ->select('id', 'lender_code', 'name', 'legal_name', 'status', 'product_categories', 'contact_phone')
             ->orderBy('name', 'asc')
             ->get();
+    }
+
+    /**
+     * The lenders that already have this name, and those with this legal name
+     * (case and spacing ignored) - Add/Edit Lender warns, it does not refuse.
+     *
+     * @return array{name: array<int, array<string, mixed>>, legal_name: array<int, array<string, mixed>>}
+     */
+    public function duplicates(array $data): array
+    {
+        $ignoreId = $data['ignore_id'] ?? null;
+
+        return [
+            'name' => Lender::withSame('name', $data['name'] ?? null, $ignoreId)->all(),
+            'legal_name' => Lender::withSame('legal_name', $data['legal_name'] ?? null, $ignoreId)->all(),
+        ];
     }
 
     /**

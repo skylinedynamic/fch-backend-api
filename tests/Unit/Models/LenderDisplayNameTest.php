@@ -43,13 +43,6 @@ class LenderDisplayNameTest extends TestCase
         $this->assertSame('', Lender::normalizeLegalName(null));
     }
 
-    /** A blank legal name is left to `required`: never "taken". */
-    #[Test]
-    public function a_blank_legal_name_is_never_taken(): void
-    {
-        $this->assertFalse(Lender::legalNameTaken('   '));
-        $this->assertFalse(Lender::legalNameTaken(null));
-    }
 
     #[Test]
     public function the_label_goes_out_with_the_lender(): void
