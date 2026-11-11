@@ -403,6 +403,7 @@
     @php
         // Nothing has been paid on these yet, so there is no method, card or
         // card holder to print - only what is due (BUG-093).
+        $paidWith = $invoice->paidWith();
         $notPaidYet = $invoice->type !== \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
             && !in_array($invoice->status, [
                 \App\Models\Invoice\Invoice::STATUS_PAID,
@@ -417,15 +418,25 @@
         <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
         <p><strong>Amount Due:</strong> <span class="val">${{ number_format($invoice->payment_amount, 2) }}</span></p>
         @else
-        @if ($invoice->type !== \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)
-        <p><strong>Payment Method:</strong> <span
-                class="val">{{ $invoice->details['payment_method'] ?? 'Stripe' }}</span></p>
+        @php
+            // How it was actually paid, from its payment record (BUG-206). Older
+            // invoices with no record keep what the invoice itself saved.
+            $isPayout = $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT;
+            $paidMethod = $paidWith['method'] ?? ($invoice->details['payment_method'] ?? 'Stripe');
+            $paidByCard = $paidWith['method'] ? $paidWith['is_card'] : true;
+            $payerLabel = $isPayout ? 'Payee Name:' : ($paidByCard ? 'Card Holder:' : 'Paid By:');
+        @endphp
+        @if (!$isPayout)
+        <p><strong>Payment Method:</strong> <span class="val">{{ $paidMethod }}</span></p>
+        @endif
+        @if (!empty($paidWith['reference']))
+        <p><strong>Reference:</strong> <span class="val">{{ $paidWith['reference'] }}</span></p>
         @endif
         <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
-        <p><strong>{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'Payee Name:' : 'Card Holder:' }}</strong> <span
+        <p><strong>{{ $payerLabel }}</strong> <span
                 class="val">{{ $billedTo['name'] ?? $billedTo['company_name'] ?? $invoice->customer_name }}</span>
         </p>
-        @if (!empty($invoice->details['card_last4']))
+        @if ($paidByCard && !empty($invoice->details['card_last4']))
             <p><strong>Card Number:</strong> <span class="val">xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</span>
             </p>
         @endif
@@ -439,7 +450,8 @@
         @if ($invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)
             {{ $invoice->note ?? 'No additional notes provided.' }}
         @else
-            All accounts are to be paid within 7 days from receipt of invoice. To be paid by Stripe. If account is not paid
+            {{-- "To be paid by Stripe" is left out once it was paid another way (BUG-206). --}}
+            All accounts are to be paid within 7 days from receipt of invoice.@if (!$paidWith['method'] || $paidWith['is_card']) To be paid by Stripe.@endif If account is not paid
             within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted
             fee noted above.
         @endif

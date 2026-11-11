@@ -155,6 +155,24 @@ class InvoicePayerAndTypeFilterTest extends TestCase
         $this->assertSame($this->sorted($this->borrowerEnrollment, $this->partnerEnrollment), $this->ids($column('enroll')));
     }
 
+    /**
+     * BUG-194: the table now shows the borrower fee as "Client Activation Fee".
+     * Typing that name (or part of it) must still find the rows stored as borrower_fee.
+     */
+    #[Test]
+    public function the_type_column_filter_finds_the_borrower_fee_by_its_new_name(): void
+    {
+        $column = fn (string $value) => ['filters' => ['type' => [
+            'operator' => 'and',
+            'constraints' => [['value' => $value, 'matchMode' => 'contains']],
+        ]]];
+        $fees = $this->sorted($this->partnerPaysBorrowerFee, $this->borrowerFeeOnBorrower);
+
+        $this->assertSame($fees, $this->ids($column('Client Activation Fee')));
+        $this->assertSame($fees, $this->ids($column('activation')));
+        $this->assertSame([], $this->ids($column('nonsense')));
+    }
+
     #[Test]
     public function type_and_payer_filters_apply_together(): void
     {

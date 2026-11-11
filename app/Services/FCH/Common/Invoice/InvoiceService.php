@@ -230,8 +230,9 @@ class InvoiceService
             unset($rawFilters['customer_name']);
         }
 
-        // Type column filter: typed as the table shows it ("Borrower Fee"), but
-        // stored as `borrower_fee`, so match the stored form.
+        // Type column filter: typed as the table shows it ("Client Activation
+        // Fee"), but stored as `borrower_fee`. Match the types whose shown name
+        // holds the text, or the stored form of the text itself ("Borrower Fee").
         if (isset($rawFilters['type'])) {
             $typeFilter = $rawFilters['type'];
             $constraints = $typeFilter['constraints'] ?? [$typeFilter];
@@ -239,7 +240,13 @@ class InvoiceService
                 $value = trim((string) ($c['value'] ?? ''));
                 if ($value !== '') {
                     $stored = str_replace(' ', '_', strtolower($value));
-                    $query->where('invoices.type', 'like', "%{$stored}%");
+                    $named = Invoice::typesMatchingLabel($value);
+                    $query->where(function ($q) use ($stored, $named) {
+                        $q->where('invoices.type', 'like', "%{$stored}%");
+                        if ($named !== []) {
+                            $q->orWhereIn('invoices.type', $named);
+                        }
+                    });
                 }
             }
             unset($rawFilters['type']);

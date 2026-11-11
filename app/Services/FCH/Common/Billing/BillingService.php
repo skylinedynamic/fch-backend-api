@@ -170,7 +170,10 @@ class BillingService
             $val = $rawFilters['upcoming_billing_type']['constraints'][0]['value'] ?? null;
             if ($val) {
                 $normalized = strtolower(str_replace(' ', '_', $val));
-                if ($normalized === BillingResource::ROW_BORROWER_FEE) {
+                // The fee row reads "Client Activation Fee" (BUG-194) but is the
+                // borrower_fee row: match it by its shown name or its stored name.
+                $namesTheFee = in_array(Invoice::INVOICE_TYPE_BORROWER_FEE, Invoice::typesMatchingLabel($val), true);
+                if ($normalized === BillingResource::ROW_BORROWER_FEE || $namesTheFee) {
                     $query->whereRaw($feeSql, $feeBindings);
                 } elseif (in_array($normalized, [Subscription::PHASE_PLATFORM_FEE, Subscription::PHASE_INSTALLMENT, Subscription::PHASE_USER_SEAT])) {
                     $query->where('subscriptions.current_phase', $normalized)->whereRaw("NOT {$feeSql}", $feeBindings);

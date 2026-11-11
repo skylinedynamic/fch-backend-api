@@ -177,7 +177,8 @@ class UpcomingBillingReceivablesTest extends TestCase
         $feeRow = $rows[$feeOwed->id];
         $this->assertSame('Partner', $feeRow['subscriber_type']);
         $this->assertSame('Wanda Wells', $feeRow['subscriber_name']);
-        $this->assertSame(__('billing.type.borrower_fee'), $feeRow['upcoming_billing_type']);
+        // BUG-194: the fee is named "Client Activation Fee", as on Plan & Fee.
+        $this->assertSame('Client Activation Fee', $feeRow['upcoming_billing_type']);
         $this->assertSame('Dee Client', $feeRow['for_client_name']);
         $this->assertSame($fee->id, $feeRow['fee_invoice_id']);
         $this->assertSame(800.0, (float) $feeRow['upcoming_billing_amount']);
@@ -230,6 +231,28 @@ class UpcomingBillingReceivablesTest extends TestCase
         $this->assertSame([$feeOwed->id, $hostClient->id], $ids(['sort_field' => 'outstanding_amount', 'sort_order' => 'desc']));
         // Sorted on the partner's name it shows ("Wanda Wells" after "Hal Client").
         $this->assertSame([$hostClient->id, $feeOwed->id], $ids(['sort_field' => 'subscriber_name', 'sort_order' => 'asc']));
+    }
+
+    /**
+     * BUG-194: the row reads "Client Activation Fee", so the Billing Type search
+     * must find it by that name, as well as by the old one.
+     */
+    #[Test]
+    public function the_billing_type_search_finds_the_fee_by_its_new_name(): void
+    {
+        $hostClient = $this->client($this->host, 'Hal');
+        $feeOwed = $this->client($this->wanda, 'Dee');
+        $this->borrowerFee($feeOwed);
+
+        $search = fn (string $value) => array_column($this->fetch($this->hostAdmin, ['filters' => ['upcoming_billing_type' => [
+            'operator' => 'and',
+            'constraints' => [['value' => $value, 'matchMode' => 'contains']],
+        ]]])['data'], 'id');
+
+        $this->assertSame([$feeOwed->id], $search('Client Activation Fee'));
+        $this->assertSame([$feeOwed->id], $search('activation'));
+        $this->assertSame([$feeOwed->id], $search('Borrower Fee'));
+        $this->assertNotContains($hostClient->id, $search('Client Activation Fee'));
     }
 
     #[Test]

@@ -5,6 +5,8 @@ namespace Tests\Feature\Invoice;
 use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
+use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -163,6 +165,50 @@ class InvoicePdfBilledToTest extends TestCase
         $this->assertStringContainsString('Wanda Romanoff', $details);
         $this->assertStringNotContainsString('QA-TEST Retest033', $details);
         $this->assertStringContainsString('Payee Name: Wanda Romanoff', $text);
+    }
+
+    /**
+     * Defect (BUG-206): a Client Activation Fee paid by Bank Transfer printed
+     * "Payment Method: Stripe", a Card Holder and "To be paid by Stripe".
+     */
+    #[Test]
+    public function an_invoice_paid_by_bank_transfer_prints_the_transfer_not_a_card(): void
+    {
+        $invoice = Invoice::create([
+            'invoice_id' => 'INV-20261105007',
+            'partner_id' => $this->partner->id,
+            'type' => Invoice::INVOICE_TYPE_BORROWER_FEE,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->partner->id,
+            'payment_amount' => 800,
+            'status' => Invoice::STATUS_PAID,
+            'currency' => 'USD',
+        ]);
+        Payment::create([
+            'partner_id' => $this->partner->id,
+            'invoice_id' => $invoice->id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->partner->id,
+            'transaction_id' => 'QA-TEST-REF-0322',
+            'amount' => 800,
+            'currency' => 'USD',
+            'payment_from' => PaymentProvider::BANK_TRANSFER,
+            'payment_type' => PaymentProvider::BANK_TRANSFER,
+            'is_manual' => true,
+            'status' => Payment::STATUS_SUCCEEDED,
+            'transaction_date' => now(),
+            'is_environment' => false,
+            'details' => ['transaction_number' => 'QA-TEST-REF-0322'],
+        ]);
+
+        $html = view('invoices.download', ['invoice' => $invoice->fresh(['partner', 'borrower', 'subscription']), 'business_info' => self::BUSINESS_INFO])->render();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('Payment Method: Bank Transfer', $text);
+        $this->assertStringContainsString('Reference: QA-TEST-REF-0322', $text);
+        $this->assertStringContainsString('Paid By: Wanda Romanoff', $text);
+        $this->assertStringNotContainsString('Card Holder', $text);
+        $this->assertStringNotContainsString('Stripe', $text);
     }
 
     private function between(string $text, string $from, string $to): string

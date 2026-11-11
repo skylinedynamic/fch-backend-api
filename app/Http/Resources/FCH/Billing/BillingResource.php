@@ -191,7 +191,7 @@ class BillingResource extends JsonResource
             'fee_invoice_number' => $fee?->invoice_id,
             'upcoming_billing_date' => $fee ? toTimezone($fee->created_at, null, 'Y-m-d') : null,
             'upcoming_billing_amount' => $this->owed(),
-            'upcoming_billing_type' => __('billing.type.borrower_fee'),
+            'upcoming_billing_type' => Invoice::typeLabel(Invoice::INVOICE_TYPE_BORROWER_FEE),
             'is_billing_paused' => $reason !== null,
             'billing_paused_reason' => $reason,
             'outstanding_amount' => $this->owed(),

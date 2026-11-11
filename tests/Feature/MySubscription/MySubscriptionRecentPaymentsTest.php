@@ -115,4 +115,24 @@ class MySubscriptionRecentPaymentsTest extends TestCase
         $this->assertSame(Invoice::INVOICE_TYPE_USER_SEAT, $rows[$seat->id]['invoice_type']);
         $this->assertSame(Invoice::INVOICE_TYPE_BORROWER_FEE, $rows[$borrowerFee->id]['invoice_type']);
     }
+
+    /**
+     * BUG-194 retest: Recent Payments History still named the $800 fee "Borrower
+     * Fee". The API now sends the name to show beside the stored type.
+     */
+    #[Test]
+    public function recent_payments_name_the_borrower_fee_a_client_activation_fee(): void
+    {
+        $client = $this->makeBorrower($this->partner);
+        $borrowerFee = $this->paid(Invoice::INVOICE_TYPE_BORROWER_FEE, $this->subscription(Borrower::class, $client->id), null, ['borrower_id' => $client->id]);
+        $seatHolder = $this->makeStaffUser($this->partner);
+        $seat = $this->paid(Invoice::INVOICE_TYPE_USER_SEAT, $this->subscription(User::class, $seatHolder->id));
+
+        $this->actingAsUser($this->admin);
+        $rows = collect($this->getJson('/api/v1/common/my-subscription')->assertOk()->json('data.recent_payments'))->keyBy('id');
+
+        $this->assertSame('Client Activation Fee', $rows[$borrowerFee->id]['invoice_type_label']);
+        $this->assertSame(Invoice::INVOICE_TYPE_BORROWER_FEE, $rows[$borrowerFee->id]['invoice_type']);
+        $this->assertSame('User Seat', $rows[$seat->id]['invoice_type_label']);
+    }
 }

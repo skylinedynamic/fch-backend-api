@@ -50,6 +50,8 @@ class PaymentResource extends JsonResource
             'invoice_id' => $this->invoice?->invoice_id ?? $this->invoice_id,
             'invoice_no' => $this->invoice?->invoice_id,
             'invoice_type' => $this->invoice?->type,
+            // The name to show for the type (borrower_fee -> "Client Activation Fee", BUG-194).
+            'invoice_type_label' => Invoice::typeLabel($this->invoice?->type),
             'transaction_id' => $this->transaction_id,
             'amount' => currencyFormat($this->amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'currency' => $this->currency,

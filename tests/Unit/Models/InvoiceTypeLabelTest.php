@@ -37,6 +37,31 @@ class InvoiceTypeLabelTest extends TestCase
         $this->assertSame($label, Invoice::typeLabel($type));
     }
 
+    /** @return iterable<string, array{string, list<string>}> */
+    public static function typedLabels(): iterable
+    {
+        yield 'full new name' => ['Client Activation Fee', [Invoice::INVOICE_TYPE_BORROWER_FEE]];
+        yield 'part of the new name, any case' => ['client ACT', [Invoice::INVOICE_TYPE_BORROWER_FEE]];
+        yield 'another type' => ['enroll', [Invoice::INVOICE_TYPE_ENROLLMENT]];
+        yield 'shared word' => ['fee', [Invoice::INVOICE_TYPE_PLATFORM_FEE, Invoice::INVOICE_TYPE_BORROWER_FEE]];
+        yield 'surrounding spaces' => ['  Commission Payout ', [Invoice::INVOICE_TYPE_COMMISSION_PAYOUT]];
+        yield 'no type has this name' => ['nonsense', []];
+        yield 'blank' => ['   ', []];
+    }
+
+    /**
+     * Filters are typed as the name people see ("Client Activation Fee") but
+     * run on the stored type (borrower_fee).
+     *
+     * @param list<string> $types
+     */
+    #[Test]
+    #[DataProvider('typedLabels')]
+    public function a_typed_name_gives_the_stored_types_it_names(string $typed, array $types): void
+    {
+        $this->assertEqualsCanonicalizing($types, Invoice::typesMatchingLabel($typed));
+    }
+
     #[Test]
     public function a_borrower_fee_invoice_is_shown_as_a_client_activation_fee(): void
     {
