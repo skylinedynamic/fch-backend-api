@@ -19,15 +19,18 @@ class ProfileService
      * A new email isn't saved with the rest: like every sign-in email change it
      * waits as pending until it's confirmed (with the password) from the link
      * sent to the new address, and the old address is told and can cancel.
+     * While a change waits the form shows the pending email, so typing the
+     * current one back in withdraws it (BUG-203) and leaving it alone keeps it.
      *
-     * @return string|null the new email now awaiting confirmation, if the save asked for one
+     * @return string the message for the save: link sent, change withdrawn, or plain save
      * @throws ValidationException when another account already uses the new email
      * @throws Exception
      */
-    public function updateProfile(User $user, array $data): ?string
+    public function updateProfile(User $user, array $data): string
     {
         // Checked before anything is written, so a taken email fails the whole save.
         $newEmail = $this->emailChange->takeFrom($data, $user, $user->email);
+        $withdraw = $newEmail !== null && $this->emailChange->withdraws($user, $newEmail);
 
         try {
             DB::beginTransaction();
@@ -79,11 +82,15 @@ class ProfileService
             throw new Exception(__('borrower.failed_to_update_profile: ' . $e->getMessage()));
         }
 
-        if ($newEmail) {
-            $this->emailChange->request($user, $newEmail);
+        if (!$newEmail) {
+            return __('borrower.update_personal_profile');
         }
 
-        return $newEmail;
+        $this->emailChange->request($user, $newEmail);
+
+        return $withdraw
+            ? __('email_change.cancelled')
+            : __('email_change.requested', ['email' => $newEmail]);
     }
 
 

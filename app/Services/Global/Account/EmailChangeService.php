@@ -88,9 +88,14 @@ class EmailChangeService
      * save leaves both the login and the record's own email alone — and
      * returned, to be passed to request() once the save has committed.
      *
-     * $shownEmail is the email the edit form displayed. An untouched field is
-     * therefore never a change, even for a record whose email had drifted from
-     * its login's, and resubmitting it doesn't cancel a pending change.
+     * $shownEmail is the email the edit form displays when nothing is pending.
+     * While a change waits, every form (portal profiles and admin edit forms
+     * alike) shows the pending email instead, so that is what's compared. An
+     * untouched field is therefore never a change - even for a record whose
+     * email had drifted from its login's - and a save that only edits other
+     * fields keeps a pending change. Typing the current email back in returns
+     * it, and request() then withdraws the pending change (BUG-203); see
+     * withdraws() for telling the two apart in a message.
      * Records without a login keep the email in $data and change it directly —
      * there's no sign-in to protect.
      *
@@ -108,13 +113,23 @@ class EmailChangeService
         $submitted = trim((string) $data[$key]);
         unset($data[$key]);
 
-        if ($submitted === '' || $this->sameEmail($submitted, $shownEmail)) {
+        if ($submitted === '' || $this->sameEmail($submitted, $user->pending_email ?? $shownEmail)) {
             return null;
         }
 
         $this->ensureAvailable($submitted, $user);
 
         return $submitted;
+    }
+
+    /**
+     * Whether request($user, $email) would withdraw the pending change rather
+     * than start one - so a save can say "cancelled" instead of "link sent".
+     * Ask before calling request(), which clears the pending email.
+     */
+    public function withdraws(User $user, string $email): bool
+    {
+        return $user->pending_email !== null && $this->sameEmail($email, $user->email);
     }
 
     /**

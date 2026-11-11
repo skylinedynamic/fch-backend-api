@@ -86,9 +86,10 @@ class AuthProfileService
         // the link sent to it, and the old address is told (BUG-204), as on the
         // borrower portal. Checked before anything is written, so a taken
         // email fails the whole save.
+        // While a change waits Profile shows the pending email, so typing the
+        // current one back in withdraws it (BUG-203) and leaving it alone keeps it.
         $newEmail = $this->emailChange->takeFrom($data, $user, $user->email);
-        // Saving the current email again withdraws a pending change.
-        $withdraw = !$newEmail && $user->pending_email !== null;
+        $withdraw = $newEmail !== null && $this->emailChange->withdraws($user, $newEmail);
 
         $firstName = $data['first_name'] ?? '';
         $lastName = $data['last_name'] ?? '';
@@ -119,10 +120,9 @@ class AuthProfileService
 
         if ($newEmail) {
             $this->emailChange->request($user, $newEmail);
-            $message = __('email_change.requested', ['email' => $newEmail]);
-        } elseif ($withdraw) {
-            $this->emailChange->cancel($user);
-            $message = __('email_change.cancelled');
+            $message = $withdraw
+                ? __('email_change.cancelled')
+                : __('email_change.requested', ['email' => $newEmail]);
         }
 
         return ApiResponse::success($user->fresh(), $message ?? __('profile.profile_update_success'));

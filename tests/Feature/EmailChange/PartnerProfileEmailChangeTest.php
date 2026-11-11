@@ -155,6 +155,24 @@ class PartnerProfileEmailChangeTest extends TestCase
     }
 
     #[Test]
+    public function resaving_the_pending_email_keeps_the_change(): void
+    {
+        // While a change waits, Profile shows the pending email, so a save that
+        // only edits the name sends it back untouched.
+        $this->save($this->owner, 'new.owner@example.test')->assertOk();
+        Mail::fake();
+
+        $this->save($this->owner, 'New.Owner@example.test')
+            ->assertOk()
+            ->assertJsonPath('data.pending_email', 'new.owner@example.test')
+            ->assertJsonPath('message', __('profile.profile_update_success'));
+
+        $this->assertSame('new.owner@example.test', $this->owner->fresh()->pending_email);
+        $this->assertSame('Rita Owner', $this->owner->fresh()->name);
+        Mail::assertNothingOutgoing();
+    }
+
+    #[Test]
     public function an_email_another_account_uses_is_refused_and_nothing_changes(): void
     {
         $this->makeStaffUser($this->partner, [], ['email' => 'taken@example.test']);
