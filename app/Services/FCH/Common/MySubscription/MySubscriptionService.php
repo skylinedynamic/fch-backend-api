@@ -201,7 +201,9 @@ class MySubscriptionService
                 'raw_amount' => $latestInvoice->payment_amount,
                 'status' => $latestInvoice->status,
                 'type' => $latestInvoice->type,
-                'created_at' => toTimezone($latestInvoice->created_at),
+                // The invoice's own date, as the invoice shows it - not shifted into the
+                // viewer's timezone, which moved an evening-UTC invoice a day (BUG-187).
+                'created_at' => toDateOnly($latestInvoice->created_at),
             ] : null,
             'upcoming_billing' => $subscription ? [
                 // Already rendered by toDateOnly() above. It is a calendar date -

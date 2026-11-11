@@ -135,4 +135,29 @@ class MySubscriptionRecentPaymentsTest extends TestCase
         $this->assertSame(Invoice::INVOICE_TYPE_BORROWER_FEE, $rows[$borrowerFee->id]['invoice_type']);
         $this->assertSame('User Seat', $rows[$seat->id]['invoice_type_label']);
     }
+
+    /**
+     * BUG-187 retest: the Current / Recent Bill card showed 2026-10-21 for an
+     * invoice dated 2026-10-20 - it shifted the timestamp into the viewer's
+     * timezone while the invoice itself shows its stored date. The card now
+     * shows the same date as the invoice.
+     */
+    #[Test]
+    public function the_recent_bill_shows_the_invoices_own_date_whatever_the_viewers_timezone(): void
+    {
+        $payment = $this->paid(Invoice::INVOICE_TYPE_COMMISSION_PAYOUT, null, null, ['is_partner_paying' => false]);
+        $invoice = Invoice::find($payment->invoice_id);
+        $invoice->forceFill(['created_at' => '2026-10-20 20:00:00'])->saveQuietly();
+
+        $this->actingAsUser($this->admin);
+
+        $this->getJson('/api/v1/common/my-subscription', ['X-Timezone' => 'Asia/Dhaka'])
+            ->assertOk()
+            ->assertJsonPath('data.recent_bill.invoice_id', $invoice->invoice_id)
+            ->assertJsonPath('data.recent_bill.created_at', '2026-10-20');
+
+        $this->getJson("/api/v1/common/invoices/{$invoice->id}", ['X-Timezone' => 'Asia/Dhaka'])
+            ->assertOk()
+            ->assertJsonPath('data.created_at', '2026-10-20');
+    }
 }
