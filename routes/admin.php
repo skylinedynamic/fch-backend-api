@@ -135,6 +135,8 @@ Route::prefix('v1/admin')
             Route::get('get/all', [LenderController::class, 'getAll']);
             Route::post('multiple-delete', [LenderController::class, 'multipleDelete']);
             Route::post('check-deletable', [LenderController::class, 'checkDeletable']);
+            // Add/Edit Lender's "a lender with this name already exists" warning.
+            Route::post('check-duplicates', [LenderController::class, 'checkDuplicates']);
             Route::post('/', [LenderController::class, 'store']);
             Route::get('{id}', [LenderController::class, 'show']);
             Route::put('{id}', [LenderController::class, 'update']);

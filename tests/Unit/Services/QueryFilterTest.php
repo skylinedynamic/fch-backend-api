@@ -135,4 +135,30 @@ class QueryFilterTest extends TestCase
         $sorted = $this->sql(QueryFilter::apply($model::query(), $column, 'asc', []));
         $this->assertStringNotContainsString(explode('.', $column)[1] ?? $column, str_replace('"id"', '', $sorted));
     }
+
+    /** @return array<string, array{mixed, ?string}> filters => what partner_name holds */
+    public static function columnValues(): array
+    {
+        return [
+            'PrimeReact constraints' => [['partner_name' => ['operator' => 'and', 'constraints' => [['value' => ' Wanda ', 'matchMode' => 'contains']]]], 'Wanda'],
+            'the first constraint with a value' => [['partner_name' => ['constraints' => [['value' => ''], ['value' => 'Bravo']]]], 'Bravo'],
+            'simple filter' => [['partner_name' => ['value' => 'Wells']], 'Wells'],
+            'JSON string' => ['{"partner_name":{"constraints":[{"value":"Hal"}]}}', 'Hal'],
+            'nothing typed' => [['partner_name' => ['constraints' => [['value' => null]]]], null],
+            'another column only' => [['full_name' => ['value' => 'Amy']], null],
+            'no filters' => [[], null],
+            'not an array' => [null, null],
+        ];
+    }
+
+    /**
+     * The typed value of a column that is not a table column (PARTNER NAME on
+     * Intake & Review), for its own query.
+     */
+    #[Test]
+    #[DataProvider('columnValues')]
+    public function value_reads_one_columns_typed_value(mixed $filters, ?string $expected): void
+    {
+        $this->assertSame($expected, QueryFilter::value($filters, 'partner_name'));
+    }
 }

@@ -15,6 +15,7 @@ use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -63,6 +64,17 @@ class FundingRequestService
 
         if (!empty($filters['borrower_id'])) {
             $query->where('borrower_id', $filters['borrower_id']);
+        }
+
+        // The host's Partner dropdown, and the PARTNER NAME column's filter
+        // (the partner's name or company). A partner's team is already limited
+        // to its own rows above, so neither can reach another's.
+        if (!empty($filters['partner_id'])) {
+            $query->where('funding_requests.partner_id', (int) $filters['partner_id']);
+        }
+        $partnerName = QueryFilter::value($filters['filters'] ?? [], 'partner_name');
+        if ($partnerName !== null) {
+            $query->whereHas('partner', fn ($q) => $q->named($partnerName));
         }
 
         if (!empty($filters['search'])) {

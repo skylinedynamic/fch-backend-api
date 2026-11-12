@@ -159,7 +159,8 @@ class RequestApplicationService
             $authUser = Auth::user();
             
             $query = FundingApplication::query()
-                ->with(['borrower', 'fundingSequence', 'fundingRequest'])
+                // The partner only for its name (PARTNER NAME column).
+                ->with(['borrower', 'fundingSequence', 'fundingRequest', 'partner:id,full_name,company_name'])
                 // ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                     $query->where('partner_id', $authUser->partner_id);
@@ -171,6 +172,17 @@ class RequestApplicationService
             // found by searching the global list.
             if (!empty($filters['borrower_id'])) {
                 $query->where('borrower_id', $filters['borrower_id']);
+            }
+
+            // The host's Partner dropdown, and the PARTNER NAME column's filter
+            // (the partner's name or company). A partner's team is already
+            // limited to its own rows above, so neither can reach another's.
+            if (!empty($filters['partner_id'])) {
+                $query->where('funding_applications.partner_id', (int) $filters['partner_id']);
+            }
+            $partnerName = QueryFilter::value($filters['filters'] ?? [], 'partner_name');
+            if ($partnerName !== null) {
+                $query->whereHas('partner', fn ($q) => $q->named($partnerName));
             }
 
             // Apply Search
@@ -199,6 +211,10 @@ class RequestApplicationService
             $sortField = $filters['sort_field'] ?? 'id';
             $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
             $advancedFilters = $filters['filters'] ?? [];
+            // Handled above against the partner; not a column of this table.
+            if (is_array($advancedFilters)) {
+                unset($advancedFilters['partner_name']);
+            }
 
             // DATE shows created_at ("20 Oct 2026"); `date` is not a column, so
             // sorting on it never changed the order.
@@ -225,12 +241,24 @@ class RequestApplicationService
                 );
             }
 
+            // PARTNER NAME shows the partner's name, which is not a column here.
+            $sortByPartnerName = $sortField === 'partner_name';
+
+            if ($sortByPartnerName) {
+                $query->orderBy(
+                    Partner::select('full_name')
+                        ->whereColumn('partners.id', 'funding_applications.partner_id')
+                        ->limit(1),
+                    $sortOrder
+                );
+            }
+
             $query = QueryFilter::apply(
                 $query,
                 $sortField,
                 $sortOrder,
                 $advancedFilters,
-                ($sortByStatusKey || $sortByShownAmount) ? ['skip_sorting' => true] : []
+                ($sortByStatusKey || $sortByShownAmount || $sortByPartnerName) ? ['skip_sorting' => true] : []
             );
 
             // Equal values (two applications on the same day) keep one order

@@ -71,6 +71,44 @@ class Locations
     }
 
     /**
+     * The country with this name (case and outer spaces ignored), or null.
+     */
+    public static function countryNamed(?string $name): ?array
+    {
+        $needle = strtolower(trim((string) $name));
+        if ($needle === '') {
+            return null;
+        }
+
+        foreach (self::all() as $country) {
+            if (strtolower($country['name'] ?? '') === $needle) {
+                return $country;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The state with this name in a country (case and outer spaces ignored), or null.
+     */
+    public static function stateNamed(?array $country, ?string $name): ?array
+    {
+        $needle = strtolower(trim((string) $name));
+        if ($country === null || $needle === '') {
+            return null;
+        }
+
+        foreach ($country['states'] ?? [] as $state) {
+            if (strtolower($state['name'] ?? '') === $needle) {
+                return $state;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The code for a state name - "Texas" becomes "TX".
      *
      * Matches on the code too, so a value that is already a code passes through

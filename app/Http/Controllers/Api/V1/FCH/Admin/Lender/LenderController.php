@@ -12,6 +12,8 @@ use App\Services\FCH\Admin\Lender\LenderService;
 use App\Helpers\ApiResponse;
 use App\Exceptions\LenderInUseException;
 use App\Http\Requests\Api\V1\FCH\Admin\Lender\DeleteLendersRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Lender\CheckLenderDuplicatesRequest;
+use Exception;
 use Illuminate\Support\Facades\Log;
 
 class LenderController extends Controller
@@ -35,6 +37,18 @@ class LenderController extends Controller
     {
         $lenders = $this->lenderService->getAllActiveLenders();
         return ApiResponse::success($lenders, __('lender.fetched_successfully'));
+    }
+
+    /** Lenders that already have this name or legal name - for Add/Edit Lender's warning. */
+    public function checkDuplicates(CheckLenderDuplicatesRequest $request)
+    {
+        try {
+            return ApiResponse::success($this->lenderService->duplicates($request->validated()), __('lender.duplicates_checked'));
+        } catch (Exception $e) {
+            Log::error('Lender duplicate check failed: ' . $e->getMessage());
+
+            return ApiResponse::serverError(__('lender.duplicates_check_failed'));
+        }
     }
 
     public function store(StoreLenderRequest $request)

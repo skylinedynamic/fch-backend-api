@@ -208,6 +208,8 @@ class LenderMatchService
 
         return [
             'id' => $visibility->lender->id,
+            // Lender ID ("LND-4821"), for the LENDER ID column.
+            'lender_code' => $visibility->lender->lender_code,
             'name' => $visibility->lender->name,
             'legal_name' => $visibility->lender->legal_name,
             // "Lender Name - Legal Name": what the screens show (R2 BUG-008).

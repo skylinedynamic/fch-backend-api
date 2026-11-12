@@ -361,6 +361,9 @@ class FundingRequestReviewApiTest extends TestCase
         $matched = collect($detail->json('data.matched_lenders'))->sortBy('id')->values();
         $this->assertSame(['Kabbage', 'Kabbage'], $matched->pluck('name')->all());
         $this->assertSame(['Kabbage - Kabbage Inc.', 'Kabbage - Kabbage Funding LLC'], $matched->pluck('display_name')->all());
+        // Each matched lender carries its Lender Code ("LND-" . 4 random digits . id), for the LENDER CODE column.
+        $this->assertSame([$first->lender_code, $second->lender_code], $matched->pluck('lender_code')->all());
+        $this->assertMatchesRegularExpression('/^LND-\d{4}' . $first->id . '$/', (string) $matched[0]['lender_code']);
         $this->assertSame('Kabbage - Kabbage Funding LLC', $detail->json('data.lender_names'));
         $this->assertSame('Lender Assigned: Kabbage - Kabbage Funding LLC', DB::table('activity_log')
             ->where('subject_type', FundingRequest::class)
