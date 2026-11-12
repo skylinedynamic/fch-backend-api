@@ -106,5 +106,4 @@ class DatabaseSeeder extends Seeder
 }
 
 
-            // sudo php artisan db:seed --class=PayInvoicePermissionSeeder
             // sudo php artisan db:seed --class=LenderCodeSeeder
