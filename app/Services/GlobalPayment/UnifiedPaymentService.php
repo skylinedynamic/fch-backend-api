@@ -488,7 +488,7 @@ class UnifiedPaymentService
      * Only the payer of an invoice - or, for an invoice billed to a partner's
      * own user or employee, that partner's staff - may pay it or finish paying it.
      * The partner's own invoices may also be paid by its staff; the panel
-     * offers Pay Now only to those holding Invoice::PERMISSION_PAY.
+     * offers Pay Now only to those holding Permission::PayInvoice.
      *
      * @throws Exception
      */
@@ -505,7 +505,7 @@ class UnifiedPaymentService
             && (int) $invoice->partner_id === (int) $user->partner_id;
 
         // A partner's own invoice may also be paid by its staff (BUG-202).
-        // "Pay Invoice" is checked by the panel only - it hides Pay Now (07-Nov
+        // Permission::PayInvoice is checked by the panel only - it hides Pay Now (07-Nov
         // decision). Never a borrower's login, which shares the partner_id, and
         // never another partner's invoice.
         $mayPayForPartner = $user

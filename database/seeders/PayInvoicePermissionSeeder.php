@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Permission as PermissionName;
 use App\Models\Common\Permission;
 use App\Models\Common\Role;
-use App\Models\Invoice\Invoice;
 use App\Models\User\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -30,10 +30,10 @@ class PayInvoicePermissionSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $definition = collect(config('permissions.' . self::MODULE . '.permissions', []))
-            ->firstWhere('name', Invoice::PERMISSION_PAY);
+            ->firstWhere('name', PermissionName::PayInvoice->value);
 
         $permission = Permission::updateOrCreate(
-            ['name' => Invoice::PERMISSION_PAY, 'guard_name' => 'api'],
+            ['name' => PermissionName::PayInvoice->value, 'guard_name' => 'api'],
             [
                 'module' => self::MODULE,
                 'is_host' => $definition['is_host'] ?? 0,

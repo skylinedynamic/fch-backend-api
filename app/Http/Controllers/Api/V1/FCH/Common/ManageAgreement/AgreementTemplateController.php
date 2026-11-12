@@ -22,9 +22,6 @@ class AgreementTemplateController extends Controller
 {
     use ResolvesConfigPartner;
 
-    /** Who may name another partner's agreements: a host user holding it. */
-    private const ON_BEHALF_PERMISSION = 'manage partner configuration';
-
     protected $agreementService;
 
     public function __construct(AgreementService $agreementService)
@@ -141,12 +138,7 @@ class AgreementTemplateController extends Controller
     private function templateOwnerId(Request $request): int
     {
         if ($this->namesConfigPartner($request)) {
-            $user = $request->user();
-            abort_unless(
-                $user?->partner?->is_host && $user->can(self::ON_BEHALF_PERMISSION),
-                403,
-                __('partner.configuration_forbidden')
-            );
+            abort_unless($this->mayManageOtherPartners($request), 403, __('partner.configuration_forbidden'));
         }
 
         return (int) $this->configPartnerId($request);

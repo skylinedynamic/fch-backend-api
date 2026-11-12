@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payment;
 
+use App\Enums\Permission;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
@@ -112,7 +113,7 @@ class PayInvoiceTest extends TestCase
 
     private function staffWithPayInvoice(): User
     {
-        return $this->makeStaffUser($this->partner, [Invoice::PERMISSION_PAY]);
+        return $this->makeStaffUser($this->partner, [Permission::PayInvoice->value]);
     }
 
     // ── Who may pay ─────────────────────────────────────────────────

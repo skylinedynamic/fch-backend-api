@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Permission;
 use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
 use App\Http\Controllers\Api\V1\Global\Account\EmailChangeConfirmationController;
 use App\Http\Controllers\Api\V1\Global\Account\EmailChangeLinkController;
@@ -249,9 +250,9 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
 
             Route::post('borrowers/archive', [BorrowerController::class, 'archive'])
-                ->middleware('permission:update clients');
+                ->middleware(Permission::UpdateClients->middleware());
             Route::post('borrowers/unarchive', [BorrowerController::class, 'unarchive'])
-                ->middleware('permission:update clients');
+                ->middleware(Permission::UpdateClients->middleware());
 
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);
@@ -549,7 +550,7 @@ Route::prefix('v1')->group(function () {
                     Route::post('/{mailConfiguration}/verify', 'verify')->whereNumber('mailConfiguration')->middleware('throttle:20,1');
                 });
 
-                Route::middleware('permission:update email configuration settings')
+                Route::middleware(Permission::UpdateEmailConfigurationSettings->middleware())
                     ->controller(MailConfigurationController::class)
                     ->group(function () {
                         Route::get('/', 'index');
@@ -563,7 +564,7 @@ Route::prefix('v1')->group(function () {
 
             // SMS Configuration (host and white-label partners)
             Route::prefix('sms-configuration')
-                ->middleware('permission:update sms configuration settings')
+                ->middleware(Permission::UpdateSmsConfigurationSettings->middleware())
                 ->group(function () {
                     Route::get('/', [SmsConfigurationController::class, 'index']);
                     Route::post('/', [SmsConfigurationController::class, 'store']);
@@ -603,36 +604,36 @@ Route::prefix('v1')->group(function () {
                 // on, so a role without them is refused here too and not only
                 // hidden from the menu.
                 Route::get('config', [EmbedFormController::class, 'getConfig'])
-                    ->middleware('permission:view configuration');
+                    ->middleware(Permission::ViewConfiguration->middleware());
                 Route::put('config', [EmbedFormController::class, 'updateConfig'])
-                    ->middleware('permission:update configuration');
+                    ->middleware(Permission::UpdateConfiguration->middleware());
                 Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey'])
-                    ->middleware('permission:update configuration');
+                    ->middleware(Permission::UpdateConfiguration->middleware());
 
                 Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions'])
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
                 // Applications not yet converted only; see EmbedFormService::deleteSubmissions().
                 // No role permission for now (product decision); the controller
                 // still limits a partner to their own applications.
                 Route::post('submissions/delete', [EmbedFormController::class, 'deleteSubmissions']);
                 Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission'])
                     ->whereNumber('id')
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
                 // The panel offers the status dropdown to anyone who can open an
                 // application, so this follows the same permission.
                 Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus'])
                     ->whereNumber('id')
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
                 Route::get('submissions/{id}/conversion-preview', [EmbedFormController::class, 'conversionPreview'])
                     ->whereNumber('id')
-                    ->middleware('permission:convert application');
+                    ->middleware(Permission::ConvertApplication->middleware());
                 Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower'])
                     ->whereNumber('id')
-                    ->middleware('permission:convert application');
+                    ->middleware(Permission::ConvertApplication->middleware());
 
                 Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment'])
                     ->whereNumber('id')
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
             });
 
 

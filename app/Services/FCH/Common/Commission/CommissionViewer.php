@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Commission;
 
+use App\Enums\Permission;
 use App\Http\Middleware\EnsureHostPartner;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
  *
  *   host owner     every deal and the host's share (admin commission), plus
  *                  what has been paid out of it to the host's staff. Host
- *                  staff who manage commissions (MANAGE_PERMISSION) see this too.
+ *                  staff who manage commissions (Permission::UpdateCommission) see this too.
  *   host staff     only the deals of clients assigned to them, and only their
  *                  own payout from each (see CommissionPayoutService)
  *   partner owner  the partner's deals and its share - never the host's
@@ -41,13 +42,10 @@ final class CommissionViewer
     ) {
     }
 
-    /** Host staff holding this manage commissions - pay them out - so see the host's whole book. */
-    public const MANAGE_PERMISSION = 'update commission';
-
     public static function for(User $user): self
     {
         $isOwner = $user->entity_type === Partner::class
-            || (EnsureHostPartner::allows($user) && $user->checkPermissionTo(self::MANAGE_PERMISSION, 'api'));
+            || (EnsureHostPartner::allows($user) && $user->checkPermissionTo(Permission::UpdateCommission->value, 'api'));
 
         $role = EnsureHostPartner::allows($user)
             ? ($isOwner ? self::HOST_OWNER : self::HOST_STAFF)

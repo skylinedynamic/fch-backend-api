@@ -20,9 +20,10 @@ use Tests\TestCase;
  * Branding and Payment settings through the same endpoints the partner uses
  * on its own Settings page, naming the partner with `partner_id`.
  *
- * Who may do this is decided by the admin panel only (product decision); the
- * API does not check permissions for it. Without `partner_id` every endpoint
- * works on the caller's own partner, as before.
+ * Only a host user holding `manage partner configuration` may name another
+ * partner; anyone else gets 403 (R3-BUG-001 - a partner could read and switch
+ * off another partner's payment gateways). Naming one's own partner, or
+ * leaving `partner_id` out, works on the caller's own settings as before.
  */
 class PartnerConfigurationOnBehalfTest extends TestCase
 {
@@ -34,6 +35,9 @@ class PartnerConfigurationOnBehalfTest extends TestCase
         'update email configuration settings',
         'update sms configuration settings',
     ];
+
+    /** Who may name another partner (config/permissions.php, host only). */
+    private const ON_BEHALF_PERMISSION = 'manage partner configuration';
 
     private Partner $host;
 
@@ -49,9 +53,13 @@ class PartnerConfigurationOnBehalfTest extends TestCase
         $this->partner = $this->makeWhiteLabelPartner(['company_name' => 'Acme Lending']);
     }
 
-    private function hostAdmin(): User
+    private function hostAdmin(bool $mayManagePartners = true): User
     {
-        return $this->actingAsUser($this->makePartnerAdmin($this->host, self::ROUTE_PERMISSIONS));
+        $permissions = $mayManagePartners
+            ? [...self::ROUTE_PERMISSIONS, self::ON_BEHALF_PERMISSION]
+            : self::ROUTE_PERMISSIONS;
+
+        return $this->actingAsUser($this->makePartnerAdmin($this->host, $permissions));
     }
 
     private function smsPayload(array $overrides = []): array
@@ -192,9 +200,84 @@ class PartnerConfigurationOnBehalfTest extends TestCase
     }
 
     // -- Which partner ------------------------------------------------------
-    // Who may name another partner is decided by the admin panel only (the
-    // Configuration tab and its `manage partner configuration` permission);
-    // the API does not check it.
+
+    /**
+     * Every settings call naming $this->partner is refused, and none of its
+     * settings change. The partner starts with an enabled Cash gateway, a
+     * mailbox and no SMS or branding.
+     */
+    private function assertEveryCallNamingThePartnerIsForbidden(): void
+    {
+        $cash = PaymentProvider::create(['name' => 'Cash Payment', 'display_name' => 'Cash Payment', 'status' => true]);
+        PartnerPaymentProvider::create(['partner_id' => $this->partner->id, 'payment_provider_id' => $cash->id, 'status' => true]);
+        $mailbox = MailConfiguration::create([
+            'partner_id' => $this->partner->id,
+            'provider' => MailConfiguration::PROVIDER_SMTP,
+            'from_address' => 'noreply@acme.test',
+            'credentials' => ['smtp_host' => 'smtp.acme.test', 'smtp_port' => 587, 'smtp_username' => 'acme', 'smtp_password' => 'x'],
+        ]);
+        $theirs = ['partner_id' => $this->partner->id];
+        $query = '?partner_id=' . $this->partner->id;
+
+        // Payment
+        $this->getJson('/api/v1/common/partner-payment-providers' . $query)->assertForbidden();
+        $this->getJson("/api/v1/common/partner-payment-providers/{$cash->id}" . $query)->assertForbidden();
+        $this->postJson('/api/v1/common/partner-payment-providers/status', $theirs + ['payment_provider_id' => $cash->id, 'status' => false])->assertForbidden();
+        // Email
+        $this->getJson('/api/v1/common/mail-configurations' . $query)->assertForbidden();
+        $this->postJson('/api/v1/common/mail-configurations', $this->smtpPayload($theirs))->assertForbidden();
+        $this->deleteJson("/api/v1/common/mail-configurations/{$mailbox->id}" . $query)->assertForbidden();
+        // SMS
+        $this->getJson('/api/v1/common/sms-configuration' . $query)->assertForbidden();
+        $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload($theirs))->assertForbidden();
+        // Branding
+        $this->postJson('/api/v1/common/app-configurations', $theirs + ['module' => AppConfiguration::MODULE_BRANDING])->assertForbidden();
+        $this->postJson('/api/v1/common/app-configurations/save', $theirs + ['module' => AppConfiguration::MODULE_BRANDING, 'primary_color' => '#000000'])->assertForbidden();
+
+        $this->assertTrue((bool) PartnerPaymentProvider::where('partner_id', $this->partner->id)->value('status'));
+        $this->assertTrue(MailConfiguration::whereKey($mailbox->id)->exists());
+        $this->assertSame(1, MailConfiguration::where('partner_id', $this->partner->id)->count());
+        $this->assertFalse(SmsConfiguration::where('partner_id', $this->partner->id)->exists());
+        $this->assertFalse(AppConfiguration::where('partner_id', $this->partner->id)->exists());
+    }
+
+    #[Test]
+    public function a_partner_cannot_read_or_change_another_partners_settings(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->makeWhiteLabelPartner(), self::ROUTE_PERMISSIONS));
+
+        $this->assertEveryCallNamingThePartnerIsForbidden();
+    }
+
+    #[Test]
+    public function a_non_host_partner_cannot_name_another_partner_even_with_the_permission(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin(
+            $this->makeWhiteLabelPartner(),
+            [...self::ROUTE_PERMISSIONS, self::ON_BEHALF_PERMISSION]
+        ));
+
+        $this->assertEveryCallNamingThePartnerIsForbidden();
+    }
+
+    #[Test]
+    public function a_host_user_without_the_permission_cannot_name_another_partner(): void
+    {
+        $this->hostAdmin(mayManagePartners: false);
+
+        $this->assertEveryCallNamingThePartnerIsForbidden();
+    }
+
+    #[Test]
+    public function a_partner_may_name_its_own_partner(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->partner, self::ROUTE_PERMISSIONS));
+
+        $this->postJson('/api/v1/common/sms-configuration', $this->smsPayload(['partner_id' => $this->partner->id]))->assertOk();
+        $this->getJson('/api/v1/common/partner-payment-providers?partner_id=' . $this->partner->id)->assertOk();
+
+        $this->assertTrue(SmsConfiguration::where('partner_id', $this->partner->id)->exists());
+    }
 
     #[Test]
     public function an_unknown_partner_is_not_found(): void
