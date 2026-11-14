@@ -333,6 +333,7 @@ return [
     'requested_amount_required' => 'Requested amount is required',
     'requested_amount_numeric' => 'Requested amount must be a number',
     'requested_amount_min' => 'Requested amount cannot be negative',
+    'money_amount_format' => 'Enter the amount as a plain number, e.g. 50000 or 50000.50.',
     'purpose_of_funds_string' => 'Purpose of funds must be a string',
     'purpose_of_funds_max' => 'Purpose of funds cannot exceed 500 characters',
     'purpose_note_string' => 'Purpose note must be a string',

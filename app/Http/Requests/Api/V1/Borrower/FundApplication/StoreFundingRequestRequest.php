@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\MoneyAmount;
 use App\Http\Requests\Api\V1\Concerns\FundingRequestStepRules;
 use App\Models\Borrower\FundingApplication;
 use App\Rules\KnownFundingType;
@@ -39,7 +40,8 @@ class StoreFundingRequestRequest extends BaseApiRequest
         return [
             'id' => ['nullable', Rule::exists('funding_applications', 'id')->where('borrower_id', Auth::user()?->entity_id)],
             'funding_request_id' => ['nullable', Rule::exists('funding_requests', 'id')->where('borrower_id', Auth::user()?->entity_id)],
-            'requested_amount' => 'required|numeric|min:0',
+            // A plain amount, not "5e4" (R3-BUG-022).
+            'requested_amount' => ['required', 'numeric', 'min:0', new MoneyAmount],
             'purpose_of_funds' => 'required|string|max:500',
             'purpose_note' => 'nullable|string|max:500',
             // funding_sequence_id, approved_funding, preferred_funding_type.
