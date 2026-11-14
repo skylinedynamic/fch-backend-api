@@ -38,7 +38,7 @@ class ReminderService
         
         $query = Reminder::withClient()
                          ->createdByUser($user)
-                         ->dateBetween($startDate, $endDate)
+                         ->dateBetween($startDate, $endDate, request()->header('X-Timezone'))
                          ->referenceType($referenceType)
                          ->statusFilter($status)
                          ->search($search);

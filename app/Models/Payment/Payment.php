@@ -250,6 +250,9 @@ class Payment extends Model
             'details' => $data['details'] ?? null,
             'transaction_date' => $data['transaction_date'] ?? now(),
             'created_by' => $data['created_by'] ?? auth()->id(),
+            // The user who chose to pay - never inferred from whoever is signed
+            // in, which for an automatic charge is someone else (BUG-202).
+            'paid_by' => $data['paid_by'] ?? null,
         ]);
     }
 
@@ -324,6 +327,22 @@ class Payment extends Model
     public function invoice()
     {
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'invoice_id');
+    }
+
+    /** Who paid, approved or rejected it (BUG-202). */
+    public function paidBy()
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 
     /**

@@ -16,6 +16,8 @@ class LenderResource extends JsonResource
     {
         return [
             'id'                          => $this->id,
+            // Lender ID ("LND-4821"): made by the system, shown and searched.
+            'lender_code'                 => $this->lender_code,
             'name'                        => $this->name,
             'legal_name'                  => $this->legal_name,
             'display_name'                => $this->displayName(),
@@ -25,6 +27,10 @@ class LenderResource extends JsonResource
             'contact_email'               => $this->contact_email,
             'contact_phone'               => $this->contact_phone,
             'website'                     => $this->website,
+            'country'                     => $this->country,
+            'state'                       => $this->state,
+            'city'                        => $this->city,
+            'address'                     => $this->address,
             'submission_method'           => $this->submission_method,
             'submission_email'            => $this->submission_email,
             'submission_portal_link'      => $this->submission_portal_link,

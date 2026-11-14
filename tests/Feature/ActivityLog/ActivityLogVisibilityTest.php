@@ -464,4 +464,35 @@ class ActivityLogVisibilityTest extends TestCase
         ])->assertOk()->json('data'))->pluck('id')->all();
         $this->assertSame([$statusChange], $applicationOnly);
     }
+
+    /**
+     * BUG-156: the client portal titles a staff note by its Summary, so the
+     * client feed must carry it (`subject`) next to the log type that marks the
+     * entry as a note - a summary-only note has nothing else to show.
+     */
+    #[Test]
+    public function the_client_feed_carries_a_notes_summary(): void
+    {
+        $note = $this->activity($this->otherHostAdmin, ActivityLog::VISIBILITY_EVERYONE, [
+            'event' => 'QA-TEST Run2 vis Everyone',
+            'description' => '',
+            'properties' => [
+                'partner_id' => $this->partner->id,
+                'borrower_id' => $this->borrower->id,
+                'log_type' => 'activity',
+                'subject' => 'QA-TEST Run2 vis Everyone',
+                'description' => null,
+            ],
+        ]);
+
+        Passport::actingAs($this->borrowerUser, [], 'api');
+
+        $row = collect($this->postJson('/api/v1/borrower/activity-logs/fetch-all-activities', [
+            'borrower_id' => $this->borrower->id,
+            'limit' => 50,
+        ])->assertOk()->json('data'))->firstWhere('id', $note->id);
+
+        $this->assertSame('activity', $row['log_type_raw']);
+        $this->assertSame('QA-TEST Run2 vis Everyone', $row['subject']);
+    }
 }

@@ -197,6 +197,51 @@ class CmsSeoAndSiteSettingsAdminApiTest extends TestCase
         $this->assertSame('rotated-secret', $stored());
     }
 
+    /**
+     * A blank secret means "keep" (the form never holds the secret), so there was
+     * no way to delete one: clearing the field kept it, and with the site key
+     * cleared the API still demanded a token from a site that could make none.
+     * The form now asks for removal explicitly.
+     */
+    #[Test]
+    public function the_secret_is_removed_only_when_asked(): void
+    {
+        AppConfiguration::set('recaptcha_secret_key', 'secret-key-0123456789', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        $this->actingAsUser($this->editor);
+        $stored = fn () => AppConfiguration::get('recaptcha_secret_key', null, AppConfiguration::MODULE_WEBSITE, $this->host->id);
+
+        $this->postJson('/api/v1/admin/cms/site-settings', [
+            ...$this->validSiteSettings(),
+            'recaptcha_secret_key' => '',
+            'remove_recaptcha_secret_key' => true,
+        ])->assertOk();
+
+        $this->assertEmpty($stored());
+        $this->getJson('/api/v1/admin/cms/site-settings')
+            ->assertOk()
+            ->assertJsonPath('data.recaptcha_secret_key', fn ($value) => empty($value))
+            ->assertJsonMissingPath('data.remove_recaptcha_secret_key');
+        $this->assertNull(AppConfiguration::get('remove_recaptcha_secret_key', null, AppConfiguration::MODULE_WEBSITE, $this->host->id));
+    }
+
+    #[Test]
+    public function the_remove_flag_wins_over_a_secret_sent_with_it_and_must_be_a_boolean(): void
+    {
+        AppConfiguration::set('recaptcha_secret_key', 'secret-key-0123456789', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        $this->actingAsUser($this->editor);
+
+        $this->postJson('/api/v1/admin/cms/site-settings', [
+            ...$this->validSiteSettings(),
+            'recaptcha_secret_key' => AppConfiguration::SECRET_MASK,
+            'remove_recaptcha_secret_key' => '1',
+        ])->assertOk();
+        $this->assertEmpty(AppConfiguration::get('recaptcha_secret_key', null, AppConfiguration::MODULE_WEBSITE, $this->host->id));
+
+        $this->postJson('/api/v1/admin/cms/site-settings', [...$this->validSiteSettings(), 'remove_recaptcha_secret_key' => 'yes please'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['remove_recaptcha_secret_key']);
+    }
+
     #[Test]
     public function the_site_settings_are_validated(): void
     {

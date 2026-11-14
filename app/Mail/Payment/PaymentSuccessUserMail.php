@@ -29,8 +29,10 @@ class PaymentSuccessUserMail extends Mailable implements SendsImmediately
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
+        // A paid seat's activation: the body is the welcome with the login
+        // details, so the subject says so - not "Payment Receipt" (BUG-197).
         return new Envelope(
-            subject: "Payment Receipt - " . $this->dynamicData['siteName'],
+            subject: __('common.account_active_subject', ['site' => $this->dynamicData['siteName']]),
         );
     }
 

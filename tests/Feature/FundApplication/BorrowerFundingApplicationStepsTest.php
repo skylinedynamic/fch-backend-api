@@ -210,6 +210,37 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['funding_request_id']);
     }
 
+    /**
+     * BUG-158: an application with no SSN yet is prefilled from the profile.
+     * That is the full number on file - never its last four digits, which the
+     * form showed as a filled SSN and the save then refused.
+     */
+    #[Test]
+    public function the_ownership_step_prefills_the_full_ssn_on_file_not_its_last_four(): void
+    {
+        $borrower = \App\Models\Borrower\Borrower::findOrFail($this->me->entity_id);
+        $borrower->ssn = '123-45-6789';
+        $borrower->save();
+        $this->actingAsUser($this->me);
+
+        $this->getJson($this->url('ownership-info') . '?funding_request_id=' . $this->myRequestId)
+            ->assertOk()
+            ->assertJsonPath('data.ssn', '123456789');
+    }
+
+    #[Test]
+    public function a_profile_holding_only_the_last_four_prefills_no_ssn(): void
+    {
+        // Rows from before the full SSN was collected hold only the last four.
+        DB::table('borrowers')->where('id', $this->me->entity_id)
+            ->update(['ssn_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString('6789')]);
+        $this->actingAsUser($this->me);
+
+        $this->getJson($this->url('ownership-info') . '?funding_request_id=' . $this->myRequestId)
+            ->assertOk()
+            ->assertJsonPath('data.ssn', null);
+    }
+
     #[Test]
     public function a_written_ssn_is_stored_as_its_nine_digits(): void
     {

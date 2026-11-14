@@ -40,8 +40,8 @@ class LeadService
                 'industry_type' => $data['industry_type'] ?? null,
                 'industry_type_note' => $data['industry_type_note'] ?? null,
                 'requirement_details' => $data['requirement_details'] ?? $data['requirements_details'] ?? null,
-                'status' => 'New Lead',
-                'lead_type' => 'Borrower', // Default type for website leads
+                'status' => Lead::STATUS_NEW_LEAD,
+                'lead_type' => Lead::leadTypeForInterest($data['interest'] ?? null),
                 'lead_source' => Lead::LEAD_SOURCE_WEBSITE,
             ];
 

@@ -34,6 +34,8 @@ class InvoiceDetailResource extends InvoiceResource
             // Paying it reactivates a cancelled subscription (BUG-069).
             'reactivates_subscription' => $this->reactivatesSubscription(),
             'status' => $this->status,
+            // The user who paid it, by their current name (BUG-202), when loaded.
+            'paid_by_name' => $this->whenLoaded('paidBy', fn () => $this->paidBy?->name),
             'payment_amount' => (float) $this->payment_amount,
             'displayable_payment_amount' => currencyFormat(
                 $this->payment_amount,
@@ -49,6 +51,8 @@ class InvoiceDetailResource extends InvoiceResource
                 fn () => $this->subscription?->enrollment_type
             ),
             'note' => $this->note,
+            // How it was actually paid, not always "Stripe" (BUG-206).
+            ...$this->paidWithPayload(),
 
             // Who issued the invoice and who pays it - see InvoicePartyResolver.
             ...app(InvoicePartyResolver::class)->resolve($this->resource),
@@ -59,6 +63,23 @@ class InvoiceDetailResource extends InvoiceResource
                 'logo_document_full_url',
                 'logo_sidebar_full_url',
             ]),
+        ];
+    }
+
+    /**
+     * The invoice's payment method, the payer's reference and whether it was a
+     * card, for the Payment Details block (BUG-206).
+     *
+     * @return array{payment_method: ?string, payment_reference: ?string, is_card_payment: bool}
+     */
+    protected function paidWithPayload(): array
+    {
+        $paidWith = $this->resource->paidWith();
+
+        return [
+            'payment_method' => $paidWith['method'],
+            'payment_reference' => $paidWith['reference'],
+            'is_card_payment' => $paidWith['is_card'],
         ];
     }
 }

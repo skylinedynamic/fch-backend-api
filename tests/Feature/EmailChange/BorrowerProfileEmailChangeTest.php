@@ -137,18 +137,61 @@ class BorrowerProfileEmailChangeTest extends TestCase
     }
 
     #[Test]
-    public function saving_the_shown_email_again_is_not_a_change(): void
+    public function saving_the_current_email_with_nothing_pending_is_not_a_change(): void
     {
+        $this->postJson(self::PROFILE, $this->payload(['email' => 'CRAIG@example.test']))
+            ->assertOk()
+            ->assertJsonPath('message', __('borrower.update_personal_profile'));
+
+        $this->assertNull($this->user->fresh()->pending_email);
+        Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function resaving_the_pending_email_keeps_the_change(): void
+    {
+        // While a change waits, the form shows the pending email, so a save that
+        // only edits another field sends it back untouched.
         $this->requestChange();
         Mail::fake();
 
-        // Same address, different case, and an unrelated edit: the pending change stays.
-        $this->postJson(self::PROFILE, $this->payload(['email' => 'CRAIG@example.test', 'city' => 'Dallas']))
+        $this->postJson(self::PROFILE, $this->payload(['email' => 'NEW@example.test', 'city' => 'Dallas']))
             ->assertOk()
             ->assertJsonPath('message', __('borrower.update_personal_profile'));
 
         $this->assertSame('new@example.test', $this->user->fresh()->pending_email);
+        $this->assertSame('Dallas', $this->user->fresh()->entity->city);
         Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function saving_the_current_email_while_a_change_waits_withdraws_it(): void
+    {
+        $this->requestChange();
+        Mail::fake();
+
+        $this->postJson(self::PROFILE, $this->payload(['email' => 'CRAIG@example.test', 'city' => 'Dallas']))
+            ->assertOk()
+            ->assertJsonPath('data.pending_email', null)
+            ->assertJsonPath('message', __('email_change.cancelled'));
+
+        $this->assertNull($this->user->fresh()->pending_email);
+        $this->assertSame('craig@example.test', $this->user->fresh()->email);
+        $this->assertSame('Dallas', $this->user->fresh()->entity->city);
+        Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function saving_another_email_while_a_change_waits_replaces_it(): void
+    {
+        $this->requestChange();
+
+        $this->postJson(self::PROFILE, $this->payload(['email' => 'other@example.test']))
+            ->assertOk()
+            ->assertJsonPath('message', __('email_change.requested', ['email' => 'other@example.test']));
+
+        $this->assertSame('other@example.test', $this->user->fresh()->pending_email);
+        $this->assertSame('craig@example.test', $this->user->fresh()->email);
     }
 
     // ---- Unique ---------------------------------------------------------------

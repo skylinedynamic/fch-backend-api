@@ -47,10 +47,15 @@ class PublicWebsiteApiTest extends TestCase
         $this->host = $this->makeHostPartner();
     }
 
-    /** The reCAPTCHA secret as Site Settings saves it: module website, the host's row. */
+    /**
+     * reCAPTCHA set up in Site Settings: the secret and the site key, as Site
+     * Settings saves them (module website, the host's row). The check runs only
+     * with both - the website makes a token only when it has the site key.
+     */
     private function siteSettingsSecret(string $secret): void
     {
         AppConfiguration::set('recaptcha_secret_key', $secret, AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        AppConfiguration::set('recaptcha_site_key', 'site-key-public', AppConfiguration::MODULE_WEBSITE, $this->host->id);
     }
 
     private ?array $googleAnswer = null;
@@ -137,6 +142,28 @@ class PublicWebsiteApiTest extends TestCase
 
         Http::assertNothingSent();
         $this->assertFalse(file_exists(config_path('captcha.php')), 'config/captcha.php is gone - nothing reads it');
+    }
+
+    /**
+     * Half set up - a secret with no site key, or a site key with no secret -
+     * is off too. The website cannot make a token without the site key, and
+     * the API cannot check one without the secret, so demanding one would turn
+     * every lead away ("Please complete the reCAPTCHA verification.").
+     */
+    #[Test]
+    public function with_only_one_of_the_two_keys_saved_leads_are_taken_without_a_check(): void
+    {
+        Http::fake();
+
+        AppConfiguration::set('recaptcha_secret_key', 'secret-only', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        $this->postJson('/api/v1/website/leads', $this->contactForm(['recaptcha_token' => null]))->assertOk();
+
+        AppConfiguration::set('recaptcha_secret_key', '', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        AppConfiguration::set('recaptcha_site_key', 'site-key-only', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        $this->postJson('/api/v1/website/leads', $this->contactForm(['recaptcha_token' => null]))->assertOk();
+
+        $this->assertSame(2, Lead::count());
+        Http::assertNothingSent();
     }
 
     /** With no secret anywhere, the check is skipped rather than blocking every lead. */

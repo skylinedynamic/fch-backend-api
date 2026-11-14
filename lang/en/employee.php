@@ -47,6 +47,15 @@ return [
     'employee_not_found' => 'The requested employee could not be found.',
     'department_status' => 'Fecth department status successfully.',
 
+    // ✅ Departments
+    'department_name_required' => 'Department name is required.',
+    'department_name_max' => 'Department name may not be greater than 255 characters.',
+    'department_exists' => 'Department already exists.',
+    'department_created' => 'Department created successfully',
+    'department_deleted' => 'Department deleted successfully',
+    'department_not_found' => 'Department not found.',
+    'department_in_use' => 'Department ":name" is assigned to :count employee and cannot be deleted. Move the employee to another department first.|Department ":name" is assigned to :count employees and cannot be deleted. Move them to another department first.',
+
     // ✅ Account Creation
     'account_created'  => 'User account has been created successfully for this employee.',
     'account_already_exists' => 'A user account is already linked with this employee.',

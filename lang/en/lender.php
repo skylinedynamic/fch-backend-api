@@ -2,6 +2,14 @@
 
 return [
     'fetched_successfully' => 'Lender fetched successfully',
+    'duplicates_checked' => 'Lenders with the same name checked.',
+    'duplicates_check_failed' => 'Could not check for lenders with the same name.',
+    // Location (KnownLocation): from the same list the form offers.
+    'country_unknown' => 'Please select a country from the list.',
+    'state_needs_country' => 'Please select a country before the state.',
+    'state_not_in_country' => 'Please select a state in :country.',
+    'city_needs_state' => 'Please select a state before the city.',
+    'city_not_in_state' => 'Please select a city in :state.',
     'created_successfully' => 'Lender created successfully',
     'updated_successfully' => 'Lender updated successfully',
     'deleted_successfully' => 'Lender deleted successfully',
@@ -24,7 +32,6 @@ return [
     'contact_unique' => 'This phone number has already been taken.',
 
     'legal_name_required' => 'The legal name is required.',
-    'legal_name_unique' => 'A lender with this legal name already exists.',
     'legal_name_max' => 'The legal name may not be greater than 255 characters.',
     'product_categories_required' => 'Product categories are required.',
     'contact_name_required' => 'The contact name is required.',

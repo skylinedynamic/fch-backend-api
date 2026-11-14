@@ -45,16 +45,12 @@ class PersonalInfoController extends Controller
         try {
             $user = Auth::user();
             // A new email isn't saved yet: it waits for confirmation from the
-            // link sent to it, which the message tells the borrower.
-            $requestedEmail = $this->profileService->updateProfile($user, $request->validated());
+            // link sent to it (or a pending one is withdrawn), which the
+            // message tells the borrower.
+            $message = $this->profileService->updateProfile($user, $request->validated());
             $updatedUser = User::with('entity')->find($user->id);
 
-            return ApiResponse::success(
-                new PersonalProfileResource($updatedUser),
-                $requestedEmail
-                    ? __('email_change.requested', ['email' => $requestedEmail])
-                    : __('borrower.update_personal_profile')
-            );
+            return ApiResponse::success(new PersonalProfileResource($updatedUser), $message);
         } catch (ValidationException $e) {
             // An email another account uses is a 422 on the field, not a failure.
             throw $e;

@@ -19,6 +19,16 @@ class Resource extends Model
     public const TYPE_EDUCATION_HELP = 'education_help';
     public const TYPE_TRAINING_ACADEMY = 'training_academy';
 
+    /** Types whose item opens its own link (BUG-181). Business Services lists its providers' links instead. */
+    public const TYPES_REQUIRING_LINK = [self::TYPE_TRAINING_ACADEMY];
+
+    /** Types whose item is a PDF document (BUG-181). */
+    public const TYPES_REQUIRING_FILE = [
+        self::TYPE_LEGAL_REGISTRATION,
+        self::TYPE_DOWNLOAD_ASSETS,
+        self::TYPE_EDUCATION_HELP,
+    ];
+
     public static function getTypes(): array
     {
         return [

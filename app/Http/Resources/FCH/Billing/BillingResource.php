@@ -9,14 +9,37 @@ use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use App\Models\Employee\Employee;
 use App\Models\Subscription\Subscription;
+use App\Models\Invoice\Invoice;
 
 class BillingResource extends JsonResource
 {
+    /**
+     * What a row bills (the `billing_row` column BillingService selects): the
+     * subscription's own cycle, or - on the host's list - the borrower fee a
+     * partner owes for the client whose subscription carries the fee invoice.
+     */
+    public const ROW_SUBSCRIPTION = 'subscription';
+    public const ROW_BORROWER_FEE = 'borrower_fee';
+
+    /** A borrower fee is collected from the partner, so only the partner's status stops it. */
+    public static function borrowerFeePausedReason(Subscription $row): ?string
+    {
+        $partner = $row->relationLoaded('borrower') ? $row->borrower?->partner : null;
+
+        return ($partner && $partner->status !== Partner::STATUS_ACTIVE)
+            ? __('billing.partner_not_active', ['status' => $partner->status])
+            : null;
+    }
+
     /**
      * Transform the resource into an array.
      */
     public function toArray(Request $request): array
     {
+        if ($this->billing_row === self::ROW_BORROWER_FEE) {
+            return $this->borrowerFeeRow();
+        }
+
         $partner = null;
         $borrower = null;
         $user = null;
@@ -120,12 +143,61 @@ class BillingResource extends JsonResource
             'billing_paused_reason' => $this->billingPausedReason(),
             // Money already invoiced and still owed. On a paused row this is the
             // amount nothing will collect until someone acts on it.
-            'outstanding_amount' => (float) ($this->relationLoaded('unpaidInvoices')
-                ? $this->unpaidInvoices->sum('payment_amount')
-                : 0),
+            'outstanding_amount' => $this->owed(),
             'current_phase' => $this->current_phase,
             'enrollment_type' => $this->enrollment_type,
             'status' => $this->status ?? Subscription::STATUS_ACTIVE,
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
+            'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d'),
+        ];
+    }
+
+    /** The open invoices BillingService counts as owed to the viewer on this row. */
+    private function receivable()
+    {
+        return $this->relationLoaded('receivableInvoices') ? $this->receivableInvoices : collect();
+    }
+
+    private function owed(): float
+    {
+        return round((float) $this->receivable()->sum('payment_amount'), 2);
+    }
+
+    /**
+     * The host's row for a borrower fee a partner still owes: billed to the
+     * partner, for the client named, due since the fee was raised.
+     */
+    private function borrowerFeeRow(): array
+    {
+        $borrower = $this->borrower;
+        $partner = $borrower?->partner;
+        $fee = $this->receivable()->sortBy('created_at')->first();
+        $reason = self::borrowerFeePausedReason($this->resource);
+
+        return [
+            'id' => $this->id,
+            'subscription_id' => $this->id,
+            'billing_row' => self::ROW_BORROWER_FEE,
+            'partner_id' => $partner?->id,
+            'borrower_id' => $borrower?->id,
+            'partner_name' => $partner?->full_name,
+            'company_name' => $partner?->company_name,
+            'partner_email' => $partner?->email,
+            'subscriber_type' => class_basename(Partner::class),
+            'subscriber_name' => $partner?->full_name,
+            'subscriber_email' => $partner?->email,
+            'for_client_name' => $borrower ? trim($borrower->first_name . ' ' . $borrower->last_name) : null,
+            'fee_invoice_id' => $fee?->id,
+            'fee_invoice_number' => $fee?->invoice_id,
+            'upcoming_billing_date' => $fee ? toTimezone($fee->created_at, null, 'Y-m-d') : null,
+            'upcoming_billing_amount' => $this->owed(),
+            'upcoming_billing_type' => Invoice::typeLabel(Invoice::INVOICE_TYPE_BORROWER_FEE),
+            'is_billing_paused' => $reason !== null,
+            'billing_paused_reason' => $reason,
+            'outstanding_amount' => $this->owed(),
+            'current_phase' => self::ROW_BORROWER_FEE,
+            'enrollment_type' => null,
+            'status' => $fee?->status ?? Invoice::STATUS_UNPAID,
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
             'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d'),
         ];

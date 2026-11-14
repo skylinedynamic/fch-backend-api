@@ -118,6 +118,8 @@ class StripeChargeUsesConfiguredModeTest extends TestCase
             'currency' => 'USD',
             'invoice_id' => $invoice->id,
             'payment_token' => 'pm_tokenized_in_the_browser',
+            // These are about the card kept on file, which only a ticked box keeps.
+            'save_card' => true,
             'description' => 'Enrollment fee',
         ]);
     }
