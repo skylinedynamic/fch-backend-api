@@ -117,6 +117,10 @@ return [
     'allowed_domain_invalid' => '":domain" is not a domain. Enter one such as example.com.',
     'allowed_domain_duplicate' => '":domain" is already in the list.',
 
+    // The public page of a form switched off (R3-BUG-014)
+    'inactive_title' => 'This form is not accepting applications right now',
+    'inactive_message' => 'Please check back later, or contact :partner directly.',
+
     // Logs
     'log_store_failed' => 'EmbedFormService::storeSubmission failed',
     'log_notification_failed' => 'Failed to send embed form notification email',

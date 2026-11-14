@@ -45,7 +45,7 @@ Causes:
 
 - **Written first:** 5 of the 8 failed before the change. The other 3 (repeat, Draft save, first close) pin behaviour that stays.
 - **`tests/Feature/Commission`, `CommissionPayout`, `Application`:** 231 passed.
-- **Full suite:** see below.
+- **Full suite (after R3-BUG-011 to 014):** 5,562 tests, all passed (2 skipped).
 
 ## Open items
 

@@ -40,7 +40,7 @@ QA's side notes:
 
 - **Seen failing first:** 5 tests (the refused paths, the two QA names, the missing file, the messages).
 - **`tests/Feature/CreditBuilder`:** 134 passed.
-- **Full suite:** see below.
+- **Full suite (after R3-BUG-011 to 014):** 5,562 tests, all passed (2 skipped).
 
 ## Open items
 

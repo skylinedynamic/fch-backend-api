@@ -37,7 +37,7 @@ All three mails take the portal from the client's partner (`getBorrowerDomain($t
 
 - **Seen failing first:** 10 of the 13. The 3 host-portal cases passed before too.
 - **`tests/Integration/Mail`, `BorrowerDocumentsApiTest`, `VerificationNotifierTest`, `ChangeRequestNotifierTest`:** 136 passed.
-- **Full suite:** see below.
+- **Full suite (after R3-BUG-011 to 014):** 5,562 tests, all passed (2 skipped).
 
 ## Open items
 
