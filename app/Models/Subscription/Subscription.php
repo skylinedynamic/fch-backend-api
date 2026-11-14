@@ -157,6 +157,13 @@ class Subscription extends Model
      * more, but older ones were, when a missed cycle was rolled past. Those are
      * a record of the missed cycle, not a collectable debt.
      */
+    /** Invoices still owed on this subscription: Unpaid or Processing (Invoice::OPEN_STATUSES). */
+    public function openInvoices()
+    {
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id')
+            ->whereIn('status', \App\Models\Invoice\Invoice::OPEN_STATUSES);
+    }
+
     public function unpaidInvoices()
     {
         return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id')
@@ -230,20 +237,29 @@ class Subscription extends Model
      * correlated subquery: no join, which would let the joined table's id and
      * status overwrite the subscription's own.
      */
-    public function scopeOrderBySubscriberName($query, string $direction = 'asc')
+    public function scopeOrderBySubscriberName($query, string $direction = 'asc', ?array $shownAs = null)
     {
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
         $part = fn (string $table, string $column) => "(SELECT {$table}.{$column} FROM {$table} WHERE {$table}.id = subscriptions.entity_id)";
 
+        $name = 'CASE subscriptions.entity_type WHEN ? THEN ' . $part('partners', 'full_name')
+            . ' WHEN ? THEN ' . $part('borrowers', 'first_name')
+            . ' WHEN ? THEN ' . $part('users', 'name')
+            . ' WHEN ? THEN ' . $part('employees', 'first_name')
+            . ' END';
+        $bindings = [Partner::class, Borrower::class, User::class, Employee::class];
+
+        // [condition SQL, its bindings, name SQL]: rows matching the condition
+        // are listed under another name - Upcoming Billings shows a borrower fee
+        // row as the partner's, not the client's whose subscription carries it.
+        if ($shownAs) {
+            [$condition, $conditionBindings, $shownName] = $shownAs;
+            $name = "CASE WHEN {$condition} THEN {$shownName} ELSE {$name} END";
+            $bindings = [...$conditionBindings, ...$bindings];
+        }
+
         return $query
-            ->orderByRaw(
-                'CASE subscriptions.entity_type WHEN ? THEN ' . $part('partners', 'full_name')
-                . ' WHEN ? THEN ' . $part('borrowers', 'first_name')
-                . ' WHEN ? THEN ' . $part('users', 'name')
-                . ' WHEN ? THEN ' . $part('employees', 'first_name')
-                . " END {$direction}",
-                [Partner::class, Borrower::class, User::class, Employee::class]
-            )
+            ->orderByRaw("{$name} {$direction}", $bindings)
             ->orderByRaw('CASE subscriptions.entity_type WHEN ? THEN ' . $part('borrowers', 'middle_name') . " END {$direction}", [Borrower::class])
             ->orderByRaw('CASE subscriptions.entity_type WHEN ? THEN ' . $part('borrowers', 'last_name') . " END {$direction}", [Borrower::class]);
     }

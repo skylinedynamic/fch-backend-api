@@ -27,22 +27,31 @@ class BlogService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'created_at';
-        $sortOrder = $filters['sort_order'] ?? 'desc';
-        
+        $sortOrder = strtolower((string) ($filters['sort_order'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
         // Map frontend fields to database columns
         if ($sortField === 'status') {
             $sortField = 'is_published';
-        } elseif ($sortField === 'category.name') {
-            $sortField = 'category_id';
         }
 
         // Ensure sort field is valid to prevent SQL injection
-        $allowedSortFields = ['title', 'created_at', 'is_published', 'is_featured', 'category_id', 'slug'];
-        if (in_array($sortField, $allowedSortFields)) {
+        $allowedSortFields = ['title', 'created_at', 'is_published', 'is_featured', 'slug'];
+        if ($sortField === 'category.name') {
+            // By the category name the column shows, not its id (BUG-184). A
+            // subquery rather than a join keeps the filter's columns unambiguous.
+            $query->orderBy(
+                BlogCategory::select('name')->whereColumn('blog_categories.id', 'blogs.category_id')->limit(1),
+                $sortOrder
+            );
+        } elseif (in_array($sortField, $allowedSortFields)) {
             $query->orderBy($sortField, $sortOrder);
         } else {
             $query->orderBy('created_at', 'desc');
         }
+
+        // Rows with the same sort value need a fixed order, or each page query
+        // returns them differently and posts repeat or go missing (BUG-185).
+        $query->orderBy('blogs.id', 'desc');
 
         $perPage = $filters['per_page'] ?? 10;
         $blogs = $query->paginate($perPage);

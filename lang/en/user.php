@@ -43,4 +43,12 @@ return [
     'employee_required'      => 'Please select the employee this user belongs to.',
     'employee_not_found'     => 'The selected employee does not exist.',
     'employee_already_linked' => 'The selected employee already has a user account.',
+
+    // Users > Change Account Password: the email to the user (BUG-200).
+    'password_changed_mail' => [
+        'intro'    => 'The password for your account was changed by an administrator. Below are your new login details:',
+        'card'     => 'New Login Details',
+        'password' => 'New Password:',
+        'notice'   => "If you did not expect this change, contact your administrator. Please login and change your password for security.",
+    ],
 ];

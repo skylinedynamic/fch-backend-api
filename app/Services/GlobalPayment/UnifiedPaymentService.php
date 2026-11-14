@@ -105,6 +105,11 @@ class UnifiedPaymentService
             'is_stripe' => $isStripe,
             'bank_detail' => $bankDetail,
             'payment_type' => $data['payment_type'] ?? null,
+            // Who is paying - kept on the payment, and on the invoice once paid.
+            'paid_by' => auth()->id(),
+            // A card is kept as the payer's default only when they ticked
+            // "Save card as default payment method".
+            'save_card' => filter_var($data['save_card'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
 
         // The gateway call deliberately runs OUTSIDE any transaction.
@@ -168,6 +173,7 @@ class UnifiedPaymentService
                         'currency' => $invoice->currency ?? 'USD',
                         'payment_method_id' => $data['payment_method_id'],
                         'payment_token' => $data['payment_token'] ?? null,
+                        'save_card' => $checkout['save_card'],
                         'invoice_id' => $invoice->id,
                         'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
                     ]);
@@ -321,13 +327,18 @@ class UnifiedPaymentService
                     'status' => $paymentStatus,
                     'is_environment' => Payment::environmentOf($partnerProvider),
                     'details' => $gatewayResult['raw'] ?? [],
+                    'paid_by' => $checkout['paid_by'] ?? null,
                 ]);
             }
 
-            // Save default_payment_method and stripe_customer_id on first payment / when card details are missing
+            // The card becomes the payer's default only when they ticked "Save
+            // card as default payment method" (the gateway driver has already
+            // made it the Stripe default then). Otherwise nothing is kept - it
+            // used to be saved silently, even a partner's staff member's card.
             $payer = $invoice->entity;
+            $keepPaymentMethod = $payer && !($isStripe && empty($checkout['save_card']));
 
-            if ($payer) {
+            if ($keepPaymentMethod) {
                 $rawCustId = $gatewayResult['customer_id'] ?? ($gatewayResult['raw']['customer'] ?? null);
                 $cardName = $gatewayResult['card_name'] ?? null;
                 $cardNo = $gatewayResult['card_no'] ?? null;
@@ -360,11 +371,13 @@ class UnifiedPaymentService
                 }
             }
 
-            // 3. Update the invoice status
+            // 3. Update the invoice status - and, once it is paid, who paid it.
+            //    A manual payment gets its payer when it is approved.
             $invoice->update([
                 'status' => $invoiceStatus,
                 // payment_date is a DATE column - store the calendar date.
                 'payment_date' => $isManual ? null : today(),
+                ...($isManual ? [] : ['paid_by' => $payment->paid_by]),
             ]);
 
             // 4. If payment is successful (Paid/Success), make partner or borrower status Active
@@ -474,6 +487,8 @@ class UnifiedPaymentService
     /**
      * Only the payer of an invoice - or, for an invoice billed to a partner's
      * own user or employee, that partner's staff - may pay it or finish paying it.
+     * The partner's own invoices may also be paid by its staff; the panel
+     * offers Pay Now only to those holding Invoice::PERMISSION_PAY.
      *
      * @throws Exception
      */
@@ -489,7 +504,16 @@ class UnifiedPaymentService
             && in_array($invoice->entity_type, [User::class, Employee::class])
             && (int) $invoice->partner_id === (int) $user->partner_id;
 
-        if (!$isPayer && !$isPartnerStaff) {
+        // A partner's own invoice may also be paid by its staff (BUG-202).
+        // "Pay Invoice" is checked by the panel only - it hides Pay Now (07-Nov
+        // decision). Never a borrower's login, which shares the partner_id, and
+        // never another partner's invoice.
+        $mayPayForPartner = $user
+            && $user->entity_type !== Borrower::class
+            && $invoice->entity_type === Partner::class
+            && (int) $invoice->entity_id === (int) $user->partner_id;
+
+        if (!$isPayer && !$isPartnerStaff && !$mayPayForPartner) {
             throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
     }
@@ -521,6 +545,7 @@ class UnifiedPaymentService
             'payment_type' => PaymentProvider::TYPE_CARD,
             'status' => Payment::STATUS_PENDING,
             'is_environment' => Payment::environmentOf($partnerProvider),
+            'paid_by' => $checkout['paid_by'] ?? null,
             'details' => [
                 Payment::DETAIL_FAILURE_SOURCE => Payment::FAILURE_SOURCE_CHECKOUT,
                 Payment::DETAIL_AWAITING => Payment::AWAITING_AUTHENTICATION,
@@ -907,6 +932,8 @@ class UnifiedPaymentService
                 'payment_type' => PaymentProvider::TYPE_CARD,
                 'status' => Payment::STATUS_FAILED,
                 'is_environment' => $environment,
+                // A checkout is always someone paying by hand (BUG-202).
+                'paid_by' => auth()->id(),
                 'details' => array_filter([
                     Payment::DETAIL_FAILURE_SOURCE => Payment::FAILURE_SOURCE_CHECKOUT,
                     'error' => $error,

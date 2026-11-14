@@ -12,6 +12,8 @@ use App\Http\Resources\FCH\Billing\BillingResource;
 use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Closure;
+use Illuminate\Support\Collection;
 
 class BillingService
 {
@@ -33,7 +35,36 @@ class BillingService
         $windowDays = (int) config('subscription.upcoming_window_days', 10);
         $targetDate = now()->addDays($windowDays)->toDateString();
 
+        // Who pays the viewer, and for what:
+        //
+        // - A non-host partner is paid only by its own clients (their enrollment
+        //   and installments). Its own plan and staff seats are money it owes the
+        //   host, and so is the borrower fee it pays to activate a client - even
+        //   though that fee invoice sits on the client's subscription.
+        // - The host is paid by its own clients, and by every other partner: their
+        //   plan (enrollment, installment, platform fee), their staff seats, and
+        //   the borrower fee for each client they activate. Neither the host's own
+        //   plan nor its own staff are billed - the host does not bill itself.
+        //
+        // Every row is a subscription. A borrower fee has none of its own, so on
+        // the host's list a partner's client appears only while the partner still
+        // owes its borrower fee, and that row is shown as the partner's
+        // (BillingResource::ROW_BORROWER_FEE).
+        $feeRowsShown = $isHost && $userPartnerId;
+        [$feeSql, $feeBindings] = $feeRowsShown ? $this->borrowerFeeRowSql((int) $userPartnerId) : ['(1 = 0)', []];
+
+        // Of a row's open invoices, which are owed to the viewer: everything on
+        // the host's own rows, only the client's own bills on a partner's.
+        $receivable = $isHost
+            ? fn ($invoices) => $invoices
+            : fn ($invoices) => $invoices->where('invoices.is_partner_paying', false);
+
         $query = Subscription::query()
+            ->select('subscriptions.*')
+            ->selectRaw(
+                "CASE WHEN {$feeSql} THEN ? ELSE ? END AS billing_row",
+                [...$feeBindings, BillingResource::ROW_BORROWER_FEE, BillingResource::ROW_SUBSCRIPTION]
+            )
             ->with([
                 // status is selected so is_billing_paused can read the subscriber's
                 // LIVE state rather than waiting for the cron to stamp the flag.
@@ -46,102 +77,35 @@ class BillingService
                 'employee:id,first_name,last_name,email,partner_id',
                 // Drives outstanding_amount on each row and the summary totals —
                 // eager loaded so the resource never lazy-loads per row.
-                'unpaidInvoices:id,subscription_id,payment_amount,status',
+                'openInvoices:id,invoice_id,subscription_id,payment_amount,status,type,is_partner_paying,created_at',
             ])
-            // Active subscriptions, plus Pending ones that already have money owed.
-            // Pending means enrolled but never paid — their signup invoice is open
-            // and unpaid, so they are exactly the people who need chasing. Filtering
-            // to Active alone hid the majority of the outstanding balance.
-            ->where(function ($q) {
-                $q->where('subscriptions.status', Subscription::STATUS_ACTIVE)
-                    ->orWhere(function ($pending) {
-                        $pending->where('subscriptions.status', Subscription::STATUS_PENDING)
-                            ->whereHas('unpaidInvoices');
-                    });
-            });
+            ->where(function ($rows) use ($isHost, $userPartnerId, $receivable, $targetDate, $feeRowsShown) {
+                $rows->where(function ($q) use ($isHost, $userPartnerId, $receivable, $targetDate) {
+                    $this->whereBilledToViewer($q, $isHost, $userPartnerId);
+                    $this->whereCollecting($q, $receivable);
+                    $this->whereDueWithinWindow($q, $receivable, $targetDate);
+                });
 
-        // Host vs Non-Host Partner Scoping.
-        //
-        // This screen shows money owed TO the viewer, not money the viewer owes.
-        // A partner's own subscription fee (Partner-type) and its own staff seat
-        // fees (User/Employee-type) are both payable BY that partner TO the host —
-        // that is receivable for the host, never for the partner itself, and it is
-        // not receivable for the host when the entity is the host's own partner
-        // record or the host's own staff (the host does not bill itself). Each
-        // side's own borrowers remain the one thing it collects from directly.
-        if ($isHost && $userPartnerId) {
-            $query->where(function ($q) use ($userPartnerId) {
-                $q->where(function ($sub) use ($userPartnerId) {
-                    // Every other partner's subscription fee, never the host's own.
-                    $sub->where('subscriptions.entity_type', Partner::class)
-                        ->where('subscriptions.entity_id', '!=', $userPartnerId);
-                })
-                    ->orWhere(function ($sub) use ($userPartnerId) {
-                        // The host's own direct borrowers only — a non-host partner's
-                        // borrowers pay that partner, not the host.
-                        $sub->where('subscriptions.entity_type', Borrower::class)
-                            ->whereExists(function ($inner) use ($userPartnerId) {
-                                $inner->selectRaw(1)
-                                    ->from('borrowers')
-                                    ->whereColumn('borrowers.id', 'subscriptions.entity_id')
-                                    ->where('borrowers.partner_id', $userPartnerId);
-                            });
-                    })
-                    // Every other partner's paid seats (User/Employee), never the
-                    // host's own staff.
-                    ->orWhere(fn($sub) => $this->scopeSeatSubscriptions($sub, null, $userPartnerId));
-            });
-        } elseif (!$isHost && $userPartnerId) {
-            // A non-host partner's own subscription and its own staff seats are
-            // both money it owes the host, not money owed to it — neither belongs
-            // on this screen. Its borrowers are the only receivable it has.
-            $query->where(function ($sub) use ($userPartnerId) {
-                $sub->where('subscriptions.entity_type', Borrower::class)
-                    ->whereExists(function ($inner) use ($userPartnerId) {
-                        $inner->selectRaw(1)
-                            ->from('borrowers')
-                            ->whereColumn('borrowers.id', 'subscriptions.entity_id')
-                            ->where('borrowers.partner_id', $userPartnerId);
+                if ($feeRowsShown) {
+                    $rows->orWhere(function ($q) use ($userPartnerId) {
+                        $this->whereBorrowerFeeRow($q, (int) $userPartnerId)
+                            ->whereHas('openInvoices', fn ($invoices) => $this->borrowerFeeInvoices($invoices));
                     });
+                }
             });
-        }
-
-        // Which cycles are "upcoming".
-        //
-        // Which cycles are "upcoming".
-        //
-        // Keyed on subscription_end_date because that is the field
-        // generateDueInvoices() reads — this screen exists to predict what the cron
-        // will do, so the two must select on the same column.
-        //
-        // A NULL subscription_end_date means nothing is scheduled, which also
-        // excludes finished borrowers (PHASE_COMPLETED clears it) — they would
-        // otherwise show up here forever as $0.00 rows, since status stays Active
-        // on completion.
-        $query->where(function ($q) use ($targetDate) {
-            $q->where(function ($sub) use ($targetDate) {
-                $sub->whereNotNull('subscriptions.subscription_end_date')
-                    ->whereDate('subscriptions.subscription_end_date', '<=', $targetDate);
-            })->orWhere(function ($sub) {
-                // Enrolled but never paid: no cycle is scheduled yet and their signup
-                // invoice is already open. Kept on the list so staff can chase them.
-                $sub->whereNull('subscriptions.subscription_end_date')
-                    ->whereNull('subscriptions.enrollment_completed_at');
-            })->orWhereHas('unpaidInvoices');
-            // Anything with money still owed, whatever its dates say. Without this
-            // branch a debt could hide from every screen: a finished borrower's
-            // date is NULL, so an outstanding borrower fee would never be listed.
-        });
 
         // Entity type filter. The API speaks the same vocabulary as the frontend
         // (User::PARTNER / User::BORROWER, matching ENTITY_TYPE_* in appConfig.ts)
         // and maps it to the fully-qualified model class stored in entity_type.
+        // A borrower fee row is the partner's, whatever subscription carries it.
         $entityType = $filters['entity_type'] ?? null;
 
         if ($entityType === User::PARTNER) {
-            $query->where('subscriptions.entity_type', Partner::class);
+            $query->where(fn ($q) => $q->where('subscriptions.entity_type', Partner::class)
+                ->orWhereRaw($feeSql, $feeBindings));
         } elseif ($entityType === User::BORROWER) {
-            $query->where('subscriptions.entity_type', Borrower::class);
+            $query->where('subscriptions.entity_type', Borrower::class)
+                ->whereRaw("NOT {$feeSql}", $feeBindings);
         } elseif ($entityType === User::USER) {
             // Host-only filter option: seats billed to an admin/staff User.
             $query->where('subscriptions.entity_type', User::class);
@@ -155,16 +119,24 @@ class BillingService
         //   paused    - not collectable; subscriber is not Active
         //   overdue   - scheduled cycle already past and still not collected
         //   scheduled - genuinely upcoming
+        // A borrower fee is due as soon as it is raised: overdue while unpaid,
+        // never scheduled, and paused only while the partner is not Active.
         $view = $filters['view'] ?? null;
 
         if ($view === 'paused') {
-            $query->where(fn($q) => $this->wherePaused($q));
+            $query->where(fn ($q) => $q
+                ->where(fn ($row) => $this->wherePaused($row->whereRaw("NOT {$feeSql}", $feeBindings)))
+                ->orWhere(fn ($fee) => $this->whereFeePartnerActive($fee->whereRaw($feeSql, $feeBindings), false)));
         } elseif ($view === 'overdue') {
-            $query->whereNot(fn($q) => $this->wherePaused($q))
-                ->whereNotNull('subscriptions.subscription_end_date')
-                ->whereDate('subscriptions.subscription_end_date', '<', now()->toDateString());
+            $query->where(fn ($q) => $q
+                ->where(fn ($row) => $row->whereRaw("NOT {$feeSql}", $feeBindings)
+                    ->whereNot(fn ($paused) => $this->wherePaused($paused))
+                    ->whereNotNull('subscriptions.subscription_end_date')
+                    ->whereDate('subscriptions.subscription_end_date', '<', now()->toDateString()))
+                ->orWhere(fn ($fee) => $this->whereFeePartnerActive($fee->whereRaw($feeSql, $feeBindings), true)));
         } elseif ($view === 'scheduled') {
-            $query->whereNot(fn($q) => $this->wherePaused($q))
+            $query->whereRaw("NOT {$feeSql}", $feeBindings)
+                ->whereNot(fn ($q) => $this->wherePaused($q))
                 ->whereNotNull('subscriptions.subscription_end_date')
                 ->whereDate('subscriptions.subscription_end_date', '>=', now()->toDateString());
         }
@@ -198,10 +170,15 @@ class BillingService
             $val = $rawFilters['upcoming_billing_type']['constraints'][0]['value'] ?? null;
             if ($val) {
                 $normalized = strtolower(str_replace(' ', '_', $val));
-                if (in_array($normalized, [Subscription::PHASE_PLATFORM_FEE, Subscription::PHASE_INSTALLMENT, Subscription::PHASE_USER_SEAT])) {
-                    $query->where('subscriptions.current_phase', $normalized);
+                // The fee row reads "Client Activation Fee" (BUG-194) but is the
+                // borrower_fee row: match it by its shown name or its stored name.
+                $namesTheFee = in_array(Invoice::INVOICE_TYPE_BORROWER_FEE, Invoice::typesMatchingLabel($val), true);
+                if ($normalized === BillingResource::ROW_BORROWER_FEE || $namesTheFee) {
+                    $query->whereRaw($feeSql, $feeBindings);
+                } elseif (in_array($normalized, [Subscription::PHASE_PLATFORM_FEE, Subscription::PHASE_INSTALLMENT, Subscription::PHASE_USER_SEAT])) {
+                    $query->where('subscriptions.current_phase', $normalized)->whereRaw("NOT {$feeSql}", $feeBindings);
                 } else {
-                    $query->where('subscriptions.current_phase', 'like', "%{$val}%");
+                    $query->where('subscriptions.current_phase', 'like', "%{$val}%")->whereRaw("NOT {$feeSql}", $feeBindings);
                 }
             }
             unset($rawFilters['upcoming_billing_type']);
@@ -261,14 +238,22 @@ class BillingService
             case 'subscription_end_date':
                 // Undated rows (awaiting a first payment) go after every dated
                 // one either way - MySQL would put NULLs first on ascending (BUG-012).
-                $query->orderByRaw('subscriptions.subscription_end_date IS NULL')
-                    ->orderBy('subscriptions.subscription_end_date', $sortOrder);
+                // A borrower fee row goes by the day its fee was raised.
+                [$feeDate, $feeDateBindings] = $this->borrowerFeeSql('MIN(DATE(invoices.created_at))');
+                $dateSql = "CASE WHEN {$feeSql} THEN {$feeDate} ELSE subscriptions.subscription_end_date END";
+                $dateBindings = [...$feeBindings, ...$feeDateBindings];
+                $query->orderByRaw("({$dateSql}) IS NULL", $dateBindings)
+                    ->orderByRaw("{$dateSql} {$sortOrder}", $dateBindings);
                 $skipSorting = true;
                 break;
 
             // Sorts on the amount the row shows (BUG-012) - see billingAmountSql().
             case 'upcoming_billing_amount':
-                $query->orderByRaw($this->billingAmountSql() . " {$sortOrder}", [
+                // A borrower fee row shows the fee it is for.
+                [$feeSum, $feeSumBindings] = $this->borrowerFeeSql('COALESCE(SUM(invoices.payment_amount), 0)');
+                $query->orderByRaw("CASE WHEN {$feeSql} THEN {$feeSum} ELSE " . $this->billingAmountSql() . " END {$sortOrder}", [
+                    ...$feeBindings,
+                    ...$feeSumBindings,
                     Subscription::PHASE_INSTALLMENT,
                     Subscription::PHASE_PLATFORM_FEE,
                     Subscription::PHASE_USER_SEAT,
@@ -277,21 +262,27 @@ class BillingService
                 $skipSorting = true;
                 break;
 
-            // The unpaid invoices' total the row shows as outstanding_amount -
-            // the same unpaidInvoices relation, so paid and deleted ones are out.
+            // The open invoices' total the row shows as outstanding_amount -
+            // the same invoices receivableFor() counts, so paid and deleted ones
+            // are out, and so is a borrower fee on a partner's own list.
             case 'outstanding_amount':
-                $query->orderBy(
-                    Invoice::query()
-                        ->selectRaw('COALESCE(SUM(payment_amount), 0)')
-                        ->whereColumn('invoices.subscription_id', 'subscriptions.id')
-                        ->where('status', Invoice::STATUS_UNPAID),
-                    $sortOrder
+                [$feeSum, $feeSumBindings] = $this->borrowerFeeSql('COALESCE(SUM(invoices.payment_amount), 0)');
+                $owedSql = '(SELECT COALESCE(SUM(invoices.payment_amount), 0) FROM invoices'
+                    . ' WHERE invoices.subscription_id = subscriptions.id AND invoices.deleted_at IS NULL'
+                    . ' AND invoices.status IN (' . implode(', ', array_fill(0, count(Invoice::OPEN_STATUSES), '?')) . ')'
+                    . ($isHost ? '' : ' AND invoices.is_partner_paying = 0') . ')';
+                $query->orderByRaw(
+                    "CASE WHEN {$feeSql} THEN {$feeSum} ELSE {$owedSql} END {$sortOrder}",
+                    [...$feeBindings, ...$feeSumBindings, ...Invoice::OPEN_STATUSES]
                 );
                 $skipSorting = true;
                 break;
 
             case 'upcoming_billing_type':
-                $query->orderBy('subscriptions.current_phase', $sortOrder);
+                $query->orderByRaw(
+                    "CASE WHEN {$feeSql} THEN ? ELSE subscriptions.current_phase END {$sortOrder}",
+                    [...$feeBindings, BillingResource::ROW_BORROWER_FEE]
+                );
                 $skipSorting = true;
                 break;
 
@@ -303,7 +294,12 @@ class BillingService
             case 'partner_name':
             case 'borrower_name':
             case 'subscriber_name':
-                $query->orderBySubscriberName($sortOrder);
+                // A borrower fee row shows (and sorts on) the partner's name.
+                $query->orderBySubscriberName($sortOrder, $feeRowsShown ? [
+                    $feeSql,
+                    $feeBindings,
+                    '(SELECT partners.full_name FROM partners JOIN borrowers ON borrowers.partner_id = partners.id WHERE borrowers.id = subscriptions.entity_id)',
+                ] : null);
                 $skipSorting = true;
                 break;
 
@@ -339,9 +335,12 @@ class BillingService
 
         // Totals across the WHOLE filtered set, not just the current page — a
         // per-page total would be meaningless for deciding what to chase.
-        $summary = $this->summarise(clone $query);
+        $summary = $this->summarise(clone $query, $isHost);
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+        $paginator->getCollection()->each(
+            fn (Subscription $row) => $row->setRelation('receivableInvoices', $this->receivableFor($row, $isHost))
+        );
 
         return $this->respondWithPaginationResource(
             $paginator,
@@ -408,37 +407,20 @@ class BillingService
      * subscriber is not Active. The second number was previously invisible
      * everywhere in the system.
      */
-    protected function summarise($query): array
+    protected function summarise($query, bool $isHost): array
     {
+        // The query already selects subscriptions.* and billing_row, which the
+        // amounts, dates and the borrower fee split below all read.
         $rows = (clone $query)
             ->with([
-                'unpaidInvoices:id,subscription_id,payment_amount,status',
+                'openInvoices:id,invoice_id,subscription_id,payment_amount,status,type,is_partner_paying,created_at',
                 // Needed by is_billing_paused, which is derived entirely from the
                 // subscriber's live status.
                 'partner:id,status',
                 'borrower:id,partner_id,status',
                 'borrower.partner:id,status',
             ])
-            ->get([
-                'subscriptions.id',
-                'subscriptions.entity_type',
-                'subscriptions.entity_id',
-                'subscriptions.status',
-                'subscriptions.current_phase',
-                'subscriptions.subscription_amount_per_month',
-                'subscriptions.monthly_platform_fee',
-                'subscriptions.per_seat_amount',
-                'subscriptions.payable_amount',
-                // Decides whether a row is scheduled and overdue below. It was
-                // missing, so every row was skipped and scheduled_total and
-                // overdue_count were always 0.
-                'subscriptions.subscription_end_date',
-                // What nextInstallmentAmount() needs for the adjusted last one.
-                'subscriptions.installment_type',
-                'subscriptions.installment_count',
-                'subscriptions.installments_paid',
-                'subscriptions.total_subscription_amount',
-            ]);
+            ->get();
 
         $scheduledTotal = 0.0;
         $outstandingTotal = 0.0;
@@ -449,8 +431,20 @@ class BillingService
         foreach ($rows as $row) {
             // Already invoiced and still owed — counted for every row, paused or
             // not, because it is real money regardless of why it is uncollected.
-            $outstanding = (float) $row->unpaidInvoices->sum('payment_amount');
+            $outstanding = (float) $this->receivableFor($row, $isHost)->sum('payment_amount');
             $outstandingTotal += $outstanding;
+
+            // A borrower fee is owed from the day it is raised: overdue unless the
+            // partner is not Active, and never part of what is scheduled.
+            if ($row->billing_row === BillingResource::ROW_BORROWER_FEE) {
+                if (BillingResource::borrowerFeePausedReason($row) !== null) {
+                    $pausedCount++;
+                    $pausedTotal += $outstanding;
+                } else {
+                    $overdueCount++;
+                }
+                continue;
+            }
 
             if ($row->is_billing_paused) {
                 $pausedCount++;
@@ -491,6 +485,163 @@ class BillingService
             'total_count' => $rows->count(),
         ];
     }
+
+    /**
+     * The open invoices a row counts as owed to the viewer. A borrower fee row
+     * holds only that fee; on a partner's own list the borrower fee it pays the
+     * host is never its receivable.
+     */
+    private function receivableFor(Subscription $row, bool $isHost): Collection
+    {
+        $open = $row->relationLoaded('openInvoices') ? $row->openInvoices : collect();
+
+        if ($row->billing_row === BillingResource::ROW_BORROWER_FEE) {
+            return $open->filter(fn (Invoice $invoice) => $invoice->type === Invoice::INVOICE_TYPE_BORROWER_FEE
+                && (bool) $invoice->is_partner_paying)->values();
+        }
+
+        return $isHost
+            ? $open->values()
+            : $open->reject(fn (Invoice $invoice) => (bool) $invoice->is_partner_paying)->values();
+    }
+
+    /** Regular rows: what the viewer bills (see fetchUpcoming()). */
+    private function whereBilledToViewer($query, bool $isHost, $userPartnerId)
+    {
+        if ($isHost && $userPartnerId) {
+            return $query->where(function ($q) use ($userPartnerId) {
+                $q->where(function ($sub) use ($userPartnerId) {
+                    // Every other partner's plan, never the host's own.
+                    $sub->where('subscriptions.entity_type', Partner::class)
+                        ->where('subscriptions.entity_id', '!=', $userPartnerId);
+                })
+                    ->orWhere(function ($sub) use ($userPartnerId) {
+                        // The host's own direct clients only — a partner's clients
+                        // pay that partner, not the host.
+                        $sub->where('subscriptions.entity_type', Borrower::class)
+                            ->whereExists(function ($inner) use ($userPartnerId) {
+                                $inner->selectRaw(1)
+                                    ->from('borrowers')
+                                    ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                                    ->where('borrowers.partner_id', $userPartnerId);
+                            });
+                    })
+                    // Every other partner's paid seats, never the host's own staff.
+                    ->orWhere(fn ($sub) => $this->scopeSeatSubscriptions($sub, null, $userPartnerId));
+            });
+        }
+
+        if ($userPartnerId) {
+            // A partner's only receivable: its own clients.
+            return $query->where('subscriptions.entity_type', Borrower::class)
+                ->whereExists(function ($inner) use ($userPartnerId) {
+                    $inner->selectRaw(1)
+                        ->from('borrowers')
+                        ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                        ->where('borrowers.partner_id', $userPartnerId);
+                });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Active subscriptions, plus Pending ones that already owe the viewer money.
+     * Pending means enrolled but never paid — their signup invoice is open, so
+     * they are exactly the people who need chasing.
+     */
+    private function whereCollecting($query, Closure $receivable)
+    {
+        return $query->where(function ($q) use ($receivable) {
+            $q->where('subscriptions.status', Subscription::STATUS_ACTIVE)
+                ->orWhere(function ($pending) use ($receivable) {
+                    $pending->where('subscriptions.status', Subscription::STATUS_PENDING)
+                        ->whereHas('openInvoices', $receivable);
+                });
+        });
+    }
+
+    /**
+     * Which cycles are "upcoming".
+     *
+     * Keyed on subscription_end_date because that is the field
+     * generateDueInvoices() reads — this screen exists to predict what the cron
+     * will do, so the two must select on the same column. A NULL date means
+     * nothing is scheduled, which also excludes finished borrowers
+     * (PHASE_COMPLETED clears it) — they would otherwise show up here forever as
+     * $0.00 rows, since status stays Active on completion.
+     */
+    private function whereDueWithinWindow($query, Closure $receivable, string $targetDate)
+    {
+        return $query->where(function ($q) use ($receivable, $targetDate) {
+            $q->where(function ($sub) use ($targetDate) {
+                $sub->whereNotNull('subscriptions.subscription_end_date')
+                    ->whereDate('subscriptions.subscription_end_date', '<=', $targetDate);
+            })->orWhere(function ($sub) {
+                // Enrolled but never paid: no cycle is scheduled yet and their signup
+                // invoice is already open. Kept on the list so staff can chase them.
+                $sub->whereNull('subscriptions.subscription_end_date')
+                    ->whereNull('subscriptions.enrollment_completed_at');
+            })
+                // Anything still owed to the viewer, whatever its dates say.
+                ->orWhereHas('openInvoices', $receivable);
+        });
+    }
+
+    /** A partner's client's subscription, on the host's list: it carries that partner's borrower fee. */
+    private function whereBorrowerFeeRow($query, int $hostId)
+    {
+        return $query->where('subscriptions.entity_type', Borrower::class)
+            ->whereExists(function ($inner) use ($hostId) {
+                $inner->selectRaw(1)
+                    ->from('borrowers')
+                    ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                    ->where('borrowers.partner_id', '!=', $hostId);
+            });
+    }
+
+    /** whereBorrowerFeeRow() as raw SQL, for the select and the sorts. */
+    private function borrowerFeeRowSql(int $hostId): array
+    {
+        return [
+            '(subscriptions.entity_type = ? AND EXISTS (SELECT 1 FROM borrowers'
+                . ' WHERE borrowers.id = subscriptions.entity_id AND borrowers.partner_id <> ?))',
+            [Borrower::class, $hostId],
+        ];
+    }
+
+    /** The borrower fee a partner pays the host for a client. */
+    private function borrowerFeeInvoices($invoices)
+    {
+        return $invoices->where('invoices.type', Invoice::INVOICE_TYPE_BORROWER_FEE)
+            ->where('invoices.is_partner_paying', true);
+    }
+
+    /** $aggregate over the row's open borrower fee invoices, as a SQL subquery. */
+    private function borrowerFeeSql(string $aggregate): array
+    {
+        return [
+            "(SELECT {$aggregate} FROM invoices WHERE invoices.subscription_id = subscriptions.id"
+                . ' AND invoices.deleted_at IS NULL AND invoices.type = ? AND invoices.is_partner_paying = 1'
+                . ' AND invoices.status IN (' . implode(', ', array_fill(0, count(Invoice::OPEN_STATUSES), '?')) . '))',
+            [Invoice::INVOICE_TYPE_BORROWER_FEE, ...Invoice::OPEN_STATUSES],
+        ];
+    }
+
+    /** Borrower fee rows whose partner is Active ($active) or is not. */
+    private function whereFeePartnerActive($query, bool $active)
+    {
+        $method = $active ? 'whereNotExists' : 'whereExists';
+
+        return $query->{$method}(function ($inner) {
+            $inner->selectRaw(1)
+                ->from('borrowers')
+                ->join('partners', 'partners.id', '=', 'borrowers.partner_id')
+                ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
+        });
+    }
+
 
     /**
      * Constrain a query to User/Employee seat subscriptions.

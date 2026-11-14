@@ -212,6 +212,37 @@ class FundingRequestReviewApiTest extends TestCase
     }
 
     /**
+     * Defect (BUG-159, OP-FREQ-14): the reason a request was rejected was saved
+     * and shown to the client, but no staff screen showed it - the activity
+     * entry read only "Status updated to: Rejected". The entry names the
+     * reason, and the detail the staff page reads carries it.
+     */
+    #[Test]
+    public function a_rejection_keeps_its_reason_on_the_detail_and_in_the_activity(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $reason = 'Please add 3 months of bank statements';
+
+        $this->postJson('/api/v1/common/funding-request/status-update', [
+            'id' => $this->myRequestId,
+            'status' => FundingRequest::STATUS_REJECTED,
+            'reject_reason' => $reason,
+        ])->assertOk();
+
+        $this->getJson("/api/v1/common/funding-request/{$this->myRequestId}")
+            ->assertOk()
+            ->assertJsonPath('data.reject_reason', $reason);
+
+        $description = DB::table('activity_log')
+            ->where('subject_type', FundingRequest::class)
+            ->where('subject_id', $this->myRequestId)
+            ->where('log_name', 'funding_request_status_update')
+            ->latest('id')
+            ->value('description');
+        $this->assertStringContainsString("Reason: {$reason}", (string) $description);
+    }
+
+    /**
      * Defect: the rejection note had no length limit - only the TEXT column's,
      * past which the save failed as a server error. It takes up to 10,000
      * characters, like a funding application's status note, and says so.
@@ -330,6 +361,9 @@ class FundingRequestReviewApiTest extends TestCase
         $matched = collect($detail->json('data.matched_lenders'))->sortBy('id')->values();
         $this->assertSame(['Kabbage', 'Kabbage'], $matched->pluck('name')->all());
         $this->assertSame(['Kabbage - Kabbage Inc.', 'Kabbage - Kabbage Funding LLC'], $matched->pluck('display_name')->all());
+        // Each matched lender carries its Lender Code ("LND-" . 4 random digits . id), for the LENDER CODE column.
+        $this->assertSame([$first->lender_code, $second->lender_code], $matched->pluck('lender_code')->all());
+        $this->assertMatchesRegularExpression('/^LND-\d{4}' . $first->id . '$/', (string) $matched[0]['lender_code']);
         $this->assertSame('Kabbage - Kabbage Funding LLC', $detail->json('data.lender_names'));
         $this->assertSame('Lender Assigned: Kabbage - Kabbage Funding LLC', DB::table('activity_log')
             ->where('subject_type', FundingRequest::class)

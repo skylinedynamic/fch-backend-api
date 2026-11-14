@@ -89,7 +89,6 @@ class EmployeeController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
         $partnerId = $request->user()->partner_id;
-        $partnerInfo = auth()->user()->partner;
         // ✅ Include all extended employee fields
         $fields = [
             'first_name',
@@ -139,11 +138,8 @@ class EmployeeController extends Controller
             ];
         }
 
+        // create() sends the welcome mail itself (BUG-196: it went twice).
         $result = $this->employeeService->create($employeeData, $userData, $request->role_id ?? null);
-
-        if (!empty($result['user']) && !isset($employeeData['is_paid'])) {
-            $this->employeeService->sendAccountCreatedMail($result['user'], $partnerInfo, $plainPassword);
-        }
 
         return response()->json([
             'status' => true,

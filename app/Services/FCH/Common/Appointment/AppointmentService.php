@@ -175,8 +175,8 @@ class AppointmentService
             */
             $syncResult = false;
 
-            // Send Email Notification to Assigned User
-            $this->sendNotification($appointment, 'updated');
+            // Tell the other person on the appointment, not whoever changed it (BUG-189).
+            $this->sendNotification($appointment, 'updated', $this->otherParty($appointment, auth()->user()));
 
             DB::commit();
 
@@ -200,10 +200,7 @@ class AppointmentService
         $appointment->update(['status' => Appointment::STATUS_CANCELLED]);
         $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_UPDATE);
 
-        $otherParty = (int) $appointment->assigned_for === (int) $by->id
-            ? $appointment->scheduledBy
-            : $appointment->assignedFor;
-        $this->sendNotification($appointment, 'deleted', $otherParty);
+        $this->sendNotification($appointment, 'deleted', $this->otherParty($appointment, $by));
 
         return $appointment->fresh();
     }
@@ -249,8 +246,8 @@ class AppointmentService
                 'appointment_code' => $appointment->appointment_code
             ]);
 
-            // Send Email Notification to Assigned User
-            $this->sendNotification($appointment, 'deleted');
+            // Tell the other person on the appointment, not whoever deleted it (BUG-189).
+            $this->sendNotification($appointment, 'deleted', $this->otherParty($appointment, auth()->user()));
 
             DB::commit();
             return true;
@@ -342,6 +339,18 @@ class AppointmentService
                 Appointment::MEETING_TYPE_PARTNERSHIP_MEETING,
             ]),
         ];
+    }
+
+    /**
+     * The person on the appointment who did not make the change: the organiser
+     * when the attendee acted, else the attendee. With no actor (a job), the
+     * attendee, as before.
+     */
+    private function otherParty(Appointment $appointment, ?User $actor): ?User
+    {
+        return $actor && (int) $appointment->assigned_for === (int) $actor->id
+            ? $appointment->scheduledBy
+            : $appointment->assignedFor;
     }
 
     /**

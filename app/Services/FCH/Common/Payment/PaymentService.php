@@ -91,8 +91,9 @@ class PaymentService
         $authUser = Auth::user();
         $query = Payment::query()
             ->with([
-                'partner:id,full_name',
-                'borrower:id,first_name,last_name',
+                // company_name / business_name feed the COMPANY column (BUG-195).
+                'partner:id,full_name,company_name',
+                'borrower:id,first_name,last_name,business_name',
                 'invoice:id,invoice_id,type',
                 'entity'
             ])
@@ -294,6 +295,22 @@ class PaymentService
             $query->leftJoin('invoices', 'payments.invoice_id', '=', 'invoices.id')
                 ->orderBy('invoices.invoice_id', $sortOrder);
             $skipSorting = true;
+        } elseif ($sortField === 'name') {
+            // The NAME column (BUG-179): the payer's name as PaymentResource shows
+            // it - the partner's full name, the borrower's first + last name, or
+            // the host user a commission was paid to.
+            $query->leftJoin('partners as name_partner', function ($join) {
+                $join->on('payments.partner_id', '=', 'name_partner.id')
+                    ->where('payments.entity_type', Partner::class);
+            })->leftJoin('borrowers as name_borrower', function ($join) {
+                $join->on('payments.borrower_id', '=', 'name_borrower.id')
+                    ->where('payments.entity_type', Borrower::class);
+            })->leftJoin('users as name_user', function ($join) {
+                $join->on('payments.entity_id', '=', 'name_user.id')
+                    ->where('payments.entity_type', User::class);
+            })->orderBy(DB::raw("COALESCE(name_partner.full_name, CONCAT(name_borrower.first_name, ' ', name_borrower.last_name), name_user.name)"), $sortOrder === 'asc' ? 'asc' : 'desc')
+                ->orderBy('payments.id', 'desc');
+            $skipSorting = true;
         } elseif ($sortField === 'partner_name') {
             $query->leftJoin('partners', 'payments.partner_id', '=', 'partners.id')
                 ->orderBy('partners.full_name', $sortOrder);
@@ -445,7 +462,7 @@ class PaymentService
     public function find($id)
     {
         $authUser = Auth::user();
-        $query = Payment::query()->with(['partner', 'borrower', 'invoice', 'entity']);
+        $query = Payment::query()->with(['partner', 'borrower', 'invoice', 'entity', 'paidBy', 'approvedBy', 'rejectedBy']);
 
         $this->applyRbacScope($query, $authUser);
 
@@ -505,6 +522,7 @@ class PaymentService
                 'status' => Payment::STATUS_SUCCEEDED,
                 'transaction_date' => $now,
                 'details' => $existingDetails,
+                'approved_by' => $authUser->id,
             ]);
 
             $invoice = $payment->invoice;
@@ -513,10 +531,14 @@ class PaymentService
 
             // Update invoice status to Paid and set paid_at to now
             if ($invoice) {
+                // Who paid it (the one who submitted the manual payment) and
+                // who approved it (BUG-202).
                 $invoice->update([
                     'status' => Invoice::STATUS_PAID,
                     // payment_date is a DATE column - store the calendar date.
                     'payment_date' => today(),
+                    'paid_by' => $payment->paid_by,
+                    'approved_by' => $authUser->id,
                 ]);
 
                 // Auto charge partner host fee upon approval of manual borrower payment
@@ -636,9 +658,12 @@ class PaymentService
             $existingDetails['rejected_by'] = $userName;
             $existingDetails['rejected_by_id'] = $authUser->id;
 
+            // The rejecter goes on the payment only; the invoice is simply
+            // Unpaid again (BUG-202).
             $payment->update([
                 'status' => Payment::STATUS_REJECTED,
                 'details' => $existingDetails,
+                'rejected_by' => $authUser->id,
             ]);
 
             $invoice = $payment->invoice;

@@ -39,10 +39,30 @@ class InvoiceDetailResource extends JsonResource
                 fn() => $this->subscription?->enrollment_type
             ),
 
+            // How it was actually paid, not always "Stripe" (BUG-206).
+            ...$this->paidWithPayload(),
+
             // Who issued the invoice and who pays it - see InvoicePartyResolver.
             ...app(InvoicePartyResolver::class)->resolve($this->resource),
 
             'branding' => $this->resolveBrandingData(),
+        ];
+    }
+
+    /**
+     * The invoice's payment method, the payer's reference and whether it was a
+     * card, for the Payment Details block (BUG-206).
+     *
+     * @return array{payment_method: ?string, payment_reference: ?string, is_card_payment: bool}
+     */
+    protected function paidWithPayload(): array
+    {
+        $paidWith = $this->resource->paidWith();
+
+        return [
+            'payment_method' => $paidWith['method'],
+            'payment_reference' => $paidWith['reference'],
+            'is_card_payment' => $paidWith['is_card'],
         ];
     }
 
@@ -62,7 +82,7 @@ class InvoiceDetailResource extends JsonResource
             return ucwords(\App\Models\Invoice\Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', \App\Models\Invoice\Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')';
         }
 
-        return ucwords(str_replace('_', ' ', (string) $this->type));
+        return $this->resource->typeName();
     }
 
     private function resolveBrandingData()

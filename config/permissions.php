@@ -101,6 +101,8 @@ return [
     'invoices' => [
         'permissions' => [
             ['name' => 'view invoices', 'is_certified' => 1, 'is_host' => 0],
+            // Pay the partner's own invoices (Invoice::PERMISSION_PAY, BUG-202).
+            ['name' => 'Pay Invoice', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 

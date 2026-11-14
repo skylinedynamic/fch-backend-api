@@ -139,6 +139,22 @@ class InvoiceListTest extends TestCase
         $this->assertSame('Bo Co', $rows['INV-ENR']['company_name']);
     }
 
+    /**
+     * Defect (BUG-194, OP-PF-01): the fee was renamed "Client Activation Fee" on
+     * Plan & Fee, but the invoice list's Type still read "Borrower Fee".
+     */
+    #[Test]
+    public function a_borrower_fee_row_is_typed_as_a_client_activation_fee(): void
+    {
+        $this->borrowerFee();
+        $this->enrollment();
+
+        $rows = $this->listAsHost();
+
+        $this->assertSame('Client Activation Fee', $rows['INV-FEE']['type']);
+        $this->assertSame('Enrollment', $rows['INV-ENR']['type']);
+    }
+
     #[Test]
     public function a_payer_that_no_longer_exists_keeps_the_saved_name(): void
     {
