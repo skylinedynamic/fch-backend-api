@@ -37,7 +37,7 @@ Decision (2026-11-15, from R3-BUG-026): a client's Limited Free Plan never expir
 
 - **Seen failing first:** all 5 new tests.
 - **`tests/Feature/Borrower`, `Auth`, `Lead`, `General`:** 575 passed.
-- **Full suite:** see below.
+- **Full suite:** 5,668 tests, all passed (2 skipped).
 
 ## Open items
 

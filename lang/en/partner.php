@@ -81,6 +81,7 @@ return [
             'host' => 'Enter a valid domain, e.g. admin.example.com.',
             'portal_required' => 'Enter the partner portal domain.',
         ],
+        'paid_to_trial_not_allowed' => 'A partner on a paid plan cannot be put back on the free trial.',
         'domain_lookalike' => 'This domain is too close to the Four Corner Funding name and cannot be used. Choose a domain of your own.',
         'borrower_domain' => [
             'unique' => 'This borrower domain is already taken. Please choose a different one.',

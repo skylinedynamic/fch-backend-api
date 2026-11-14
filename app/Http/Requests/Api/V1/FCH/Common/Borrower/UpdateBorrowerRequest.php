@@ -127,7 +127,14 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'additional_data'  => ['nullable', 'json'],
             'fico_score'       => ['nullable', new FicoScore()],
             'paydex_score'     => ['nullable', new BusinessCreditScore()],
-            'is_free_trail'    => ['nullable', 'boolean'],
+            // Free → paid only: a paid client is never moved to the free plan
+            // (the form doesn't offer it; doing it through the API left an
+            // enrollment invoice that could never be paid - R3-BUG-027).
+            'is_free_trail'    => ['nullable', 'boolean', function ($attribute, $value, $fail) use ($borrower, $wasFreeTrial, $isFreeTrialInput) {
+                if ($borrower && !$wasFreeTrial && $isFreeTrialInput) {
+                    $fail(__('borrower_validation.paid_to_free_not_allowed'));
+                }
+            }],
             'free_trail_end_date' => ['nullable'],
 
             // ── Enrollment sub-object (only required when migrating off free trial) ──

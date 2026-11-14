@@ -104,7 +104,13 @@ class UpdatePartnerRequest extends BaseApiRequest
                     }
                 },
             ],
-            'is_free_trail' => ['nullable', 'boolean'],
+            // Trial → paid only: a paid partner is never put back on the free
+            // trial (the form doesn't offer it - R3-BUG-027).
+            'is_free_trail' => ['nullable', 'boolean', function ($attribute, $value, $fail) use ($partner, $wasFreeTrial, $isFreeTrialNew) {
+                if ($partner && !$wasFreeTrial && $isFreeTrialNew) {
+                    $fail(__('partner.validation.paid_to_trial_not_allowed'));
+                }
+            }],
 
             // ── Enrollment sub-object (only required when migrating off free trial) ──
             'enrollment'    => [$isMigrating ? 'required' : 'nullable', 'array'],
