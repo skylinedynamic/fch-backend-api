@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\Contact;
 
+use App\Exceptions\ContactInUseException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\Contact\FetchContactRequest;
@@ -137,7 +138,12 @@ class ContactController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $this->contactService->delete($contact);
+        try {
+            $this->contactService->delete($contact);
+        } catch (ContactInUseException $e) {
+            // A lead's Referral Contact is kept - say on which leads.
+            return ApiResponse::error($e->getMessage(), 422, $e->details);
+        }
 
         return response()->json([
             'status' => true,
@@ -151,7 +157,13 @@ class ContactController extends Controller
     public function multipleDelete(Request $request)
     {
         $ids = $request->input('ids', []);
-        if ($this->contactService->deleteMultiple($ids)) {
+        try {
+            $deleted = $this->contactService->deleteMultiple($ids);
+        } catch (ContactInUseException $e) {
+            // Nothing is deleted - say which contacts leads still use.
+            return ApiResponse::error($e->getMessage(), 422, $e->details);
+        }
+        if ($deleted) {
             return ApiResponse::success([], __('contact.contact_deleted'));
         }
 

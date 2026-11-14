@@ -23,4 +23,6 @@ return [
     'email_required' => 'Email address is required.',
     'email_taken' => 'The email address has already been taken.',
     'multiple_delete_failed' => 'Failed to delete selected contacts.',
+    'delete_blocked_referral' => '{1} This contact is the Referral Contact on 1 lead (:leads). Choose another Referral Contact there first.|[2,*] This contact is the Referral Contact on :count leads (:leads). Choose another Referral Contact there first.',
+    'delete_blocked_referral_named' => 'Some selected contacts are the Referral Contact on a lead and cannot be deleted: :names. Unselect them to delete the others, or choose another Referral Contact on those leads.',
 ];
