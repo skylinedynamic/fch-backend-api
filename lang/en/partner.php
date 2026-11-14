@@ -83,6 +83,7 @@ return [
         ],
         'borrower_domain' => [
             'unique' => 'This borrower domain is already taken. Please choose a different one.',
+            'same_as_partner' => 'The borrower portal needs its own domain, different from the partner portal domain.',
             'host' => 'Enter a valid domain, e.g. app.example.com.',
         ],
         'first_reg_date' => [
