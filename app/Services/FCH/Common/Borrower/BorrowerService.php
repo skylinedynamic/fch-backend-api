@@ -421,7 +421,8 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : null;
-            $borrowerData['free_trail_end_date'] = isset($data['free_trail_end_date']) ? normalizeDate($data['free_trail_end_date']) : null;
+            // A client's Limited Free Plan has no end date (decision 2026-11-15).
+            $borrowerData['free_trail_end_date'] = null;
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -465,7 +466,8 @@ class BorrowerService
 
                 // ── FREE TRIAL PATH ───────────────────────────────────────────────────────
                 if (!empty($data['is_free_trail']) && $data['is_free_trail']) {
-                    $trialEndDate = $data['free_trail_end_date'] ?? null;
+                    // No end date on a client's free plan (decision 2026-11-15).
+                    $trialEndDate = null;
 
                     $this->activityLogService->logModelEvent(
                         $borrower,
@@ -578,11 +580,9 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
-            // free_trail_end_date is a DATE column and is now serialised verbatim
-            // through toDateOnly(), so a reposted value round-trips unchanged.
-            if (isset($borrowerData['free_trail_end_date'])) {
-                $borrowerData['free_trail_end_date'] = normalizeDate($borrowerData['free_trail_end_date']);
-            }
+            // A client's Limited Free Plan has no end date (decision 2026-11-15):
+            // whatever is sent, none is kept.
+            $borrowerData['free_trail_end_date'] = null;
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {

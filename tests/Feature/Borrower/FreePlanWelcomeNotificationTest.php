@@ -78,16 +78,18 @@ class FreePlanWelcomeNotificationTest extends TestCase
         $this->assertStringNotContainsStringIgnoringCase('trial', $bells[0]->message->title . ' ' . $bells[0]->message->body);
     }
 
+    /**
+     * A client's free plan has no end date (decision 2026-11-15): one sent
+     * through the API is not kept, so the welcome is the free plan one.
+     */
     #[Test]
-    public function a_free_plan_with_an_end_date_names_that_date(): void
+    public function an_end_date_sent_for_a_free_plan_is_ignored_and_the_free_plan_welcome_is_sent(): void
     {
-        $endDate = now()->addDays(14)->toDateString();
-        $client = $this->createFreePlanClient($endDate);
+        $client = $this->createFreePlanClient(now()->addDays(14)->toDateString());
 
         $bells = $this->bellsFor($client);
         $this->assertCount(1, $bells);
-        $this->assertSame('borrower.account.trial_started', $bells[0]->typeKey);
-        $this->assertStringContainsString($endDate, $bells[0]->message->body);
-        $this->assertStringNotContainsString('N/A', $bells[0]->message->body);
+        $this->assertSame('borrower.account.free_plan_started', $bells[0]->typeKey);
+        $this->assertStringNotContainsStringIgnoringCase('trial', $bells[0]->message->title . ' ' . $bells[0]->message->body);
     }
 }

@@ -140,7 +140,7 @@ class BorrowerPortalLoginTest extends TestCase
         return [
             'suspended' => [['status' => Borrower::STATUS_SUSPENDED], [], 'auth.borrower_suspended'],
             'inactive' => [['status' => Borrower::STATUS_INACTIVE], [], 'auth.borrower_inactive'],
-            'free plan expired' => [['is_free_trail' => true, 'free_trail_end_date' => now()->subDay()->toDateString()], [], 'auth.free_plan_expired'],
+            // No 'free plan expired': a client's free plan has no end date (decision 2026-11-15).
             'login deactivated' => [[], ['status' => 0], 'auth.user_inactive'],
         ];
     }

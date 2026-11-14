@@ -42,7 +42,7 @@ All three forms that take a requested amount used `required|numeric|min:0`. Lara
 
 - **Seen failing first:** `5e4` on all three forms (3 of the 9). The other 6 pin the messages that stay.
 - **`tests/Unit/Rules/MoneyAmountTest`, `tests/Feature/FundApplication`, `Funding`, `Borrower`, `General`:** 697 passed (1 skipped).
-- **Full suite:** run after R3-BUG-021 and 022.
+- **Full suite (after R3-BUG-021 to 024):** 5,655 tests, all passed (2 skipped).
 
 ## Open items
 

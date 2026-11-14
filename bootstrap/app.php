@@ -61,12 +61,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [
             \App\Http\Middleware\RememberUserTimezone::class,
             \App\Http\Middleware\EnsureUserHasPartner::class,
+            \App\Http\Middleware\EnsurePartnerTrialActive::class,
         ]);
 
         // A user with no partner may do nothing - checked once auth has run.
         $middleware->appendToPriorityList(
             \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
             \App\Http\Middleware\EnsureUserHasPartner::class,
+            \App\Http\Middleware\EnsurePartnerTrialActive::class,
         );
 
         $middleware->alias([

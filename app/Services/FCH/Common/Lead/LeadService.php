@@ -584,11 +584,9 @@ class LeadService
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
                 'is_free_trail' => $data['is_free_trail'] ?? null,
-                'free_trail_end_date' => $data['free_trail_end_date'] ?? (
-                    (($data['is_free_trail'] ?? null) == 1 || ($data['is_free_trail'] ?? null) === true || ($data['is_free_trail'] ?? null) === 'true')
-                    ? now()->addDays(30)->toDateString()
-                    : null
-                ),
+                // A client's Limited Free Plan has no end date (decision 2026-11-15);
+                // a partner's free trial still gets one below.
+                'free_trail_end_date' => null,
                 'installment_down_payment' => $data['installment_down_payment'] ?? ($data['down_payment'] ?? null),
                 'installment_months' => $data['installment_months'] ?? ($data['months'] ?? null),
                 'installment_monthly_amount' => $data['installment_monthly_amount'] ?? ($data['monthly_amount'] ?? null),

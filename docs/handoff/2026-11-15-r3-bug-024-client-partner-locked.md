@@ -45,7 +45,8 @@ Causes:
 
 - **Seen failing first:** 3 of the 6: the partner move, the host move and the service write. The other 3 pin edits that keep working.
 - **`tests/Feature/Borrower`, `tests/Feature/General`:** 363 passed.
-- **Full suite:** run after R3-BUG-021 to 024.
+- **Full suite (after R3-BUG-021 to 024):** 5,655 tests, all passed (2 skipped).
+  The host-staff test was added during that run; it passed on its own (6 of 6).
 
 ## Open items
 

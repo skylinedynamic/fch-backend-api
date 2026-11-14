@@ -293,6 +293,22 @@ class Partner extends Model
     }
 
     /**
+     * Whether this partner's free trial has run out (R3-BUG-026): on a free
+     * trial with an end date that is before today, in the caller's timezone.
+     * The end date itself is still a trial day - the same boundary as the
+     * Partners list's "Expired" filter and the partner portal's lock. The host
+     * is never on a trial.
+     */
+    public function freeTrialExpired(): bool
+    {
+        if ((int) ($this->is_host ?? 0) === 1 || !$this->is_free_trail || !$this->free_trail_end_date) {
+            return false;
+        }
+
+        return $this->free_trail_end_date->toDateString() < todayInRequestTimezone();
+    }
+
+    /**
      * The partners the host manages: everyone but the host's own record. Used by
      * the partner count cards (dashboard and Partners list) so they agree.
      */

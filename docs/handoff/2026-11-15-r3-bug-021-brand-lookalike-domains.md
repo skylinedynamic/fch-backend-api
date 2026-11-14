@@ -53,7 +53,7 @@ Message: "This domain is too close to the Four Corner Funding name and cannot be
 
 - **Seen failing first:** 8 of the 13 (every refusal). The 5 that save passed before too.
 - **`tests/Feature/Setting`, `Partner`, `General`:** 259 passed.
-- **Full suite:** run after this change.
+- **Full suite (after R3-BUG-021 to 024):** 5,655 tests, all passed (2 skipped).
 
 ## Open items
 

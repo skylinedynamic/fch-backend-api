@@ -123,20 +123,18 @@ class AuthService
             }
         }
 
-        $isFreeTrail = false;
-        $freeTrailEndDate = null;
-        if ($user->entity) {
-            $isFreeTrail = (bool) $user->entity->is_free_trail;
-            $freeTrailEndDate = $user->entity->free_trail_end_date;
+        // A partner's team (admin and staff) follows the partner's trial, valid
+        // through its end date (R3-BUG-026). A client keeps its own rule below.
+        if ($user->entity_type !== Borrower::class) {
+            $trialPartner = $user->partner;
+            if ($trialPartner && $trialPartner->freeTrialExpired()) {
+                $partnerName = $trialPartner->company_name ?? $trialPartner->full_name ?? 'your partner';
+                return ApiResponse::loginError(__('auth.free_trial_expired', ['partner' => $partnerName]), 'email');
+            }
         }
 
-        if ($isFreeTrail && $freeTrailEndDate && Carbon::parse($freeTrailEndDate)->isPast()) {
-            $partner = $user->partner;
-            $partnerName = $partner ? ($partner->company_name ?? $partner->full_name ?? 'your partner') : 'your partner';
-            // Borrowers see "Free Plan" wording; partner accounts keep the original "Free Trial" wording.
-            $messageKey = $user->entity_type === Borrower::class ? 'auth.free_plan_expired' : 'auth.free_trial_expired';
-            return ApiResponse::loginError(__($messageKey, ['partner' => $partnerName]), 'email');
-        }
+        // A client's Limited Free Plan has no end date (decision 2026-11-15), so
+        // a client is never refused for one.
 
         $partner = $user->partner;
 
