@@ -118,7 +118,11 @@ class FundingApplicationResource extends JsonResource
             'any_outstanding_judgments_owner' => $this->any_outstanding_judgments_owner,
             'federal_compliance_disclosures_explanation' => $this->federal_compliance_disclosures_explanation,
             'status' => $this->status,
-            'status_note' => $this->status_note,
+            // A note the team kept internal never reaches the client (R3-BUG-016).
+            'status_note' => $request->user()?->user_type === User::BORROWER && !$this->status_note_visible_to_client
+                ? null
+                : $this->status_note,
+            'status_note_visible_to_client' => (bool) $this->status_note_visible_to_client,
             'status_class' => $this->status_class,
             'attestation_authorization' => $this->attestation_authorization,
             'co_borrowers' => CoBorrowerResource::collection($this->whenLoaded('coborrowers') ?? collect()),

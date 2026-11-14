@@ -538,8 +538,10 @@ class RequestApplicationService
 
         // The exact change already applied - same status, same note - is a
         // repeat (a double-click), not a second change to log.
+        $noteVisible = (bool) ($data['status_note_visible_to_client'] ?? false);
         $isRepeat = $oldStatus === $data['status']
-            && (!isset($data['status_note']) || $data['status_note'] === $application->status_note)
+            && (!isset($data['status_note'])
+                || ($data['status_note'] === $application->status_note && $noteVisible === (bool) $application->status_note_visible_to_client))
             && ($data['status'] !== FundingApplication::CLOSED_COMPLETED
                 || (float) ($data['funded_amount'] ?? 0) === (float) $application->total_funded_amount);
         if ($isRepeat) {
@@ -562,37 +564,13 @@ class RequestApplicationService
 
         $application->status = $data['status'];
         if (isset($data['status_note'])) {
+            $application->status_note_visible_to_client = $noteVisible;
             $application->status_note = $data['status_note'];
         }
         $application->save();
 
         if ($oldStatus !== $data['status'] || isset($data['status_note'])) {
-            $oldStatusFormatted = ucwords(str_replace('_', ' ', $oldStatus));
-            $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
-            
-            if ($oldStatus === $data['status']) {
-                $title = __('application.activity_note_updated_title');
-                $description = __('application.activity_note_updated_description');
-            } else {
-                $title = __('application.activity_status_changed_title', ['from' => $oldStatusFormatted, 'to' => $newStatusFormatted]);
-                $description = __('application.activity_status_changed_description', ['to' => $newStatusFormatted]);
-            }
-
-            if (isset($data['status_note'])) {
-                $description .= "\n" . __('application.activity_status_note', ['note' => $data['status_note']]);
-            }
-
-            app(ActivityLogService::class)->logSystemEvent(
-                FundingApplication::class,
-                $application->id,
-                $application->partner_id,
-                $application->borrower_id,
-                $title,
-                $description,
-                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
-                ['visible_to_borrower' => true, 'visible_to_partner' => true],
-                ActivityLog::VISIBILITY_EVERYONE
-            );
+            $this->logFundingApplicationStatusChange($application, $oldStatus, $data['status'], $data['status_note'] ?? null, $noteVisible);
         }
 
         if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
@@ -664,4 +642,56 @@ class RequestApplicationService
         ]);
     }
 
+    /**
+     * The status change, for everyone who follows the application. Its note
+     * goes with it only when the team marked it "Visible to client"; otherwise
+     * the note is a separate entry for the team that wrote it - the host's team
+     * (internal), or the partner's team and the host (partner) (R3-BUG-016).
+     */
+    private function logFundingApplicationStatusChange(FundingApplication $application, string $oldStatus, string $newStatus, ?string $note, bool $noteVisible): void
+    {
+        $log = app(ActivityLogService::class);
+        $statusChanged = $oldStatus !== $newStatus;
+        $noteText = $note !== null ? __('application.activity_status_note', ['note' => $note]) : null;
+
+        if ($statusChanged || ($noteText !== null && $noteVisible)) {
+            if ($statusChanged) {
+                $title = __('application.activity_status_changed_title', [
+                    'from' => ucwords(str_replace('_', ' ', $oldStatus)),
+                    'to' => ucwords(str_replace('_', ' ', $newStatus)),
+                ]);
+                $description = __('application.activity_status_changed_description', ['to' => ucwords(str_replace('_', ' ', $newStatus))]);
+            } else {
+                $title = __('application.activity_note_updated_title');
+                $description = __('application.activity_note_updated_description');
+            }
+
+            $log->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                $title,
+                $description . ($noteText !== null && $noteVisible ? "\n" . $noteText : ''),
+                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
+                ['visible_to_borrower' => true, 'visible_to_partner' => true],
+                ActivityLog::VISIBILITY_EVERYONE
+            );
+        }
+
+        if ($noteText !== null && !$noteVisible) {
+            $isHost = ActivityLog::isHostUser(Auth::user());
+            $log->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                __('application.activity_internal_note_title'),
+                $noteText,
+                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
+                ['visible_to_borrower' => false, 'visible_to_partner' => !$isHost],
+                $isHost ? ActivityLog::VISIBILITY_INTERNAL : ActivityLog::VISIBILITY_PARTNER
+            );
+        }
+    }
 }

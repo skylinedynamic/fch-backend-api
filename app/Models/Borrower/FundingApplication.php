@@ -38,6 +38,7 @@ class FundingApplication extends Model
         'is_partner_prepared',
         'status',
         'status_note',
+        'status_note_visible_to_client',
         'admin_commission',
         'admin_commission_amount',
         'partner_commission',
@@ -122,6 +123,7 @@ class FundingApplication extends Model
     protected $casts = [
         'date_of_birth' => 'date',
         'funded_date' => 'date',
+        'status_note_visible_to_client' => 'boolean',
         'signature_data' => 'array',
         'previous_signature_data' => 'array',
         'additional_funding_types' => 'array',

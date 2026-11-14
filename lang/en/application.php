@@ -28,6 +28,8 @@ return [
     'activity_status_changed_title' => 'Funding Application Status Changed: :from → :to',
     'activity_status_changed_description' => 'Status updated to: :to',
     'activity_status_note' => 'Note: :note',
+    'activity_internal_note_title' => 'Internal Status Note',
+    'status_note_visible_boolean' => 'Visible to client must be yes or no.',
     'audit_history_retrieved' => 'Audit history retrieved successfully.',
     
     // Controller Messages
