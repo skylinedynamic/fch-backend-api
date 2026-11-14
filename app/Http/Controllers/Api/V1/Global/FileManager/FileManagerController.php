@@ -20,6 +20,7 @@ use Illuminate\Routing\Controllers\Middleware;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Global\FileManager\FileManagerResource;
+use App\Support\Files\FileManagerFolders;
 use App\Support\Files\Folder;
 
 class FileManagerController extends Controller implements HasMiddleware
@@ -33,9 +34,10 @@ class FileManagerController extends Controller implements HasMiddleware
 
     /**
      * Every action works below a root folder the request names itself
-     * ({entity_type}/{entity_id}, or all of {entity_type} with get_all). A
-     * borrower may only ever name their own folder - the only one the borrower
-     * portal opens - never another borrower's, nor all of them.
+     * ({entity_type}/{entity_id}, or all of {entity_type} with get_all), so
+     * every request is checked against the folders the file manager opens
+     * (FileManagerFolders) before it reaches an action. A borrower may only
+     * ever name their own folder - the only one the borrower portal opens.
      */
     public static function middleware(): array
     {
@@ -43,15 +45,16 @@ class FileManagerController extends Controller implements HasMiddleware
             new Middleware(function (Request $request, Closure $next) {
                 $user = $request->user();
 
-                if ($user && $user->entity_type === Borrower::class) {
-                    $ownFolder = $request->input('entity_type') === 'borrowers'
-                        && (int) $request->input('entity_id') === (int) $user->entity_id
-                        && !$request->boolean('get_all');
+                // No root named at all: each action's request answers that (422).
+                if ($user && !$request->filled('entity_type')) {
+                    return $next($request);
+                }
 
-                    if (!$ownFolder) {
+                if ($user && $user->entity_type === Borrower::class) {
+                    if (!self::isBorrowersOwnFolder($user, $request)) {
                         return ApiResponse::forbidden(__('auth.access_denied_borrower_privileges_required'));
                     }
-                } elseif ($user && !self::partnerMayOpen($user, $request)) {
+                } elseif (!$user || !self::partnerMayOpen($user, $request)) {
                     return ApiResponse::forbidden(__('filemanager.folder_not_yours'));
                 }
 
@@ -60,38 +63,67 @@ class FileManagerController extends Controller implements HasMiddleware
         ];
     }
 
+    private static function isBorrowersOwnFolder($user, Request $request): bool
+    {
+        return $request->input('entity_type') === Folder::BORROWERS
+            && self::recordId($request) === (int) $user->entity_id
+            && !$request->boolean('get_all');
+    }
+
     /**
-     * The partner side (findings D2). The host partner and its staff work on
-     * every partner's borrower and staff folders. A non-host partner and its
-     * staff work only on their own partner's borrowers (borrowers/{id}) and
-     * staff (employees/{id}) - never another partner's, and never all of them
-     * at once (get_all). A partner's private documents (partner-documents/{id},
-     * the Partner Documents tab) are the host team's only, as that tab is.
-     * Other folder types are not checked here (yet).
+     * The partner side (R3-BUG-002). The root is matched exactly against the
+     * list, so no spelling of a path (../, ./, a backslash) reaches another
+     * folder. Then:
+     * - get_all opens a shared library whole, for the host's team only;
+     * - a host-only folder opens for the host's team;
+     * - a partner's folder for its own team and the host's;
+     * - a client's or staff member's folder for the host's team, or the team
+     *   of the partner the record belongs to.
      */
     private static function partnerMayOpen($user, Request $request): bool
     {
-        if ($request->input('entity_type') === Folder::PARTNER_DOCUMENTS) {
-            return (bool) $user->partner?->is_host;
-        }
+        $folder = $request->input('entity_type');
+        $rule = is_string($folder) ? FileManagerFolders::rule($folder) : null;
+        $isHost = (bool) $user->partner?->is_host;
 
-        $model = match ($request->input('entity_type')) {
-            'borrowers' => Borrower::class,
-            'employees' => Employee::class,
-            default => null,
-        };
-
-        if ($model === null || (bool) $user->partner?->is_host) {
-            return true;
-        }
-
-        if ($request->boolean('get_all')) {
+        if ($rule === null) {
             return false;
         }
 
-        return $model::whereKey($request->input('entity_id'))
-            ->where('partner_id', $user->partner_id)
-            ->exists();
+        if ($request->boolean('get_all')) {
+            return $isHost && FileManagerFolders::isShared($folder);
+        }
+
+        $id = self::recordId($request);
+        if ($id === null) {
+            return false;
+        }
+
+        if ($isHost) {
+            return true;
+        }
+
+        return match ($rule) {
+            FileManagerFolders::OWN_PARTNER => $id === (int) $user->partner_id,
+            FileManagerFolders::OWN_RECORD => self::RECORD_MODELS[$folder]::whereKey($id)
+                ->where('partner_id', $user->partner_id)
+                ->exists(),
+            default => false,
+        };
+    }
+
+    /** The record a per-record folder belongs to. */
+    private const RECORD_MODELS = [
+        Folder::BORROWERS => Borrower::class,
+        Folder::EMPLOYEES => Employee::class,
+    ];
+
+    /** The root's id as a whole number, or null when it is anything else (a path, a sign, a word). */
+    private static function recordId(Request $request): ?int
+    {
+        $id = $request->input('entity_id');
+
+        return (is_int($id) && $id >= 0) || (is_string($id) && ctype_digit($id)) ? (int) $id : null;
     }
 
     /**

@@ -106,4 +106,6 @@ class DatabaseSeeder extends Seeder
 }
 
 
-            // sudo php artisan db:seed --class=LenderCodeSeeder
+// sudo php artisan audit:organize-files --dry-run
+// sudo php artisan audit:organize-files
+// sudo php artisan audit:verify

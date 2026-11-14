@@ -88,6 +88,8 @@ class SignedCopyPreservationTest extends TestCase
         $second = $this->sign();
 
         $this->assertSame(2, $second['application_version']);
+        $this->assertStringStartsWith("audit/applications/{$this->application->id}/v2/application-", $second['signed_application_path']);
+        $this->assertStringStartsWith("audit/applications/{$this->application->id}/v2/certificate-", $second['certificate_path']);
         $this->assertNotSame($first['signed_application_path'], $second['signed_application_path']);
         $this->assertNotSame($first['certificate_path'], $second['certificate_path']);
         $this->assertNotSame($first['sha256'], $second['sha256']);
@@ -109,16 +111,19 @@ class SignedCopyPreservationTest extends TestCase
     }
 
     /**
-     * The signed copies are kept in the audit folder, by their SHA-256, not in
+     * The signed copies are kept in the audit folder under their application
+     * and the version signed, named by kind and SHA-256 - not in
      * funding-applications/ - and the trail records each one there.
      */
     #[Test]
-    public function the_signed_copies_are_kept_in_the_audit_folder_by_their_hash(): void
+    public function the_signed_copies_are_kept_under_their_application_and_version(): void
     {
         $signature = $this->sign();
+        $folder = "audit/applications/{$this->application->id}/v1";
+        $certHash = hash('sha256', Storage::disk('uploads')->get($signature['certificate_path']));
 
-        $this->assertSame("audit/files/{$signature['sha256']}.pdf", $signature['signed_application_path']);
-        $this->assertStringStartsWith('audit/files/', $signature['certificate_path']);
+        $this->assertSame("{$folder}/application-{$signature['sha256']}.pdf", $signature['signed_application_path']);
+        $this->assertSame("{$folder}/certificate-{$certHash}.pdf", $signature['certificate_path']);
         $this->assertSame($signature['sha256'], hash('sha256', Storage::disk('uploads')->get($signature['signed_application_path'])));
         $this->assertSame([], Storage::disk('public')->allFiles('funding-applications'));
         // BUG-016: private - nothing signed is on the public disk, so no /storage URL reaches it.

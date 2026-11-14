@@ -28,6 +28,10 @@ final class Folder
     public const SEO_SETTINGS = 'seo-settings';
     public const SITE_SETTINGS = 'site-settings';
     public const CREDIT_ACCOUNTS = 'credit-accounts';
+    /** Profile pictures of users with no partner or staff record (host admins). */
+    public const USERS = 'users';
+    /** The tier vendors' logos. */
+    public const VENDORS = 'vendors';
 
     // Old public folders, read only by the commands that clean them up.
     public const OLD_FUNDING_APPLICATIONS = 'funding-applications';
