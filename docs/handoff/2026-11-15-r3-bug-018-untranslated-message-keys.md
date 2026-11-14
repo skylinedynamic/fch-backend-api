@@ -29,7 +29,7 @@ This is the same kind of fault as R1 BUG-050 and BUG-139. A scan of every form r
 
 - **Seen failing first:** both new tests. The contact test showed `"mobile_number": "contact.mobile_number_invalid"` without the key.
 - **`tests/Feature/General`, `Lead`, `Contact`, `Payment`:** 338 passed.
-- **Full suite:** run with R3-BUG-017; result in the PR.
+- **Full suite (after R3-BUG-017 to 020):** 5,611 tests, all passed (2 skipped).
 
 ## Open items
 

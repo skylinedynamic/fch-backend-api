@@ -59,7 +59,7 @@ Domains are compared the way the resolver compares them: no scheme, "www.", port
 
 - **Seen failing first:** 12 of the 16. The other 4 (reserved name ×2, own domains, deleted partner) pin behaviour that stays.
 - **`tests/Feature/Setting`, `tests/Feature/Partner`:** 207 passed.
-- **Full suite:** run after R3-BUG-017 to 020.
+- **Full suite (after R3-BUG-017 to 020):** 5,611 tests, all passed (2 skipped).
 
 ## Open items
 

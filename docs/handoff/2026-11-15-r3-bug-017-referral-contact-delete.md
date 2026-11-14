@@ -50,7 +50,7 @@ No code change. The Contacts page already toasts the API's `message` on a failed
 
 - **Seen failing first:** 4 of the 6: single refuse, bulk refuse, deleted contact refused, migration. The other 2 (unused contact, deleted lead) pin behaviour that stays.
 - **`tests/Feature/Contact`, `tests/Feature/Lead`:** 102 passed.
-- **Full suite:** see the PR. It was run after this change.
+- **Full suite (after R3-BUG-017 to 020):** 5,611 tests, all passed (2 skipped).
 
 ## Open items
 

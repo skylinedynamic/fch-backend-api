@@ -43,6 +43,11 @@ class DomainNotClaimed implements ValidationRule
             return;
         }
 
+        if (self::looksLikeBrand($domain)) {
+            $fail(__('partner.validation.domain_lookalike'));
+            return;
+        }
+
         $taken = Partner::query()
             ->whereNull('deleted_at')
             ->when($this->exceptPartnerId, fn ($q) => $q->where('id', '!=', $this->exceptPartnerId))
@@ -77,6 +82,47 @@ class DomainNotClaimed implements ValidationRule
         }
 
         return array_values(array_unique(array_filter($domains)));
+    }
+
+    /**
+     * Whether a domain uses or imitates a protected brand (R3-BUG-021): any
+     * label below the TLD that contains the brand, or is within a letter or two
+     * of it once hyphens are dropped and look-alike digits read as letters
+     * ("f0urcornerfundng"). The platform's own subdomains (<label>.<base
+     * website>) are not brand look-alikes - the claim checks cover those.
+     */
+    public static function looksLikeBrand(string $domain): bool
+    {
+        $base = self::normalize((string) config('domains.reserved.base_reserved_website', config('app.base_website')));
+        if ($base !== '' && ($domain === $base || str_ends_with($domain, '.' . $base))) {
+            return false;
+        }
+
+        $brands = array_filter(array_map(
+            fn ($brand) => preg_replace('/[^a-z0-9]/', '', strtolower((string) $brand)),
+            (array) config('domains.protected_brands', [])
+        ));
+        if ($brands === []) {
+            return false;
+        }
+
+        $labels = explode('.', $domain);
+        array_pop($labels); // the TLD: ".co" is as much the brand as ".com"
+
+        foreach ($labels as $label) {
+            $plain = strtr(preg_replace('/[^a-z0-9]/', '', $label), ['0' => 'o', '1' => 'l', '3' => 'e', '5' => 's']);
+            if ($plain === '') {
+                continue;
+            }
+            foreach ($brands as $brand) {
+                $allowed = strlen($brand) >= 10 ? 2 : 1;
+                if (str_contains($plain, $brand) || levenshtein($plain, $brand) <= $allowed) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** No scheme, "www.", port, path or trailing slash; lower case. */
