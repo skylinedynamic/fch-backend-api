@@ -235,7 +235,7 @@ class FundingRequestService
         // The read, the stale check and the write happen under a row lock, so
         // two decisions on the same request are taken one after the other and
         // the second sees what the first did (R2 BUG-048).
-        [$review, $oldStatus] = DB::transaction(function () use ($data, $authUser) {
+        [$review, $oldStatus, $needsLender] = DB::transaction(function () use ($data, $authUser) {
             $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
                 ->where('id', $data['id'])
                 ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
@@ -245,7 +245,7 @@ class FundingRequestService
                 ->first();
 
             if (!$review) {
-                return [null, null];
+                return [null, null, false];
             }
 
             $oldStatus = $review->status;
@@ -254,7 +254,15 @@ class FundingRequestService
             // left on Pending after the request was approved elsewhere. Nothing
             // is written and nobody is notified.
             if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {
-                return [$review, $oldStatus];
+                return [$review, $oldStatus, false];
+            }
+
+            // A funding request is approved only with a lender assigned - by
+            // whoever approves it (R3-BUG-028). Nothing is written.
+            if ($data['status'] === FundingRequest::STATUS_APPROVED
+                && $oldStatus !== FundingRequest::STATUS_APPROVED
+                && empty($review->assign_lender)) {
+                return [$review, $oldStatus, true];
             }
 
             $review->status = $data['status'];
@@ -271,7 +279,7 @@ class FundingRequestService
 
             $review->save();
 
-            return [$review, $oldStatus];
+            return [$review, $oldStatus, false];
         });
 
         if (!$review) {
@@ -281,6 +289,10 @@ class FundingRequestService
                 'partner_id'         => $authUser?->partner_id,
             ]);
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
+        }
+
+        if ($needsLender) {
+            return ApiResponse::error(__('funding_request.lender_required_to_approve'), 422);
         }
 
         if (!empty($data['expected_status']) && $data['expected_status'] !== $oldStatus) {

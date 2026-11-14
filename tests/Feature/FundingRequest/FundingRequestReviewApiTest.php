@@ -80,6 +80,13 @@ class FundingRequestReviewApiTest extends TestCase
         ]);
     }
 
+    /** A request is approved only with a lender assigned (R3-BUG-028). */
+    private function withAssignedLender(int $requestId): void
+    {
+        $lenderId = DB::table('lenders')->insertGetId(['name' => 'Assigned Lender', 'status' => Lender::STATUS_ACTIVE, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('funding_requests')->where('id', $requestId)->update(['assign_lender' => $lenderId, 'lender_ids' => json_encode([$lenderId])]);
+    }
+
     private function statusOf(int $id): string
     {
         return DB::table('funding_requests')->where('id', $id)->value('status');
@@ -157,6 +164,7 @@ class FundingRequestReviewApiTest extends TestCase
     #[Test]
     public function a_partner_approves_its_own_request(): void
     {
+        $this->withAssignedLender($this->myRequestId);
         $this->actingAsUser($this->partnerAdmin);
 
         $this->postJson('/api/v1/common/funding-request/status-update', [
@@ -176,6 +184,7 @@ class FundingRequestReviewApiTest extends TestCase
     #[Test]
     public function a_decision_from_a_page_showing_an_older_status_is_refused(): void
     {
+        $this->withAssignedLender($this->myRequestId);
         $this->actingAsUser($this->partnerAdmin);
         $this->postJson('/api/v1/common/funding-request/status-update', [
             'id' => $this->myRequestId,
@@ -315,6 +324,7 @@ class FundingRequestReviewApiTest extends TestCase
     #[Test]
     public function the_detail_keeps_the_date_each_status_was_reached(): void
     {
+        $this->withAssignedLender($this->myRequestId);
         $this->actingAsUser($this->partnerAdmin);
         $steps = [
             FundingRequest::STATUS_ACCEPTED => '2026-10-20 09:00:00',

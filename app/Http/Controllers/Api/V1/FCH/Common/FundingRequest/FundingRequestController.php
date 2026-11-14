@@ -70,7 +70,8 @@ class FundingRequestController extends Controller
     {
         $request->validate([
             'id' => 'required|exists:funding_requests,id',
-            'lender_ids' => 'nullable|array',
+            // At least one lender: sent empty it used to wipe the matched lenders (R3-BUG-028).
+            'lender_ids' => 'required|array|min:1',
             // Only an active lender can be assigned (R2 BUG-020). A lender
             // assigned before it was deactivated stays assigned until changed.
             'lender_ids.*' => [

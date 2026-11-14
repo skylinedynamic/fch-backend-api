@@ -36,6 +36,7 @@ return [
     'status_required' => 'The status field is required.',
     'status_in' => 'The status must be Pending, Approved, or Rejected.',
     'status_changed_elsewhere' => 'This request is already ":status" - it was changed by someone else since you opened it. Reload to see the latest.',
+    'lender_required_to_approve' => 'Assign a lender before approving this funding request.',
     'lender_inactive' => 'This lender is inactive and cannot be assigned.',
 
     'resubmit_not_found' => 'Funding request not found.',
