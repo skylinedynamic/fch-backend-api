@@ -654,16 +654,15 @@ class BorrowerService
                         continue;
                     }
 
-                    // An SSN or date of birth is recorded as changed, never repeated
-                    if (ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                    // Both values; an SSN or date of birth only as "was updated"
+                    $described = $this->activityLogService->describeFieldChange($field, $borrower->getPrevious()[$field] ?? null, $newValue);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = ucwords(str_replace('_', ' ', $field));
-                    $val = (string) $newValue;
-                    $val = $val === '' ? __('borrower.empty_value') : $val;
-                    $changedFields[] = __('borrower.field_updated', ['field' => $name, 'value' => $val]);
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
+                    }
                 }
 
                 if ($transitionMsg) {
@@ -814,11 +813,16 @@ class BorrowerService
         }
         
         $changedFields = [];
+        $extraProps = [];
         foreach ($changes as $field => $newValue) {
-            $name = ucwords(str_replace('_', ' ', $field));
-            $val = (string) $newValue;
-            $val = $val === '' ? 'empty' : $val;
-            $changedFields[] = "{$name} was updated to {$val}";
+            $described = $this->activityLogService->describeFieldChange($field, $borrower->getPrevious()[$field] ?? null, $newValue);
+            if ($described['sentence'] === null) {
+                continue;
+            }
+            $changedFields[] = $described['sentence'];
+            if ($described['change']) {
+                $extraProps['changes'][$field] = $described['change'];
+            }
         }
 
         if ($bankAccountsChanged) {
@@ -830,7 +834,7 @@ class BorrowerService
             $this->activityLogService->logModelEvent(
                 $borrower,
                 ActivityLog::LOG_TYPE_BORROWER_UPDATE,
-                [],
+                $extraProps,
                 null,
                 $customDescription
             );

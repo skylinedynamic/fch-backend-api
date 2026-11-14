@@ -468,22 +468,19 @@ class PartnerService
                         continue;
                     }
 
-                    // An EIN or account number is recorded as changed, never repeated
-                    if (ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                    // Both values; an EIN or account number only as "was updated"
+                    $label = match ($field) {
+                        'free_trail_end_date' => __('partner.trial_end_date'),
+                        'full_name' => __('partner.name_label'),
+                        default => null,
+                    };
+                    $described = $this->activityLogService->describeFieldChange($field, $partner->getPrevious()[$field] ?? null, $newValue, $label);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = $field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field));
-
-                    if ($field === 'full_name') {
-                        $val = (string) $newValue;
-                        $val = $val === '' ? __('partner.empty_value') : $val;
-                        $changedFields[] = __('partner.name_updated', ['value' => $val]);
-                    } else {
-                        $val = (string) $newValue;
-                        $val = $val === '' ? __('partner.empty_value') : $val;
-                        $changedFields[] = __('partner.field_updated', ['field' => $name, 'value' => $val]);
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
                     }
                 }
 
@@ -615,7 +612,9 @@ class PartnerService
                 $extraProps = [];
 
                 if (array_key_exists('status', $changes)) {
-                    $changedFields[] = __('partner.field_updated', ['field' => 'Status', 'value' => $partner->status]);
+                    $described = $this->activityLogService->describeFieldChange('status', $oldStatus, $partner->status);
+                    $changedFields[] = $described['sentence'];
+                    $extraProps['changes']['status'] = $described['change'];
                 }
 
                 if (array_key_exists('assign_to', $changes)) {

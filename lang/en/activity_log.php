@@ -45,6 +45,8 @@ return [
 
     // Who is responsible for a record changed (client Assigned To, Lead Owner, partner Agent)
     'owner_changed'       => ':label changed from :from to :to',
+    'field_changed'       => ':label changed from :from to :to',
+    'field_empty_value'   => 'empty',
     'owner_set'           => ':label set to :to',
     'owner_removed'       => ':label removed (was :from)',
     'owner_unknown_user'  => 'user #:id',

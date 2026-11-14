@@ -322,16 +322,15 @@ class LeadService
                         continue;
                     }
 
-                    // An EIN is recorded as changed, never repeated
-                    if (\App\Models\ActivityLog\ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => \App\Models\ActivityLog\ActivityLog::fieldLabel($field)]);
+                    // Both values; an EIN only as "was updated"
+                    $described = $this->activityLogService->describeFieldChange($field, $lead->getPrevious()[$field] ?? null, $newValue);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = ucwords(str_replace('_', ' ', $field));
-                    $val = (string) $newValue;
-                    $val = $val === '' ? 'empty' : $val;
-                    $changedFields[] = "{$name} was updated to {$val}";
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
+                    }
                 }
                 $fieldsList = implode(', ', $changedFields);
                 $customDescription = "{$fieldsList}.";
@@ -388,16 +387,15 @@ class LeadService
 
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
-                    // An EIN is recorded as changed, never repeated
-                    if (\App\Models\ActivityLog\ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => \App\Models\ActivityLog\ActivityLog::fieldLabel($field)]);
+                    // Both values; an EIN only as "was updated"
+                    $described = $this->activityLogService->describeFieldChange($field, $lead->getPrevious()[$field] ?? null, $newValue);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = ucwords(str_replace('_', ' ', $field));
-                    $val = (string) $newValue;
-                    $val = $val === '' ? 'empty' : $val;
-                    $changedFields[] = "{$name} was updated to {$val}";
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
+                    }
                 }
                 $fieldsList = implode(', ', $changedFields);
                 $customDescription = $isEmailOnly ? null : "{$fieldsList}.";

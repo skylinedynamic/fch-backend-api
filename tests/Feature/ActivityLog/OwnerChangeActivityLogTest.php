@@ -107,7 +107,7 @@ class OwnerChangeActivityLogTest extends TestCase
         $log = $this->latestLogFor($this->borrower);
         $this->assertSame(ActivityLog::LOG_TYPE_BORROWER_UPDATE, $log->log_name);
         $this->assertStringContainsString('Assigned To changed from Jason Rodriguez to Partner Colleague', $log->description);
-        $this->assertStringContainsString('First Name was updated to Jonathan', $log->description);
+        $this->assertStringContainsString('First Name changed from Johnathan to Jonathan', $log->description);
         $this->assertSame('Partner Colleague', $log->properties['changes']['assign_id']['to']);
     }
 
@@ -149,7 +149,7 @@ class OwnerChangeActivityLogTest extends TestCase
         $log = $this->latestLogFor($lead);
         $this->assertSame(ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE, $log->log_name);
         $this->assertStringContainsString('Lead Owner changed from Jason Rodriguez to Partner Colleague', $log->description);
-        $this->assertStringContainsString('Probability was updated to Low', $log->description);
+        $this->assertStringContainsString('Probability changed from empty to Low', $log->description);
         $this->assertStringNotContainsString('was changed', $log->description);
     }
 
