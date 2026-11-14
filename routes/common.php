@@ -433,6 +433,8 @@ Route::prefix('v1')->group(function () {
             Route::post('leads/details', [LeadController::class, 'storeDetails']);
             Route::post('leads/{id}/details', [LeadController::class, 'updateDetails']);
             Route::post('leads/{id}/contact-info', [LeadController::class, 'updateContactInfo']);
+            // Anyone who can open the lead may reveal; each reveal is logged (R3-BUG-004).
+            Route::post('leads/{id}/reveal', [LeadController::class, 'reveal']);
 
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
 

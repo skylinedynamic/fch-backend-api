@@ -6,6 +6,8 @@ use App\Http\Resources\FCH\User\UserResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
+use App\Rules\BusinessEin;
+use App\Rules\Ssn;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -42,7 +44,9 @@ class LeadResource extends JsonResource
             'phone_number' => $this->phone_number,
             'email' => $this->email,
             'legal_business_name' => $this->legal_business_name,
-            'business_ein' => $this->business_ein,
+            // Masked, as on a client (BUG-014, R3-BUG-004); the full number is
+            // fetched through POST leads/{id}/reveal, which logs who looked.
+            'business_ein' => BusinessEin::mask($this->business_ein),
             'state_file_number' => $this->state_file_number,
             'duns_number' => $this->duns_number,
             'business_address' => $this->business_address,
@@ -56,8 +60,7 @@ class LeadResource extends JsonResource
             'industry_type' => $this->industry_type,
             'industry_type_note' => $this->industry_type_note,
             'business_start_date' => $this->business_start_date?->format('Y-m-d'),
-            // The full SSN, for the partner's own lead screen - as a client's profile reads it.
-            'ssn' => $this->ssn,
+            'ssn' => Ssn::mask($this->ssn),
             'requirement_details' => $this->requirement_details,
             'convert_to' => $this->convert_to,
             'convert_email_already' => $this->emailAlreadyIn(),

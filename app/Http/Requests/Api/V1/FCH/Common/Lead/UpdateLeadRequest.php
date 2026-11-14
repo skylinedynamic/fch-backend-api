@@ -68,6 +68,15 @@ class UpdateLeadRequest extends BaseApiRequest
 
     protected function prepareForValidation(): void
     {
+        // The lead's details carry both numbers masked (R3-BUG-004); a form that
+        // sends the mask back has not changed the number, so the one on file stays.
+        foreach (['ssn', 'business_ein'] as $field) {
+            if (BusinessEin::isMask($this->input($field))) {
+                $this->request->remove($field);
+                $this->json()->remove($field);
+            }
+        }
+
         // A written EIN (12-3456789) is kept as its nine digits.
         if ($this->has('business_ein')) {
             $this->merge(['business_ein' => BusinessEin::canonical($this->input('business_ein'))]);

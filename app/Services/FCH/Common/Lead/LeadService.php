@@ -27,6 +27,32 @@ class LeadService
 {
     use PaginatesApi;
 
+    /** The numbers a lead's details carry masked, which revealField() gives in full. */
+    public const REVEALABLE_FIELDS = ['ssn', 'business_ein'];
+
+    /**
+     * A lead's number that its details only carry masked, in full (R3-BUG-004,
+     * as BUG-014 for clients). Every reveal is logged on the lead - who looked,
+     * never the number.
+     *
+     * @param  string  $field  one of REVEALABLE_FIELDS
+     */
+    public function revealField(Lead $lead, string $field): ?string
+    {
+        $label = \App\Models\ActivityLog\ActivityLog::fieldLabel($field);
+
+        $this->activityLogService->logSystemEvent(
+            Lead::class,
+            $lead->id,
+            $lead->partner_id,
+            null,
+            "{$label} Viewed",
+            "The full {$label} was viewed.",
+        );
+
+        return $lead->{$field} ?: null;
+    }
+
     public function __construct(
         protected BorrowerService $borrowerService,
         protected PartnerService $partnerService,

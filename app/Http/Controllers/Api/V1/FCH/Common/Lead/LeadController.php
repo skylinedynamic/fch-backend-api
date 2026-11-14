@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Http\Resources\FCH\Lead\ConvertedBorrowerResource;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\RevealLeadFieldRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\FetchLeadRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadDetailsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadDetailsRequest;
@@ -111,6 +112,25 @@ class LeadController extends Controller
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('lead.lead_update_failed'));
         }
+    }
+
+    /**
+     * One of the lead's masked numbers in full (R3-BUG-004). Anyone who can
+     * open the lead may look; each look is logged on the lead.
+     */
+    public function reveal(RevealLeadFieldRequest $request, $id)
+    {
+        $lead = $this->visibleLead($id);
+        if (!$lead) {
+            return ApiResponse::notFound(__('lead.lead_not_found'));
+        }
+
+        $field = $request->validated('field');
+
+        return ApiResponse::success(
+            ['field' => $field, 'value' => $this->leadService->revealField($lead, $field)],
+            __('lead.lead_details')
+        );
     }
 
     /**

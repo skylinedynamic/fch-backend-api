@@ -161,7 +161,8 @@ class LeadAndContactApiTest extends TestCase
 
     /**
      * A lead's SSN is the full number, as on a client's profile, kept
-     * encrypted - it used to be the last four digits only, in plain text.
+     * encrypted - it used to be the last four digits only, in plain text. The
+     * lead's details carry it masked (R3-BUG-004); see LeadSensitiveFieldRevealTest.
      */
     #[Test]
     public function a_leads_ssn_is_the_full_number_kept_encrypted(): void
@@ -175,7 +176,7 @@ class LeadAndContactApiTest extends TestCase
         $this->assertStringNotContainsString('6789', (string) $lead->fresh()->getRawOriginal('ssn_encrypted'));
         $this->getJson("/api/v1/common/leads/{$lead->id}")
             ->assertOk()
-            ->assertJsonPath('data.ssn', '123456789')
+            ->assertJsonPath('data.ssn', '***-**-6789')
             ->assertJsonMissingPath('data.ssn_last_4');
     }
 
