@@ -62,7 +62,8 @@ class BorrowerVerificationStatusMail extends Mailable implements ShouldQueue
                 'status' => $this->mailData['status'],
                 'note' => $this->mailData['note'] ?? null,
                 'taskResults' => $this->mailData['task_results'],
-                'loginUrl' => concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url')),
+                // The client's own partner's portal, as the branding (R3-BUG-013).
+                'loginUrl' => concatUrl(getBorrowerDomain($this->mailPartnerId), 'login'),
             ],
         );
     }

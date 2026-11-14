@@ -58,7 +58,8 @@ class ChangeRequestStatusMail extends Mailable implements ShouldQueue
                 'status' => $this->mailData['status'],
                 'newValue' => $this->mailData['new_value'],
                 'note' => $this->mailData['note'] ?? null,
-                'loginUrl' => concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url')),
+                // The client's own partner's portal, as the branding (R3-BUG-013).
+                'loginUrl' => concatUrl(getBorrowerDomain($this->mailPartnerId), 'login'),
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
             ],

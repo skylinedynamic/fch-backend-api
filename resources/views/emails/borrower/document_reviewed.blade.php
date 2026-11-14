@@ -18,10 +18,13 @@
         <p>Please upload a new file for this document from your Documents page.</p>
     @endif
 
-    <p style="text-align: center; margin: 24px 0;">
-        <a href="{{ $documentsUrl }}"
-            style="display: inline-block; background-color: #1e3a8a; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 600;">
-            Go to My Documents
-        </a>
-    </p>
+    {{-- Only when the client's partner has a client portal (R3-BUG-013). --}}
+    @if (!empty($documentsUrl))
+        <p style="text-align: center; margin: 24px 0;">
+            <a href="{{ $documentsUrl }}"
+                style="display: inline-block; background-color: #1e3a8a; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 600;">
+                Go to My Documents
+            </a>
+        </p>
+    @endif
 @endsection

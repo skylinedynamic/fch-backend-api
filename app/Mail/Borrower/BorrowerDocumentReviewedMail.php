@@ -54,7 +54,10 @@ class BorrowerDocumentReviewedMail extends Mailable implements ShouldQueue
                 'documentName' => $this->mailData['document_name'],
                 'status' => $this->mailData['status'],
                 'reason' => $this->mailData['reason'] ?? null,
-                'documentsUrl' => concatUrl(getBorrowerDomain(), 'documents', config('app.frontend_borrower_url')),
+                // The client's own partner's portal, as the branding (R3-BUG-013) -
+                // never the signed-in user's: nobody, in the queue worker. No
+                // fallback: a partner with no client portal gets no button.
+                'documentsUrl' => concatUrl(getBorrowerDomain($this->mailPartnerId), 'documents'),
             ],
         );
     }
