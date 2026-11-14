@@ -87,6 +87,22 @@ class Commission extends Model
     }
 
 
+    /**
+     * Past Draft: set going by the close (Processing) or settled. Its rates and
+     * amounts are fixed from then on - save-commission refuses it (R3-BUG-011).
+     */
+    public function isPastDraft(): bool
+    {
+        return $this->commission_status !== self::STATUS_DRAFT;
+    }
+
+    /** Paid out: never reset or recomputed, however the application is closed again (R3-BUG-011). */
+    public function isPaidOut(): bool
+    {
+        return $this->commission_status === self::STATUS_COMPLETED
+            || $this->payment_status === self::PAYMENT_STATUS_PAID;
+    }
+
     public function borrower()
     {
         return $this->belongsTo(Borrower::class);

@@ -972,6 +972,61 @@ class FundingCatalogueAdminApiTest extends TestCase
         $this->assertSame(0, $rows[$onlyDeleted]['funding_sequences_count']);
     }
 
+    /**
+     * R3-BUG-010: the delete only looked for the category in sequences' lender
+     * rules, not as a sequence's own Funding Type (funding_type_id), so a
+     * sequence was left pointing at a deleted category. Either use keeps it.
+     */
+    #[Test]
+    public function a_product_category_that_is_a_sequences_funding_type_is_not_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $sequenceId = $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['funding_type_id' => $categoryId]))
+            ->assertSuccessful()->json('data.id');
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('lender.category_in_use'))
+            ->assertJsonPath('errors.blocked.0.id', $categoryId)
+            ->assertJsonPath('errors.blocked.0.count', 1);
+
+        $this->assertNotNull(LenderProductCategory::find($categoryId));
+        $this->assertSame($categoryId, FundingSequencing::findOrFail($sequenceId)->type?->id);
+    }
+
+    /** A sequence that has the category as its Funding Type and in a lender rule counts once; one with it only as its Funding Type counts too. */
+    #[Test]
+    public function a_sequence_using_the_category_both_ways_counts_once(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $data = $this->sequence(['funding_type_id' => $categoryId]);
+        $data['lender_visibilities'] = [$this->visibility(Lender::create($this->lender(['name' => 'Lender ' . uniqid()]))->id, $categoryId)];
+        $this->postJson('/api/v1/admin/funding-sequencings', $data)->assertSuccessful();
+        // A second sequence that only has it as its Funding Type.
+        $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['name' => 'Equipment', 'funding_type_id' => $categoryId]))->assertSuccessful();
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.blocked.0.count', 2);
+    }
+
+    /** A deleted sequence no longer uses its Funding Type. */
+    #[Test]
+    public function a_deleted_sequences_funding_type_can_be_deleted(): void
+    {
+        $this->actingAsUser($this->admin);
+        $categoryId = $this->productCategory();
+        $sequenceId = $this->postJson('/api/v1/admin/funding-sequencings', $this->sequence(['funding_type_id' => $categoryId]))
+            ->assertSuccessful()->json('data.id');
+        FundingSequencing::findOrFail($sequenceId)->delete();
+
+        $this->deleteJson("/api/v1/admin/lenders/product-categories/{$categoryId}")->assertOk();
+
+        $this->assertNull(LenderProductCategory::find($categoryId));
+    }
+
     /** Two lenders' rules for the category in one sequence are still one sequence. */
     #[Test]
     public function a_sequence_with_several_rules_for_the_category_counts_once(): void

@@ -546,6 +546,14 @@ class RequestApplicationService
             return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
         }
 
+        // Once closed, the funded amount - and the commission worked out on it -
+        // is fixed: closing again with another amount is refused (R3-BUG-011).
+        if ($oldStatus === FundingApplication::CLOSED_COMPLETED
+            && $data['status'] === FundingApplication::CLOSED_COMPLETED
+            && (float) ($data['funded_amount'] ?? $application->total_funded_amount) !== (float) $application->total_funded_amount) {
+            return ApiResponse::error(__('application.funded_amount_locked'), 422);
+        }
+
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];
             // The day in the closer's zone, not the UTC one (BUG-120).
@@ -589,7 +597,8 @@ class RequestApplicationService
 
         if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
             $commission = Commission::where('funding_application_id', $application->id)->first();
-            if ($commission) {
+            // A commission already paid out is never reset or recomputed (R3-BUG-011).
+            if ($commission && !$commission->isPaidOut()) {
                 // Ensure we use the correct base amount
                 $baseAmount = $application->total_funded_amount;
                 $totalCommissionAmount = ($baseAmount * $commission->total_commission) / 100;

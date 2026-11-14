@@ -68,6 +68,8 @@ return [
     'error_assigning_lender' => 'Failed to assign the lender.',
     'lender_required_for_status' => 'Assign a lender before moving this application to ":status".',
     'lender_locked' => 'The lender cannot be changed now that this application is ":status".',
+    'funded_amount_locked' => 'This application is closed: its funded amount and commission can no longer be changed.',
+    'commission_locked' => 'This commission is already in progress or paid out and can no longer be changed.',
     'lender_not_active' => 'Only an active lender can be assigned.',
     'commission_split_must_total_100' => 'Admin and partner commission rates must add up to 100%.',
     'activity_lender_assigned_title' => 'Lender Assigned: :lenders',

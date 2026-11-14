@@ -31,6 +31,15 @@ class CommissionService
         try {
             $fundingApplication = FundingApplication::with('borrower')->findOrFail($data['funding_application_id']);
 
+            // A commission past Draft (set going by the close, or paid out) is
+            // fixed; saving it again would set it back to Draft (R3-BUG-011).
+            $existing = Commission::where('funding_application_id', $fundingApplication->id)->first();
+            if ($existing?->isPastDraft()) {
+                DB::rollBack();
+
+                return ApiResponse::error(__('application.commission_locked'), 422);
+            }
+
             if(isset($data['requested_amount'])){
                 $fundingApplication->update([
                     'requested_amount' => $data['requested_amount'],
