@@ -297,6 +297,23 @@ class LeadAndContactApiTest extends TestCase
             ->assertJsonValidationErrors(['mobile_number' => __('embed_form.phone_invalid')]);
     }
 
+    /** R3-BUG-018: an unformatted mobile was answered with the raw key "contact.mobile_number_invalid". */
+    #[Test]
+    public function an_unformatted_contact_mobile_gets_a_readable_message_on_add_and_edit(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $expected = 'Enter a valid 10-digit US mobile number, e.g. (555) 234-5678.';
+
+        $this->postJson('/api/v1/common/contacts', ['first_name' => 'Rae', 'last_name' => 'Ray', 'email' => 'rae@example.test', 'mobile_number' => '2025550199'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['mobile_number' => $expected]);
+
+        $contact = $this->contactOf($this->partner);
+        $this->putJson("/api/v1/common/contacts/{$contact->id}", ['first_name' => 'Rae', 'email' => 'rae@example.test', 'mobile_number' => '2025550199'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['mobile_number' => $expected]);
+    }
+
     #[Test]
     public function another_partners_lead_cannot_be_read_changed_or_deleted(): void
     {

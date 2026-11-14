@@ -20,6 +20,7 @@ return [
     'city_required' => 'City is required.',
     'company_name_required' => 'Company name is required.',
     'mobile_number_required' => 'Mobile number is required.',
+    'mobile_number_invalid' => 'Enter a valid 10-digit US mobile number, e.g. (555) 234-5678.',
     'email_required' => 'Email address is required.',
     'email_taken' => 'The email address has already been taken.',
     'multiple_delete_failed' => 'Failed to delete selected contacts.',
