@@ -43,7 +43,7 @@ The tier now moves only by verifying tasks, in `TaskVerificationService` and `Ve
   - `tests/Feature/CreditBuilder`: 134 passed
   - `tests/Feature/Profile`: 106 passed
   - `tests/Integration/CreditBuilder`: 60 passed
-- **Full suite:** see the PR / session notes.
+- **Full suite** (with BUG-031, 032, 034): 5,733 tests, all passed (2 skipped).
 
 ## Open items
 
