@@ -16,6 +16,12 @@ final class PortalMeta
     public const PORTAL_BORROWER = 'borrower';
     public const PORTAL_PARTNER = 'partner';
 
+    /**
+     * Each portal's own packaged icon, at a fixed (unfingerprinted) path from
+     * its public/ folder. Relative, so it opens on whichever portal asked.
+     */
+    public const PACKAGED_FAVICON = '/favicon.png';
+
     private const PORTALS = [
         self::PORTAL_BORROWER => [
             'label' => 'Borrower Portal',
@@ -54,8 +60,9 @@ final class PortalMeta
             'description' => self::text($branding['site_slogan'] ?? null)
                 ?? sprintf(self::PORTALS[$portal]['description'], $siteName),
             'image' => self::image($branding),
-            // Null leaves the portal's own packaged icon, which index.html declares.
-            'favicon' => self::text($branding['favicon_full_url'] ?? null),
+            // Always one: the fragment replaces index.html's stub, packaged icon
+            // included, so a partner's HTML carries its own icon only (R3-BUG-040).
+            'favicon' => self::text($branding['favicon_full_url'] ?? null) ?? self::PACKAGED_FAVICON,
             'url' => self::url($domain),
         ];
     }

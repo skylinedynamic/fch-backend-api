@@ -314,7 +314,7 @@ class PartnerInvoicesAndPaymentsTest extends TestCase
     public function staff_without_the_approval_permission_cannot_approve_or_reject_a_payment(): void
     {
         $payment = $this->manualPayment($this->borrowerInvoice($this->partnerBorrower));
-        $this->actingAsUser($this->makeStaffUser($this->partner, ['can view payments', 'can view invoices']));
+        $this->actingAsUser($this->makeStaffUser($this->partner, [PermissionName::ViewPayments->value, PermissionName::ViewInvoices->value]));
 
         $this->postJson("/api/v1/common/payments/{$payment->id}/approve", ['note' => 'x'])->assertForbidden();
         $this->postJson("/api/v1/common/payments/{$payment->id}/reject", ['reason' => 'x'])->assertForbidden();

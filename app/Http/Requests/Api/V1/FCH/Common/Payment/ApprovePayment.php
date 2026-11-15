@@ -8,7 +8,7 @@ use Illuminate\Foundation\Http\FormRequest;
 class ApprovePayment extends FormRequest
 {
     /**
-     * Only a user holding 'can approve payment' - the permission the portal
+     * Only a user holding Permission::ApprovePayment - the permission the portal
      * shows the Approve button by. It used to be checked in the portal only, so
      * staff without it approved a client's payment through the API, which marks
      * the invoice paid and activates the enrollment (R3-BUG-037).

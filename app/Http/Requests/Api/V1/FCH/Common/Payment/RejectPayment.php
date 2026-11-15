@@ -9,7 +9,7 @@ class RejectPayment extends FormRequest
 {
     /**
      * Rejecting is the other half of the same decision: only a user holding
-     * 'can approve payment', as the portal's Reject button (R3-BUG-037).
+     * Permission::ApprovePayment, as the portal's Reject button (R3-BUG-037).
      */
     public function authorize(): bool
     {

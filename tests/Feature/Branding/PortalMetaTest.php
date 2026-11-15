@@ -249,16 +249,33 @@ class PortalMetaTest extends TestCase
     }
 
     #[Test]
-    public function with_no_favicon_anywhere_the_portals_packaged_one_stays(): void
+    public function with_no_favicon_anywhere_the_portals_packaged_one_is_named(): void
     {
-        // index.html declares the packaged icon itself; only a real upload
-        // follows it, and the later icon is the one the tab shows.
+        // The fragment replaces index.html's stub, packaged icon and all, so it
+        // always names one: the portal's own /favicon.png (R3-BUG-040).
         AppConfiguration::where('partner_id', $this->host->id)->where('key', 'favicon')->delete();
         Cache::forever('branding:version', self::$versionSeed += 1);
 
         $this->meta('app.fch.test')
             ->assertOk()
-            ->assertDontSee('rel="icon"', false);
+            ->assertSee('<link rel="icon" href="/favicon.png">', false);
+    }
+
+    /**
+     * R3-BUG-040: a white-label portal's served HTML carried the host's packaged
+     * favicon ahead of the partner's. The fragment now holds the only icon.
+     */
+    #[Test]
+    public function a_partner_portal_names_exactly_one_icon_its_own(): void
+    {
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['borrower_domain' => 'apply.acme.test']);
+        $this->brand($partner, ['favicon' => 'partners/acme/fav.png']);
+
+        $html = $this->meta('apply.acme.test')->assertOk()->getContent();
+
+        $this->assertSame(1, substr_count($html, 'rel="icon"'));
+        $this->assertStringContainsString('partners/acme/fav.png', $html);
+        $this->assertStringNotContainsString('/favicon.png"', $html);
     }
 
     #[Test]
