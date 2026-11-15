@@ -26,7 +26,7 @@ return [
         'new_leads' => ['current' => 41, 'previous' => 0, 'host' => 15, 'partners' => 26],
         'active_partners' => ['current' => 18, 'total' => 26],
         'partners' => ['total' => 26, 'active' => 22, 'new' => 3],
-        'clients' => ['total' => 410, 'active' => 380, 'new' => 21],
+        'clients' => ['total' => 410, 'active' => 380, 'new' => 21, 'host' => 150, 'partners' => 260],
         'lead_conversion' => [
             'host' => ['leads' => 15, 'funded' => 3],
             'partners' => ['leads' => 26, 'funded' => 2],

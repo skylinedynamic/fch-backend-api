@@ -592,9 +592,35 @@ class OwnerSummaryTest extends TestCase
 
         $kpis = $this->data()['kpis'];
 
-        $this->assertEquals(['total' => $before['total'] + 2, 'active' => $before['active'] + 1, 'new' => $before['new'] + 2], $kpis['clients']);
+        $this->assertEquals([
+            'total' => $before['total'] + 2,
+            'active' => $before['active'] + 1,
+            'new' => $before['new'] + 2,
+            'host' => $before['host'] + 1,
+            'partners' => $before['partners'] + 1,
+        ], $kpis['clients']);
         // Partner One is active and Partner Two is suspended; the host is not its own partner.
         $this->assertEquals(['total' => 2, 'active' => 1, 'new' => 2], $kpis['partners']);
+    }
+
+    #[Test]
+    public function clients_are_split_between_the_hosts_own_and_other_partners(): void
+    {
+        $before = $this->data()['kpis']['clients'];
+
+        // The host's own clients: those on the host, and those with no partner at all.
+        $this->makeBorrower($this->host);
+        $this->makeBorrower($this->host, ['partner_id' => null]);
+        // Other partners' clients; an archived one is left out like it is from the total.
+        $this->makeBorrower($this->p1);
+        $this->makeBorrower($this->p2, ['status' => Borrower::STATUS_SUSPENDED]);
+        $this->makeBorrower($this->p2)->archive();
+
+        $clients = $this->data()['kpis']['clients'];
+
+        $this->assertSame($before['host'] + 2, $clients['host']);
+        $this->assertSame($before['partners'] + 2, $clients['partners']);
+        $this->assertSame($clients['total'], $clients['host'] + $clients['partners']);
     }
 
     private function clientLead(Partner $partner, string $email, string $on, ?string $convertedTo = Lead::BORROWER_TYPE_LEAD, string $type = Lead::BORROWER_TYPE_LEAD): void

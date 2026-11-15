@@ -169,7 +169,13 @@ class OwnerReportPresenter
                 $before(number_format($k['funded']['previous_deals']))
             ),
             $card('partners', number_format($k['partners']['total']), [$row('active', number_format($k['partners']['active'])), $newThisPeriod($k['partners']['new'])]),
-            $card('clients', number_format($k['clients']['total']), [$row('active', number_format($k['clients']['active'])), $newThisPeriod($k['clients']['new'])]),
+            $card(
+                'clients',
+                number_format($k['clients']['total']),
+                $split(number_format($k['clients']['host']), number_format($k['clients']['partners'])),
+                [],
+                __('owner_summary.report.clients_note', ['active' => number_format($k['clients']['active']), 'new' => number_format($k['clients']['new'])])
+            ),
             $card(
                 'kpi_leads',
                 number_format($k['new_leads']['current']),

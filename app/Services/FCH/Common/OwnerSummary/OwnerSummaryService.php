@@ -168,11 +168,7 @@ class OwnerSummaryService
                     'active' => Partner::excludingHost()->notArchived()->where('status', Partner::STATUS_ACTIVE)->count(),
                     'new' => Partner::excludingHost()->notArchived()->whereBetween('created_at', $period->between())->count(),
                 ],
-                'clients' => [
-                    'total' => Borrower::notArchived()->count(),
-                    'active' => Borrower::notArchived()->where('status', Borrower::STATUS_ACTIVE)->count(),
-                    'new' => Borrower::notArchived()->whereBetween('created_at', $period->between())->count(),
-                ],
+                'clients' => $this->clients(),
                 'lead_conversion' => $this->leadConversion(),
             ],
             'cash_by_stream' => $this->cashByStream(),
@@ -364,6 +360,25 @@ class OwnerSummaryService
     {
         return $this->fundedQuery(FundingApplication::query(), $from, $to)
             ->get(['id', 'partner_id', 'total_funded_amount', 'funded_date', 'created_at']);
+    }
+
+    /**
+     * Clients, archived ones left out: how many are active, how many joined in
+     * the period, and how many are the host's own against other partners'.
+     */
+    private function clients(): array
+    {
+        $clients = fn () => Borrower::notArchived();
+        $hosts = $clients()->where(fn (Builder $query) => $query->whereNull('partner_id')->orWhere('partner_id', $this->host->id))->count();
+        $total = $clients()->count();
+
+        return [
+            'total' => $total,
+            'active' => $clients()->where('status', Borrower::STATUS_ACTIVE)->count(),
+            'new' => $clients()->whereBetween('created_at', $this->period->between())->count(),
+            'host' => $hosts,
+            'partners' => $total - $hosts,
+        ];
     }
 
     /** Whether something with this partner_id is the host's own rather than another partner's. */

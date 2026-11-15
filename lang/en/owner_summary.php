@@ -62,6 +62,7 @@ return [
         'funded_deals' => 'Funded Deals',
         'partners' => 'Partners',
         'clients' => 'Clients',
+        'clients_note' => ':active active · :new new last week',
         'kpi_leads' => 'Leads',
         'lead_conversion' => 'Lead-To-Funded',
         'lead_conversion_note' => 'leads that reached funded',

@@ -81,7 +81,8 @@ class OwnerReportPresenterTest extends TestCase
         $this->assertSame([['label' => 'Active', 'value' => '22'], ['label' => 'New last week', 'value' => '3']], $kpis[3]['rows']);
 
         $this->assertSame('410', $kpis[4]['value']);
-        $this->assertSame([['label' => 'Active', 'value' => '380'], ['label' => 'New last week', 'value' => '21']], $kpis[4]['rows']);
+        $this->assertSame('380 active · 21 new last week', $kpis[4]['note']);
+        $this->assertSame([['label' => 'FCH', 'value' => '150'], ['label' => 'Partners', 'value' => '260']], $kpis[4]['rows']);
 
         $this->assertSame('41', $kpis[5]['value']);
         $this->assertSame('new', $kpis[5]['tag']);
