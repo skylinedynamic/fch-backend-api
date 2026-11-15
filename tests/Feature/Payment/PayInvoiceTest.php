@@ -46,7 +46,8 @@ class PayInvoiceTest extends TestCase
         $this->http = FakeStripeHttpClient::install();
 
         $this->host = $this->makeHostPartner();
-        $this->hostAdmin = $this->makePartnerAdmin($this->host);
+        // The host's admins approve manual payments; the API checks the permission (R3-BUG-037).
+        $this->hostAdmin = $this->makePartnerAdmin($this->host, [Permission::ApprovePayment->value]);
         $this->partner = $this->makeCertifiedPartner();
 
         // A partner's invoice is paid to the host, through the host's gateways.

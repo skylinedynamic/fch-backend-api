@@ -2,16 +2,20 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Payment;
 
+use App\Enums\Permission;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ApprovePayment extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Only a user holding 'can approve payment' - the permission the portal
+     * shows the Approve button by. It used to be checked in the portal only, so
+     * staff without it approved a client's payment through the API, which marks
+     * the invoice paid and activates the enrollment (R3-BUG-037).
      */
     public function authorize(): bool
     {
-        return true;
+        return (bool) $this->user()?->checkPermissionTo(Permission::ApprovePayment->value, 'api');
     }
 
     /**
