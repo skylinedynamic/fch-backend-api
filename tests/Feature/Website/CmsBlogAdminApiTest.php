@@ -9,6 +9,7 @@ use App\Models\CMS\BlogTag;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
@@ -34,6 +35,65 @@ class CmsBlogAdminApiTest extends TestCase
 
         $this->host = $this->makeHostPartner();
         $this->editor = $this->makeStaffUser($this->host);
+    }
+
+    /** @return array<int, string> titles on one page of the admin list */
+    private function blogTitles(array $query): array
+    {
+        return collect($this->getJson('/api/v1/admin/cms/blogs?' . http_build_query($query))->assertOk()->json('data'))
+            ->pluck('title')->all();
+    }
+
+    /**
+     * Defect: BUG-184 - CATEGORY sorted by category id (creation order), not by
+     * the category name the column shows.
+     */
+    #[Test]
+    public function the_category_column_sorts_by_category_name(): void
+    {
+        $this->actingAsUser($this->editor);
+        // Created Z first, so id order and name order differ.
+        $zebra = BlogCategory::create(['name' => 'Zebra Tips', 'partner_id' => $this->host->id])->id;
+        $apple = BlogCategory::create(['name' => 'Apple Advice', 'partner_id' => $this->host->id])->id;
+        $mango = BlogCategory::create(['name' => 'Mango Money', 'partner_id' => $this->host->id])->id;
+        foreach (['Z post' => $zebra, 'A post' => $apple, 'M post' => $mango] as $title => $category) {
+            Blog::create(['title' => $title, 'slug' => str($title)->slug(), 'content' => 'x', 'category_id' => $category, 'partner_id' => $this->host->id]);
+        }
+
+        $this->assertSame(['A post', 'M post', 'Z post'], $this->blogTitles(['sort_field' => 'category.name', 'sort_order' => 'asc']));
+        $this->assertSame(['Z post', 'M post', 'A post'], $this->blogTitles(['sort_field' => 'category.name', 'sort_order' => 'desc']));
+    }
+
+    /**
+     * Defect: BUG-185 - sorted by Status (or Category), rows with the same value
+     * had no tie-breaker, so MySQL returned them in a different order for each
+     * page: some posts appeared on two pages and others on none. SQLite returns
+     * ties in insert order, so the repeat itself cannot be reproduced here; the
+     * test checks every post is on exactly one page and that the ORDER BY ends
+     * on the id.
+     */
+    #[Test]
+    public function every_post_is_on_exactly_one_page_when_sorted_by_a_repeated_value(): void
+    {
+        $this->actingAsUser($this->editor);
+        $category = BlogCategory::create(['name' => 'Shared', 'partner_id' => $this->host->id])->id;
+        for ($i = 1; $i <= 12; $i++) {
+            Blog::create(['title' => "Post {$i}", 'slug' => "post-{$i}", 'content' => 'x', 'category_id' => $category, 'is_published' => $i % 2 === 0, 'partner_id' => $this->host->id]);
+        }
+
+        foreach (['status', 'category.name'] as $field) {
+            DB::enableQueryLog();
+            $seen = [];
+            foreach ([1, 2, 3] as $page) {
+                $seen = array_merge($seen, $this->blogTitles(['sort_field' => $field, 'sort_order' => 'asc', 'per_page' => 5, 'page' => $page]));
+            }
+            $sql = collect(DB::getQueryLog())->pluck('query')->first(fn ($q) => str_contains($q, 'order by') && str_contains($q, 'limit'));
+            DB::flushQueryLog();
+
+            $this->assertCount(12, $seen, "{$field}: not 12 rows over 3 pages");
+            $this->assertCount(12, array_unique($seen), "{$field}: a post was repeated");
+            $this->assertMatchesRegularExpression('/order by .*"?id"? (asc|desc) limit/i', $sql, "{$field}: no id tie-breaker");
+        }
     }
 
     #[Test]
