@@ -90,46 +90,34 @@ if (!function_exists('currencyFormat')) {
 if (!function_exists('formatCompactCurrency')) {
     /**
      * Money for a dashboard card: whole dollars under a thousand ("$950"),
-     * then three significant figures in thousands, millions or billions
-     * ("$1.5K", "$920K", "$4.33M", "$37.2M", "$1.25B").
+     * then thousands, millions or billions with at most one decimal ("$1.5K",
+     * "$920K", "$4.3M", "$37.2M", "$1.2B").
+     *
+     * Always cut, never rounded (R3-BUG-034): $1,499 is "$1.4K", not "$1.5K",
+     * and $999,999 is "$999.9K", not "$1M" - a card never shows more than the
+     * amount. Worked in whole dollars and tenths as integers, so no float
+     * error can tip a value over a boundary.
      */
     function formatCompactCurrency(int|float|string|null $amount, string $symbol = '$'): string
     {
         $value = (float) ($amount ?? 0);
         $sign = $value < 0 ? '-' : '';
-        $value = abs($value);
+        $dollars = (int) floor(abs($value));
 
-        if (round($value) < 1_000) {
-            return $sign . $symbol . number_format(round($value));
-        }
-
-        // Largest unit first. Three significant figures; an amount that rounds
-        // up to a thousand of one unit becomes one of the next: 999,999 is
-        // $1M and 999,999,999 is $1B, never "$1000K" or "$1000M".
-        $units = [[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'K']];
-        foreach ($units as $i => [$unit, $suffix]) {
-            if ($value < $unit && $suffix !== 'K') {
+        // Largest unit first; the cut never reaches a thousand of a unit.
+        foreach ([[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'K']] as [$unit, $suffix]) {
+            if ($dollars < $unit) {
                 continue;
             }
 
-            $scaled = $value / $unit;
-            $decimals = $scaled < 10 ? 2 : ($scaled < 100 ? 1 : 0);
-            $rounded = round($scaled, $decimals);
+            $tenths = intdiv($dollars, intdiv($unit, 10));
+            $whole = intdiv($tenths, 10);
+            $decimal = $tenths % 10;
 
-            if ($rounded >= 1000 && $i > 0) {
-                return $sign . $symbol . '1' . $units[$i - 1][1];
-            }
-
-            $text = number_format($rounded, $decimals, '.', '');
-            // Drop trailing zeros after the point only: 1.50 -> 1.5, but 920 stays 920.
-            if ($decimals > 0) {
-                $text = rtrim(rtrim($text, '0'), '.');
-            }
-
-            return $sign . $symbol . $text . $suffix;
+            return $sign . $symbol . number_format($whole) . ($decimal ? '.' . $decimal : '') . $suffix;
         }
 
-        return $sign . $symbol . number_format(round($value));
+        return $sign . $symbol . number_format($dollars);
     }
 }
 

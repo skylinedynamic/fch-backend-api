@@ -66,7 +66,8 @@ class BorrowerDashboardAmountsTest extends TestCase
         $this->getJson('/api/v1/borrower/dashboard')
             ->assertOk()
             ->assertJsonPath('data.states.total_requested_amount_formatted', '$37.2M')
-            ->assertJsonPath('data.states.total_funded_amount_formatted', '$4.33M')
+            // At most one decimal, cut, not rounded (R3-BUG-034).
+            ->assertJsonPath('data.states.total_funded_amount_formatted', '$4.3M')
             // The raw numbers stay, for anything that calculates with them.
             ->assertJsonPath('data.states.total_requested_amount', fn ($value) => (float) $value === 37249000.0);
     }
