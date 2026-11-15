@@ -125,11 +125,13 @@ class AuthService
 
         // A partner's team (admin and staff) follows the partner's trial, valid
         // through its end date (R3-BUG-026). A client keeps its own rule below.
+        // The message names the administrator, not the partner: the host sets
+        // a partner's trial, and naming the partner sent its owner to contact
+        // themselves (R3-BUG-031, as BUG-113 for the Inactive message).
         if ($user->entity_type !== Borrower::class) {
             $trialPartner = $user->partner;
             if ($trialPartner && $trialPartner->freeTrialExpired()) {
-                $partnerName = $trialPartner->company_name ?? $trialPartner->full_name ?? 'your partner';
-                return ApiResponse::loginError(__('auth.free_trial_expired', ['partner' => $partnerName]), 'email');
+                return ApiResponse::loginError(__('auth.free_trial_expired'), 'email');
             }
         }
 

@@ -32,9 +32,9 @@ class EnsurePartnerTrialActive
         $partner = $user->partner;
 
         if ($partner && $partner->freeTrialExpired()) {
-            return ApiResponse::unauthorized(__('auth.free_trial_expired', [
-                'partner' => $partner->company_name ?? $partner->full_name ?? 'your partner',
-            ]));
+            // Same wording as sign-in: the administrator, not the partner
+            // itself (R3-BUG-031).
+            return ApiResponse::unauthorized(__('auth.free_trial_expired'));
         }
 
         return $next($request);

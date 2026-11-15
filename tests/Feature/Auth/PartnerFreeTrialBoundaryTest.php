@@ -16,6 +16,10 @@ use Tests\TestCase;
  * date - sign-in on the last day works - and once it has expired the partner's
  * team is stopped both at sign-in and on every request of a session already
  * open (a host shortening the trial ends it on the next request).
+ *
+ * R3-BUG-031: the message sends the partner's team to the administrator. It is
+ * the host that sets a partner's trial, so naming the partner itself told its
+ * owner to contact themselves (as the Inactive message did, BUG-113).
  */
 #[CoversClass(EnsurePartnerTrialActive::class)]
 #[CoversClass(Partner::class)]
@@ -64,7 +68,27 @@ class PartnerFreeTrialBoundaryTest extends TestCase
 
     private function expiredMessage(): string
     {
-        return __('auth.free_trial_expired', ['partner' => $this->partner->company_name ?? $this->partner->full_name]);
+        return 'Your free trial has expired. Please contact administrator for assistance.';
+    }
+
+    private function assertDoesNotNameThePartner($response): void
+    {
+        $this->assertStringNotContainsString((string) $this->partner->company_name, (string) $response->json('message'));
+    }
+
+    #[Test]
+    public function the_expired_message_sends_the_owner_to_the_administrator_not_to_its_own_company(): void
+    {
+        $this->partner->update(['company_name' => 'QA-TEST R3 Trial Co']);
+        $this->endsOn('2026-11-10');
+        $admin = $this->makePartnerAdmin($this->partner);
+
+        $login = $this->login($admin->email)->assertUnauthorized()->assertJsonPath('message', $this->expiredMessage());
+        $this->assertDoesNotNameThePartner($login);
+
+        $this->actingAsUser($admin);
+        $session = $this->getJson('/api/v1/common/refresh-user')->assertUnauthorized()->assertJsonPath('message', $this->expiredMessage());
+        $this->assertDoesNotNameThePartner($session);
     }
 
     #[Test]
@@ -126,7 +150,9 @@ class PartnerFreeTrialBoundaryTest extends TestCase
         $this->endsOn('2026-11-10');
         $this->actingAsUser($this->makeStaffUser($this->partner));
 
-        $this->getJson('/api/v1/common/refresh-user')->assertUnauthorized();
+        $this->getJson('/api/v1/common/refresh-user')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', $this->expiredMessage());
     }
 
     #[Test]
