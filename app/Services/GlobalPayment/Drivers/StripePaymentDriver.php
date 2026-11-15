@@ -5,6 +5,7 @@ namespace App\Services\GlobalPayment\Drivers;
 use App\Contracts\Payment\AuthenticatesCardPayments;
 use App\Contracts\Payment\PaymentGatewayInterface;
 use App\Models\Invoice\Invoice;
+use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
 use App\Support\Payment\PaymentCredentials;
@@ -107,7 +108,8 @@ class StripePaymentDriver implements PaymentGatewayInterface, AuthenticatesCardP
     public function charge(array $params): array
     {
         $amountInCents = (int) round(($params['amount'] ?? 0) * 100);
-        $currency = strtolower($params['currency'] ?? 'usd');
+        // Stripe takes the currency in lower case.
+        $currency = strtolower($params['currency'] ?? Payment::CURRENCY_USD);
 
         // 1. Resolve invoice and payer
         $invoice = Invoice::find($params['invoice_id']);
@@ -128,12 +130,17 @@ class StripePaymentDriver implements PaymentGatewayInterface, AuthenticatesCardP
             $this->environment
         );
 
-        // 3. Attach payment method and set as default (if a token is provided)
+        // 3. The card from the browser. It is attached and made the customer's
+        //    default - the card the auto-charge uses - only when the payer ticked
+        //    "Save card as default payment method"; otherwise it only pays this.
+        $saveCard = !empty($params['save_card']);
         $paymentMethodId = null;
         $cardDetails = ['name' => null, 'card_no' => null];
         if (!empty($params['payment_token']) && str_starts_with($params['payment_token'], 'pm_')) {
             $paymentMethodId = $params['payment_token'];
-            $customerService->setDefaultPaymentMethod($customerId, $paymentMethodId);
+            if ($saveCard) {
+                $customerService->setDefaultPaymentMethod($customerId, $paymentMethodId);
+            }
             $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
         }
 
@@ -191,7 +198,20 @@ class StripePaymentDriver implements PaymentGatewayInterface, AuthenticatesCardP
         $isStale = $customerMoved || ($stored['payment_mode'] ?? null) !== $this->environment;
         $isIncomplete = empty($storedCustomerId) || empty($stored['card_no'] ?? null);
 
-        if ($payer && ($isStale || $isIncomplete)) {
+        // Only a card the payer chose to save is written - and then it replaces
+        // the one on file. Unsaved, the record is left as it was: resolveCustomer()
+        // finds the customer again by email, so no duplicate is created.
+        if ($payer && $saveCard && $paymentMethodId) {
+            $payer->update([
+                'default_payment_method' => PaymentProvider::STRIPE,
+                'stripe_customer_id' => [
+                    'customer_id'  => $customerId,
+                    'name'         => $cardName,
+                    'card_no'      => $cardNo,
+                    'payment_mode' => $this->environment,
+                ],
+            ]);
+        } elseif ($payer && $saveCard && ($isStale || $isIncomplete)) {
             // Card details already on file describe the OLD customer's card, so
             // they are only worth keeping when the customer itself has not moved.
             $keepIfSameCustomer = fn (string $key) => $customerMoved ? null : ($stored[$key] ?? null);
@@ -237,7 +257,7 @@ class StripePaymentDriver implements PaymentGatewayInterface, AuthenticatesCardP
     public function chargeOffSession(
         string $customerId,
         int $amountCents,
-        string $currency = 'usd',
+        string $currency = Payment::CURRENCY_USD,
         string $description = 'Subscription Auto-Charge',
         ?string $idempotencyReference = null
     ): array {

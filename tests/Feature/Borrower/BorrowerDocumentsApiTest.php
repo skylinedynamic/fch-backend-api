@@ -182,6 +182,19 @@ class BorrowerDocumentsApiTest extends TestCase
     }
 
     #[Test]
+    public function the_uploaded_date_is_the_viewers_day_not_the_utc_day(): void
+    {
+        // BUG-154: 01-Nov 02:06 AM in Dhaka (UTC+6) is 31-Oct 20:06 UTC.
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-31 20:06:00', 'UTC'));
+        $this->documentFor($this->borrower);
+        $this->actingAsUser($this->partnerAdmin);
+        $url = "/api/v1/common/borrowers-documents/{$this->borrower->id}";
+
+        $this->assertSame('2026-11-01', $this->postJson($url, [], ['X-Timezone' => 'Asia/Dhaka'])->assertOk()->json('data.0.date'));
+        $this->assertSame('2026-10-31', $this->postJson($url)->assertOk()->json('data.0.date'));
+    }
+
+    #[Test]
     public function the_partner_rejects_a_document_with_a_reason(): void
     {
         $document = $this->documentFor($this->borrower);

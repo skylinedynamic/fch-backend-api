@@ -859,6 +859,10 @@ class FundingApplication extends Model
                 return;
             }
 
+            // Whose client it is: the partner's name or company, as the
+            // funding request search already did.
+            $q->orWhereHas('partner', fn ($partner) => $partner->named(trim(implode(' ', $words))));
+
             // The applicant's name as entered on the application...
             $q->orWhere(fn ($name) => $nameMatches($name, ['first_name', 'middle_name', 'last_name']));
 

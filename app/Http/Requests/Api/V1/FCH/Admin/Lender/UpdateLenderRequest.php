@@ -4,11 +4,13 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Lender;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lender\Lender;
-use App\Rules\UniqueLenderLegalName;
 use App\Rules\UsPhoneNumber;
 
 class UpdateLenderRequest extends BaseApiRequest
 {
+    use NormalizesLenderWebsite;
+    use ValidatesLenderLocation;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -26,8 +28,9 @@ class UpdateLenderRequest extends BaseApiRequest
     {
         return [
             'name' => 'required|string|max:255',
-            // Unique (R2 BUG-008): it is what tells two lenders of the same name apart.
-            'legal_name' => ['required', 'string', 'max:255', new UniqueLenderLegalName($this->route('id'))],
+            // May repeat (2026-11-11): Edit Lender warns, and the Lender ID
+            // (lender_code, made by the system) tells lenders apart.
+            'legal_name' => ['required', 'string', 'max:255'],
             'product_categories' => 'required|array',
             'product_categories.*' => 'integer',
             'contact_name' => 'required|string|max:255',
@@ -35,7 +38,8 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_email' => 'required|email|max:255',
             // Not unique: lenders share support lines, and create never required it (O31).
             'contact_phone' => ['required', 'string', new UsPhoneNumber()],
-            'website' => 'nullable|max:255',
+            'website' => 'nullable|url:http,https|max:255',
+            ...$this->locationRules(),
             'submission_method' => 'nullable|string|max:255',
             'submission_email' => 'nullable|email|max:255',
             'submission_portal_link' => 'nullable|max:255',
@@ -61,6 +65,7 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_email.required' => __('lender.contact_email_required'),
             'contact_email.email' => __('lender.contact_email_email'),
             'contact_phone.max' => __('lender.contact_phone_max'),
+            'website.url' => __('lender.website_url'),
             'website.max' => __('lender.website_max'),
             'submission_email.email' => __('lender.submission_email_email'),
             'submission_portal_link.max' => __('lender.submission_portal_link_max'),

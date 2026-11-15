@@ -76,12 +76,13 @@ class RequestApplicationService
             $query->where('status', $filters['status']);
         }
 
+        // The DATE column shows created_at, so the date filter and sort use it too (BUG-174).
         if(isset($filters['start_date']) && !empty($filters['start_date'])) {
-            $query->whereRaw('DATE(COALESCE(updated_at, created_at)) >= ?', [$filters['start_date']]);
+            $query->whereDate('created_at', '>=', $filters['start_date']);
         }
 
         if(isset($filters['end_date']) && !empty($filters['end_date'])) {
-            $query->whereRaw('DATE(COALESCE(updated_at, created_at)) <= ?', [$filters['end_date']]);
+            $query->whereDate('created_at', '<=', $filters['end_date']);
         }
 
         // A funding type from the common list (GET /common/funding-types) finds
@@ -105,9 +106,9 @@ class RequestApplicationService
         }
 
         // Apply Sorting & Advanced Filters using QueryFilter if available, or manual simple sorting
-        // Most recently updated first by default, so an older draft that is
-        // submitted or edited today shows at the top rather than by its old id.
-        $sortField = $filters['sort_field'] ?? 'updated_at';
+        // Newest first by default, by the date the DATE column shows (created_at,
+        // BUG-174) - not the last update, which moved a row whose status changed.
+        $sortField = $filters['sort_field'] ?? 'created_at';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $advancedFilters = $filters['filters'] ?? [];
 
@@ -116,18 +117,10 @@ class RequestApplicationService
             $sortField = 'purpose_of_funding';
         }elseif($sortField == 'requested_amount') {
             $sortField = 'funding_requested_amount';
-        }elseif($sortField == 'date' || $sortField == 'id') {
-            $sortField = 'updated_at';
+        }elseif($sortField == 'date' || $sortField == 'id' || $sortField == 'updated_at') {
+            $sortField = 'created_at';
         }elseif($sortField == 'full_name') {
             $sortField = 'first_name';
-        }
-
-
-        // updated_at is nullable, so fall back to created_at rather than letting a
-        // row with no updated_at sink to the end of the list.
-        $sortByUpdatedAt = $sortField == 'updated_at';
-        if ($sortByUpdatedAt) {
-            $query->orderByRaw("COALESCE(updated_at, created_at) {$sortOrder}");
         }
 
         $query = QueryFilter::apply(
@@ -136,7 +129,6 @@ class RequestApplicationService
             $sortOrder,
             $advancedFilters,
              [
-                'skip_sorting' => $sortByUpdatedAt,
                 'aliases' => [
                     'purpose_of_funding' => 'funding_type',
                     'funding_requested_amount' => 'requested_amount',
@@ -144,7 +136,7 @@ class RequestApplicationService
                     'first_name' => 'full_name',
                 ],
             ]
-        )->orderBy('id', 'desc');
+        )->orderBy('id', $sortField == 'created_at' ? $sortOrder : 'desc');
 
         // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -167,7 +159,8 @@ class RequestApplicationService
             $authUser = Auth::user();
             
             $query = FundingApplication::query()
-                ->with(['borrower', 'fundingSequence', 'fundingRequest'])
+                // The partner only for its name (PARTNER NAME column).
+                ->with(['borrower', 'fundingSequence', 'fundingRequest', 'partner:id,full_name,company_name'])
                 // ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                     $query->where('partner_id', $authUser->partner_id);
@@ -179,6 +172,17 @@ class RequestApplicationService
             // found by searching the global list.
             if (!empty($filters['borrower_id'])) {
                 $query->where('borrower_id', $filters['borrower_id']);
+            }
+
+            // The host's Partner dropdown, and the PARTNER NAME column's filter
+            // (the partner's name or company). A partner's team is already
+            // limited to its own rows above, so neither can reach another's.
+            if (!empty($filters['partner_id'])) {
+                $query->where('funding_applications.partner_id', (int) $filters['partner_id']);
+            }
+            $partnerName = QueryFilter::value($filters['filters'] ?? [], 'partner_name');
+            if ($partnerName !== null) {
+                $query->whereHas('partner', fn ($q) => $q->named($partnerName));
             }
 
             // Apply Search
@@ -207,6 +211,10 @@ class RequestApplicationService
             $sortField = $filters['sort_field'] ?? 'id';
             $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
             $advancedFilters = $filters['filters'] ?? [];
+            // Handled above against the partner; not a column of this table.
+            if (is_array($advancedFilters)) {
+                unset($advancedFilters['partner_name']);
+            }
 
             // DATE shows created_at ("20 Oct 2026"); `date` is not a column, so
             // sorting on it never changed the order.
@@ -222,12 +230,35 @@ class RequestApplicationService
                 $query->orderByStatusKey($sortOrder)->orderBy('id', 'desc');
             }
 
+            // An On Hold application has no amount of its own yet and shows its
+            // funding request's amount (BUG-136), so it sorts by that one too
+            // (BUG-153) - same fallback as requestedAmountOrRequest().
+            $sortByShownAmount = $sortField === 'requested_amount';
+
+            if ($sortByShownAmount) {
+                $query->orderByRaw(
+                    "COALESCE(funding_applications.requested_amount, (SELECT funding_requests.requested_amount FROM funding_requests WHERE funding_requests.id = funding_applications.funding_request_id)) {$sortOrder}"
+                );
+            }
+
+            // PARTNER NAME shows the partner's name, which is not a column here.
+            $sortByPartnerName = $sortField === 'partner_name';
+
+            if ($sortByPartnerName) {
+                $query->orderBy(
+                    Partner::select('full_name')
+                        ->whereColumn('partners.id', 'funding_applications.partner_id')
+                        ->limit(1),
+                    $sortOrder
+                );
+            }
+
             $query = QueryFilter::apply(
                 $query,
                 $sortField,
                 $sortOrder,
                 $advancedFilters,
-                $sortByStatusKey ? ['skip_sorting' => true] : []
+                ($sortByStatusKey || $sortByShownAmount || $sortByPartnerName) ? ['skip_sorting' => true] : []
             );
 
             // Equal values (two applications on the same day) keep one order

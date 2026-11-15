@@ -24,6 +24,8 @@ class FetchFundingRequestRequest extends BaseApiRequest
             'application_status'    => ['nullable', 'string'],
             'funding_sequence_id'   => ['nullable', 'integer'],
             'borrower_id'           => ['nullable', 'integer'],
+            // The host's Partner dropdown. A partner's team stays scoped to its own rows.
+            'partner_id'            => ['nullable', 'integer'],
         ];
     }
     

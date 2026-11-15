@@ -28,6 +28,9 @@ class FundingApplicationResource extends JsonResource
             'is_editable'                                => $this->isEditable(),
             'locked_reason'                              => $this->editingState()['locked_reason'],
             'full_name'                                  => $this->full_name,
+            // Only where the partner is loaded - the host's Intake & Review list
+            // (PARTNER NAME column); a borrower's own list does not load it.
+            'partner_name'                               => $this->whenLoaded('partner', fn () => $this->partner?->full_name),
             'business_name'                              => $this->business_name,
             'business_email'                             => $this->business_email,
             'business_phone_no'                          => $this->business_phone_no,

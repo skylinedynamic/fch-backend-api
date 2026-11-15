@@ -8,6 +8,8 @@ use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
+use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Subscription\Subscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -33,6 +35,8 @@ class InvoiceDetailResourceTest extends TestCase
         'payment_date', 'created_at', 'branding', 'billed_from', 'billed_to',
         // Both portals warn before a payment that reactivates a cancelled subscription (BUG-069).
         'reactivates_subscription',
+        // How it was actually paid, so the window stops saying "Stripe" for every invoice (BUG-206).
+        'payment_method', 'payment_reference', 'is_card_payment',
     ];
 
     private Partner $reseller;
@@ -151,13 +155,17 @@ class InvoiceDetailResourceTest extends TestCase
         $this->assertKeys(['site_name', 'logo_document_full_url', 'logo_sidebar_full_url'], $data['branding']);
     }
 
+    /**
+     * Defect (BUG-194): the fee is named "Client Activation Fee" (Plan & Fee);
+     * the invoice still called it "Borrower Fee".
+     */
     #[Test]
     public function a_borrower_fee_carries_its_own_amount_and_none_of_the_borrowers_plan(): void
     {
         $data = $this->toArray(FchInvoiceDetailResource::class, $this->borrowerFee());
 
         $this->assertSame(800.0, $data['payment_amount']);
-        $this->assertSame('Borrower Fee', $data['type']);
+        $this->assertSame('Client Activation Fee', $data['type']);
         $this->assertArrayNotHasKey('enrollment_type', $data);
         $this->assertArrayNotHasKey('payable_amount_sub', $data);
         $this->assertArrayNotHasKey('monthly_platform_fee', $data);
@@ -181,5 +189,88 @@ class InvoiceDetailResourceTest extends TestCase
 
         $this->assertSame('Host LLC', $data['billed_from']['company_name']);
         $this->assertSame('Reseller LLC', $data['billed_to']['company_name']);
+    }
+    /** A payment recorded against $invoice, as the checkout records it. */
+    private function pay(Invoice $invoice, string $status, string $from, ?string $type, array $details = [], bool $manual = true): Payment
+    {
+        return Payment::create([
+            'partner_id' => $this->reseller->id,
+            'invoice_id' => $invoice->id,
+            'entity_type' => $invoice->entity_type,
+            'entity_id' => $invoice->entity_id,
+            'transaction_id' => 'TX-' . uniqid(),
+            'amount' => $invoice->payment_amount,
+            'currency' => 'USD',
+            'payment_from' => $from,
+            'payment_type' => $type,
+            'is_manual' => $manual,
+            'status' => $status,
+            'transaction_date' => now(),
+            'is_environment' => false,
+            'details' => $details,
+        ]);
+    }
+
+    /**
+     * Defect (BUG-206): an invoice paid by Bank Transfer showed "Payment Method:
+     * Stripe" and a Card Holder. The payload now says how it was really paid.
+     */
+    #[Test]
+    public function an_invoice_paid_by_bank_transfer_says_bank_transfer_and_its_reference(): void
+    {
+        $invoice = $this->borrowerFee();
+        $invoice->update(['status' => Invoice::STATUS_PAID]);
+        $this->pay($invoice, Payment::STATUS_SUCCEEDED, PaymentProvider::BANK_TRANSFER, PaymentProvider::BANK_TRANSFER, ['transaction_number' => 'QA-TEST-REF-0322']);
+
+        foreach ([FchInvoiceDetailResource::class, BorrowerInvoiceDetailResource::class] as $resource) {
+            $data = $this->toArray($resource, $invoice->fresh());
+
+            $this->assertSame(PaymentProvider::BANK_TRANSFER, $data['payment_method'], $resource);
+            $this->assertSame('QA-TEST-REF-0322', $data['payment_reference'], $resource);
+            $this->assertFalse($data['is_card_payment'], $resource);
+        }
+    }
+
+    #[Test]
+    public function an_invoice_paid_by_card_says_the_card_gateway(): void
+    {
+        $invoice = $this->enrollment();
+        $invoice->update(['status' => Invoice::STATUS_PAID]);
+        $this->pay($invoice, Payment::STATUS_SUCCEEDED, PaymentProvider::STRIPE, PaymentProvider::TYPE_CARD, [], false);
+
+        $data = $this->toArray(FchInvoiceDetailResource::class, $invoice->fresh());
+
+        $this->assertSame(PaymentProvider::STRIPE, $data['payment_method']);
+        $this->assertNull($data['payment_reference']);
+        $this->assertTrue($data['is_card_payment']);
+    }
+
+    /** A cash payment awaiting approval is how the invoice is being paid. */
+    #[Test]
+    public function a_payment_awaiting_approval_names_its_method(): void
+    {
+        $invoice = $this->borrowerFee();
+        $invoice->update(['status' => Invoice::STATUS_PROCESSING]);
+        $this->pay($invoice, Payment::STATUS_PROCESSING, PaymentProvider::CASH, PaymentProvider::CASH, ['transaction_number' => 'CASH-1']);
+
+        $data = $this->toArray(FchInvoiceDetailResource::class, $invoice->fresh());
+
+        $this->assertSame(PaymentProvider::CASH, $data['payment_method']);
+        $this->assertSame('CASH-1', $data['payment_reference']);
+    }
+
+    /** Nothing paid, or only a refused attempt: no method at all, never "Stripe". */
+    #[Test]
+    public function an_unpaid_invoice_has_no_payment_method_even_after_a_rejected_attempt(): void
+    {
+        $invoice = $this->borrowerFee();
+        $this->assertNull($this->toArray(FchInvoiceDetailResource::class, $invoice)['payment_method']);
+
+        $this->pay($invoice, Payment::STATUS_REJECTED, PaymentProvider::BANK_TRANSFER, PaymentProvider::BANK_TRANSFER, ['transaction_number' => 'BAD']);
+        $data = $this->toArray(FchInvoiceDetailResource::class, $invoice->fresh());
+
+        $this->assertNull($data['payment_method']);
+        $this->assertNull($data['payment_reference']);
+        $this->assertFalse($data['is_card_payment']);
     }
 }

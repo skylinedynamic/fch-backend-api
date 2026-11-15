@@ -19,6 +19,8 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerCommissionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
 use App\Mail\AccountCreateNotificationMail;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\ArchivePartnerRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerStatusAgentRequest;
+use App\Http\Resources\FCH\Partner\PartnerStatusAgentResource;
 
 class PartnerController extends Controller
 {
@@ -167,6 +169,46 @@ class PartnerController extends Controller
             new PartnerDetailsResource($partner),
             __('partner.success.retrieved')
         );
+    }
+
+    /**
+     * The Status & Agent tab: the partner's status and its agent's contact details.
+     */
+    public function statusAgent(int $id)
+    {
+        $partner = $this->partnerService->findStatusAgent($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        return ApiResponse::success(
+            (new PartnerStatusAgentResource($partner))->resolve(),
+            __('partner.success.retrieved')
+        );
+    }
+
+    /**
+     * Save the Status & Agent tab: only the status and agent change.
+     */
+    public function updateStatusAgent(UpdatePartnerStatusAgentRequest $request, int $id)
+    {
+        $partner = $this->partnerService->findById($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        try {
+            $updated = $this->partnerService->updateStatusAgent($partner, $request->validated());
+
+            return ApiResponse::success(
+                (new PartnerStatusAgentResource($updated))->resolve(),
+                __('partner.success.status_agent_updated')
+            );
+        } catch (Throwable $e) {
+            return ApiResponse::error(__('partner.error.status_agent_update_failed'), 500);
+        }
     }
 
     /**

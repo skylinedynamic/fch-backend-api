@@ -230,6 +230,28 @@ class InvoiceService
             unset($rawFilters['customer_name']);
         }
 
+        // Type column filter: typed as the table shows it ("Client Activation
+        // Fee"), but stored as `borrower_fee`. Match the types whose shown name
+        // holds the text, or the stored form of the text itself ("Borrower Fee").
+        if (isset($rawFilters['type'])) {
+            $typeFilter = $rawFilters['type'];
+            $constraints = $typeFilter['constraints'] ?? [$typeFilter];
+            foreach (is_array($constraints) ? $constraints : [] as $c) {
+                $value = trim((string) ($c['value'] ?? ''));
+                if ($value !== '') {
+                    $stored = str_replace(' ', '_', strtolower($value));
+                    $named = Invoice::typesMatchingLabel($value);
+                    $query->where(function ($q) use ($stored, $named) {
+                        $q->where('invoices.type', 'like', "%{$stored}%");
+                        if ($named !== []) {
+                            $q->orWhereIn('invoices.type', $named);
+                        }
+                    });
+                }
+            }
+            unset($rawFilters['type']);
+        }
+
         // Filter by Payee (Compatibility)
         if (!empty($filters['payee']) && $filters['payee'] !== Invoice::PAYEE_ALL) {
             $query->where(function ($q) use ($filters) {
@@ -248,25 +270,12 @@ class InvoiceService
             $query->where('invoices.status', strtolower($filters['status']));
         }
 
-        // Filter by is_mine (Mine Invoice vs Borrower Invoice vs All Invoice)
-        if (array_key_exists('is_mine', $filters) && $filters['is_mine'] !== null && $filters['is_mine'] !== '') {
-            $isMine = filter_var($filters['is_mine'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if ($isMine !== null) {
-                if ($isMine) {
-                    $query->where(function ($q) {
-                        $q->where('invoices.is_partner_paying', true)
-                            ->orWhere('invoices.entity_type', Partner::class);
-                    });
-                } else {
-                    $query->where(function ($q) {
-                        $q->where('invoices.is_partner_paying', false)
-                            ->where(function ($sub) {
-                                $sub->whereNull('invoices.entity_type')
-                                    ->orWhere('invoices.entity_type', '!=', Partner::class);
-                            });
-                    });
-                }
-            }
+        // Payer: Partner Only / Borrower Only / All Invoice.
+        $this->applyPayerFilter($query, $filters);
+
+        // Invoice type (enrollment, installment, commission payout, ...).
+        if (!empty($filters['type'])) {
+            $query->where('invoices.type', $filters['type']);
         }
 
         // Sorting
@@ -396,27 +405,46 @@ class InvoiceService
             $query->where('customer_name', 'like', '%' . $filters['payee'] . '%');
         }
 
-        if (array_key_exists('is_mine', $filters) && $filters['is_mine'] !== null && $filters['is_mine'] !== '') {
-            $isMine = filter_var($filters['is_mine'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if ($isMine !== null) {
-                if ($isMine) {
-                    $query->where(function ($q) {
-                        $q->where('is_partner_paying', true)
-                            ->orWhere('entity_type', Partner::class);
-                    });
-                } else {
-                    $query->where(function ($q) {
-                        $q->where('is_partner_paying', false)
-                            ->where(function ($sub) {
-                                $sub->whereNull('entity_type')
-                                    ->orWhere('entity_type', '!=', Partner::class);
-                            });
-                    });
-                }
-            }
-        }
+        $this->applyPayerFilter($query, $filters);
 
         return $this->getStatsFromQuery($query);
+    }
+
+    /**
+     * The payer filter (`is_mine`): true is Partner Only, false is Borrower Only,
+     * and null or '' applies no filter.
+     *
+     * Partner Only: what a partner pays. That covers an invoice billed to a
+     * partner, one the partner pays for a borrower, and every borrower fee. The
+     * partner always pays a borrower fee, whichever entity the row was recorded
+     * on (InvoicePartyResolver bills it from the host too).
+     *
+     * Borrower Only: an invoice billed to a borrower that the borrower pays, and
+     * never a borrower fee. A commission payout to a host user (payee User) is
+     * neither, so it is listed only under All Invoice (BUG-178).
+     */
+    private function applyPayerFilter($query, array $filters): void
+    {
+        if (!array_key_exists('is_mine', $filters) || $filters['is_mine'] === null || $filters['is_mine'] === '') {
+            return;
+        }
+
+        $isMine = filter_var($filters['is_mine'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($isMine === null) {
+            return;
+        }
+
+        if ($isMine) {
+            $query->where(fn ($q) => $q->where('invoices.is_partner_paying', true)
+                ->orWhere('invoices.entity_type', Partner::class)
+                ->orWhere('invoices.type', Invoice::INVOICE_TYPE_BORROWER_FEE));
+        } else {
+            $query->where('invoices.is_partner_paying', false)
+                ->where('invoices.entity_type', Borrower::class)
+                // Null-safe: an untyped legacy row is still the borrower's.
+                ->where(fn ($q) => $q->whereNull('invoices.type')
+                    ->orWhere('invoices.type', '!=', Invoice::INVOICE_TYPE_BORROWER_FEE));
+        }
     }
 
     /**
@@ -456,7 +484,7 @@ class InvoiceService
     public function find($id)
     {
         $authUser = Auth::user();
-        $query = Invoice::query()->with(['partner', 'borrower', 'subscription'])->select('invoices.*');
+        $query = Invoice::query()->with(['partner', 'borrower', 'subscription', 'paidBy'])->select('invoices.*');
         $this->applyRbacScope($query, $authUser);
 
         return (clone $query)->where('invoices.id', $id)->first()

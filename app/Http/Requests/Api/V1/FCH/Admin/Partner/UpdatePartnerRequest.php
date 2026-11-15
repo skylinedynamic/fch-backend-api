@@ -51,6 +51,9 @@ class UpdatePartnerRequest extends BaseApiRequest
         $isMigrating = $wasFreeTrial && $this->has('is_free_trail') && !$isFreeTrialNew;
 
         $rules = [
+            // Status and agent are not taken here: the Status & Agent tab saves
+            // them through PUT partners/{id}/status-agent (UpdatePartnerStatusAgentRequest).
+
             // ── Partner Info ────────────────────────────────────────────────
             'full_name'    => ['sometimes', 'required', 'string', 'max:255'],
             'company_name' => [
@@ -71,7 +74,6 @@ class UpdatePartnerRequest extends BaseApiRequest
                 )->whereNull('deleted_at'),
             ],
             'phone_number'               => ['sometimes', 'required', 'string', new UsPhoneNumber()],
-            'status'                     => ['nullable', 'string', 'max:255'],
             'contact_person'             => ['nullable', 'string', 'max:255'],
             'contact_person_phone_number'=> ['nullable', 'string', new UsPhoneNumber()],
             'contact_person_email'       => ['nullable', 'email', 'max:255'],
@@ -88,7 +90,6 @@ class UpdatePartnerRequest extends BaseApiRequest
             'joining_date'               => ['nullable', 'date'],
             'company_logo'               => ['nullable', SafeUpload::image()],
             'partner_image'              => ['nullable', SafeUpload::image()],
-            'assign_to'                  => ['nullable', 'integer', 'exists:users,id'],
             'partner_domain'             => [
                 Rule::requiredIf(function () use ($partner) {
                     return $partner && $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED;
@@ -152,7 +153,7 @@ class UpdatePartnerRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'full_name.required'                       => __('partner.validation.full_name.required'),
+            'full_name.required'                     => __('partner.validation.full_name.required'),
             'company_name.required'                    => __('partner.validation.company_name.required'),
             'email.required'                           => __('partner.validation.email.required'),
             'email.email'                              => __('partner.validation.email.email'),

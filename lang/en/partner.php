@@ -19,6 +19,15 @@ return [
         'phone_number' => [
             'required' => 'Phone number is required.',
         ],
+        'status' => [
+            'required' => 'Please select a status.',
+            'string' => 'Status must be a string.',
+            'in' => 'Please select a valid status.',
+        ],
+        'assign_to' => [
+            'required' => 'Please select an agent.',
+            'exists' => 'The selected agent does not exist.',
+        ],
         'state' => [
             'required' => 'State is required.',
         ],
@@ -112,10 +121,6 @@ return [
         'termination_date' => [
             'date' => 'Termination date must be a valid date.',
         ],
-        'status' => [
-            'string' => 'Status must be a string.',
-            'in' => 'Status must be one of: active, inactive, suspended, or expired.',
-        ],
         'enrollment_type' => [
             'required' => 'Enrollment type is required.',
             'string' => 'Enrollment type must be a string.',
@@ -165,6 +170,7 @@ return [
         'tenant_config_retrieved' => 'Tenant configuration retrieved successfully.',
         'tenant_config_updated' => 'Tenant configuration updated successfully.',
         'commission_updated' => 'Partner commission updated successfully.',
+        'status_agent_updated' => 'Status and agent updated successfully.',
     ],
 
     /*
@@ -184,10 +190,12 @@ return [
         'not_found' => 'Partner not found.',
         'list_failed' => 'Failed to retrieve partners.',
         'archive_failed' => 'Could not archive the selected partner(s). Please try again.',
+        'host_protected' => 'The host company cannot be archived or deleted. Unselect it and try again.',
         'unarchive_failed' => 'Could not restore the selected partner(s). Please try again.',
         'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
         'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
         'commission_update_failed' => 'Could not update the partner commission. Please try again.',
+        'status_agent_update_failed' => 'Could not update the status and agent. Please try again.',
         'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
         'delete_blocked' => "This partner has related records and cannot be deleted. Please change the partner's status instead.",
         'delete_blocked_named' => 'Some selected partners have related records and cannot be deleted: :names. Please change their status instead, or unselect them to delete the others.',

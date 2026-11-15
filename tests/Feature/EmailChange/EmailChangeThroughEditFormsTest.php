@@ -92,16 +92,92 @@ class EmailChangeThroughEditFormsTest extends TestCase
     #[Test]
     public function saving_a_user_without_touching_the_email_keeps_a_pending_change(): void
     {
-        // Every save of the form resubmits the email it shows. That mustn't be
-        // read as "change it back" and silently cancel the pending change.
+        // Every save of the form resubmits the email it shows - the pending one
+        // while a change waits. That mustn't silently cancel the change.
         $user = $this->login('old@example.test');
         app(UserService::class)->update($user, ['email' => 'new@example.test']);
 
-        app(UserService::class)->update($user->refresh(), ['email' => 'old@example.test', 'name' => 'Pat Renamed']);
+        app(UserService::class)->update($user->refresh(), ['email' => 'new@example.test', 'name' => 'Pat Renamed']);
 
         $user->refresh();
         $this->assertSame('Pat Renamed', $user->name);
         $this->assertSame('new@example.test', $user->pending_email);
+    }
+
+    #[Test]
+    public function setting_a_users_email_back_to_the_current_one_withdraws_a_pending_change(): void
+    {
+        $user = $this->login('old@example.test');
+        app(UserService::class)->update($user, ['email' => 'new@example.test']);
+
+        app(UserService::class)->update($user->refresh(), ['email' => 'OLD@example.test', 'name' => 'Pat Renamed']);
+
+        $user->refresh();
+        $this->assertSame('Pat Renamed', $user->name);
+        $this->assertSame('old@example.test', $user->email);
+        $this->assertNull($user->pending_email);
+    }
+
+    #[Test]
+    public function setting_an_employees_email_back_withdraws_a_pending_change(): void
+    {
+        $employee = Employee::create(['partner_id' => $this->host->id, 'first_name' => 'Pat Doe', 'email' => 'old@example.test']);
+        $user = $this->login('old@example.test', ['entity_type' => Employee::class, 'entity_id' => $employee->id, 'user_type' => User::EMPLOYEE]);
+        $service = app(EmployeeService::class);
+        $service->updateWithUserSync($employee, ['email' => 'new@example.test'], false, null, $this->host);
+
+        $service->updateWithUserSync($employee->refresh(), ['email' => 'new@example.test'], false, null, $this->host);
+        $this->assertSame('new@example.test', $user->refresh()->pending_email, 'resaving the pending email keeps it');
+
+        $service->updateWithUserSync($employee->refresh(), ['email' => 'old@example.test'], false, null, $this->host);
+        $this->assertSame('old@example.test', $user->refresh()->email);
+        $this->assertNull($user->pending_email);
+    }
+
+    #[Test]
+    public function setting_a_partners_email_back_withdraws_a_pending_change(): void
+    {
+        $partner = Partner::create([
+            'status' => Partner::STATUS_ACTIVE, 'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
+            'company_name' => 'Acme LLC', 'full_name' => 'Acme Owner', 'email' => 'old@example.test',
+        ]);
+        $user = $this->login('old@example.test', [
+            'partner_id' => $partner->id, 'entity_type' => Partner::class, 'entity_id' => $partner->id, 'user_type' => User::PARTNER,
+        ]);
+        $service = app(PartnerService::class);
+        $service->update($partner, ['email' => 'new@example.test']);
+
+        $service->update($partner->refresh(), ['email' => 'new@example.test', 'full_name' => 'Acme Renamed']);
+        $this->assertSame('new@example.test', $user->refresh()->pending_email, 'resaving the pending email keeps it');
+        $this->assertSame('old@example.test', $partner->refresh()->email);
+
+        $service->update($partner->refresh(), ['email' => 'old@example.test']);
+        $this->assertSame('old@example.test', $user->refresh()->email);
+        $this->assertSame('old@example.test', $partner->refresh()->email);
+        $this->assertNull($user->pending_email);
+    }
+
+    #[Test]
+    public function setting_a_clients_email_back_withdraws_a_pending_change(): void
+    {
+        $borrower = Borrower::create([
+            'partner_id' => $this->host->id, 'status' => Borrower::STATUS_ACTIVE,
+            'first_name' => 'Pat', 'last_name' => 'Doe', 'email' => 'old@example.test',
+        ]);
+        $user = $this->login('old@example.test', [
+            'entity_type' => Borrower::class, 'entity_id' => $borrower->id, 'user_type' => User::BORROWER,
+        ]);
+        $service = app(BorrowerService::class);
+        $service->update($borrower, ['email' => 'new@example.test']);
+
+        $service->update($borrower->refresh(), ['email' => 'new@example.test', 'first_name' => 'Patricia']);
+        $this->assertSame('new@example.test', $user->refresh()->pending_email, 'resaving the pending email keeps it');
+        $this->assertSame('old@example.test', $borrower->refresh()->email);
+
+        $service->update($borrower->refresh(), ['email' => 'old@example.test']);
+        $this->assertSame('old@example.test', $user->refresh()->email);
+        $this->assertSame('old@example.test', $borrower->refresh()->email);
+        $this->assertNull($user->pending_email);
     }
 
     // ── Employees ─────────────────────────────────────────────────────────

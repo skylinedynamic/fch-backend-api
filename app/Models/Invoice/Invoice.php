@@ -6,6 +6,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -44,6 +45,9 @@ class Invoice extends Model
         'note',
         'created_by',
         'updated_by',
+        // Who paid it and who approved its manual payment (BUG-202).
+        'paid_by',
+        'approved_by',
     ];
 
 
@@ -78,8 +82,46 @@ class Invoice extends Model
     const INVOICE_TYPE_INSTALLMENT = 'installment';
     const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';
     const INVOICE_TYPE_BORROWER_FEE = 'borrower_fee';
+
+    /**
+     * Shows Pay Now to a partner user for the partner's own invoices (BUG-202).
+     * Checked by the panel only; the API lets the partner's staff pay either
+     * way. Seeded by PayInvoicePermissionSeeder.
+     */
+    const PERMISSION_PAY = 'Pay Invoice';
     const INVOICE_TYPE_USER_SEAT = 'user_seat';
     const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
+
+    /** Every invoice type, in the order the Invoices Type filter offers them. */
+    const INVOICE_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_BORROWER_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+        self::INVOICE_TYPE_COMMISSION_PAYOUT,
+    ];
+
+    /**
+     * What a partner pays the host: its own plan, its staff seats and the
+     * borrower fee for each client it activates. A commission payout is money
+     * going the other way.
+     */
+    const PARTNER_BILL_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+        self::INVOICE_TYPE_BORROWER_FEE,
+    ];
+
+    /**
+     * Still owed: never paid, or paid by a manual method whose approval is
+     * pending (a Processing payment has not reached the receiver yet).
+     */
+    const OPEN_STATUSES = [self::STATUS_UNPAID, self::STATUS_PROCESSING];
 
     /**
      * The invoice types that ARE this subscription's own billing cycle.
@@ -115,6 +157,57 @@ class Invoice extends Model
         self::INVOICE_TYPE_DOWN_PAYMENT,
         self::INVOICE_TYPE_INSTALLMENT,
     ];
+
+    /**
+     * Names shown for a type where the stored value is not the name: the
+     * partner's fee per client is stored as borrower_fee but named "Client
+     * Activation Fee", as on Plan & Fee (BUG-194). Any other type is shown as
+     * its stored value in words.
+     */
+    const INVOICE_TYPE_LABELS = [
+        self::INVOICE_TYPE_BORROWER_FEE => 'Client Activation Fee',
+    ];
+
+    /**
+     * The name an invoice type is shown by ("borrower_fee" -> "Client Activation Fee",
+     * "user_seat" -> "User Seat"); empty for an untyped (older) invoice.
+     */
+    public static function typeLabel(?string $type): string
+    {
+        if ($type === null || $type === '') {
+            return '';
+        }
+
+        return self::INVOICE_TYPE_LABELS[$type] ?? ucwords(str_replace('_', ' ', $type));
+    }
+
+    /**
+     * The stored types whose shown name contains $text, ignoring case, so a
+     * filter typed as the table reads ("Client Activation Fee") runs on the
+     * stored value (borrower_fee). Empty when no type's name matches.
+     *
+     * @return list<string>
+     */
+    public static function typesMatchingLabel(string $text): array
+    {
+        $needle = mb_strtolower(trim($text));
+        if ($needle === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            self::INVOICE_TYPES,
+            fn (string $type) => str_contains(mb_strtolower(self::typeLabel($type)), $needle)
+        ));
+    }
+
+    /**
+     * The name this invoice's type is shown by.
+     */
+    public function typeName(): string
+    {
+        return self::typeLabel($this->type);
+    }
 
     /**
      * Whether this invoice bills for its subscription's plan.
@@ -246,6 +339,12 @@ class Invoice extends Model
         return $this->belongsTo(Subscription::class, 'subscription_id');
     }
 
+    /** The user who paid it (BUG-202). */
+    public function paidBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Payment::class, 'invoice_id');
@@ -314,6 +413,43 @@ class Invoice extends Model
         ];
 
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
+    }
+
+    /** Payment statuses that mean the invoice was paid this way (or is being, awaiting approval). */
+    const PAYING_PAYMENT_STATUSES = [
+        Payment::STATUS_SUCCEEDED,
+        Payment::STATUS_PROCESSING,
+    ];
+
+    /**
+     * How this invoice was actually paid, from the payment that pays it (the
+     * latest succeeded one, or one awaiting approval): its method, the payer's
+     * reference for a manual payment, and whether it was a card. All empty when
+     * nothing has paid it - a failed or rejected attempt does not count (BUG-206).
+     *
+     * @return array{method: ?string, reference: ?string, is_card: bool}
+     */
+    public function paidWith(): array
+    {
+        $payment = $this->exists
+            ? $this->payments()
+                ->whereIn('status', self::PAYING_PAYMENT_STATUSES)
+                ->latest('id')
+                ->first()
+            : null;
+
+        if (!$payment) {
+            return ['method' => null, 'reference' => null, 'is_card' => false];
+        }
+
+        $details = is_array($payment->details) ? $payment->details : [];
+        $reference = trim((string) ($details['transaction_number'] ?? ''));
+
+        return [
+            'method' => $payment->payment_from ?: null,
+            'reference' => $reference !== '' ? $reference : null,
+            'is_card' => strcasecmp((string) $payment->payment_type, PaymentProvider::TYPE_CARD) === 0,
+        ];
     }
 
     /**

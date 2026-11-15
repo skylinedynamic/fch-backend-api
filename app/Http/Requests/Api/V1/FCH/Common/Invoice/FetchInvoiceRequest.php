@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Invoice;
 
+use App\Models\Invoice\Invoice;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class FetchInvoiceRequest extends FormRequest
 {
@@ -18,6 +20,7 @@ class FetchInvoiceRequest extends FormRequest
             'date_to' => ['nullable', 'date'],
             'status' => ['nullable'],
             'is_mine' => ['nullable'],
+            'type' => ['nullable', 'string', Rule::in(Invoice::INVOICE_TYPES)],
             'payment_amount' => ['nullable', 'numeric'],
             'borrower_id' => ['nullable'],
             'entity_type' => ['nullable'],
