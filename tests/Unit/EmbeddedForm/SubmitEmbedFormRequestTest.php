@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\EmbeddedForm;
 
+use App\Rules\DateOfBirth;
 use App\Rules\UsPhoneNumber;
 use Illuminate\Support\Facades\Validator;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -74,35 +75,32 @@ class SubmitEmbedFormRequestTest extends TestCase
 
     // ── Age floor ─────────────────────────────────────────────────────
 
+    /** The request's own rules for the applicant's and a co-borrower's date of birth. */
     private function dobRules(): array
     {
-        $age = (int) config('funding_application.embed_form.minimum_age');
-
-        return ['date_of_birth' => [
-            'required',
-            'date',
-            'before:today',
-            'before_or_equal:' . now()->subYears($age)->toDateString(),
-        ]];
+        return [
+            'date_of_birth' => $this->stepRules('ownershipInfoRules')['date_of_birth'],
+            'co_borrowers.*.date_of_birth' => $this->stepRules('coBorrowerRules')['co_borrowers.*.date_of_birth'],
+        ];
     }
 
     #[Test]
     public function an_applicant_under_the_minimum_age_is_rejected(): void
     {
-        $age = (int) config('funding_application.embed_form.minimum_age');
+        $underAge = DateOfBirth::latestAllowedDate()->addDay()->toDateString();
 
+        $this->assertTrue($this->fails($this->dobRules(), ['date_of_birth' => $underAge]));
         $this->assertTrue($this->fails($this->dobRules(), [
-            'date_of_birth' => now()->subYears($age - 1)->toDateString(),
+            'date_of_birth' => '1985-04-12',
+            'co_borrowers' => [['date_of_birth' => $underAge]],
         ]));
     }
 
     #[Test]
     public function an_applicant_exactly_at_the_minimum_age_is_accepted(): void
     {
-        $age = (int) config('funding_application.embed_form.minimum_age');
-
         $this->assertFalse($this->fails($this->dobRules(), [
-            'date_of_birth' => now()->subYears($age)->toDateString(),
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->toDateString(),
         ]));
     }
 

@@ -111,6 +111,33 @@ class QueryFilter
     }
 
     /**
+     * The first value typed in one column's filter, for a column that is not a
+     * table column (a related model's name, say) and so needs its own query.
+     * Accepts the same PrimeReact-style or simple filters as apply().
+     */
+    public static function value($rawFilters, string $field): ?string
+    {
+        if (is_string($rawFilters)) {
+            $rawFilters = json_decode($rawFilters, true);
+        }
+
+        $def = is_array($rawFilters) ? ($rawFilters[$field] ?? null) : null;
+        if (!is_array($def)) {
+            return null;
+        }
+
+        $constraints = isset($def['constraints']) && is_array($def['constraints']) ? $def['constraints'] : [$def];
+        foreach ($constraints as $c) {
+            $value = is_array($c) ? trim((string) ($c['value'] ?? '')) : '';
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Apply a single constraint for a given column and mode.
      */
     protected static function applyConstraint(Builder $q, string $column, ?string $mode, string $value): void

@@ -99,6 +99,9 @@ class FundingRequestResource extends JsonResource
                 : null,
             'funding_request_id' => $fundingRequestId ? (int)$fundingRequestId : null,
             'funding_sequence_id' => $fundingSequenceId ? (int)$fundingSequenceId : null,
+            // Converted from the embed form: the step's Funding Sequence is a
+            // dropdown (FundingRequestStepFields); otherwise it is read-only.
+            'is_from_embed_form' => $fundingApp ? $fundingApp->isFromEmbedForm() : false,
             'requested_amount' => $requestedAmount,
             'purpose_of_funds' => $purposeOfFunds,
             'approved_funding' => $approvedFunding,

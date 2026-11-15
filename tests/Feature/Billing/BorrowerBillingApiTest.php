@@ -4,6 +4,7 @@ namespace Tests\Feature\Billing;
 
 use App\Http\Controllers\Api\V1\Borrower\Billing\BillingController;
 use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentProvider;
@@ -82,6 +83,35 @@ class BorrowerBillingApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.subscription.subscription_amount_per_month', '$558.06')
             ->assertJsonPath('data.subscription.final_installment_amount', '$558.04');
+    }
+
+    /**
+     * BUG-187 (same card on the borrower side): Current / Recent Bill shifted the
+     * invoice's timestamp into the viewer's timezone, so an evening-UTC invoice
+     * showed the next day. It now shows the invoice's own date.
+     */
+    #[Test]
+    public function the_recent_bill_shows_the_invoices_own_date_whatever_the_viewers_timezone(): void
+    {
+        $borrower = $this->myBorrower();
+        $subscription = $this->subscribe($borrower);
+        $invoice = Invoice::create([
+            'invoice_id' => 'INV-' . strtoupper(uniqid()),
+            'partner_id' => $this->partner->id,
+            'borrower_id' => $borrower->id,
+            'subscription_id' => $subscription->id,
+            'entity_type' => Borrower::class,
+            'entity_id' => $borrower->id,
+            'payment_amount' => 300,
+            'status' => Invoice::STATUS_PAID,
+        ]);
+        $invoice->forceFill(['created_at' => '2026-10-20 20:00:00'])->saveQuietly();
+        $this->actingAsUser($this->me);
+
+        $this->getJson('/api/v1/borrower/billing-details', ['X-Timezone' => 'Asia/Dhaka'])
+            ->assertOk()
+            ->assertJsonPath('data.recent_bill.invoice_id', $invoice->invoice_id)
+            ->assertJsonPath('data.recent_bill.created_at', '2026-10-20');
     }
 
     #[Test]

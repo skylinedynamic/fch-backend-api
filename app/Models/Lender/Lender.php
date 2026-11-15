@@ -7,6 +7,7 @@ use App\Models\Lender\LenderProductCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
@@ -26,6 +27,11 @@ class Lender extends Model
         'contact_email',
         'contact_phone',
         'website',
+        // Location, all optional (country, state and city by name).
+        'country',
+        'state',
+        'city',
+        'address',
         'submission_portal_link',
         'submission_method',
         'submission_email',
@@ -43,9 +49,61 @@ class Lender extends Model
     /** Sent with every lender, so each screen can name it the same way. */
     protected $appends = ['display_name'];
 
+    /** Lender Code: this prefix, four random digits, then the lender's id. */
+    const LENDER_CODE_PREFIX = 'LND-';
+
+    /**
+     * Every new lender gets its Lender Code once it has an id; it is never
+     * typed in or changed (not fillable).
+     */
+    protected static function booted(): void
+    {
+        static::created(function (Lender $lender) {
+            $lender->lender_code = self::lenderCodeFor($lender->id);
+            $lender->saveQuietly();
+        });
+    }
+
+    /**
+     * "LND-" . four random digits . the lender's id - lender 5: "LND-93245".
+     * The id at the end makes every code unique: two codes of the same length
+     * end in ids of the same length, and ids never repeat.
+     */
+    public static function lenderCodeFor(int $id, ?int $digits = null): string
+    {
+        return sprintf('%s%04d%d', self::LENDER_CODE_PREFIX, $digits ?? random_int(0, 9999), $id);
+    }
+
+    /** Whether this is a Lender Code in the current format for lender $id. */
+    public static function isLenderCodeFor(?string $code, int $id): bool
+    {
+        return is_string($code) && preg_match('/^' . preg_quote(self::LENDER_CODE_PREFIX, '/') . '\d{4}' . $id . '$/', $code) === 1;
+    }
+
+    /**
+     * Gives a Lender Code to every lender - deleted ones too - that has none,
+     * or one not in the current format for its id (the first version of the
+     * migration gave "LND-" + 4 digits, without the id). A code already in
+     * the format is kept. Returns how many were given.
+     */
+    public static function fillMissingLenderCodes(): int
+    {
+        $given = 0;
+
+        self::withTrashed()->orderBy('id')->get(['id', 'lender_code'])->each(function (Lender $lender) use (&$given) {
+            if (self::isLenderCodeFor($lender->lender_code, $lender->id)) {
+                return;
+            }
+            self::withTrashed()->whereKey($lender->id)->update(['lender_code' => self::lenderCodeFor($lender->id)]);
+            $given++;
+        });
+
+        return $given;
+    }
+
     /**
      * How a lender is shown: "Lender Name - Legal Name" (R2 BUG-008). Two
-     * lenders may share a name, never a legal name, so this tells them apart.
+     * lenders may share both since 2026-11-11; the Lender ID tells them apart.
      * A row from before the legal name was required shows its name alone.
      */
     public function displayName(): string
@@ -65,25 +123,38 @@ class Lender extends Model
         return $this->displayName();
     }
 
-    /** A legal name as compared for uniqueness: case and spacing ignored. */
+    /** A name or legal name as compared for duplicates: case and spacing ignored. */
     public static function normalizeLegalName(?string $legalName): string
     {
         return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', (string) $legalName)));
     }
 
-    /** Whether another lender (deleted ones aside) already has this legal name. */
-    public static function legalNameTaken(?string $legalName, int|string|null $ignoreId = null): bool
+    /**
+     * The lenders (deleted ones aside) whose name or legal name is this one -
+     * case and spacing ignored. Names may repeat; Add/Edit Lender warns.
+     *
+     * @return Collection<int, array{id: int, lender_code: ?string, name: string, legal_name: ?string}>
+     */
+    public static function withSame(string $column, ?string $value, int|string|null $ignoreId = null): Collection
     {
-        $wanted = self::normalizeLegalName($legalName);
+        $wanted = self::normalizeLegalName($value);
         if ($wanted === '') {
-            return false;
+            return collect();
         }
 
         return self::query()
             ->when($ignoreId !== null, fn ($query) => $query->whereKeyNot($ignoreId))
-            ->whereNotNull('legal_name')
-            ->pluck('legal_name')
-            ->contains(fn ($existing) => self::normalizeLegalName($existing) === $wanted);
+            ->whereNotNull($column)
+            ->orderBy('id')
+            ->get(['id', 'lender_code', 'name', 'legal_name'])
+            ->filter(fn (Lender $lender) => self::normalizeLegalName($lender->{$column}) === $wanted)
+            ->map(fn (Lender $lender) => [
+                'id' => $lender->id,
+                'lender_code' => $lender->lender_code,
+                'name' => $lender->name,
+                'legal_name' => $lender->legal_name,
+            ])
+            ->values();
     }
 
     public function scopeSearch($query, $search)
@@ -91,6 +162,7 @@ class Lender extends Model
         if ($search) {
             return $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('lender_code', 'like', '%' . $search . '%')
                   ->orWhere('legal_name', 'like', '%' . $search . '%')
                   ->orWhere('contact_name', 'like', '%' . $search . '%')
                   ->orWhere('contact_email', 'like', '%' . $search . '%')

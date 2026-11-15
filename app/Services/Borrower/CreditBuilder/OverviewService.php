@@ -74,7 +74,16 @@ class OverviewService
             ];
         }
 
-        $requests = BorrowerTaskVerificationRequest::with('task','tier')->where('borrower_id', $borrower->id)->get();
+        // Each submission of a task is a new request and the old ones are kept,
+        // so only a task's latest request says where it stands now (BUG-188):
+        // a rejection already resubmitted and verified needs no attention, and
+        // a task verified more than once is still one task.
+        $requests = BorrowerTaskVerificationRequest::with('task', 'tier')
+            ->whereIn('id', BorrowerTaskVerificationRequest::query()
+                ->selectRaw('MAX(id)')
+                ->where('borrower_id', $borrower->id)
+                ->groupBy('task_id'))
+            ->get();
 
         return [
             'tier' => $currentTier,

@@ -10,10 +10,12 @@ use App\Helpers\ApiResponse;
 use App\Rules\EmbedFormApplicantEmail;
 use App\Rules\UsPhoneNumber;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
+use App\Support\EmbedForm\FramingPage;
 use App\Rules\KnownFundingType;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPostalCode;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\FicoScore;
 use App\Rules\BusinessEin;
@@ -96,6 +98,12 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     protected function prepareForValidation(): void
     {
         $merge = [];
+
+        // Cleaned rather than ruled on: a bad value is dropped, because a label
+        // for staff is no reason to refuse an application.
+        if ($this->has('origin_page')) {
+            $merge['origin_page'] = FramingPage::clean($this->input('origin_page'));
+        }
 
         // Only a writing of an SSN is reduced; one carrying letters is left for
         // the Ssn rule to refuse rather than passing with them stripped.
@@ -211,12 +219,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             ],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
             // An applicant must be an adult, and cannot be born in the future.
-            'date_of_birth' => [
-                'required',
-                'date',
-                'before:today',
-                'before_or_equal:' . now()->subYears((int) config('funding_application.embed_form.minimum_age', 18))->toDateString(),
-            ],
+            'date_of_birth' => ['required', new DateOfBirth()],
             'ssn' => ['required', 'string', new Ssn()],
             'citizenship_status' => ['required', 'string', 'max:255'],
             'street_address' => ['required', 'string', 'max:255'],
@@ -247,12 +250,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'co_borrowers.*.email' => ['required', 'email', 'max:255'],
             'co_borrowers.*.mobile_phone' => ['nullable', 'string', 'max:255', new UsPhoneNumber()],
             'co_borrowers.*.home_phone' => ['nullable', 'string', 'max:255', new UsPhoneNumber()],
-            'co_borrowers.*.date_of_birth' => [
-                'nullable',
-                'date',
-                'before:today',
-                'before_or_equal:' . now()->subYears((int) config('funding_application.embed_form.minimum_age', 18))->toDateString(),
-            ],
+            'co_borrowers.*.date_of_birth' => ['nullable', new DateOfBirth()],
             'co_borrowers.*.ssn' => ['nullable', 'string', new Ssn()],
             'co_borrowers.*.street_address' => ['nullable', 'string', 'max:255'],
             'co_borrowers.*.country' => ['nullable', 'string', 'max:255'],
@@ -434,6 +432,8 @@ class SubmitEmbedFormRequest extends BaseApiRequest
         $otherSource = config('funding_application.embed_form.referral_source_other', 'Other');
 
         return [
+            'origin_page' => ['nullable', 'string'],
+
             // The rep is picked from the owning partner's active users, not
             // typed - free text here could never be tied back to a real person.
             'sales_rep_user_id' => ['nullable', 'integer', Rule::in($this->partnerUserIds())],
@@ -533,8 +533,6 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'ownership.max' => __('embed_form.ownership_max'),
             'monthly_revenue.required' => __('embed_form.monthly_revenue_required'),
             'phone.required' => __('embed_form.phone_required'),
-            'date_of_birth.before_or_equal' => __('embed_form.minimum_age', ['age' => config('funding_application.embed_form.minimum_age', 18)]),
-            'co_borrowers.*.date_of_birth.before_or_equal' => __('embed_form.minimum_age', ['age' => config('funding_application.embed_form.minimum_age', 18)]),
             'credit_score.min' => __('embed_form.credit_score_min'),
             'credit_score.max' => __('embed_form.credit_score_max'),
             'sales_rep_user_id.in' => __('embed_form.sales_rep_invalid'),

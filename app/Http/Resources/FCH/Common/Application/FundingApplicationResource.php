@@ -195,7 +195,13 @@ class FundingApplicationResource extends JsonResource
         }
 
         return $gate + [
-            'matched_lenders' => app(LenderMatchService::class)->match($this->borrower, $this->lenderCategories()),
+            // Once the lender is fixed it is always listed, even if made
+            // Inactive since - the locked view shows it alone (S434-BUG-05).
+            'matched_lenders' => app(LenderMatchService::class)->match(
+                $this->borrower,
+                $this->lenderCategories(),
+                $this->canAssignLender() ? [] : $this->assignedLenderIds(),
+            ),
             'assigned_lender_ids' => $this->assignedLenderIds(),
             // In an editable status, always; past them, only while none is assigned.
             'can_assign_lender' => $this->canAssignLender(),

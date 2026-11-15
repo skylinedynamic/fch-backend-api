@@ -5,9 +5,9 @@
  * <iframe data-fch-embed src=".../form/{key}">. The form posts its content
  * height and where to scroll (resources/views/embed-form/index.blade.php,
  * source 'fch-embed-form'); this sizes the iframe to the form so it never
- * scrolls inside itself. Only layout numbers are exchanged - never field
- * values - and only from an iframe on this page, served from this script's
- * own origin.
+ * scrolls inside itself. The form also posts a bare "application confirmed"
+ * signal for the website's analytics, which this script ignores. Never field values, and only
+ * from an iframe on this page, served from this script's own origin.
  */
 (function () {
     'use strict';

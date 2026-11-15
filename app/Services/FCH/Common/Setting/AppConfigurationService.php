@@ -28,6 +28,12 @@ class AppConfigurationService
      */
     private const PLACEHOLDER_LOGO_BASE = 'https://placehold.co/230x70';
 
+    /** Square placeholder for the tab icon / collapsed-menu mark: the tenant's initial. */
+    private const PLACEHOLDER_MARK_BASE = 'https://placehold.co/64x64/png';
+
+    /** A tenant's own logos a missing Square mark borrows, in order (BUG-166). */
+    private const SQUARE_MARK_OWN_FALLBACKS = ['logo_mobile', 'logo_sidebar', 'logo_document', 'logo_mail'];
+
     /**
      * Get a configuration value by key and module.
      */
@@ -148,6 +154,24 @@ class AppConfigurationService
             now()->addHours(6),
             fn () => $this->buildBrandingSettings($partnerId, $inheritLogosFromHost)
         );
+    }
+
+    /**
+     * The site name this partner set for itself, or null when it set none.
+     *
+     * getBrandingSettings() fills a missing site_name from the host, which is
+     * wrong where the name says who an applicant is dealing with: the embedded
+     * form would thank them for applying with, and have them authorize, a
+     * different company.
+     */
+    public function ownSiteName(int $partnerId): ?string
+    {
+        $siteName = trim((string) AppConfiguration::where('partner_id', $partnerId)
+            ->where('module', AppConfiguration::MODULE_BRANDING)
+            ->where('key', 'site_name')
+            ->value('value'));
+
+        return $siteName === '' || $siteName === 'null' ? null : $siteName;
     }
 
     /**
@@ -342,11 +366,24 @@ class AppConfigurationService
         $resolvedLogos = [];
 
         foreach (AppConfiguration::BRANDING_IMAGE_KEYS as $imageKey) {
-            // The favicon is deliberately exempt. It is the tab icon rather than
-            // the visible brand, a 230x70 placeholder is useless at 16px, and a
-            // tenant without one is better served by the host's than by the
-            // browser's blank page icon.
-            $inheritThisKey = $inheritLogosFromHost || $imageKey === 'favicon';
+            if ($imageKey === 'favicon' && ! $inheritLogosFromHost) {
+                // A tenant branded as itself never shows the host's mark in its
+                // tab or collapsed menu (BUG-166): it borrows one of its own
+                // logos, else a square placeholder with its initial.
+                $resolved = $ownLogos['favicon'] ?? null;
+                foreach (self::SQUARE_MARK_OWN_FALLBACKS as $fallbackKey) {
+                    $resolved ??= $ownLogos[$fallbackKey] ?? null;
+                }
+
+                $resolvedLogos['favicon'] = $resolved;
+                $resolvedLogos['favicon_full_url'] = $resolved
+                    ? encodeUrl(Storage::disk('public')->url($resolved))
+                    : $this->placeholderMarkUrl($tenantName);
+
+                continue;
+            }
+
+            $inheritThisKey = $inheritLogosFromHost;
 
             $resolved = $ownLogos[$imageKey] ?? ($inheritThisKey ? ($hostLogos[$imageKey] ?? null) : null);
 
@@ -387,5 +424,19 @@ class AppConfigurationService
         // urlencode(), not rawurlencode(): placehold.co renders "+" as a space,
         // and it keeps the URL readable in a log or a browser address bar.
         return self::PLACEHOLDER_LOGO_BASE . '?text=' . urlencode($name);
+    }
+
+    /**
+     * The tenant's initial as a square placeholder mark, or null without a name.
+     */
+    private function placeholderMarkUrl(?string $name): ?string
+    {
+        $name = trim((string) $name);
+
+        if ($name === '' || $name === 'null') {
+            return null;
+        }
+
+        return self::PLACEHOLDER_MARK_BASE . '?text=' . urlencode(mb_strtoupper(mb_substr($name, 0, 1)));
     }
 }

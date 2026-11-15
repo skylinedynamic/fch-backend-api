@@ -7,11 +7,11 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
-use App\Rules\AdultDateOfBirth;
 use App\Rules\BusinessEin;
 use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Rules\FicoScore;
 use App\Rules\PartnerTeamMember;
@@ -62,7 +62,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'country_code'         => ['nullable', 'string', 'max:5'],
             'postal_code'          => ['nullable', 'string', new UsPostalCode()],
             'home_address'         => ['nullable', 'string', 'max:255'],
-            'date_of_birth'        => ['nullable', new AdultDateOfBirth()],
+            'date_of_birth'        => ['nullable', DateOfBirth::acceptingUsFormat()],
             'ssn'                  => ['nullable', 'string', new Ssn()],
             // ── Business Info ───────────────────────────────────────────────
             'business_name'        => ['nullable', 'string', 'max:255'],

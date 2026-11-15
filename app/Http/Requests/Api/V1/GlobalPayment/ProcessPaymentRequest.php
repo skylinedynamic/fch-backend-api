@@ -47,6 +47,8 @@ class ProcessPaymentRequest extends BaseApiRequest
             'invoice_id' => 'required|integer|exists:invoices,id',
             'payment_token' => 'required|string',
             'bank_detail_id' => 'nullable|integer|exists:payment_method_bank_details,id',
+            // "Save card as default payment method" - only then is the card kept.
+            'save_card' => 'sometimes|boolean',
         ];
     }
 

@@ -302,6 +302,24 @@ class Partner extends Model
     }
 
     /**
+     * Partners whose name or company contains the text - what a PARTNER NAME
+     * column's filter is typed as.
+     */
+    public function scopeNamed($query, ?string $name)
+    {
+        if (!is_string($name) || trim($name) === '') {
+            return $query;
+        }
+
+        $name = trim($name);
+
+        return $query->where(function ($q) use ($name) {
+            $q->whereContains('full_name', $name)
+                ->orWhereContains('company_name', $name);
+        });
+    }
+
+    /**
      * Scope: apply text search across common partner fields.
      */
     public function scopeSearch($query, ?string $search)

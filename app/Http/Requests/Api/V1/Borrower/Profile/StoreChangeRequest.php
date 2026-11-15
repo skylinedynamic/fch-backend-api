@@ -6,12 +6,12 @@ use App\Rules\NotFutureDate;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
-use App\Rules\AdultDateOfBirth;
 use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\DunsNumber;
 use App\Rules\FicoScore;
+use App\Rules\DateOfBirth;
 use App\Rules\Ssn;
 use App\Services\Borrower\Profile\ChangeRequestGuard;
 use Illuminate\Validation\Validator;
@@ -107,7 +107,7 @@ class StoreChangeRequest extends BaseApiRequest
             'home_phone' => ['nullable', 'string', new UsPhoneNumber()],
             // The full SSN, as on the profile itself; the last four alone are not taken.
             'ssn' => ['required', new Ssn()],
-            'date_of_birth' => ['required', 'date_format:Y-m-d', new AdultDateOfBirth()],
+            'date_of_birth' => ['required', new DateOfBirth()],
         ];
 
         $newValueRule = $allRules[$fieldName] ?? 'required';

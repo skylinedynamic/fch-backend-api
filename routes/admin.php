@@ -36,16 +36,19 @@ Route::prefix('v1/admin')
         Route::post('partners', [PartnerController::class, 'store']);
         Route::put('partners/{id}', [PartnerController::class, 'update'])->whereNumber('id');
         Route::get('partners-details/{id}', [PartnerController::class, 'details'])->whereNumber('id');
+
+        // The profile's Status & Agent tab, saved apart from the partner's details.
+        Route::get('partners/{id}/status-agent', [PartnerController::class, 'statusAgent'])->whereNumber('id');
+        Route::put('partners/{id}/status-agent', [PartnerController::class, 'updateStatusAgent'])
+            ->whereNumber('id');
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
         Route::post('partners/check-deletable', [PartnerController::class, 'checkDeletable']);
 
         // Archiving is an edit to the partner record, not a deletion, so it sits
         // behind the same permission as any other partner edit.
-        Route::post('partners/archive', [PartnerController::class, 'archive'])
-            ->middleware('permission:update partners');
-        Route::post('partners/unarchive', [PartnerController::class, 'unarchive'])
-            ->middleware('permission:update partners');
+        Route::post('partners/archive', [PartnerController::class, 'archive']);
+        Route::post('partners/unarchive', [PartnerController::class, 'unarchive']);
         Route::get('partners/tenant-config/{id}', [PartnerController::class, 'getTenantConfig'])->whereNumber('id');
         Route::post('partners/tenant-config/{id}', [PartnerController::class, 'updateTenantConfig'])->whereNumber('id');
 
@@ -132,6 +135,8 @@ Route::prefix('v1/admin')
             Route::get('get/all', [LenderController::class, 'getAll']);
             Route::post('multiple-delete', [LenderController::class, 'multipleDelete']);
             Route::post('check-deletable', [LenderController::class, 'checkDeletable']);
+            // Add/Edit Lender's "a lender with this name already exists" warning.
+            Route::post('check-duplicates', [LenderController::class, 'checkDuplicates']);
             Route::post('/', [LenderController::class, 'store']);
             Route::get('{id}', [LenderController::class, 'show']);
             Route::put('{id}', [LenderController::class, 'update']);

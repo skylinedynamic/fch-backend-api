@@ -3,6 +3,7 @@
 namespace App\Models\Borrower;
 
 use App\Models\Commission\Commission;
+use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -858,6 +859,10 @@ class FundingApplication extends Model
                 return;
             }
 
+            // Whose client it is: the partner's name or company, as the
+            // funding request search already did.
+            $q->orWhereHas('partner', fn ($partner) => $partner->named(trim(implode(' ', $words))));
+
             // The applicant's name as entered on the application...
             $q->orWhere(fn ($name) => $nameMatches($name, ['first_name', 'middle_name', 'last_name']));
 
@@ -892,6 +897,13 @@ class FundingApplication extends Model
     public function fundingRequest()
     {
         return $this->belongsTo(FundingRequest::class, 'funding_request_id');
+    }
+
+    /** Whether an embed form submission was converted into this application. */
+    public function isFromEmbedForm(): bool
+    {
+        return $this->exists
+            && EmbedFormSubmission::where('converted_funding_application_id', $this->id)->exists();
     }
 
     /*

@@ -16,8 +16,8 @@ use Illuminate\Contracts\Validation\ValidationRule;
  *
  * Beyond EmbedSnippet's shape check, the iframe must open the host's current
  * form on its published address, and any script must be that address's
- * embed.js. An empty value passes: clearing the field returns /apply to its
- * default.
+ * embed.js. An empty value passes: clearing the field leaves /apply with no
+ * form, only its "not available" notice.
  */
 class EmbedFormSnippet implements ValidationRule
 {

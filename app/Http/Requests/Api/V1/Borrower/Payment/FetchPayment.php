@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\Borrower\Payment;
 
+use App\Models\Payment\Payment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class FetchPayment extends FormRequest
 {
@@ -24,6 +26,12 @@ class FetchPayment extends FormRequest
         return [
             'search'       => ['nullable', 'string'],
             'status'       => ['nullable'],
+            // Method and Type (BUG-169): sent by the Payments filters, and were
+            // dropped here, so the list ignored them.
+            'payment_from'     => ['nullable', 'string', 'max:100'],
+            'transaction_type' => ['nullable', 'string', Rule::in([Payment::TRANSACTION_TYPE_DEBIT, Payment::TRANSACTION_TYPE_CREDIT])],
+            // Environment: 1 = Production, 0 = Sandbox, null = all. Was dropped here too.
+            'is_environment'   => ['nullable', 'boolean'],
             'payee_id'     => ['nullable', 'integer'],
             'partner_id'   => ['nullable', 'integer'],
             'invoice_id'   => ['nullable'],

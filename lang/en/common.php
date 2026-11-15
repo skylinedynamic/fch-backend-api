@@ -16,6 +16,7 @@ return [
     'error_global_configurations_retrieved' => 'Failed to retrieve global configurations.',
     'email_changed_subject' => 'Your Email has been changed',
     'password_updated_subject' => 'Your Password has been updated',
+    'account_active_subject' => 'Your account is active - :site',
     'postal_code_invalid' => 'Enter a 5-digit ZIP code, e.g. 10001.',
     'path_traversal' => 'The file path must not contain "..".',
     'business_ein_invalid' => 'Enter a 9-digit EIN as XX-XXXXXXX, e.g. 12-3456789.',
@@ -26,9 +27,10 @@ return [
     'fico_score_required' => 'Enter the FICO score.',
     'business_credit_score_invalid' => 'Enter the business credit score as a whole number of 0 or more.',
     'date_of_birth_invalid' => 'Enter a valid date of birth.',
-    'date_of_birth_min_age' => 'The borrower must be at least :age years old.',
-    'date_not_in_future' => 'The date cannot be in the future.',
+    'date_of_birth_future' => 'Date of birth cannot be in the future.',
+    'date_of_birth_minimum_age' => 'You must be at least :age years old to continue.',
     'date_of_birth_max_age' => 'Enter a date of birth no more than :age years ago.',
+    'date_not_in_future' => 'The date cannot be in the future.',
     // Shown when an operation fails unexpectedly. The real exception is logged;
     // it is never returned to the client, because its text can carry SQL,
     // file paths and other internals.

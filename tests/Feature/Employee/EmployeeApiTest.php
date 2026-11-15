@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use App\Rules\DateOfBirth;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -410,5 +411,25 @@ class EmployeeApiTest extends TestCase
         $this->actingAsUser($this->partnerAdmin);
 
         $this->getJson('/api/v1/common/employees-next-id')->assertOk()->assertJsonStructure(['data' => ['next_id']]);
+    }
+
+    /**
+     * Defect: an employee's date of birth was only `before:today`, so a team
+     * member could be saved as 10 years old.
+     */
+    #[Test]
+    public function an_employee_must_be_at_least_the_platform_minimum_age(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload([
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->addDay()->toDateString(),
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'date_of_birth' => __('common.date_of_birth_minimum_age', ['age' => 18]),
+        ]);
+
+        $this->postJson('/api/v1/common/employees', $this->newEmployeePayload([
+            'date_of_birth' => DateOfBirth::latestAllowedDate()->toDateString(),
+        ]))->assertCreated();
     }
 }

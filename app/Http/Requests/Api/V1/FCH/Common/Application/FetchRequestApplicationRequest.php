@@ -27,6 +27,8 @@ class FetchRequestApplicationRequest extends FormRequest
             'funding_type'  => ['nullable', 'string'],
             // Scopes the list to one client, for the client record's tab.
             'borrower_id'   => ['nullable', 'integer'],
+            // The host's Partner dropdown. A partner's team stays scoped to its own rows.
+            'partner_id'    => ['nullable', 'integer'],
         ];
     }
 }
