@@ -50,6 +50,7 @@ class PartnerService
         protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
         protected \App\Services\Global\Account\EmailChangeService $emailChange,
+        protected \App\Services\FCH\Common\Commission\CommissionTierResolver $commissionTiers,
     ) {
     }
 
@@ -584,48 +585,109 @@ class PartnerService
     }
 
     /**
-     * Set a partner's commission - its share (%) of the success fee - or clear
-     * it with null. The host partner has none: the admin keeps the whole fee
-     * on the host's own clients.
+     * Set a partner's Funding commission tiers - its share (%) of the success
+     * fee by funded-deal count. At least one tier (the request requires it).
+     * The host partner has none: the admin keeps the whole fee on the host's
+     * own clients.
      *
+     * @param array<int, array{min_count:int|string, max_count:int|string|null, percentage:float|string}> $tiers
      * @throws ValidationException for the host partner
      */
-    public function updateCommission(Partner $partner, ?float $commission): Partner
+    public function updateCommission(Partner $partner, array $tiers): Partner
     {
         if ($partner->is_host) {
             throw ValidationException::withMessages([
-                'commission' => __('partner.validation.commission.host'),
+                'tiers' => __('partner.validation.commission.host'),
             ]);
         }
 
-        $before = $partner->commission !== null ? (float) $partner->commission : null;
+        $before = $this->commissionSummary($partner->commissionTiers()->get()->map(fn ($t) => [
+            'min_count' => $t->min_count,
+            'max_count' => $t->max_count,
+            'percentage' => (float) $t->percentage,
+        ])->all());
 
-        $partner->update(['commission' => $commission]);
+        $normalized = array_map(fn (array $tier) => [
+            'min_count' => (int) $tier['min_count'],
+            'max_count' => ($tier['max_count'] ?? '') === '' ? null : (int) $tier['max_count'],
+            'percentage' => (float) $tier['percentage'],
+        ], array_values($tiers));
 
-        $this->logCommissionChange($partner, $before, $commission);
+        DB::transaction(function () use ($partner, $normalized) {
+            $partner->commissionTiers()->delete();
 
-        return $partner;
+            foreach ($normalized as $i => $tier) {
+                $partner->commissionTiers()->create($tier + ['sort_order' => $i]);
+            }
+        });
+
+        $this->logCommissionChange($partner, $before, (string) $this->commissionSummary($normalized));
+
+        return $partner->load('commissionTiers');
+    }
+
+    /**
+     * The partner's commission as the Commissions tab reads it: its tiers and
+     * how many of its clients' funding applications have been funded, so the
+     * tab can say which tier the next deal falls in.
+     */
+    public function commissionOf(Partner $partner): array
+    {
+        return [
+            'id' => $partner->id,
+            'commission_tiers' => self::tierRows($partner->commissionTiers),
+            'funded_deal_count' => $this->commissionTiers->partnerFundedCount($partner),
+        ];
+    }
+
+    /** @return array<int, array{id:int, min_count:int, max_count:?int, percentage:float}> */
+    public static function tierRows($tiers): array
+    {
+        return collect($tiers)->map(fn ($tier) => [
+            'id' => $tier->id,
+            'min_count' => $tier->min_count,
+            'max_count' => $tier->max_count,
+            'percentage' => (float) $tier->percentage,
+        ])->values()->all();
+    }
+
+    /**
+     * Tiers in a line for the activity log: "25%" when one tier covers every
+     * deal, otherwise "0-10: 20%, 11+: 27.5%". Null when there are none.
+     */
+    private function commissionSummary(array $tiers): ?string
+    {
+        if ($tiers === []) {
+            return null;
+        }
+
+        $rate = static fn (float $value): string => rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.') . '%';
+
+        if (count($tiers) === 1 && $tiers[0]['min_count'] === 0 && $tiers[0]['max_count'] === null) {
+            return $rate($tiers[0]['percentage']);
+        }
+
+        return collect($tiers)->map(fn ($tier) => ($tier['max_count'] === null
+            ? "{$tier['min_count']}+"
+            : "{$tier['min_count']}-{$tier['max_count']}") . ': ' . $rate($tier['percentage']))->implode(', ');
     }
 
     /**
      * Partner profile › Commissions: an entry on the partner's activity log -
-     * "Commission added / updated / removed", old → new in its "Show changes"
-     * table. Host staff only (internal). Nothing when the rate did not change.
+     * "Commission added / updated", old → new in its "Show changes" table. Host staff only (internal). Nothing when the tiers did not change.
      * A failure is logged, never thrown: the commission is already saved.
      */
-    private function logCommissionChange(Partner $partner, ?float $before, ?float $after): void
+    private function logCommissionChange(Partner $partner, ?string $before, string $after): void
     {
         if ($before === $after) {
             return;
         }
 
-        $rate = static fn (?float $value): ?string => $value === null ? null : rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.') . '%';
         $by = Auth::user()?->name ?: 'The host';
 
         [$event, $description] = match (true) {
-            $before === null => [__('partner.activity.commission_added'), __('partner.activity.commission_added_description', ['user' => $by, 'to' => $rate($after)])],
-            $after === null => [__('partner.activity.commission_removed'), __('partner.activity.commission_removed_description', ['user' => $by, 'from' => $rate($before)])],
-            default => [__('partner.activity.commission_updated'), __('partner.activity.commission_updated_description', ['user' => $by, 'from' => $rate($before), 'to' => $rate($after)])],
+            $before === null => [__('partner.activity.commission_added'), __('partner.activity.commission_added_description', ['user' => $by, 'to' => $after])],
+            default => [__('partner.activity.commission_updated'), __('partner.activity.commission_updated_description', ['user' => $by, 'from' => $before, 'to' => $after])],
         };
 
         try {
@@ -639,8 +701,8 @@ class PartnerService
                 ActivityLog::LOG_TYPE_PARTNER_COMMISSION_UPDATE,
                 ['changes' => ['commission' => [
                     'label' => __('partner.activity.commission_label'),
-                    'from' => $rate($before),
-                    'to' => $rate($after),
+                    'from' => $before,
+                    'to' => $after,
                 ]]],
                 ActivityLog::VISIBILITY_INTERNAL
             );

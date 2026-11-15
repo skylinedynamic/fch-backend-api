@@ -461,6 +461,12 @@ class Partner extends Model
         return $this->hasMany(Commission::class, 'partner_id');
     }
 
+    /** Partner profile › Commissions: its Funding commission count tiers, in order. */
+    public function commissionTiers(): HasMany
+    {
+        return $this->hasMany(PartnerCommissionTier::class)->orderBy('sort_order')->orderBy('min_count');
+    }
+
     public function fundingApplications()
     {
         return $this->hasMany(FundingApplication::class, 'partner_id');

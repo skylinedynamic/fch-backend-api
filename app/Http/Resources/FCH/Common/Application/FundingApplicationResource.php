@@ -7,12 +7,18 @@ use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResour
 use App\Models\Borrower\FundingApplication;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\FCH\Common\Commission\CommissionTierResolver;
+use App\Services\FCH\Partner\PartnerService;
 use App\Services\FCH\Common\Funding\LenderMatchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FundingApplicationResource extends JsonResource
 {
+    private bool $tierContextLoaded = false;
+
+    private ?array $tierContext = null;
+
     /**
      * Transform the resource into an array.
      *
@@ -139,9 +145,14 @@ class FundingApplicationResource extends JsonResource
             'total_commission_amount' => $this->commission?->total_commission_amount,
             'admin_commission_amount' => $this->commission?->admin_commission_amount,
             'partner_commission_amount' => $this->commission?->partner_commission_amount,
-            // The partner's own commission (Partner profile › Commissions): the
-            // split opens at it until one is saved. None for a host client.
+            // The partner's commission tier for this deal (Partner profile ›
+            // Commissions): the split opens at it until one is saved. None for a
+            // host client.
             'partner_default_commission' => $this->partnerDefaultCommission(),
+            // The Closed (Completed) modal's Partner Commission section: the
+            // partner's tiers (empty when none is set) and this deal's number
+            // among its funded deals. Null for a host client.
+            'partner_commission_setup' => $this->partnerCommissionSetup(),
             'commission_status' => $this->commission?->commission_status,
             'payment_status' => $this->commission?->payment_status,
 
@@ -183,18 +194,60 @@ class FundingApplicationResource extends JsonResource
         ];
     }
 
-    /** The application's partner's commission (%), or null when unset or the host's. */
+    /**
+     * The partner's commission (%) for this deal - the tier its position among
+     * the partner's funded deals falls in - or null when the partner has no
+     * tiers or is the host.
+     */
     private function partnerDefaultCommission(): ?float
     {
-        $partner = $this->relationLoaded('partner')
-            ? $this->partner
-            : Partner::query()->select(['id', 'is_host', 'commission'])->find($this->partner_id);
+        $setup = $this->commissionTierContext();
 
-        if (!$partner || $partner->is_host || $partner->commission === null) {
+        if (!$setup) {
             return null;
         }
 
-        return (float) $partner->commission;
+        $tier = CommissionTierResolver::pick($setup['tiers'], $setup['position']);
+
+        return $tier ? (float) $tier->percentage : null;
+    }
+
+    /** @return array{tiers: array<int, array<string, mixed>>, deal_position: int, funded_deal_count: int}|null */
+    private function partnerCommissionSetup(): ?array
+    {
+        $setup = $this->commissionTierContext();
+
+        return $setup ? [
+            'tiers' => PartnerService::tierRows($setup['tiers']),
+            'deal_position' => $setup['position'],
+            'funded_deal_count' => $setup['funded'],
+        ] : null;
+    }
+
+    /** The partner's tiers and this deal's position, worked out once per resource. Null for a host client. */
+    private function commissionTierContext(): ?array
+    {
+        if ($this->tierContextLoaded) {
+            return $this->tierContext;
+        }
+
+        $this->tierContextLoaded = true;
+
+        $partner = $this->relationLoaded('partner')
+            ? $this->partner
+            : Partner::query()->select(['id', 'is_host'])->find($this->partner_id);
+
+        if (!$partner || $partner->is_host) {
+            return $this->tierContext = null;
+        }
+
+        $resolver = app(CommissionTierResolver::class);
+
+        return $this->tierContext = [
+            'tiers' => $partner->commissionTiers()->get(),
+            'position' => $resolver->partnerPosition($partner, $this->resource),
+            'funded' => $resolver->partnerFundedCount($partner),
+        ];
     }
 
     /** @return array<string, mixed> */

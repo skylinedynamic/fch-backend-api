@@ -212,8 +212,9 @@ class PartnerController extends Controller
     }
 
     /**
-     * Partner profile › Commissions: set the partner's share (%) of the success
-     * fee, which the funding application's commission split opens at.
+     * Partner profile › Commissions: set the partner's Funding commission
+     * tiers - its share (%) of the success fee by funded-deal count. The
+     * funding application's commission split opens at the tier for that deal.
      */
     public function updateCommission(UpdatePartnerCommissionRequest $request, int $id)
     {
@@ -223,14 +224,10 @@ class PartnerController extends Controller
             return ApiResponse::notFound(__('partner.error.not_found'));
         }
 
-        $commission = $request->validated('commission');
-        $partner = $this->partnerService->updateCommission($partner, $commission !== null ? (float) $commission : null);
+        $partner = $this->partnerService->updateCommission($partner, $request->validated('tiers'));
 
         return ApiResponse::success(
-            [
-                'id' => $partner->id,
-                'commission' => $partner->commission !== null ? (float) $partner->commission : null,
-            ],
+            $this->partnerService->commissionOf($partner),
             __('partner.success.commission_updated')
         );
     }

@@ -142,7 +142,8 @@ return [
         'monthly_platform_fee_gt' => 'Monthly platform fee must be greater than 0.',
         'monthly_platform_fee_regex' => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
         'commission' => [
-            'present' => 'Commission is required. Leave it blank to clear it.',
+            'required_tiers' => 'The commission is required: add at least one tier.',
+            'required' => 'Enter the commission (%) for this tier.',
             'numeric' => 'Commission must be a number.',
             'min' => 'Commission must be at least 0%.',
             'max' => 'Commission must be at most 99%. The admin keeps at least 1% of the success fee.',
@@ -180,10 +181,8 @@ return [
         'commission_label' => 'Commission',
         'commission_added' => 'Commission added',
         'commission_updated' => 'Commission updated',
-        'commission_removed' => 'Commission removed',
         'commission_added_description' => ':user set the commission to :to.',
         'commission_updated_description' => ':user changed the commission from :from to :to.',
-        'commission_removed_description' => ':user removed the commission (was :from).',
     ],
 
     'error' => [

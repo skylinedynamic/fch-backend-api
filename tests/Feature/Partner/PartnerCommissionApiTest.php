@@ -9,6 +9,7 @@ use App\Http\Resources\FCH\Partner\PartnerDetailsResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerCommissionTier;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -19,9 +20,10 @@ use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
 /**
- * Partner profile › Commissions: the host sets a partner's commission - the
- * partner's share (%) of the success fee on its clients' funding applications.
- * The funding application carries it so the commission split opens at it.
+ * Partner profile › Commissions: the host sets a partner's Funding commission
+ * tiers - the partner's share (%) of the success fee, by how many of its
+ * clients' funding applications have been funded (0-10, 11-20, ...). The
+ * funding application carries the tier for that deal so the split opens at it.
  */
 #[CoversClass(PartnerController::class)]
 #[CoversClass(UpdatePartnerCommissionRequest::class)]
@@ -51,57 +53,90 @@ class PartnerCommissionApiTest extends TestCase
         return "/api/v1/admin/partners/{$partnerId}/commission";
     }
 
+    private static function tier(int $min, ?int $max, float $percentage): array
+    {
+        return ['min_count' => $min, 'max_count' => $max, 'percentage' => $percentage];
+    }
+
+    /** Store tiers directly, as a starting point. */
+    private function giveTiers(Partner $partner, array $tiers): void
+    {
+        foreach (array_values($tiers) as $i => $tier) {
+            PartnerCommissionTier::create($tier + ['partner_id' => $partner->id, 'sort_order' => $i]);
+        }
+    }
+
+    private function storedTiers(Partner $partner): array
+    {
+        return PartnerCommissionTier::where('partner_id', $partner->id)->orderBy('sort_order')->get()
+            ->map(fn ($t) => [$t->min_count, $t->max_count, (float) $t->percentage])->all();
+    }
+
     #[Test]
-    public function the_host_sets_a_partners_commission(): void
+    public function the_host_sets_a_partners_funding_tiers(): void
     {
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->partner->id), ['commission' => 25.5])
+        $this->putJson($this->url($this->partner->id), ['tiers' => [
+            self::tier(0, 10, 10),
+            self::tier(11, 20, 12.5),
+            self::tier(21, null, 15),
+        ]])
             ->assertOk()
             ->assertJsonPath('data.id', $this->partner->id)
-            ->assertJsonPath('data.commission', 25.5)
+            ->assertJsonPath('data.commission_tiers.1.min_count', 11)
+            ->assertJsonPath('data.commission_tiers.1.percentage', 12.5)
+            ->assertJsonPath('data.commission_tiers.2.max_count', null)
+            ->assertJsonPath('data.funded_deal_count', 0)
             ->assertJsonPath('message', __('partner.success.commission_updated'));
 
-        $this->assertEquals(25.5, $this->partner->fresh()->commission);
+        $this->assertSame([[0, 10, 10.0], [11, 20, 12.5], [21, null, 15.0]], $this->storedTiers($this->partner));
     }
 
     #[Test]
-    public function the_host_clears_a_partners_commission(): void
+    public function the_commission_is_required_and_cannot_be_cleared(): void
     {
-        $this->partner->forceFill(['commission' => 30])->save();
+        $this->giveTiers($this->partner, [self::tier(0, null, 30)]);
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->partner->id), ['commission' => null])
-            ->assertOk()
-            ->assertJsonPath('data.commission', null);
+        $this->putJson($this->url($this->partner->id), ['tiers' => []])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['tiers' => __('partner.validation.commission.required_tiers')]);
 
-        $this->assertNull($this->partner->fresh()->commission);
+        $this->assertSame([[0, null, 30.0]], $this->storedTiers($this->partner));
     }
 
-    public static function invalidCommissions(): array
+    public static function invalidTiers(): array
     {
         return [
-            'missing' => [[]],
-            'not a number' => [['commission' => 'abc']],
-            'negative' => [['commission' => -1]],
+            'missing' => [[], 'tiers'],
+            'an empty list' => [['tiers' => []], 'tiers'],
+            'not a list' => [['tiers' => 'abc'], 'tiers'],
+            'a tier without its commission' => [['tiers' => [self::tier(0, 10, 10), ['min_count' => 11, 'max_count' => null, 'percentage' => null]]], 'tiers.1.percentage'],
+            'not a number' => [['tiers' => [['min_count' => 0, 'max_count' => null, 'percentage' => 'abc']]], 'tiers.0.percentage'],
+            'negative' => [['tiers' => [self::tier(0, null, -1)]], 'tiers.0.percentage'],
             // The admin keeps at least 1% of the success fee (save-commission).
-            'leaves the admin under 1%' => [['commission' => 99.5]],
-            'over 100' => [['commission' => 101]],
+            'leaves the admin under 1%' => [['tiers' => [self::tier(0, null, 99.5)]], 'tiers.0.percentage'],
+            'first tier not from 0' => [['tiers' => [self::tier(5, null, 10)]], 'tiers.0.min_count'],
+            'a gap' => [['tiers' => [self::tier(0, 10, 10), self::tier(15, null, 12)]], 'tiers.1.min_count'],
+            'an overlap' => [['tiers' => [self::tier(0, 10, 10), self::tier(8, null, 12)]], 'tiers.1.min_count'],
+            'end before start' => [['tiers' => [self::tier(0, 10, 10), self::tier(11, 3, 12)]], 'tiers.1.max_count'],
+            'open-ended tier in the middle' => [['tiers' => [self::tier(0, null, 10), self::tier(11, null, 12)]], 'tiers.0.max_count'],
         ];
     }
 
     #[Test]
-    #[DataProvider('invalidCommissions')]
-    public function an_invalid_commission_is_refused_and_nothing_changes(array $payload): void
+    #[DataProvider('invalidTiers')]
+    public function invalid_tiers_are_refused_under_their_field_and_nothing_changes(array $payload, string $errorKey): void
     {
-        $this->partner->forceFill(['commission' => 20])->save();
+        $this->giveTiers($this->partner, [self::tier(0, null, 20)]);
         $this->actingAsUser($this->hostAdmin);
 
         $this->putJson($this->url($this->partner->id), $payload)
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['commission']);
+            ->assertJsonValidationErrors([$errorKey]);
 
-        $this->assertEquals(20, $this->partner->fresh()->commission);
+        $this->assertSame([[0, null, 20.0]], $this->storedTiers($this->partner));
     }
 
     #[Test]
@@ -109,11 +144,11 @@ class PartnerCommissionApiTest extends TestCase
     {
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->host->id), ['commission' => 10])
+        $this->putJson($this->url($this->host->id), ['tiers' => [self::tier(0, null, 10)]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['commission' => __('partner.validation.commission.host')]);
+            ->assertJsonValidationErrors(['tiers' => __('partner.validation.commission.host')]);
 
-        $this->assertNull($this->host->fresh()->commission);
+        $this->assertSame([], $this->storedTiers($this->host));
     }
 
     #[Test]
@@ -121,7 +156,7 @@ class PartnerCommissionApiTest extends TestCase
     {
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url(999999), ['commission' => 10])->assertNotFound();
+        $this->putJson($this->url(999999), ['tiers' => [self::tier(0, null, 10)]])->assertNotFound();
     }
 
     #[Test]
@@ -130,15 +165,16 @@ class PartnerCommissionApiTest extends TestCase
         // Decision 2026-11-11: server-side permissions for this route come later.
         $this->actingAsUser($this->makeStaffUser($this->host));
 
-        $this->putJson($this->url($this->partner->id), ['commission' => 10])->assertOk();
+        $this->putJson($this->url($this->partner->id), ['tiers' => [self::tier(0, null, 10)]])->assertOk();
 
-        $this->assertEquals(10, $this->partner->fresh()->commission);
+        $this->assertSame([[0, null, 10.0]], $this->storedTiers($this->partner));
     }
 
     #[Test]
     public function only_the_hosts_team_reaches_it(): void
     {
-        $this->putJson($this->url($this->partner->id), ['commission' => 10])->assertUnauthorized();
+        $payload = ['tiers' => [self::tier(0, null, 10)]];
+        $this->putJson($this->url($this->partner->id), $payload)->assertUnauthorized();
 
         foreach ([
             $this->makePartnerAdmin($this->partner),
@@ -146,10 +182,10 @@ class PartnerCommissionApiTest extends TestCase
             $this->makeBorrowerUser($this->host),
         ] as $outsider) {
             $this->actingAsUser($outsider);
-            $this->putJson($this->url($this->partner->id), ['commission' => 10])->assertForbidden();
+            $this->putJson($this->url($this->partner->id), $payload)->assertForbidden();
         }
 
-        $this->assertNull($this->partner->fresh()->commission);
+        $this->assertSame([], $this->storedTiers($this->partner));
     }
 
     /** The commission entries on the partner's activity log. */
@@ -180,7 +216,8 @@ class PartnerCommissionApiTest extends TestCase
         $this->hostAdmin->forceFill(['name' => 'Hana Host'])->save();
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->partner->id), ['commission' => 25])->assertOk();
+        // One tier for every deal reads as a plain rate.
+        $this->putJson($this->url($this->partner->id), ['tiers' => [self::tier(0, null, 25)]])->assertOk();
 
         $logs = $this->commissionLogs();
         $this->assertCount(1, $logs);
@@ -188,41 +225,36 @@ class PartnerCommissionApiTest extends TestCase
     }
 
     #[Test]
-    public function changing_the_commission_is_logged_as_updated_with_old_and_new(): void
+    public function changing_the_tiers_is_logged_as_updated_with_old_and_new(): void
     {
-        $this->partner->forceFill(['commission' => 20])->save();
+        $this->giveTiers($this->partner, [self::tier(0, null, 20)]);
         $this->hostAdmin->forceFill(['name' => 'Hana Host'])->save();
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->partner->id), ['commission' => 27.5])->assertOk();
+        $this->putJson($this->url($this->partner->id), ['tiers' => [self::tier(0, 10, 20), self::tier(11, null, 27.5)]])->assertOk();
 
         $logs = $this->commissionLogs();
         $this->assertCount(1, $logs);
-        $this->assertCommissionLog($logs[0], 'Commission updated', 'Hana Host changed the commission from 20% to 27.5%.', '20%', '27.5%');
+        $this->assertCommissionLog(
+            $logs[0],
+            'Commission updated',
+            'Hana Host changed the commission from 20% to 0-10: 20%, 11+: 27.5%.',
+            '20%',
+            '0-10: 20%, 11+: 27.5%'
+        );
     }
 
     #[Test]
-    public function clearing_the_commission_is_logged_as_removed(): void
+    public function saving_the_same_tiers_logs_nothing(): void
     {
-        $this->partner->forceFill(['commission' => 20])->save();
-        $this->hostAdmin->forceFill(['name' => 'Hana Host'])->save();
+        $this->giveTiers($this->partner, [self::tier(0, 10, 20), self::tier(11, null, 25)]);
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->partner->id), ['commission' => null])->assertOk();
-
-        $logs = $this->commissionLogs();
-        $this->assertCount(1, $logs);
-        $this->assertCommissionLog($logs[0], 'Commission removed', 'Hana Host removed the commission (was 20%).', '20%', null);
-    }
-
-    #[Test]
-    public function saving_the_same_commission_logs_nothing(): void
-    {
-        $this->partner->forceFill(['commission' => 20])->save();
-        $this->actingAsUser($this->hostAdmin);
-
-        $this->putJson($this->url($this->partner->id), ['commission' => 20.00])->assertOk();
-        $this->putJson($this->url($this->partner->id), ['commission' => '20'])->assertOk();
+        $this->putJson($this->url($this->partner->id), ['tiers' => [self::tier(0, 10, 20.00), self::tier(11, null, 25)]])->assertOk();
+        $this->putJson($this->url($this->partner->id), ['tiers' => [
+            ['min_count' => '0', 'max_count' => '10', 'percentage' => '20'],
+            ['min_count' => '11', 'max_count' => null, 'percentage' => '25'],
+        ]])->assertOk();
 
         $this->assertCount(0, $this->commissionLogs());
     }
@@ -232,8 +264,8 @@ class PartnerCommissionApiTest extends TestCase
     {
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson($this->url($this->partner->id), ['commission' => 150])->assertStatus(422);
-        $this->putJson($this->url($this->host->id), ['commission' => 10])->assertStatus(422);
+        $this->putJson($this->url($this->partner->id), ['tiers' => [self::tier(0, null, 150)]])->assertStatus(422);
+        $this->putJson($this->url($this->host->id), ['tiers' => [self::tier(0, null, 10)]])->assertStatus(422);
 
         $this->assertCount(0, ActivityLog::where('log_name', ActivityLog::LOG_TYPE_PARTNER_COMMISSION_UPDATE)->get());
     }
@@ -242,7 +274,7 @@ class PartnerCommissionApiTest extends TestCase
     public function the_entry_shows_in_the_partners_activity_for_the_host_with_its_changes(): void
     {
         $this->actingAsUser($this->hostAdmin);
-        $this->putJson($this->url($this->partner->id), ['commission' => 25])->assertOk();
+        $this->putJson($this->url($this->partner->id), ['tiers' => [self::tier(0, null, 25)]])->assertOk();
 
         $log = $this->commissionLogs()->first();
         $this->assertTrue(ActivityLog::query()->visibleTo($this->hostAdmin)->whereKey($log->id)->exists());
@@ -250,58 +282,150 @@ class PartnerCommissionApiTest extends TestCase
     }
 
     #[Test]
-    public function the_partner_details_carry_the_commission(): void
+    public function the_partner_details_carry_the_tiers_and_the_funded_deal_count(): void
     {
-        $this->partner->forceFill(['commission' => 12.5])->save();
+        $this->giveTiers($this->partner, [self::tier(0, 10, 12.5), self::tier(11, null, 15)]);
+        $this->applicationFor($this->partner, '2026-01-01');
+        $this->applicationFor($this->partner, null, FundingApplication::IN_VERIFICATION);
         $this->actingAsUser($this->makePartnerAdmin($this->host));
 
         $this->getJson("/api/v1/admin/partners-details/{$this->partner->id}")
             ->assertOk()
-            ->assertJsonPath('data.commission', 12.5);
+            ->assertJsonPath('data.commission_tiers.0.percentage', 12.5)
+            ->assertJsonPath('data.commission_tiers.1.min_count', 11)
+            ->assertJsonPath('data.funded_deal_count', 1);
     }
 
     #[Test]
-    public function a_partner_with_no_commission_reads_as_null(): void
+    public function a_partner_with_no_commission_has_no_tiers(): void
     {
         $this->actingAsUser($this->makePartnerAdmin($this->host));
 
         $this->getJson("/api/v1/admin/partners-details/{$this->partner->id}")
             ->assertOk()
-            ->assertJsonPath('data.commission', null);
+            ->assertJsonPath('data.commission_tiers', []);
     }
 
-    private function applicationFor(Partner $partner): FundingApplication
+    private function applicationFor(Partner $partner, ?string $fundedDate = '2026-01-01', string $status = FundingApplication::CLOSED_COMPLETED): FundingApplication
     {
         return FundingApplication::forceCreate([
             'borrower_id' => $this->makeBorrower($partner)->id,
             'partner_id' => $partner->id,
-            'status' => FundingApplication::CLOSED_COMPLETED,
+            'status' => $status,
             'requested_amount' => 100000,
+            'funded_date' => $fundedDate,
         ]);
     }
 
-    #[Test]
-    public function a_funding_application_carries_its_partners_commission_for_the_split(): void
+    private function defaultCommissionOf(FundingApplication $application)
     {
-        $this->partner->forceFill(['commission' => 40])->save();
-        $application = $this->applicationFor($this->partner);
         $this->actingAsUser($this->makePartnerAdmin($this->host));
 
-        $this->getJson("/api/v1/common/request-application/funding-application/{$application->id}")
+        return $this->getJson("/api/v1/common/request-application/funding-application/{$application->id}")
             ->assertOk()
-            ->assertJsonPath('data.partner_default_commission', 40);
+            ->json('data.partner_default_commission');
+    }
+
+    #[Test]
+    public function a_funding_application_opens_its_split_at_the_tier_for_that_deal(): void
+    {
+        $this->giveTiers($this->partner, [self::tier(0, 1, 10), self::tier(2, null, 20)]);
+        $first = $this->applicationFor($this->partner, '2026-01-01');
+        $second = $this->applicationFor($this->partner, '2026-02-01');
+
+        // Deal #1 sits in 0-1, deal #2 in 2+ - and paying deal #2 later never
+        // moves deal #1 out of its tier.
+        $this->assertEquals(10, $this->defaultCommissionOf($first));
+        $this->assertEquals(20, $this->defaultCommissionOf($second));
+    }
+
+    #[Test]
+    public function an_application_not_funded_yet_is_the_partners_next_deal(): void
+    {
+        $this->giveTiers($this->partner, [self::tier(0, 1, 10), self::tier(2, null, 20)]);
+        $this->applicationFor($this->partner, '2026-01-01');
+        $open = $this->applicationFor($this->partner, null, FundingApplication::IN_VERIFICATION);
+
+        $this->assertEquals(20, $this->defaultCommissionOf($open));
+    }
+
+    #[Test]
+    public function only_the_partners_own_funded_deals_count(): void
+    {
+        $this->giveTiers($this->partner, [self::tier(0, 1, 10), self::tier(2, null, 20)]);
+        $other = $this->makeWhiteLabelPartner();
+        $this->applicationFor($other, '2026-01-01');
+        $this->applicationFor($other, '2026-01-02');
+
+        $this->assertEquals(10, $this->defaultCommissionOf($this->applicationFor($this->partner, null, FundingApplication::IN_VERIFICATION)));
+    }
+
+    private function setupOf(FundingApplication $application)
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        return $this->getJson("/api/v1/common/request-application/funding-application/{$application->id}")
+            ->assertOk()
+            ->json('data.partner_commission_setup');
+    }
+
+    #[Test]
+    public function the_closing_modal_gets_the_partners_tiers_and_this_deals_number(): void
+    {
+        $this->giveTiers($this->partner, [self::tier(0, 1, 10), self::tier(2, null, 20)]);
+        $this->applicationFor($this->partner, '2026-01-01');
+        $open = $this->applicationFor($this->partner, null, FundingApplication::IN_VERIFICATION);
+
+        $setup = $this->setupOf($open);
+
+        $this->assertSame(2, $setup['deal_position']);
+        $this->assertSame(1, $setup['funded_deal_count']);
+        $this->assertSame([[0, 1, 10.0], [2, null, 20.0]], collect($setup['tiers'])
+            ->map(fn ($t) => [$t['min_count'], $t['max_count'], (float) $t['percentage']])->all());
+    }
+
+    #[Test]
+    public function a_partner_with_no_commission_set_still_gets_the_section_with_no_tiers(): void
+    {
+        $setup = $this->setupOf($this->applicationFor($this->partner, null, FundingApplication::IN_VERIFICATION));
+
+        $this->assertSame([], $setup['tiers']);
+        $this->assertSame(1, $setup['deal_position']);
+    }
+
+    #[Test]
+    public function a_host_client_has_no_partner_commission_section(): void
+    {
+        $this->giveTiers($this->host, [self::tier(0, null, 15)]);
+
+        $this->assertNull($this->setupOf($this->applicationFor($this->host)));
+    }
+
+    #[Test]
+    public function a_partner_with_no_tiers_opens_with_no_default(): void
+    {
+        $this->assertNull($this->defaultCommissionOf($this->applicationFor($this->partner)));
     }
 
     #[Test]
     public function a_host_clients_funding_application_has_no_partner_commission(): void
     {
-        // Even a stray value on the host is ignored: the admin takes it all.
-        $this->host->forceFill(['commission' => 15])->save();
-        $application = $this->applicationFor($this->host);
-        $this->actingAsUser($this->makePartnerAdmin($this->host));
+        // Even stray tiers on the host are ignored: the admin takes it all.
+        $this->giveTiers($this->host, [self::tier(0, null, 15)]);
 
-        $this->getJson("/api/v1/common/request-application/funding-application/{$application->id}")
-            ->assertOk()
-            ->assertJsonPath('data.partner_default_commission', null);
+        $this->assertNull($this->defaultCommissionOf($this->applicationFor($this->host)));
+    }
+
+    #[Test]
+    public function an_existing_commission_becomes_one_tier_for_every_deal(): void
+    {
+        $this->partner->forceFill(['commission' => 30])->save();
+        $this->makeWhiteLabelPartner()->forceFill(['commission' => null])->save();
+
+        $migration = require database_path('migrations/2026_11_15_000002_move_partner_commission_into_tiers.php');
+        $migration->up();
+
+        $this->assertSame([[0, null, 30.0]], $this->storedTiers($this->partner));
+        $this->assertSame(1, PartnerCommissionTier::count());
     }
 }
