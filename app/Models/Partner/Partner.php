@@ -309,6 +309,30 @@ class Partner extends Model
     }
 
     /**
+     * The client portal this partner's clients sign in on and are linked to
+     * (R3-BUG-032), or null when they have none:
+     * - its own borrower_domain whenever it has one. Active Custom URL plays no
+     *   part: it is the switch for the partner's own custom domain only.
+     * - otherwise the host's shared client portal, but only for the host's and
+     *   a Certified partner's clients.
+     * - a White-Label partner's clients never get the host's portal: null.
+     *
+     * Sign-in (PortalIsolationService) accepts a client on exactly this domain.
+     */
+    public function borrowerPortalDomain(): ?string
+    {
+        if (filled($this->borrower_domain)) {
+            return $this->borrower_domain;
+        }
+
+        if ($this->is_host || $this->partner_type === self::PARTNER_TYPE_CERTIFIED) {
+            return config('app.frontend_borrower_url') ?: null;
+        }
+
+        return null;
+    }
+
+    /**
      * The partners the host manages: everyone but the host's own record. Used by
      * the partner count cards (dashboard and Partners list) so they agree.
      */

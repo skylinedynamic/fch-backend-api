@@ -5,6 +5,7 @@ namespace Tests\Integration\Mail;
 use App\Mail\Appointment\AppointmentNotification;
 use App\Mail\Borrower\BorrowerDocumentsUploadedMail;
 use App\Mail\Borrower\CreditProfileRequestMail;
+use App\Mail\Borrower\CreditProfileUpdatedMail;
 use App\Mail\Borrower\DraftApplicationSentMail;
 use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Mail\Borrower\UpdateCreditProfileRequestMail;
@@ -150,7 +151,7 @@ class RecordMailRenderTest extends TestCase
     private function submission(): EmbedFormSubmission
     {
         return (new EmbedFormSubmission())->forceFill([
-            'submission_uid' => 'SUB-7Q2X', 'first_name' => 'Dana', 'last_name' => 'Whitfield', 'email' => 'dana@example.test',
+            'submission_uid' => 'SUB-7Q2X', 'partner_id' => $this->partner->id, 'first_name' => 'Dana', 'last_name' => 'Whitfield', 'email' => 'dana@example.test',
             'phone' => '+1 555 0142', 'business_name' => 'Whitfield Bakery LLC', 'industry_type' => 'Food service', 'employer_name' => null,
             'monthly_revenue' => 40000, 'years_in_business' => 3, 'requested_amount' => 75000, 'preferred_funding_type' => 'Line of Credit',
             'purpose_of_funds' => 'Second oven', 'self_reported_personal_credit_score' => 720, 'created_at' => now(),
@@ -216,25 +217,58 @@ class RecordMailRenderTest extends TestCase
     }
 
     /**
-     * Defect: three borrower emails built their portal link with
-     * make_url(getBorrowerDomain(...)), and getBorrowerDomain() is null for a
-     * white-label partner that has not set its own borrower domain. make_url()
-     * takes a string, so rendering threw and the queued email failed - the
-     * approval, the daily "start your application" reminder and the
-     * underwriting update never reached the borrower.
+     * Every record email that sends a client to its portal (R3-BUG-032).
+     * (Earlier defect: these rendering threw when getBorrowerDomain() was null -
+     * they must still render, just without the host's portal.)
+     */
+    public static function clientPortalMails(): array
+    {
+        return [
+            'request approved' => [fn (self $t) => new BorrowerFundingRequestApproved($t->request), 'fund-application/'],
+            'application reminder' => [fn (self $t) => new BorrowerFundingApplicationReminder($t->request), 'fund-application/'],
+            'underwriting status' => [fn (self $t) => new UnderwritingStatusUpdated($t->request), 'funding-requests/'],
+            'application submitted' => [fn (self $t) => new FundingApplicationSubmittedMail($t->application), 'fund-application/'],
+            'draft application sent' => [fn (self $t) => new DraftApplicationSentMail($t->application), 'fund-application/'],
+            'embed form: converted (applicant)' => [fn (self $t) => new EmbedFormConverted($t->submission(), $t->application, false), 'login'],
+            'credit profile updated' => [fn (self $t) => new CreditProfileUpdatedMail('Dana Whitfield', $t->partner->id), 'profile'],
+            'invoice sent (client pays)' => [fn (self $t) => new InvoiceMail($t->invoice()), 'invoices'],
+            'appointment created' => [fn (self $t) => new AppointmentNotification($t->appointment(), 'created', [], $t->partner->id), null],
+        ];
+    }
+
+    /**
+     * R3-BUG-032: the host's client portal serves only the host's and Certified
+     * partners' clients. A White-Label partner's client with no borrower domain
+     * gets no portal link - it used to get the host's, where sign-in refuses it.
      */
     #[Test]
-    public function borrower_links_fall_back_to_the_portal_when_the_partner_has_no_domain_of_its_own(): void
+    #[DataProvider('clientPortalMails')]
+    public function a_white_label_client_without_a_borrower_domain_is_never_sent_to_the_hosts_client_portal(Closure $make, ?string $path): void
     {
         config(['app.frontend_borrower_url' => 'https://app.fourcorner.example']);
         $this->assertEmpty($this->partner->borrower_domain);
 
-        $this->assertStringContainsString("https://app.fourcorner.example/fund-application/{$this->request->id}", (new BorrowerFundingRequestApproved($this->request))->render());
-        $this->assertStringContainsString("https://app.fourcorner.example/fund-application/{$this->request->id}", (new BorrowerFundingApplicationReminder($this->request))->render());
-        $this->assertStringContainsString("https://app.fourcorner.example/funding-requests/{$this->request->id}", (new UnderwritingStatusUpdated($this->request))->render());
+        $html = $make($this)->render();
 
-        $this->partner->forceFill(['borrower_domain' => 'portal.lakeside.example'])->save();
-        $this->assertStringContainsString("portal.lakeside.example/fund-application/{$this->request->id}", (new BorrowerFundingRequestApproved($this->request->fresh()))->render());
+        $this->assertStringNotContainsString('app.fourcorner.example', $html);
+        $this->assertDoesNotMatchRegularExpression('/href=["\']\s*["\']/', $html, 'A button with no link is shown.');
+    }
+
+    #[Test]
+    #[DataProvider('clientPortalMails')]
+    public function a_white_label_client_is_sent_to_its_partners_borrower_domain(Closure $make, ?string $path): void
+    {
+        config(['app.frontend_borrower_url' => 'https://app.fourcorner.example']);
+        $this->partner->forceFill(['borrower_domain' => 'portal.lakeside.example', 'active_custom_url' => false])->save();
+        $this->request = $this->request->fresh();
+        $this->application = $this->application->fresh();
+
+        $html = $make($this)->render();
+
+        if ($path !== null) {
+            $this->assertStringContainsString('portal.lakeside.example/' . $path, $html);
+        }
+        $this->assertStringNotContainsString('app.fourcorner.example', $html);
     }
 
     /**
@@ -262,15 +296,16 @@ class RecordMailRenderTest extends TestCase
     }
 
     /**
-     * Defect (O48): the applicant's "converted" email had no sign-in button when
-     * the partner had no borrower domain of its own - unlike the other borrower
-     * emails, it did not fall back to the main portal.
+     * Defect (O48): the applicant's "converted" email had no sign-in button.
+     * It has one wherever the client can sign in - here a Certified partner
+     * with no borrower domain, whose clients use the host's client portal. (A
+     * White-Label partner's client without one gets none, R3-BUG-032.)
      */
     #[Test]
-    public function the_converted_applicant_email_falls_back_to_the_portal_sign_in(): void
+    public function the_converted_applicant_email_has_a_sign_in_button_where_the_client_can_sign_in(): void
     {
         config(['app.frontend_borrower_url' => 'https://app.fourcorner.example']);
-        $this->assertEmpty($this->partner->borrower_domain);
+        $this->partner->forceFill(['partner_type' => Partner::PARTNER_TYPE_CERTIFIED])->save();
 
         $html = (new EmbedFormConverted($this->submission(), $this->application, false))->render();
 
@@ -287,11 +322,11 @@ class RecordMailRenderTest extends TestCase
     public function the_status_update_email_links_each_reader_to_the_request_in_their_own_portal(): void
     {
         config(['app.frontend_borrower_url' => 'https://app.fourcorner.example']);
-        $this->partner->forceFill(['partner_domain' => 'https://partners.lakeside.example'])->save();
+        $this->partner->forceFill(['partner_domain' => 'https://partners.lakeside.example', 'borrower_domain' => 'https://portal.lakeside.example'])->save();
         $request = $this->request->fresh();
 
         $borrowerHtml = (new UnderwritingStatusUpdated($request))->render();
-        $this->assertStringContainsString("https://app.fourcorner.example/funding-requests/{$request->id}", $borrowerHtml);
+        $this->assertStringContainsString("https://portal.lakeside.example/funding-requests/{$request->id}", $borrowerHtml);
         $this->assertStringNotContainsString('intake-review', $borrowerHtml);
 
         $partnerHtml = (new UnderwritingStatusUpdated($request, UnderwritingStatusUpdated::AUDIENCE_PARTNER))->render();

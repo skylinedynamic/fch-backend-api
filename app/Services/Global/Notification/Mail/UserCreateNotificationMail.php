@@ -51,7 +51,7 @@ class UserCreateNotificationMail extends Mailable implements SendsImmediately
         $loginUrl = match ($user->user_type) {
             \App\Models\User\User::ADMIN,
             \App\Models\User\User::PARTNER => concatUrl(getPartnerDomain($this->mailPartnerId), 'login', config('app.frontend_partner_url')),
-            \App\Models\User\User::BORROWER => concatUrl(getBorrowerDomain($this->mailPartnerId), 'login', config('app.frontend_borrower_url')),
+            \App\Models\User\User::BORROWER => concatUrl(getBorrowerDomain($this->mailPartnerId), 'login'),
             default => concatUrl(getPartnerDomain($this->mailPartnerId), 'login', config('app.frontend_partner_url')),
         };
 

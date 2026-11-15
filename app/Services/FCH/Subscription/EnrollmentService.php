@@ -528,13 +528,13 @@ class EnrollmentService
 
         if ($isMigration) {
             if ($amounts['initial_invoice_amount'] > 0) {
-                $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
+                $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices');
                 $mailData['amount'] = $invoice->payment_amount;
                 $this->sendBorrowerMail('borrower.account.migrated', $user, $user->email, new BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id, $amountData);
             }
         } elseif ($isHostCreating) {
             if ($amounts['initial_invoice_amount'] > 0) {
-                $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
+                $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices');
                 $mailData['amount'] = $invoice->payment_amount;
                 $this->sendBorrowerMail('borrower.account.created_with_payment', $user, $user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id, $amountData);
             } else {

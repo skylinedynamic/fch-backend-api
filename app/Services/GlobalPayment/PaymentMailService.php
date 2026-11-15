@@ -323,7 +323,7 @@ class PaymentMailService
         // borrower domain of its own, where any link would land on a portal the
         // isolation check then refuses. Better no button than a broken one.
         return $borrowerDomain
-            ? concatUrl($borrowerDomain, 'billing-details', config('app.frontend_borrower_url'))
+            ? concatUrl($borrowerDomain, 'billing-details')
             : null;
     }
 

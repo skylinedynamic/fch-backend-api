@@ -87,6 +87,6 @@ class UnderwritingStatusUpdated extends Mailable implements ShouldQueue
             return concatUrl(getPartnerDomain($partnerId), 'intake-review/funding-request/' . $id);
         }
 
-        return concatUrl(getBorrowerDomain($partnerId), 'funding-requests/' . $id, config('app.frontend_borrower_url'));
+        return concatUrl(getBorrowerDomain($partnerId), 'funding-requests/' . $id);
     }
 }

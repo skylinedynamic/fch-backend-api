@@ -26,6 +26,7 @@ use App\Mail\SystemHealthAlert;
 use App\Mail\Trial\BorrowerTrialMail;
 use App\Mail\Trial\PartnerTrialExpiryUpdatedMail;
 use App\Mail\Trial\PartnerTrialMail;
+use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Closure;
@@ -135,5 +136,71 @@ class AccountAndPaymentMailRenderTest extends TestCase
 
         $this->assertStringContainsString($expected, $html);
         $this->assertNotEmpty($mail->subject ?? $mail->envelope()->subject);
+    }
+
+    // ---- R3-BUG-032: a client's portal link ------------------------------------
+
+    /**
+     * Every account email that sends a client to its portal. The host's client
+     * portal serves only the host's and Certified partners' clients; a
+     * White-Label partner's client gets its partner's borrower domain, or no
+     * link at all.
+     */
+    public static function clientPortalMails(): array
+    {
+        return [
+            'free plan / trial welcome' => [fn (self $t) => new BorrowerTrialMail(['user' => $t->user, 'business_info' => $t->businessInfo(), 'plain_password' => 'Temp#4821'], $t->partner->id), true],
+            'account created (borrower)' => [fn (self $t) => new AccountCreateNotificationMail(['user' => $t->user, 'plain_password' => 'Temp#4821', 'business_info' => $t->businessInfo()], $t->partner->id), true],
+            'user created (borrower)' => [fn (self $t) => new UserCreateNotificationMail(['user' => $t->user, 'plain_password' => 'Temp#4821', 'business_info' => $t->businessInfo()], $t->partner->id), true],
+            'borrower account created' => [fn (self $t) => new BorrowerAccountCreatedMail(['user' => $t->user, 'plain_password' => 'Temp#4821', 'business_info' => $t->businessInfo()], $t->partner->id), true],
+            // false: no portal button of its own - the payment link it is given,
+            // or (verification, change request) no button at all.
+            'borrower migrated' => [fn (self $t) => new BorrowerMigrationMail(['user' => $t->user, 'business_info' => $t->businessInfo(), 'payment_link' => '', 'amount' => 49], $t->partner->id), false],
+            'borrower payment link' => [fn (self $t) => new BorrowerPaymentLinkMail(['user' => $t->user, 'business_info' => $t->businessInfo(), 'payment_link' => '', 'amount' => 49, 'plain_password' => 'Temp#4821'], $t->partner->id), false],
+            'verification decided' => [fn (self $t) => new BorrowerVerificationStatusMail(['subject' => 'Verification update', 'borrower_name' => 'Dana Whitfield', 'status' => 'approved', 'note' => null, 'task_results' => []], $t->partner->id), false],
+            'document reviewed' => [fn (self $t) => new BorrowerDocumentReviewedMail(['borrower_name' => 'Dana Whitfield', 'document_name' => 'Business Bank Statements', 'status' => 'Rejected', 'reason' => 'Too old'], $t->partner->id), true],
+            'change request decided' => [fn (self $t) => new ChangeRequestStatusMail(['subject' => 'Change request', 'borrower_name' => 'Dana Whitfield', 'field_name' => 'Business phone', 'status' => 'Approved', 'new_value' => '+1 555 0199', 'note' => null], $t->partner->id), false],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('clientPortalMails')]
+    public function a_white_label_client_without_a_borrower_domain_is_never_sent_to_the_hosts_client_portal(Closure $make, bool $linksThePortal): void
+    {
+        config(['app.frontend_borrower_url' => 'app.fourcorner.example']);
+        $this->assertEmpty($this->partner->borrower_domain);
+
+        $html = $make($this)->render();
+
+        $this->assertStringNotContainsString('app.fourcorner.example', $html);
+        $this->assertDoesNotMatchRegularExpression('/href=["\']\s*["\']/', $html, 'A button with no link is shown.');
+    }
+
+    #[Test]
+    #[DataProvider('clientPortalMails')]
+    public function a_white_label_client_is_sent_to_its_partners_borrower_domain_even_with_the_custom_url_off(Closure $make, bool $linksThePortal): void
+    {
+        config(['app.frontend_borrower_url' => 'app.fourcorner.example']);
+        $this->partner->forceFill(['borrower_domain' => 'portal.lakeside.example', 'active_custom_url' => false])->save();
+
+        $html = $make($this)->render();
+
+        if ($linksThePortal) {
+            $this->assertStringContainsString('portal.lakeside.example/', $html);
+        }
+        $this->assertStringNotContainsString('app.fourcorner.example', $html);
+    }
+
+    #[Test]
+    public function a_certified_or_host_client_without_a_borrower_domain_is_sent_to_the_hosts_client_portal(): void
+    {
+        config(['app.frontend_borrower_url' => 'app.fourcorner.example']);
+
+        foreach ([$this->makeCertifiedPartner(), $this->host] as $partner) {
+            $user = $this->makeBorrowerUser($partner);
+            $html = (new BorrowerTrialMail(['user' => $user, 'business_info' => $this->businessInfo(), 'plain_password' => 'Temp#4821'], $partner->id))->render();
+
+            $this->assertStringContainsString('app.fourcorner.example/login', $html);
+        }
     }
 }

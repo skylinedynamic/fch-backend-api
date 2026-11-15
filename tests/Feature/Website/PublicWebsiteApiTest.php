@@ -355,6 +355,29 @@ class PublicWebsiteApiTest extends TestCase
     }
 
     /**
+     * R3-BUG-032: Active Custom URL is the switch for the partner's own custom
+     * domain only. A borrower domain serves the partner's clients whenever it
+     * is set - sign-in and every client email use it - so the edge must route
+     * it and give it a certificate with the switch off too.
+     */
+    #[Test]
+    public function a_borrower_domain_is_routed_and_certified_with_the_custom_url_off(): void
+    {
+        config(['domains.internal_key' => 'test-internal-key']);
+        $partner = $this->makeWhiteLabelPartner(['borrower_domain' => 'clients.off.test', 'partner_domain' => 'admin.off.test', 'active_custom_url' => false]);
+
+        $this->get('/api/resolve-custom-domain', ['X-Domain' => 'clients.off.test', 'X-Internal-Key' => 'test-internal-key'])
+            ->assertOk()
+            ->assertHeader('X-Tenant-Type', 'borrower')
+            ->assertHeader('X-Partner-Id', (string) $partner->id);
+        $this->get('/api/caddy/domain-check?domain=clients.off.test')->assertOk();
+
+        // The partner's own custom domain still waits for the switch.
+        $this->get('/api/resolve-custom-domain', ['X-Domain' => 'admin.off.test', 'X-Internal-Key' => 'test-internal-key'])->assertNotFound();
+        $this->get('/api/caddy/domain-check?domain=admin.off.test')->assertForbidden();
+    }
+
+    /**
      * Defect (findings D7): any domain starting with api., partner. or app. got
      * a go-ahead by its name alone, so app.<anything> could have a certificate
      * requested - issuance abuse, and a way to burn the Let's Encrypt rate
@@ -375,7 +398,8 @@ class PublicWebsiteApiTest extends TestCase
 
         $check('app.acme.test')->assertOk();
         $check('partner.beta.test')->assertOk();
-        $check('app.gamma.test')->assertForbidden();
+        // In the database as a borrower domain, which needs no switch (R3-BUG-032).
+        $check('app.gamma.test')->assertOk();
     }
 
     /**
