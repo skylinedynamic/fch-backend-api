@@ -8,7 +8,8 @@
 @php
     use App\Services\FCH\Common\OwnerSummary\OwnerReportPresenter as Present;
 
-    $r = fn (string $key, array $replace = []) => __("owner_summary.report.{$key}", $replace);
+    // The period's own words for every :when ("last week" in the weekly report).
+    $r = fn (string $key, array $replace = []) => $summary->t($key, $replace);
     $tag = fn (string $tone) => 'display: inline-block; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; background-color: ' . Present::TONES[$tone]['background'] . '; color: ' . Present::TONES[$tone]['color'] . ';';
 
     $card = 'width: 100%; border-collapse: separate; border-spacing: 0; background-color: #ffffff; border: 1px solid #e9ebec; border-radius: 4px;';
@@ -115,7 +116,7 @@
                     <tr>
                         <th style="{{ $th }}">{{ $r('stream') }}</th>
                         <th style="{{ $thNum }}">{{ $r('payments') }}</th>
-                        <th style="{{ $thNum }}">{{ $r('last_week') }}</th>
+                        <th style="{{ $thNum }}">{{ $summary->periodColumn() }}</th>
                     </tr>
                     @foreach ($streams['rows'] as $row)
                         <tr>

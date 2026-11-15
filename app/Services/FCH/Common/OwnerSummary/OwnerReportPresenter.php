@@ -119,6 +119,31 @@ class OwnerReportPresenter
         return $this->report['period']['timezone'];
     }
 
+    /** The period in a sentence - "last week" for the weekly report, "this month", "in the selected range". */
+    public function when(): string
+    {
+        return __('owner_summary.report.when.' . $this->periodKey());
+    }
+
+    /** The period as a column heading - "Last week", "This month", "Selected range". */
+    public function periodColumn(): string
+    {
+        return __('owner_summary.report.period_columns.' . $this->periodKey());
+    }
+
+    private function periodKey(): string
+    {
+        $key = $this->report['period']['key'] ?? OwnerSummaryPeriod::LAST_WEEK;
+
+        return in_array($key, OwnerSummaryPeriod::KEYS, true) ? $key : OwnerSummaryPeriod::LAST_WEEK;
+    }
+
+    /** A report string, with the period's words for its :when. */
+    public function t(string $key, array $replace = []): string
+    {
+        return __("owner_summary.report.{$key}", $replace + ['when' => $this->when()]);
+    }
+
     public function dashboardUrl(): string
     {
         return $this->url('owner-summary');
@@ -139,7 +164,7 @@ class OwnerReportPresenter
         $deals = self::delta($k['funded']['deals'], $k['funded']['previous_deals']);
         $leads = self::delta($k['new_leads']['current'], $k['new_leads']['previous']);
         $before = fn (string $value) => __('owner_summary.report.vs_before', ['value' => $value]);
-        $row = fn (string $label, string $value) => ['label' => __("owner_summary.report.{$label}"), 'value' => $value];
+        $row = fn (string $label, string $value) => ['label' => $this->t($label), 'value' => $value];
         $split = fn (string $host, string $partners) => [$row('by_host', $host), $row('by_partners', $partners)];
         $card = fn (string $label, string $value, array $rows, array $change = [], ?string $note = null) => [
             'label' => __("owner_summary.report.{$label}"),
@@ -174,7 +199,7 @@ class OwnerReportPresenter
                 number_format($k['clients']['total']),
                 $split(number_format($k['clients']['host']), number_format($k['clients']['partners'])),
                 [],
-                __('owner_summary.report.clients_note', ['active' => number_format($k['clients']['active']), 'new' => number_format($k['clients']['new'])])
+                $this->t('clients_note', ['active' => number_format($k['clients']['active']), 'new' => number_format($k['clients']['new'])])
             ),
             $card(
                 'kpi_leads',
@@ -196,6 +221,24 @@ class OwnerReportPresenter
         ];
     }
 
+    /**
+     * Partners and clients on the platform: the total and active ones,
+     * formatted, and how many are new this period (a number, for a "+2").
+     *
+     * @return array{partners: array{total: string, active: string, new: int}, clients: array{total: string, active: string, new: int}}
+     */
+    public function community(): array
+    {
+        $k = $this->report['kpis'];
+        $counts = fn (array $group) => [
+            'total' => number_format($group['total']),
+            'active' => number_format($group['active']),
+            'new' => (int) $group['new'],
+        ];
+
+        return ['partners' => $counts($k['partners']), 'clients' => $counts($k['clients'])];
+    }
+
     /** "12%", or a dash when there were no leads to convert. */
     private static function rate(int $funded, int $leads): string
     {
@@ -215,7 +258,7 @@ class OwnerReportPresenter
         $a = $this->report['attention'];
         $stalledAfter = OwnerSummaryService::STALLED_AFTER_DAYS;
         $trialDays = OwnerSummaryService::TRIAL_ENDING_DAYS;
-        $t = fn (string $key, array $replace = []) => __("owner_summary.report.attention_items.{$key}", $replace);
+        $t = fn (string $key, array $replace = []) => $this->t("attention_items.{$key}", $replace);
 
         $items = [
             [$t('unpaid', ['days' => OwnerSummaryService::UNPAID_AGE_DAYS]), $t('unpaid_sub', ['amount' => self::money($a['unpaid_over_30_days']['amount'])]), $a['unpaid_over_30_days']['invoices'], 'red', 'invoices'],
@@ -327,8 +370,8 @@ class OwnerReportPresenter
                 'label' => __('owner_summary.report.reached', ['stage' => mb_strtolower($stage($key))]),
                 'count' => $p['activity'][$key] ?? 0,
             ], $activity),
-            'note' => __('owner_summary.report.activity_note') . ' ' . ($p['median_days_to_fund'] === null
-                ? __('owner_summary.report.none_funded')
+            'note' => $this->t('activity_note') . ' ' . ($p['median_days_to_fund'] === null
+                ? $this->t('none_funded')
                 : __('owner_summary.report.median', ['days' => $p['median_days_to_fund']])),
         ];
     }

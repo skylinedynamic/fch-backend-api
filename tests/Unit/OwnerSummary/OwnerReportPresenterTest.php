@@ -55,6 +55,16 @@ class OwnerReportPresenterTest extends TestCase
         $this->assertSame(['text' => $text, 'tone' => $tone], OwnerReportPresenter::delta($current, $previous));
     }
 
+    /** Partners and clients on the platform, each as total, active and new this period. */
+    #[Test]
+    public function it_counts_the_partners_and_clients_on_the_platform(): void
+    {
+        $this->assertSame([
+            'partners' => ['total' => '26', 'active' => '22', 'new' => 3],
+            'clients' => ['total' => '410', 'active' => '380', 'new' => 21],
+        ], $this->presenter(['kpis' => ['partners' => ['total' => 26], 'clients' => ['total' => 410]]])->community());
+    }
+
     #[Test]
     public function it_gives_the_seven_headline_cards(): void
     {

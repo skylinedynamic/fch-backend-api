@@ -114,7 +114,11 @@ class OwnerSummaryService
     private ?int $environment;
     private ?Collection $open = null;
 
-    public function summary(User $owner, OwnerSummaryPeriod $period, string $environment): array
+    /**
+     * @param int|null $stalledLimit how many stalled deals to list (the screen
+     *        shows STALLED_LIST_LIMIT; the details export, every one of them)
+     */
+    public function summary(User $owner, OwnerSummaryPeriod $period, string $environment, ?int $stalledLimit = self::STALLED_LIST_LIMIT): array
     {
         $this->host = $owner->partner;
         $this->period = $period;
@@ -181,7 +185,7 @@ class OwnerSummaryService
                 'activity' => $this->stageActivity() + [self::ACTIVITY_FUNDED => $funded->count()],
                 'median_days_to_fund' => $this->medianDaysToFund($funded),
             ],
-            'stalled_deals' => array_slice($stalled, 0, self::STALLED_LIST_LIMIT),
+            'stalled_deals' => array_slice($stalled, 0, $stalledLimit),
             'lead_sources' => $this->leadSources(),
             'partners' => $this->partners(),
             'top_partners' => $this->topPartners($funded),
