@@ -50,7 +50,7 @@ The same helper also feeds Capital Access's `estimated_total_access_compact`, in
   - `tests/Feature/CreditBuilder`: 134 passed
   - client-fch Vitest (dashboard, capital access): 115 passed
   - admin `CapitalAccessSection.access`: 1 passed
-- **Full suite:** see the PR / session notes.
+- **Full suite** (with BUG-031 and BUG-032): 5,729 tests, all passed (2 skipped).
 
 ## Open items
 

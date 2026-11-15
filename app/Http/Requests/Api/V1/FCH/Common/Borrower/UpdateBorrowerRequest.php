@@ -119,7 +119,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
                 }
             }],
             'status'           => ['nullable', 'string', 'max:255'],
-            'current_tier'     => ['nullable'],
+            // No current_tier: a client's tier moves only by verifying its
+            // tasks, never by an edit (R3-BUG-035). Not validated, so not saved.
             'assign_id'        => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner($borrower), $borrower?->assign_id, __('borrower_validation.assign_id_not_in_team'))],
             'notes'            => ['nullable', 'string'],
             // The client_info_version the form loaded - a save from an older copy is refused (R2 BUG-065).

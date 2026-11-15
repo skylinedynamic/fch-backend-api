@@ -562,6 +562,8 @@ class BorrowerService
             $exceptFields = [
                 // A client's partner is fixed once created (R3-BUG-024).
                 'partner_id',
+                // The tier moves only by verifying tasks (R3-BUG-035).
+                'current_tier',
                 'enrollment',
                 'enrollment_payment',
                 'enrollment_amount',
