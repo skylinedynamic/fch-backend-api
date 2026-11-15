@@ -20,6 +20,19 @@ return [
     'report_off' => 'The weekly owner report is off or has no recipients, so nothing was sent.',
     'report_no_owner' => 'The weekly owner report is on, but FCH has no owner login to build it for.',
 
+    // The summary sent to the owner's Telegram chat: the six headline cards.
+    'telegram' => [
+        // Card labels and FCH/Partners come from report.* so they match the screen and the email.
+        'weekly' => 'Weekly Summary',
+        'monthly' => 'Monthly Summary',
+        'was' => 'was :value',
+        'active_new' => ':active active · :new new',
+        'sent' => 'The Telegram summary was sent.',
+        'off' => 'Telegram is not set up (TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID), so nothing was sent.',
+        'no_owner' => 'Telegram is set up, but FCH has no owner login to build the summary for.',
+        'bad_period' => 'The period must be one of: :periods.',
+    ],
+
     'streams' => [
         'partner_enrollment' => 'Partner enrollment',
         'platform_fee' => 'Platform fees',

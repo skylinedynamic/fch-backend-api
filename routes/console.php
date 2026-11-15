@@ -226,3 +226,21 @@ Schedule::command('owner-summary:send-weekly-report')
     ->onFailure($onFailure('owner-summary:send-weekly-report'))
     ->appendOutputTo($schedulerLogPath)
     ->onSuccess($onSuccess('owner-summary:send-weekly-report'));
+
+// The owner's Telegram summary (the six headline cards): last week on Sundays and last month
+// on the 1st, at 10:00 Eastern. It does nothing until TELEGRAM_* is set.
+Schedule::command('owner-summary:send-telegram-summary week')
+    ->weeklyOn(0, '10:00')
+    ->timezone(OwnerWeeklyReportService::TIMEZONE)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('owner-summary:send-telegram-summary week'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('owner-summary:send-telegram-summary week'));
+
+Schedule::command('owner-summary:send-telegram-summary month')
+    ->monthlyOn(1, '10:00')
+    ->timezone(OwnerWeeklyReportService::TIMEZONE)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('owner-summary:send-telegram-summary month'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('owner-summary:send-telegram-summary month'));
