@@ -43,7 +43,15 @@ class AgreementMergeFields
     {
         $values = array_intersect_key(array_merge($this->signer($signer), $this->ownerValues($owner)), array_flip(self::KEYS));
 
-        return $agreementType ? array_merge($values, (new AgreementPlanFields())->values($agreementType)) : $values;
+        if (!$agreementType) {
+            return $values;
+        }
+
+        return array_merge(
+            $values,
+            (new AgreementPlanFields())->values($agreementType),
+            (new AgreementCommissionFields())->values($signer, $agreementType)
+        );
     }
 
     /**
@@ -70,9 +78,13 @@ class AgreementMergeFields
             return $html;
         }
 
+        $html = $this->unwrapTable($html, $values);
+
         return preg_replace_callback(
             '/\{\{\s*([a-z0-9_.]+)\s*\}\}/',
             fn (array $match) => match (true) {
+                // Markup built by the server (AgreementCommissionFields), never typed text.
+                AgreementCommissionFields::isKey($match[1]) => $values[$match[1]] ?? '',
                 array_key_exists($match[1], $values) => htmlspecialchars($values[$match[1]], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                 // Never the raw {{plan....}}: not for this agreement, or the plan is off.
                 AgreementPlanFields::isPlanKey($match[1]) => '',
@@ -80,6 +92,26 @@ class AgreementMergeFields
             },
             $html
         );
+    }
+
+    /**
+     * A commission table whose token sits alone in its paragraph takes that
+     * paragraph's place - a <table> inside a <p> is not valid HTML.
+     *
+     * @param array<string, string> $values
+     */
+    private function unwrapTable(string $html, array $values): string
+    {
+        $table = $values[AgreementCommissionFields::KEY] ?? '';
+        if (!str_starts_with($table, '<table')) {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '#<(p|div)\b[^>]*>(?:\s|&nbsp;)*\{\{\s*signer\.commission_table\s*\}\}(?:\s|&nbsp;|<br\s*/?>)*</\1>#i',
+            fn () => $table,
+            $html
+        ) ?? $html;
     }
 
     /** @return array<string, string> */

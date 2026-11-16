@@ -673,9 +673,7 @@ class PartnerService
             return null;
         }
 
-        $value = static fn (array $tier): string => ($tier['commission_type'] ?? null) === PartnerCommissionTier::TYPE_FLAT
-            ? '$' . preg_replace('/\.00$/', '', number_format((float) $tier['amount'], 2))
-            : rtrim(rtrim(number_format((float) $tier['percentage'], 2, '.', ''), '0'), '.') . '%';
+        $value = static fn (array $tier): string => CommissionTierFormatter::value($tier);
 
         if (count($tiers) === 1 && $tiers[0]['min_count'] === 0 && $tiers[0]['max_count'] === null) {
             return $value($tiers[0]);

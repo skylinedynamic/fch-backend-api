@@ -7,6 +7,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateStoreRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateShowRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementMergeFieldsRequest;
+use App\Services\FCH\Common\ManageAgreement\AgreementCommissionFields;
 use App\Services\FCH\Common\ManageAgreement\AgreementPlanFields;
 use App\Http\Resources\FCH\Common\ManageAgreement\AgreementTemplateResource;
 use App\Services\FCH\Common\ManageAgreement\AgreementService;
@@ -114,8 +115,10 @@ class AgreementTemplateController extends Controller
      */
     public function mergeFields(AgreementMergeFieldsRequest $request)
     {
+        $type = $request->validated('type');
+
         return ApiResponse::success(
-            (new AgreementPlanFields())->fields($request->validated('type')),
+            array_merge((new AgreementCommissionFields())->fields($type), (new AgreementPlanFields())->fields($type)),
             __('agreement.retrieved_successfully')
         );
     }
