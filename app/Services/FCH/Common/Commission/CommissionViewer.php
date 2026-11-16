@@ -190,7 +190,8 @@ final class CommissionViewer
             ->where('payment_status', '!=', Commission::PAYMENT_STATUS_PAID)
             ->whereDoesntHave('payout')
             ->whereHas('fundingApplication', fn ($q) => $q->where('status', FundingApplication::CLOSED_COMPLETED))
-            ->with(['borrower' => fn ($q) => $q->withTrashed(), 'borrower.partner', 'borrower.assignedUser', 'partner', 'fundingApplication', 'payout'])
+            // assignedUser.entity: an employee login's compensation is its Employee's.
+            ->with(['borrower' => fn ($q) => $q->withTrashed(), 'borrower.partner', 'borrower.assignedUser.entity', 'partner', 'fundingApplication', 'payout'])
             ->get()
             ->map(fn (Commission $commission) => (float) ($payouts->forCommission($commission)['amount'] ?? 0))
             ->filter(fn (float $amount) => $amount > 0);

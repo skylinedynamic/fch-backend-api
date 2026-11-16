@@ -148,6 +148,11 @@ return [
             'min' => 'Commission must be at least 0%.',
             'max' => 'Commission must be at most 99%. The admin keeps at least 1% of the success fee.',
             'host' => 'The host partner has no commission: the admin keeps the whole success fee on its clients.',
+            'type' => 'Choose a commission type: Percentage or Flat Amount.',
+            'amount_required' => 'Enter the commission amount ($) for this tier.',
+            'amount_numeric' => 'Commission amount must be a number.',
+            'amount_min' => 'Commission amount must be at least $0.',
+            'amount_max' => 'Commission amount must be at most $99,999,999.99.',
         ],
     ],
 

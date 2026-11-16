@@ -37,7 +37,9 @@ class CompensationService
     private function resolveOwner(Model $entity): Model
     {
         if ($entity instanceof User && $entity->entity_type && $entity->entity_id) {
-            return $entity->entity ?? $entity;
+            // Loaded explicitly: a User fetched with others (e.g. a list's
+            // assigned users) refuses a lazy load outside production.
+            return $entity->loadMissing('entity')->entity ?? $entity;
         }
 
         return $entity;

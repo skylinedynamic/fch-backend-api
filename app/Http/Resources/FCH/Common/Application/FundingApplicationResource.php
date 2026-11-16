@@ -142,6 +142,9 @@ class FundingApplicationResource extends JsonResource
             'total_commission' => $this->commission?->total_commission,
             'admin_commission' => $this->commission?->admin_commission,
             'partner_commission' => $this->commission?->partner_commission,
+            // How the partner's share was set: PartnerCommissionTier::TYPE_FLAT
+            // (a fixed $, shown without a %), TYPE_PERCENTAGE, or null (typed).
+            'partner_commission_type' => $this->commission?->partner_commission_type,
             'total_commission_amount' => $this->commission?->total_commission_amount,
             'admin_commission_amount' => $this->commission?->admin_commission_amount,
             'partner_commission_amount' => $this->commission?->partner_commission_amount,
@@ -197,7 +200,9 @@ class FundingApplicationResource extends JsonResource
     /**
      * The partner's commission (%) for this deal - the tier its position among
      * the partner's funded deals falls in - or null when the partner has no
-     * tiers or is the host.
+     * tiers or is the host. Null too for a flat-amount tier: that % depends on
+     * the success fee typed in the closing modal, so the portal works it out
+     * from partner_commission_setup.
      */
     private function partnerDefaultCommission(): ?float
     {
@@ -209,7 +214,7 @@ class FundingApplicationResource extends JsonResource
 
         $tier = CommissionTierResolver::pick($setup['tiers'], $setup['position']);
 
-        return $tier ? (float) $tier->percentage : null;
+        return $tier && !$tier->isFlat() ? (float) $tier->percentage : null;
     }
 
     /** @return array{tiers: array<int, array<string, mixed>>, deal_position: int, funded_deal_count: int}|null */

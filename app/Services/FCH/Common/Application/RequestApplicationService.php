@@ -16,8 +16,10 @@ use App\Models\Common\AppConfiguration;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerCommissionTier;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Commission\CommissionSplitCalculator;
 use App\Services\FCH\Common\Application\SignatureCertificateService;
 use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
@@ -594,21 +596,26 @@ class RequestApplicationService
                 $baseAmount = $application->total_funded_amount;
                 $totalCommissionAmount = ($baseAmount * $commission->total_commission) / 100;
                 
-                $adminCommissionAmount = $totalCommissionAmount;
-                $partnerCommissionAmount = 0;
+                // A flat tier's share stays its exact $ at the final funded amount
+                // (its % follows); otherwise the saved % of the success fee.
+                $flat = $commission->partner_commission_type === PartnerCommissionTier::TYPE_FLAT;
+                $split = CommissionSplitCalculator::split(
+                    (float) $totalCommissionAmount,
+                    $commission->partner_commission_type,
+                    (float) $commission->partner_commission,
+                    $flat ? (float) $commission->partner_commission_flat_amount : null
+                );
 
-                if ($commission->partner_commission > 0) {
-                    $partnerCommissionAmount = ($totalCommissionAmount * $commission->partner_commission) / 100;
-                    $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
-                }
-
-                $commission->update([
+                $commission->update(array_merge([
                     'total_commission_amount' => $totalCommissionAmount,
-                    'admin_commission_amount' => $adminCommissionAmount,
-                    'partner_commission_amount' => $partnerCommissionAmount,
+                    'admin_commission_amount' => $split['admin_commission_amount'],
+                    'partner_commission_amount' => $split['partner_commission_amount'],
                     'commission_status' => Commission::STATUS_PROCESSING,
                     'payment_status' => Commission::PAYMENT_STATUS_UNPAID,
-                ]);
+                ], $flat ? [
+                    'partner_commission' => $split['partner_commission'],
+                    'admin_commission' => $split['admin_commission'],
+                ] : []));
             }
         }
 

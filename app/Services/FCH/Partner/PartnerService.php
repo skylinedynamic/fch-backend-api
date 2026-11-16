@@ -14,6 +14,7 @@ use App\Models\Invoice\Invoice;
 use App\Models\Appointment\Appointment;
 use App\Models\SupportTicket\SupportTicket;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerCommissionTier;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 use App\Models\Borrower\Borrower;
@@ -585,12 +586,13 @@ class PartnerService
     }
 
     /**
-     * Set a partner's Funding commission tiers - its share (%) of the success
-     * fee by funded-deal count. At least one tier (the request requires it).
-     * The host partner has none: the admin keeps the whole fee on the host's
-     * own clients.
+     * Set a partner's Funding commission tiers by funded-deal count. Each tier
+     * has its own type: a share (%) of the success fee or a flat amount ($) per
+     * deal, and keeps only that type's value. At least one tier (the request
+     * requires it). The host partner has none: the admin keeps the whole fee on
+     * the host's own clients.
      *
-     * @param array<int, array{min_count:int|string, max_count:int|string|null, percentage:float|string}> $tiers
+     * @param array<int, array{min_count:int|string, max_count:int|string|null, commission_type?:string|null, percentage?:float|string|null, amount?:float|string|null}> $tiers
      * @throws ValidationException for the host partner
      */
     public function updateCommission(Partner $partner, array $tiers): Partner
@@ -601,17 +603,19 @@ class PartnerService
             ]);
         }
 
-        $before = $this->commissionSummary($partner->commissionTiers()->get()->map(fn ($t) => [
-            'min_count' => $t->min_count,
-            'max_count' => $t->max_count,
-            'percentage' => (float) $t->percentage,
-        ])->all());
+        $before = $this->commissionSummary(self::tierRows($partner->commissionTiers()->get()));
 
-        $normalized = array_map(fn (array $tier) => [
-            'min_count' => (int) $tier['min_count'],
-            'max_count' => ($tier['max_count'] ?? '') === '' ? null : (int) $tier['max_count'],
-            'percentage' => (float) $tier['percentage'],
-        ], array_values($tiers));
+        $normalized = array_map(function (array $tier) {
+            $flat = ($tier['commission_type'] ?? null) === PartnerCommissionTier::TYPE_FLAT;
+
+            return [
+                'min_count' => (int) $tier['min_count'],
+                'max_count' => ($tier['max_count'] ?? '') === '' ? null : (int) $tier['max_count'],
+                'commission_type' => $flat ? PartnerCommissionTier::TYPE_FLAT : PartnerCommissionTier::TYPE_PERCENTAGE,
+                'percentage' => $flat ? null : (float) $tier['percentage'],
+                'amount' => $flat ? (float) $tier['amount'] : null,
+            ];
+        }, array_values($tiers));
 
         DB::transaction(function () use ($partner, $normalized) {
             $partner->commissionTiers()->delete();
@@ -640,20 +644,28 @@ class PartnerService
         ];
     }
 
-    /** @return array<int, array{id:int, min_count:int, max_count:?int, percentage:float}> */
+    /**
+     * Tiers as the API returns them: each with its commission_type and that
+     * type's value (`percentage` or `amount`), the other null.
+     *
+     * @return array<int, array{id:int, min_count:int, max_count:?int, commission_type:string, percentage:?float, amount:?float}>
+     */
     public static function tierRows($tiers): array
     {
         return collect($tiers)->map(fn ($tier) => [
             'id' => $tier->id,
             'min_count' => $tier->min_count,
             'max_count' => $tier->max_count,
-            'percentage' => (float) $tier->percentage,
+            'commission_type' => $tier->commission_type ?: PartnerCommissionTier::TYPE_PERCENTAGE,
+            'percentage' => $tier->percentage === null ? null : (float) $tier->percentage,
+            'amount' => $tier->amount === null ? null : (float) $tier->amount,
         ])->values()->all();
     }
 
     /**
-     * Tiers in a line for the activity log: "25%" when one tier covers every
-     * deal, otherwise "0-10: 20%, 11+: 27.5%". Null when there are none.
+     * Tiers in a line for the activity log: "25%" or "$500" when one tier
+     * covers every deal, otherwise "0-10: $1,500, 11+: 27.5%". Null when there
+     * are none.
      */
     private function commissionSummary(array $tiers): ?string
     {
@@ -661,15 +673,17 @@ class PartnerService
             return null;
         }
 
-        $rate = static fn (float $value): string => rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.') . '%';
+        $value = static fn (array $tier): string => ($tier['commission_type'] ?? null) === PartnerCommissionTier::TYPE_FLAT
+            ? '$' . preg_replace('/\.00$/', '', number_format((float) $tier['amount'], 2))
+            : rtrim(rtrim(number_format((float) $tier['percentage'], 2, '.', ''), '0'), '.') . '%';
 
         if (count($tiers) === 1 && $tiers[0]['min_count'] === 0 && $tiers[0]['max_count'] === null) {
-            return $rate($tiers[0]['percentage']);
+            return $value($tiers[0]);
         }
 
         return collect($tiers)->map(fn ($tier) => ($tier['max_count'] === null
             ? "{$tier['min_count']}+"
-            : "{$tier['min_count']}-{$tier['max_count']}") . ': ' . $rate($tier['percentage']))->implode(', ');
+            : "{$tier['min_count']}-{$tier['max_count']}") . ': ' . $value($tier))->implode(', ');
     }
 
     /**
