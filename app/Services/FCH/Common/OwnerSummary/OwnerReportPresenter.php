@@ -146,7 +146,7 @@ class OwnerReportPresenter
 
     public function dashboardUrl(): string
     {
-        return $this->url('owner-summary');
+        return $this->url('business-insights');
     }
 
     private function url(string $path): string

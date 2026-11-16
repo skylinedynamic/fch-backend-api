@@ -190,13 +190,14 @@ class WeeklyReportCommandTest extends TestCase
             'Net Earnings', '$14.3K', '+30%', 'Funded Volume', '$1.31M', 'Funded Deals', 'Lead-To-Funded', '20% (3 of 15)',
             'Needs Attention', 'Commission payouts due', '$31,000 owed to partners and staff',
             'Partner enrollment', 'Total collected', '$14,300',
-            'Funding Commissions', 'Payouts still due', '$28,000',
+            'Funding Commissions', 'Commission on deals closed', 'Payouts still due', '$28,000',
             'Unpaid over 30 days', 'Open Applications', '40 open · $5.20M requested',
             'Where Leads Come From', 'Referral Partner', 'Top Partners', 'Partner One', 'Stalled Deals', 'FUND-000044', 'Partner Network',
-            'Open Owner Summary', '/owner-summary', '/commissions', 'attached',
+            'Open Owner Summary', '/business-insights', '/commissions', 'attached',
         ] as $text) {
             $this->assertStringContainsString($text, $html);
         }
+        $this->assertStringNotContainsString('not cash until the lender pays', $html);
     }
 
     private function assertAppearsInOrder(array $texts, string $html): void

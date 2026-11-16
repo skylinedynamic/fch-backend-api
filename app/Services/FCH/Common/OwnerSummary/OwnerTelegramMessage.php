@@ -12,10 +12,10 @@ use Carbon\CarbonImmutable;
  *     🗓 1 – 7 Nov 2026
  *
  *     💰 Net Earnings                         (bold)
- *     $14.3K   📈 +30%   was $11.0K           (value bold, "was" italic)
+ *     $14.3K | 📈 +30% | was $11.0K           (value bold, "was" italic)
  *
  *     🏦 Funded Volume
- *     $2.31M   📉 -22%   was $2.96M
+ *     $2.31M | 📉 -22% | was $2.96M
  *     ├ FCH: $1.31M
  *     └ Partners: $1.00M
  *     ...
@@ -24,7 +24,7 @@ use Carbon\CarbonImmutable;
  */
 final class OwnerTelegramMessage
 {
-    private const GAP = '   ';
+    private const GAP = ' | ';
 
     private const TREND_ICONS = ['up' => '📈', 'down' => '📉', 'flat' => '➖'];
     private const NEW_ICON = '🆕';
@@ -79,7 +79,7 @@ final class OwnerTelegramMessage
         return implode("\n", [$icon . ' <b>' . self::e(__("owner_summary.report.{$label}")) . '</b>', ...$lines]);
     }
 
-    /** "<b>6</b>   📉 -25%   <i>was 8</i>"; with nothing before, "🆕 new" or "➖ no change". */
+    /** "<b>6</b> | 📉 -25% | <i>was 8</i>"; with nothing before, "🆕 new" or "➖ no change". */
     private static function changed(float|int $current, float|int $previous, callable $format): string
     {
         $delta = OwnerReportPresenter::delta($current, $previous);
@@ -95,7 +95,7 @@ final class OwnerTelegramMessage
             . self::GAP . '<i>' . self::e(__('owner_summary.telegram.was', ['value' => $format($previous)])) . '</i>';
     }
 
-    /** "<b>410</b>   380 active · 21 new". */
+    /** "<b>410</b> | 380 active | 21 new". */
     private static function totals(array $totals): string
     {
         return '<b>' . self::e(number_format($totals['total'])) . '</b>' . self::GAP . self::e(__('owner_summary.telegram.active_new', [

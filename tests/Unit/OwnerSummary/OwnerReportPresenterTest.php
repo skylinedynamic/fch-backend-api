@@ -240,6 +240,6 @@ class OwnerReportPresenterTest extends TestCase
 
         $this->assertSame('1 – 7 Nov 2026', $presenter->periodLabel());
         $this->assertSame('25 – 31 Oct 2026', $presenter->comparedWithLabel());
-        $this->assertSame('https://portal.test/owner-summary', $presenter->dashboardUrl());
+        $this->assertSame('https://portal.test/business-insights', $presenter->dashboardUrl());
     }
 }

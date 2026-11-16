@@ -26,7 +26,7 @@ return [
         'weekly' => 'Weekly Summary',
         'monthly' => 'Monthly Summary',
         'was' => 'was :value',
-        'active_new' => ':active active · :new new',
+        'active_new' => ':active active | :new new',
         'sent' => 'The Telegram summary was sent.',
         'off' => 'Telegram is not set up (TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID), so nothing was sent.',
         'no_owner' => 'Telegram is set up, but FCH has no owner login to build the summary for.',
@@ -127,7 +127,7 @@ return [
         'cash_note' => "A partner's own clients pay that partner, not :company; for them :company earns the borrower fee.",
 
         'commissions' => 'Funding Commissions',
-        'commissions_sub' => 'Booked on deals funded :when; not cash until the lender pays',
+        'commissions_sub' => 'Commission on deals closed :when',
         'host_share' => 'FCH share booked',
         'partner_share' => "Partners' share",
         'paid_to_partners' => 'Paid out to partners',
