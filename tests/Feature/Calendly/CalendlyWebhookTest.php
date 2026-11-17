@@ -4,6 +4,7 @@ namespace Tests\Feature\Calendly;
 
 use App\Http\Controllers\Api\V1\FCH\Common\Calendly\CalendlyController;
 use App\Models\Appointment\Appointment;
+use App\Models\Calendly\CalendlyConnection;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -42,11 +43,13 @@ class CalendlyWebhookTest extends TestCase
         $this->borrowerUser = $this->makeBorrowerUser($hostPartner);
     }
 
-    private function deliver(array $payload, ?string $signature = null): TestResponse
+    /** A delivery to a connection's own webhook address (the latest connection by default). */
+    private function deliver(array $payload, ?string $signature = null, ?int $connectionId = null): TestResponse
     {
         $body = json_encode($payload);
+        $connectionId ??= (int) CalendlyConnection::latest('id')->value('id');
 
-        return $this->call('POST', '/api/v1/calendly/webhook', [], [], [], [
+        return $this->call('POST', "/api/v1/calendly/webhook/{$connectionId}", [], [], [], [
             'CONTENT_TYPE' => 'application/json',
             'HTTP_ACCEPT' => 'application/json',
             'HTTP_CALENDLY_WEBHOOK_SIGNATURE' => $signature ?? $this->calendlySignature($body),
@@ -73,7 +76,7 @@ class CalendlyWebhookTest extends TestCase
     }
 
     #[Test]
-    public function a_cancellation_in_calendly_cancels_the_appointment(): void
+    public function a_cancellation_in_calendly_removes_the_appointment(): void
     {
         $this->connectCalendly($this->host);
         $event = $this->calendlyEvent('EV1', now()->addDays(3));
@@ -86,7 +89,9 @@ class CalendlyWebhookTest extends TestCase
             array_merge($invitee, ['status' => 'canceled', 'cancellation' => ['canceled_by' => 'Jane', 'reason' => 'Conflict']])
         ))->assertOk();
 
-        $this->assertSame(Appointment::STATUS_CANCELLED, Appointment::sole()->status);
+        // Off the calendar (product owner, 2026-11-16); kept in the trash as cancelled.
+        $this->assertSame(0, Appointment::count());
+        $this->assertSame(Appointment::STATUS_CANCELLED, Appointment::onlyTrashed()->sole()->status);
     }
 
     #[Test]
@@ -103,15 +108,46 @@ class CalendlyWebhookTest extends TestCase
     }
 
     #[Test]
-    public function an_event_we_do_not_handle_or_one_with_no_account_connected_is_acknowledged_and_ignored(): void
+    public function an_event_we_do_not_handle_is_acknowledged_and_ignored(): void
     {
+        $this->connectCalendly($this->host);
         $event = $this->calendlyEvent('EV1', now()->addDays(3));
         $invitee = $this->calendlyInvitee($event, $this->borrowerUser->email, 'Jane');
 
-        $this->deliver($this->calendlyWebhook('invitee.created', $event, $invitee))->assertOk();
-
-        $this->connectCalendly($this->host);
         $this->deliver($this->calendlyWebhook('routing_form_submission.created', $event, $invitee))->assertOk();
+
+        $this->assertSame(0, Appointment::count());
+    }
+
+    #[Test]
+    public function a_delivery_for_a_connection_that_does_not_exist_is_refused(): void
+    {
+        $event = $this->calendlyEvent('EV1', now()->addDays(3));
+
+        $this->deliver($this->calendlyWebhook('invitee.created', $event, $this->calendlyInvitee($event, $this->borrowerUser->email, 'Jane')), null, 999)
+            ->assertUnauthorized();
+
+        $this->assertSame(0, Appointment::count());
+    }
+
+    /**
+     * Each connection's webhook is checked with its own signing key: a
+     * delivery signed with one partner's key is refused at another's address.
+     */
+    #[Test]
+    public function a_delivery_signed_with_another_connections_key_is_refused(): void
+    {
+        $hostConnection = $this->connectCalendly($this->host);
+        $partnerAdmin = $this->makePartnerAdmin($this->makeCertifiedPartner());
+        $this->connectCalendly($partnerAdmin, [
+            'calendly_user_uri' => "{$this->calendlyApi}/users/PARTNERUSER",
+            'webhook_signing_key' => 'partner-signing-key',
+        ]);
+        $event = $this->calendlyEvent('EV1', now()->addDays(3));
+        $payload = $this->calendlyWebhook('invitee.created', $event, $this->calendlyInvitee($event, $this->borrowerUser->email, 'Jane'));
+
+        $this->deliver($payload, $this->calendlySignature(json_encode($payload), key: 'partner-signing-key'), $hostConnection->id)
+            ->assertUnauthorized();
 
         $this->assertSame(0, Appointment::count());
     }

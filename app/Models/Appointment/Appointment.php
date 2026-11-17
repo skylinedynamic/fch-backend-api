@@ -27,6 +27,7 @@ class Appointment extends Model
         'source',
         'microsoft_event_id',
         'calendly_event_uri',
+        'calendly_connection_id',
         'calendly_invitee_uri',
         'calendly_event_type_uri',
         'scheduled_by',

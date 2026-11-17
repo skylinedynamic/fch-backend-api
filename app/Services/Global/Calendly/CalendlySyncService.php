@@ -14,14 +14,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * The company Calendly account's meetings, mirrored as appointments.
+ * One owner's Calendly meetings (host, partner or borrower), mirrored as
+ * appointments.
  *
- * One appointment per Calendly meeting (calendly_event_uri), scheduled by the
- * host who connected the account and with the FCH user whose email booked it -
- * so a borrower's or partner's Calendly meeting shows on their calendar as
- * well as the host's. Seen again (a webhook, a sync), the meeting's time,
+ * One appointment per Calendly meeting (calendly_event_uri), recording the
+ * connection it came from, scheduled by the user who connected it and with
+ * the FCH user (of the same partner) whose email booked it - so the meeting
+ * shows on both their calendars. Seen again (a webhook, a sync), the meeting's time,
  * status and links are brought up to date; what FCH set on it - subject,
- * description, meeting type - is kept. A meeting deleted in FCH stays deleted.
+ * description, meeting type - is kept. A meeting cancelled in Calendly (or
+ * gone from it) is removed from FCH; one deleted in FCH but still on in
+ * Calendly is brought back. Each sync also re-checks every Calendly
+ * appointment outside its window.
  */
 class CalendlySyncService
 {
@@ -45,14 +49,15 @@ class CalendlySyncService
      * Brings in every meeting of the connected account starting between $from
      * and $to. Returns how many were brought in or brought up to date.
      */
-    public function syncRange(CarbonInterface $from, CarbonInterface $to): int
+    public function syncRange(CalendlyConnection $connection, CarbonInterface $from, CarbonInterface $to): int
     {
-        $connection = $this->client->connection();
+        $client = $this->client->forConnection($connection);
+        $client->connection();
         $count = 0;
         $pageToken = null;
 
         do {
-            $page = $this->client->get('scheduled_events', array_filter([
+            $page = $client->get('scheduled_events', array_filter([
                 'user' => $connection->calendly_user_uri,
                 'min_start_time' => $from->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
                 'max_start_time' => $to->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -62,7 +67,8 @@ class CalendlySyncService
             ]));
 
             foreach ($page['collection'] ?? [] as $event) {
-                if ($this->upsert($event, $this->inviteeOf($event))) {
+                $seen[] = $event['uri'];
+                if ($this->upsert($connection, $event, $this->inviteeOf($client, $event))) {
                     $count++;
                 }
             }
@@ -70,13 +76,62 @@ class CalendlySyncService
             $pageToken = $page['pagination']['next_page_token'] ?? null;
         } while ($pageToken);
 
+        $count += $this->recheckOutside($connection, $client, $seen ?? []);
+
         $connection->update(['last_synced_at' => now()]);
 
         return $count;
     }
 
+    /**
+     * Every Calendly appointment still on the FCH calendar that the window did
+     * not cover, asked about one by one: a cancel or a move of an older or
+     * far-off meeting is picked up, and one Calendly no longer has is removed.
+     */
+    private function recheckOutside(CalendlyConnection $connection, CalendlyClient $client, array $seenUris): int
+    {
+        $count = 0;
+        $appointments = Appointment::where('calendly_connection_id', $connection->id)
+            ->whereNotNull('calendly_event_uri')
+            ->whereNotIn('calendly_event_uri', $seenUris)
+            ->get();
+
+        foreach ($appointments as $appointment) {
+            try {
+                $event = $client->get($appointment->calendly_event_uri)['resource'] ?? null;
+            } catch (CalendlyException $e) {
+                if ($e->calendlyStatus() !== 404) {
+                    throw $e;
+                }
+                $event = null;
+            }
+
+            if (! $event) {
+                $this->removeCancelled($appointment, ['status' => Appointment::STATUS_CANCELLED]);
+                $count++;
+
+                continue;
+            }
+
+            if ($this->upsert($connection, $event, $this->inviteeOf($client, $event))) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /** Off the calendar: kept in the trash with Calendly's latest details, as cancelled. */
+    private function removeCancelled(Appointment $appointment, array $updates): Appointment
+    {
+        $appointment->update($updates);
+        $appointment->delete();
+
+        return $appointment;
+    }
+
     /** A webhook delivery (already verified): a meeting booked or cancelled. */
-    public function handleWebhook(array $delivery): ?Appointment
+    public function handleWebhook(CalendlyConnection $connection, array $delivery): ?Appointment
     {
         if (! in_array($delivery['event'] ?? null, self::WEBHOOK_EVENTS, true)) {
             return null;
@@ -94,7 +149,7 @@ class CalendlySyncService
             $invitee['status'] = 'canceled';
         }
 
-        $appointment = $this->upsert($event, $invitee);
+        $appointment = $this->upsert($connection, $event, $invitee);
 
         if ($appointment && $delivery['event'] === self::EVENT_CANCELED && ! empty($invitee['rescheduled'])) {
             $appointment->update(['remarks' => __('calendly.rescheduled_remark')]);
@@ -107,19 +162,29 @@ class CalendlySyncService
      * The appointment for this Calendly meeting, created or brought up to
      * date; null when the meeting is not the connected account's.
      */
-    public function upsert(array $event, ?array $invitee): ?Appointment
+    public function upsert(CalendlyConnection $connection, array $event, ?array $invitee): ?Appointment
     {
-        $connection = CalendlyConnection::current();
-
-        if (! $connection || empty($event['uri']) || ! $this->isConnectionsEvent($event, $connection)) {
+        if (empty($event['uri']) || ! $this->isConnectionsEvent($event, $connection)) {
             return null;
         }
 
-        $attributes = CalendlyEventMapper::attributes($event, $invitee, $connection->timezone ?: 'UTC');
+        $attributes = CalendlyEventMapper::attributes($event, $invitee, $connection->timezone ?: 'UTC')
+            + ['calendly_connection_id' => $connection->id];
         $existing = Appointment::withTrashed()->where('calendly_event_uri', $event['uri'])->first();
 
+        $cancelled = $attributes['status'] === Appointment::STATUS_CANCELLED;
+
         if ($existing?->trashed()) {
-            return $existing;
+            // Deleted in FCH but still on in Calendly: it is still happening, so bring it back.
+            if ($cancelled) {
+                return $existing;
+            }
+            $existing->restore();
+        }
+
+        // Cancelled in Calendly: off the FCH calendar too; never added when first seen cancelled.
+        if ($cancelled) {
+            return $existing ? $this->removeCancelled($existing, Arr::except($attributes, ['subject'])) : null;
         }
 
         $attendee = $this->attendee($attributes['invitee_email'], $connection);
@@ -166,9 +231,9 @@ class CalendlySyncService
     }
 
     /** The meeting's active invitee (one-on-one events have one), else its first. */
-    private function inviteeOf(array $event): ?array
+    private function inviteeOf(CalendlyClient $client, array $event): ?array
     {
-        $invitees = $this->client->get($event['uri'].'/invitees', ['count' => self::PAGE_SIZE])['collection'] ?? [];
+        $invitees = $client->get($event['uri'].'/invitees', ['count' => self::PAGE_SIZE])['collection'] ?? [];
 
         return collect($invitees)->firstWhere('status', 'active') ?? ($invitees[0] ?? null);
     }
@@ -181,7 +246,12 @@ class CalendlySyncService
         return $members->isEmpty() || $members->contains($connection->calendly_user_uri);
     }
 
-    /** The FCH user who booked: matched on email, never the host themselves. */
+    /**
+     * The FCH user who booked: matched on email, never the connection's own
+     * user - and only within the connection's partner (a partner's or a
+     * borrower's Calendly is never tied to another tenant's user). The host's
+     * own Calendly may meet anyone, as the host does.
+     */
     private function attendee(?string $email, CalendlyConnection $connection): ?User
     {
         if (! $email) {
@@ -190,6 +260,7 @@ class CalendlySyncService
 
         return User::whereRaw('LOWER(email) = ?', [Str::lower($email)])
             ->whereKeyNot($connection->connected_by)
+            ->when(! $connection->isHosts(), fn ($q) => $q->where('partner_id', $connection->partner_id))
             ->first();
     }
 
@@ -212,7 +283,8 @@ class CalendlySyncService
             return [];
         }
 
-        $previous = Appointment::where('calendly_invitee_uri', $oldInviteeUri)->first();
+        // Removed already when Calendly reported the old meeting cancelled first.
+        $previous = Appointment::withTrashed()->where('calendly_invitee_uri', $oldInviteeUri)->first();
 
         return $previous ? array_filter($previous->only(self::FCH_FIELDS), fn ($value) => $value !== null) : [];
     }

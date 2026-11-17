@@ -59,6 +59,37 @@ class SyncCalendlyEventsCommandTest extends TestCase
         Http::assertNothingSent();
     }
 
+    /**
+     * Each owner's Calendly is synced with its own token: the host's and a
+     * partner's both come in, and one failing does not stop the other.
+     */
+    #[Test]
+    public function every_connection_is_synced_and_one_failing_does_not_stop_the_others(): void
+    {
+        $host = $this->makePartnerAdmin($this->makeHostPartner());
+        $this->connectCalendly($host, ['access_token' => 'host-token']);
+        $partnerUserUri = "{$this->calendlyApi}/users/PARTNERUSER";
+        $this->connectCalendly($this->makePartnerAdmin($this->makeCertifiedPartner()), [
+            'calendly_user_uri' => $partnerUserUri,
+            'access_token' => 'partner-token',
+        ]);
+        $event = $this->calendlyEvent('EVP', now()->addDays(2), ['event_memberships' => [['user' => $partnerUserUri]]]);
+        Http::fake(function ($request) use ($event) {
+            if ($request->hasHeader('Authorization', 'Bearer host-token')) {
+                return Http::response(['message' => 'Down'], 500);
+            }
+            if (str_contains($request->url(), '/invitees')) {
+                return Http::response(['collection' => [$this->calendlyInvitee($event, 'someone@example.test', 'Some One')]]);
+            }
+
+            return Http::response(['collection' => [$event], 'pagination' => ['next_page_token' => null]]);
+        });
+
+        $this->artisan('calendly:sync')->assertFailed();
+
+        $this->assertSame(1, Appointment::where('calendly_event_uri', $event['uri'])->count());
+    }
+
     #[Test]
     public function a_calendly_failure_fails_the_run_so_the_schedule_reports_it(): void
     {

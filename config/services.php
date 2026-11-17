@@ -55,16 +55,16 @@ return [
     ],
 
     /*
-     * The company's one Calendly account, connected over OAuth 2.0 by a member
-     * of the host's team. CALENDLY_REDIRECT_URI must be registered on the
-     * Calendly OAuth app exactly as written; it defaults to this API's
-     * /api/v1/calendly/callback. Webhooks are delivered to CALENDLY_WEBHOOK_URL
-     * (default /api/v1/calendly/webhook) and signed with the signing key.
+     * Calendly. The OAuth app keys are not here: each partner (host, WLP,
+     * certified) saves its own Client ID, Client Secret and Webhook Signing Key
+     * in Settings > Calendly (calendly_connections), editable by that partner
+     * account or the host account. CALENDLY_REDIRECT_URI must be registered on
+     * each partner's Calendly app exactly as written; it defaults to this API's
+     * /api/v1/calendly/callback. Each connection's webhooks go to
+     * {CALENDLY_WEBHOOK_URL}/{id} (default /api/v1/calendly/webhook/{id}),
+     * signed with that partner's signing key.
      */
     'calendly' => [
-        'client_id' => env('CALENDLY_CLIENT_ID'),
-        'client_secret' => env('CALENDLY_CLIENT_SECRET'),
-        'webhook_signing_key' => env('CALENDLY_WEBHOOK_SIGNING_KEY'),
         'redirect_uri' => env('CALENDLY_REDIRECT_URI'),
         'webhook_url' => env('CALENDLY_WEBHOOK_URL'),
         'auth_url' => env('CALENDLY_AUTH_URL', 'https://auth.calendly.com'),
@@ -73,7 +73,7 @@ return [
         // the OAuth app in Calendly's developer console. Each :read is asked
         // for as well as its :write - a token with only scheduled_events:write
         // was refused GET /scheduled_events ("Insufficient scope").
-        'scopes' => env('CALENDLY_SCOPES', 'users:read event_types:read availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write'),
+        'scopes' => env('CALENDLY_SCOPES', 'users:read event_types:read event_types:write availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write'),
     ],
 
     'microbilt' => [

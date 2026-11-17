@@ -27,10 +27,8 @@ trait FakesCalendly
 
     protected function configureCalendly(): void
     {
+        // The app keys are per partner (Settings > Calendly), not config.
         config([
-            'services.calendly.client_id' => 'test-client-id',
-            'services.calendly.client_secret' => 'test-client-secret',
-            'services.calendly.webhook_signing_key' => $this->calendlySigningKey,
             'services.calendly.redirect_uri' => 'https://api.example.test/api/v1/calendly/callback',
             'services.calendly.webhook_url' => 'https://api.example.test/api/v1/calendly/webhook',
             'services.calendly.auth_url' => $this->calendlyAuth,
@@ -39,10 +37,25 @@ trait FakesCalendly
         ]);
     }
 
-    protected function connectCalendly(User $host, array $attributes = []): CalendlyConnection
+    /** $account's partner's Calendly app keys saved in Settings > Calendly, not signed in yet. */
+    protected function saveCalendlyKeys(User $account, array $keys = []): void
+    {
+        $this->actingAsUser($account);
+        $this->postJson('/api/v1/common/calendly/settings', $keys + [
+            'client_id' => 'test-client-id',
+            'client_secret' => 'test-client-secret',
+        ])->assertOk();
+    }
+
+    /** The Calendly of $member's partner (host, WLP, certified), signed in by $member. */
+    protected function connectCalendly(User $member, array $attributes = []): CalendlyConnection
     {
         return CalendlyConnection::create(array_merge([
-            'connected_by' => $host->id,
+            'partner_id' => $member->partner_id,
+            'client_id' => 'test-client-id',
+            'client_secret' => 'test-client-secret',
+            'webhook_signing_key' => $this->calendlySigningKey,
+            'connected_by' => $member->id,
             'calendly_user_uri' => $this->calendlyUserUri,
             'calendly_organization_uri' => $this->calendlyOrgUri,
             'name' => 'Host Calendly',

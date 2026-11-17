@@ -10,13 +10,15 @@ use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 /**
- * Calendly API v2, acting as the connected company account.
+ * Calendly API v2, acting as one partner's connected account - bind it first
+ * with forConnection().
  *
- * The access token lasts about two hours; it is refreshed shortly before it
- * runs out, or once when Calendly answers 401. Calendly's refresh tokens are
- * single-use, so refreshing is done under a lock and re-reads the connection
- * first - two requests never spend the same refresh token. The token is only
- * ever sent to the configured Calendly API host.
+ * The access token lasts about two hours; it is refreshed (with the partner's own OAuth
+ * app keys) shortly before it runs out, or once when
+ * Calendly answers 401. Calendly's refresh tokens are single-use, so
+ * refreshing is done under a lock and re-reads the connection first - two
+ * requests never spend the same refresh token. The token is only ever sent to
+ * the configured Calendly API host.
  */
 class CalendlyClient
 {
@@ -24,12 +26,23 @@ class CalendlyClient
 
     private const TIMEOUT_SECONDS = 20;
 
-    /** The connected account; refused when there is none, or it needs connecting again. */
+    private ?CalendlyConnection $bound = null;
+
+    /** A client acting as this connection's account. */
+    public function forConnection(?CalendlyConnection $connection): static
+    {
+        $client = clone $this;
+        $client->bound = $connection;
+
+        return $client;
+    }
+
+    /** The bound account; refused when there is none, or it is not (or no longer) signed in. */
     public function connection(): CalendlyConnection
     {
-        $connection = CalendlyConnection::current();
+        $connection = $this->bound;
 
-        if (! $connection) {
+        if (! $connection || (! $connection->isActive() && $connection->status !== CalendlyConnection::STATUS_RECONNECT)) {
             throw CalendlyException::notConnected();
         }
 
@@ -108,6 +121,8 @@ class CalendlyClient
                 'path' => parse_url($url, PHP_URL_PATH),
                 'status' => $response->status(),
                 'title' => $response->json('title'),
+                // Which fields Calendly refused - names only, never the values sent.
+                'refused_parameters' => collect($response->json('details') ?? [])->pluck('parameter')->filter()->values()->all() ?: null,
                 // Names the missing scopes on a 403 "Insufficient scope".
                 'required_scopes' => $response->json('details.required_scopes') ?? $response->json('required_scopes'),
             ]);
@@ -149,8 +164,8 @@ class CalendlyClient
             ->post(rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/token', [
                 'grant_type' => 'refresh_token',
                 'refresh_token' => $connection->refresh_token,
-                'client_id' => config('services.calendly.client_id'),
-                'client_secret' => config('services.calendly.client_secret'),
+                'client_id' => $connection->client_id,
+                'client_secret' => $connection->client_secret,
             ]);
 
         if ($response->failed()) {

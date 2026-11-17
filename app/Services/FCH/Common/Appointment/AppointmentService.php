@@ -289,13 +289,15 @@ class AppointmentService
             return;
         }
 
-        if (!CalendlyConnection::current()?->isActive()) {
-            Log::warning('[CALENDLY] Cancelled in FCH only - Calendly is not connected', ['appointment_id' => $appointment->id]);
+        // The Calendly it came from (its owner's own) - not the caller's.
+        $connection = CalendlyConnection::find($appointment->calendly_connection_id);
+        if (!$connection?->isActive()) {
+            Log::warning('[CALENDLY] Cancelled in FCH only - its Calendly is not connected', ['appointment_id' => $appointment->id]);
 
             return;
         }
 
-        $this->calendlyClient->post($appointment->calendly_event_uri . '/cancellation', [
+        $this->calendlyClient->forConnection($connection)->post($appointment->calendly_event_uri . '/cancellation', [
             'reason' => __('calendly.cancel_reason'),
         ]);
     }

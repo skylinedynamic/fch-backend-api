@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\Calendly\BookCalendlyAppointmentRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Calendly\CalendlyAvailableTimesRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Calendly\StoreCalendlySettingsRequest;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\FCH\Common\Calendly\CalendlyService;
 use App\Services\Global\Calendly\CalendlyException;
@@ -19,7 +20,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * The company Calendly account: its status, connecting it (OAuth), event
+ * A partner's Calendly: its status and settings (own app keys), connecting it (OAuth), event
  * types, open slots and booking - and the webhook Calendly calls.
  */
 class CalendlyController extends Controller
@@ -31,9 +32,27 @@ class CalendlyController extends Controller
         return $this->respond(fn () => ApiResponse::success($this->calendlyService->status($request->user()), __('calendly.status_retrieved')));
     }
 
-    public function connectUrl(Request $request): JsonResponse
+    /** Settings > Calendly: the partner's saved app keys in full (for its own account or the host) and its connection. */
+    public function settings(Request $request): JsonResponse
     {
-        return $this->respond(fn () => ApiResponse::success(['url' => $this->calendlyService->connectUrl($request->user())], __('calendly.connect_url')));
+        return $this->respond(fn () => ApiResponse::success(
+            $this->calendlyService->settings($request->user(), $this->partnerId($request)),
+            __('calendly.settings_retrieved'),
+        ));
+    }
+
+    public function saveSettings(StoreCalendlySettingsRequest $request): JsonResponse
+    {
+        return $this->respond(fn () => ApiResponse::success(
+            $this->calendlyService->saveSettings($request->user(), $this->partnerId($request), $request->validated()),
+            __('calendly.settings_saved'),
+        ));
+    }
+
+    /** Connect Calendly: the sign-in link, with the partner's own saved app keys. */
+    public function connect(Request $request): JsonResponse
+    {
+        return $this->respond(fn () => ApiResponse::success(['url' => $this->calendlyService->connect($request->user(), $this->partnerId($request))], __('calendly.connect_url')));
     }
 
     /** Calendly sends the browser back here after the account owner allows (or declines) access. */
@@ -46,23 +65,29 @@ class CalendlyController extends Controller
         ));
     }
 
-    public function disconnect(): JsonResponse
+    public function disconnect(Request $request): JsonResponse
     {
-        return $this->respond(function () {
-            $this->calendlyService->disconnect();
+        return $this->respond(function () use ($request) {
+            $this->calendlyService->disconnect($request->user(), $this->partnerId($request));
 
             return ApiResponse::success(null, __('calendly.disconnected'));
         });
     }
 
-    public function sync(): JsonResponse
+    public function sync(Request $request): JsonResponse
     {
-        return $this->respond(fn () => ApiResponse::success(['synced' => $this->calendlyService->syncNow()], __('calendly.synced')));
+        return $this->respond(fn () => ApiResponse::success(['synced' => $this->calendlyService->syncNow($request->user(), $this->partnerId($request))], __('calendly.synced')));
     }
 
-    public function eventTypes(): JsonResponse
+    /** The partner the host account acts for (Partners > partner > Configuration); none = the caller's own. */
+    private function partnerId(Request $request): ?int
     {
-        return $this->respond(fn () => ApiResponse::success($this->calendlyService->eventTypes(), __('calendly.event_types_retrieved')));
+        return $request->integer('partner_id') ?: null;
+    }
+
+    public function eventTypes(Request $request): JsonResponse
+    {
+        return $this->respond(fn () => ApiResponse::success($this->calendlyService->eventTypes($request->user()), __('calendly.event_types_retrieved')));
     }
 
     public function availableTimes(CalendlyAvailableTimesRequest $request): JsonResponse
@@ -81,11 +106,11 @@ class CalendlyController extends Controller
         ));
     }
 
-    /** Calendly's signed webhook: a booking or a cancellation on the company account. */
-    public function webhook(Request $request): JsonResponse
+    /** Calendly's signed webhook for one connection: a booking or a cancellation on that owner's Calendly. */
+    public function webhook(Request $request, string $connection): JsonResponse
     {
         try {
-            if (! $this->calendlyService->handleWebhook($request->getContent(), $request->header(CalendlyWebhookSignature::HEADER))) {
+            if (! $this->calendlyService->handleWebhook($connection, $request->getContent(), $request->header(CalendlyWebhookSignature::HEADER))) {
                 return ApiResponse::unauthorized(__('calendly.webhook_invalid_signature'));
             }
 

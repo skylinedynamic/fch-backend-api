@@ -38,6 +38,16 @@ class CalendlyException extends RuntimeException
         return new self(__('calendly.not_connected'), 422);
     }
 
+    public static function notConfigured(): self
+    {
+        return new self(__('calendly.not_configured'), 422);
+    }
+
+    public static function accountInUse(): self
+    {
+        return new self(__('calendly.account_in_use'), 422);
+    }
+
     public static function needsReconnect(): self
     {
         return new self(__('calendly.needs_reconnect'), 422);
@@ -65,7 +75,9 @@ class CalendlyException extends RuntimeException
             return new self(__('calendly.unavailable'), 502, $status);
         }
 
-        $message = $response->json('message') ?: $response->json('title') ?: __('calendly.refused');
+        // Calendly's `message` on a 400 is only "The supplied parameters are
+        // invalid."; which field and why is in `details`.
+        $message = $response->json('details.0.message') ?: $response->json('message') ?: $response->json('title') ?: __('calendly.refused');
 
         return new self((string) $message, 422, $status);
     }

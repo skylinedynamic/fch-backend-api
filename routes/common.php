@@ -159,7 +159,8 @@ Route::prefix('v1')->group(function () {
     // and the webhook (its signature proves it).
     Route::prefix('calendly')->group(function () {
         Route::get('callback', [CalendlyController::class, 'callback'])->middleware('throttle:20,1');
-        Route::post('webhook', [CalendlyController::class, 'webhook'])->middleware('throttle:300,1');
+        // One address per connection, checked with that connection's own signing key.
+        Route::post('webhook/{connection}', [CalendlyController::class, 'webhook'])->whereNumber('connection')->middleware('throttle:300,1');
     });
 
     Route::middleware('auth:api')->group(function () {
@@ -391,20 +392,19 @@ Route::prefix('v1')->group(function () {
             Route::post('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
             Route::apiResource('appointments', AppointmentController::class);
 
-            // The company Calendly account: both portals see whether it is on
-            // and book into it; only the host's team connects, syncs or
-            // disconnects it.
+            // The caller's partner's Calendly (host, WLP, certified): both portals
+            // see it and book with it; the partner's team connects (one click,
+            // FCH's Calendly app), syncs and disconnects it - checked in the service.
             Route::prefix('calendly')->group(function () {
                 Route::get('status', [CalendlyController::class, 'status']);
+                Route::get('settings', [CalendlyController::class, 'settings']);
+                Route::post('settings', [CalendlyController::class, 'saveSettings'])->middleware('throttle:20,1');
                 Route::get('event-types', [CalendlyController::class, 'eventTypes']);
                 Route::post('available-times', [CalendlyController::class, 'availableTimes']);
                 Route::post('book', [CalendlyController::class, 'book'])->middleware('throttle:20,1');
-
-                Route::middleware('host-partner')->group(function () {
-                    Route::get('connect-url', [CalendlyController::class, 'connectUrl']);
-                    Route::post('sync', [CalendlyController::class, 'sync'])->middleware('throttle:6,1');
-                    Route::delete('connection', [CalendlyController::class, 'disconnect']);
-                });
+                Route::post('connect', [CalendlyController::class, 'connect'])->middleware('throttle:10,1');
+                Route::post('sync', [CalendlyController::class, 'sync'])->middleware('throttle:6,1');
+                Route::delete('connection', [CalendlyController::class, 'disconnect']);
             });
 
             // Contact routes

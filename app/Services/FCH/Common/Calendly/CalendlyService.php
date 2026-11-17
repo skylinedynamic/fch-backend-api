@@ -2,18 +2,20 @@
 
 namespace App\Services\FCH\Common\Calendly;
 
-use App\Http\Middleware\EnsureHostPartner;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Calendly\CalendlyConnection;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\Appointment\AppointmentService;
+use App\Services\FCH\Common\Notification\Sms\SmsRecipient;
 use App\Services\Global\Calendly\CalendlyClient;
 use App\Services\Global\Calendly\CalendlyException;
 use App\Services\Global\Calendly\CalendlyOAuthService;
 use App\Services\Global\Calendly\CalendlySyncService;
 use App\Services\Global\Calendly\CalendlyWebhookSignature;
+use App\Services\Global\Common\PortalUrlResolver;
 use App\Support\Appointment\AppointmentTime;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -23,17 +25,35 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * The company Calendly account as the portals use it: whether it is on, who
- * may manage it, its event types and open slots, and booking into it.
- *
- * A booking is always with the host who connected the account. When the host
- * books, the invitee is the person they pick; when anyone else books, the
- * invitee is them - and only if the host is someone they may book with (the
- * appointment rule, O20).
+ * Calendly as the portals use it - one per partner: the host's, each WLP's,
+ * each certified partner's, connected with one click through FCH's Calendly
+ * OAuth app. The partner's team connects, syncs and disconnects it, and books
+ * into it inviting the person they pick (O20); the partner's borrowers book
+ * with it - the borrower is the invitee, the meeting is with the partner.
  */
 class CalendlyService
 {
     private const EVENT_TYPES_CACHE_SECONDS = 300;
+
+    /**
+     * Location kinds where the invitee says where to meet - for a phone call
+     * the host makes, their number. Calendly refuses such a booking without it.
+     */
+    private const INVITEE_LOCATION_KINDS = ['outbound_call', 'ask_invitee'];
+
+    /** How each Calendly location kind reads to the person booking. */
+    private const LOCATION_LABELS = [
+        'zoom_conference' => 'Zoom',
+        'google_conference' => 'Google Meet',
+        'microsoft_teams_conference' => 'Microsoft Teams',
+        'webex_conference' => 'Webex',
+        'gotomeeting_conference' => 'GoTo Meeting',
+        'outbound_call' => 'Phone call (we call you)',
+        'inbound_call' => 'Phone call (you call us)',
+        'physical' => 'In person',
+        'ask_invitee' => 'Invitee chooses the place',
+        'custom' => 'Custom',
+    ];
 
     private const SYNC_DAYS_BACK = 7;
 
@@ -52,79 +72,168 @@ class CalendlyService
         private readonly CalendlySyncService $sync,
         private readonly AppointmentService $appointmentService,
         private readonly ActivityLogService $activityLogService,
+        private readonly PortalUrlResolver $portalUrls,
     ) {}
 
+    /** The login's partner's Calendly: whether it is on, and what this login may do with it. */
     public function status(User $user): array
     {
-        $connection = CalendlyConnection::current();
-        $canManage = EnsureHostPartner::allows($user);
-        $connected = $connection?->isActive() ?? false;
+        $connection = CalendlyConnection::forUser($user);
+        $connected = (bool) $connection?->isActive();
+        $isTeam = $this->isPartnerTeam($user);
 
-        $status = [
+        return [
+            // The partner's own Calendly app keys are saved (Settings > Calendly).
+            'configured' => (bool) $connection?->hasKeys(),
             'connected' => $connected,
-            'needs_reconnect' => $connection !== null && ! $connected,
-            'can_manage' => $canManage,
-            'is_host' => $connection !== null && (int) $connection->connected_by === (int) $user->id,
-            'can_book' => $connected && $this->mayBookWithHost($user, $connection),
+            'needs_reconnect' => $connection?->status === CalendlyConnection::STATUS_RECONNECT,
+            // Only the partner's own account (host, WLP, certified) configures it - in
+            // Settings > Calendly; its staff may sync it; borrowers do neither.
+            'can_manage' => CalendlyConnection::isPartnerAccount($user),
+            'can_sync' => $connected && $isTeam,
+            // The team books *for* someone it picks; a borrower is the invitee themselves.
+            'is_host' => $connected && $isTeam,
+            'can_book' => $connected,
             'name' => $connection?->name,
+            'email' => $isTeam ? $connection?->email : null,
             'scheduling_url' => $connection?->scheduling_url,
+            'connected_by' => $connected && $isTeam ? $connection->connectedBy?->name : null,
+            'webhooks_active' => $isTeam && (bool) $connection?->webhook_subscription_uri,
+            'last_synced_at' => $isTeam ? $connection?->last_synced_at?->toIso8601String() : null,
         ];
-
-        if ($canManage) {
-            $status += [
-                'email' => $connection?->email,
-                'connected_by' => $connection?->connectedBy?->name,
-                'webhooks_active' => (bool) $connection?->webhook_subscription_uri,
-                'last_synced_at' => $connection?->last_synced_at?->toIso8601String(),
-            ];
-        }
-
-        return $status;
-    }
-
-    public function connectUrl(User $user): string
-    {
-        return $this->oauth->authorizeUrl($user);
     }
 
     /**
-     * The browser coming back from Calendly. Returns where to send it: the
-     * portal's appointments page, saying whether it worked.
+     * Settings > Calendly for a partner - the caller's own, or (the host
+     * account) the one named: its saved app keys in full - Client ID, Client
+     * Secret and Webhook Signing Key, so the partner account or the host can
+     * see and change them - what to enter on its Calendly app, and its
+     * connection. Only those two accounts get here (managedPartnerId).
+     */
+    public function settings(User $user, ?int $partnerId = null): array
+    {
+        $partnerId = $this->managedPartnerId($user, $partnerId);
+        $connection = CalendlyConnection::where('partner_id', $partnerId)->first();
+        $connected = (bool) $connection?->isActive();
+
+        return [
+            'partner_id' => $partnerId,
+            'client_id' => $connection?->client_id,
+            'client_secret' => $connection?->client_secret,
+            'webhook_signing_key' => $connection?->webhook_signing_key,
+            'has_client_secret' => filled($connection?->client_secret),
+            'has_webhook_signing_key' => filled($connection?->webhook_signing_key),
+            'configured' => (bool) $connection?->hasKeys(),
+            'connected' => $connected,
+            'needs_reconnect' => $connection?->status === CalendlyConnection::STATUS_RECONNECT,
+            'name' => $connection?->name,
+            'email' => $connection?->email,
+            'connected_by' => $connected ? $connection->connectedBy?->name : null,
+            'webhooks_active' => (bool) $connection?->webhook_subscription_uri,
+            'last_synced_at' => $connection?->last_synced_at?->toIso8601String(),
+            'redirect_uri' => $this->oauth->redirectUri(),
+            'scopes' => array_values(array_filter(explode(' ', (string) config('services.calendly.scopes')))),
+        ];
+    }
+
+    /**
+     * Saves a partner's Calendly app keys. A blank secret or signing key keeps
+     * the stored one; a different Client ID is another app, so the sign-in
+     * made with the old one is ended first. A new signing key while connected
+     * re-registers the webhook, so Calendly signs with the key now saved.
+     */
+    public function saveSettings(User $user, ?int $partnerId, array $keys): array
+    {
+        $partnerId = $this->managedPartnerId($user, $partnerId);
+        $connection = CalendlyConnection::firstOrNew(['partner_id' => $partnerId]);
+
+        $secret = trim((string) ($keys['client_secret'] ?? ''));
+        if ($secret === '' && blank($connection->client_secret)) {
+            throw ValidationException::withMessages(['client_secret' => __('calendly.client_secret_required')]);
+        }
+
+        if ($connection->exists && filled($connection->client_id) && $connection->client_id !== $keys['client_id'] && $connection->isActive()) {
+            $this->oauth->disconnect($connection);
+            $connection->refresh();
+        }
+
+        $connection->client_id = $keys['client_id'];
+        if ($secret !== '') {
+            $connection->client_secret = $secret;
+        }
+        $signingKey = trim((string) ($keys['webhook_signing_key'] ?? ''));
+        $signingKeyChanged = $signingKey !== '' && $signingKey !== (string) $connection->webhook_signing_key;
+        if ($signingKeyChanged) {
+            $connection->webhook_signing_key = $signingKey;
+        }
+        $connection->connected_by ??= $user->id;
+        $connection->status ??= CalendlyConnection::STATUS_PENDING;
+        $connection->save();
+        Cache::forget($this->eventTypesCacheKey($connection));
+
+        if ($signingKeyChanged && $connection->isActive()) {
+            $this->oauth->resubscribeWebhooks($connection);
+        }
+
+        return $this->settings($user, $partnerId);
+    }
+
+    /** The Calendly sign-in link for a partner, with its own saved app keys. */
+    public function connect(User $user, ?int $partnerId = null): string
+    {
+        $partnerId = $this->managedPartnerId($user, $partnerId);
+        $connection = CalendlyConnection::where('partner_id', $partnerId)->first();
+
+        if (! $connection?->hasKeys()) {
+            throw ValidationException::withMessages(['client_id' => __('calendly.keys_required')]);
+        }
+
+        $this->oauth->ensureSigningKey($connection);
+        Cache::forget($this->eventTypesCacheKey($connection));
+
+        return $this->oauth->authorizeUrl($user, $connection);
+    }
+
+    /**
+     * The browser coming back from Calendly. Returns where to send it: Settings
+     * > Calendly for the account's own, the partner's profile for the host
+     * connecting it on a partner's behalf - saying whether it worked.
      */
     public function handleCallback(?string $code, ?string $state, ?string $error): string
     {
-        $portal = rtrim((string) config('app.frontend_partner_url'), '/');
-        // An address without its scheme (localhost:5174) would be read as a path on the API.
-        if (! preg_match('#^https?://#i', $portal)) {
-            $portal = 'http://'.$portal;
-        }
-        $base = $portal.'/appointments?calendly=';
-        $user = $this->oauth->consumeState($state);
+        $issued = $this->oauth->consumeState($state);
 
-        if (! $user || $error || ! $code || ! EnsureHostPartner::allows($user)) {
-            return $base.'error';
+        if (! $issued) {
+            return $this->backToPortal(null, null, 'error');
         }
 
-        try {
-            $this->oauth->connect($user, $code);
-        } catch (Throwable $e) {
-            Log::warning('[CALENDLY] Connecting failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+        [$user, $connection] = $issued;
 
-            return $base.'error';
+        if ($error || ! $code) {
+            return $this->backToPortal($user, $connection, 'error');
         }
 
         try {
-            $this->syncNow();
+            $connection = $this->oauth->connect($user, $connection, $code);
         } catch (Throwable $e) {
-            Log::warning('[CALENDLY] First sync failed', ['error' => $e->getMessage()]);
+            Log::warning('[CALENDLY] Connecting failed', ['user_id' => $user->id, 'connection_id' => $connection->id, 'error' => $e->getMessage()]);
+
+            return $this->backToPortal($user, $connection, 'error');
         }
 
-        return $base.'connected';
+        try {
+            $this->syncConnection($connection);
+        } catch (Throwable $e) {
+            Log::warning('[CALENDLY] First sync failed', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+        }
+
+        return $this->backToPortal($user, $connection, 'connected');
     }
 
-    public function disconnect(): void
+    public function disconnect(User $user, ?int $partnerId = null): void
     {
-        $connection = CalendlyConnection::current();
+        $partnerId = $this->managedPartnerId($user, $partnerId);
+        $connection = CalendlyConnection::where('partner_id', $partnerId)->first();
         if ($connection) {
             Cache::forget($this->eventTypesCacheKey($connection));
         }
@@ -132,19 +241,68 @@ class CalendlyService
         $this->oauth->disconnect($connection);
     }
 
-    /** Brings in the account's meetings from a week back to two months ahead. */
-    public function syncNow(): int
+    /**
+     * Brings in a partner's Calendly meetings from a week back to two months
+     * ahead, and lists its event types afresh - one just made shows. The
+     * partner's team syncs its own; the host account may sync a partner's.
+     */
+    public function syncNow(User $user, ?int $partnerId = null): int
     {
-        return $this->sync->syncRange(now()->subDays(self::SYNC_DAYS_BACK), now()->addDays(self::SYNC_DAYS_AHEAD));
+        $partnerId = $partnerId && (int) $partnerId !== (int) $user->partner_id
+            ? $this->managedPartnerId($user, $partnerId)
+            : ($this->isPartnerTeam($user) ? (int) $user->partner_id : throw CalendlyException::forbidden());
+
+        return $this->syncConnection(CalendlyConnection::where('partner_id', $partnerId)->first());
     }
 
-    /** The account's active event types (Calendly's Free plan has one). */
-    public function eventTypes(): array
+    /**
+     * The partner whose Calendly the caller configures: their own - only as
+     * the host, WLP or certified partner account itself - or another one
+     * named by the host account (Partners > partner > Configuration). Staff,
+     * other users and borrowers configure none.
+     */
+    private function managedPartnerId(User $user, ?int $partnerId): int
     {
-        $connection = $this->client->connection();
+        if (! CalendlyConnection::isPartnerAccount($user)) {
+            throw CalendlyException::forbidden();
+        }
 
-        return Cache::remember($this->eventTypesCacheKey($connection), self::EVENT_TYPES_CACHE_SECONDS, function () use ($connection) {
-            $collection = $this->client->get('event_types', [
+        if (! $partnerId || (int) $partnerId === (int) $user->partner_id) {
+            return (int) $user->partner_id;
+        }
+
+        if (! CalendlyConnection::isHostAccount($user)) {
+            throw CalendlyException::forbidden();
+        }
+
+        if (! Partner::whereKey($partnerId)->exists()) {
+            throw new CalendlyException(__('partner.partner_not_found'), 404);
+        }
+
+        return (int) $partnerId;
+    }
+
+
+    /** One connection's sync - the hourly run goes through every connection with it. */
+    public function syncConnection(?CalendlyConnection $connection): int
+    {
+        if (! $connection) {
+            throw CalendlyException::notConnected();
+        }
+
+        Cache::forget($this->eventTypesCacheKey($connection));
+
+        return $this->sync->syncRange($connection, now()->subDays(self::SYNC_DAYS_BACK), now()->addDays(self::SYNC_DAYS_AHEAD));
+    }
+
+    /** The partner's active event types (Calendly's Free plan has one). */
+    public function eventTypes(User $user): array
+    {
+        $client = $this->clientFor($user);
+        $connection = $client->connection();
+
+        return Cache::remember($this->eventTypesCacheKey($connection), self::EVENT_TYPES_CACHE_SECONDS, function () use ($client, $connection) {
+            $collection = $client->get('event_types', [
                 'user' => $connection->calendly_user_uri,
                 'active' => 'true',
                 'count' => 100,
@@ -159,6 +317,26 @@ class CalendlyService
                     'kind' => $type['kind'] ?? null,
                     'scheduling_url' => $type['scheduling_url'] ?? null,
                     'locations' => $type['locations'] ?? [],
+                    'location_kind' => $type['locations'][0]['kind'] ?? null,
+                    'asks_invitee_location' => in_array($type['locations'][0]['kind'] ?? null, self::INVITEE_LOCATION_KINDS, true),
+                    // Its free-text questions: the FCH title and description are answered in the first.
+                    'text_questions' => collect($type['custom_questions'] ?? [])
+                        ->filter(fn ($question) => is_array($question) && ($question['enabled'] ?? false)
+                            && in_array($question['type'] ?? null, ['text', 'string'], true) && filled($question['name'] ?? null))
+                        ->sortBy('position')
+                        ->pluck('name')
+                        ->values()
+                        ->all(),
+                    // Every place it offers (Calendly's "All options"), to pick from when booking.
+                    'location_options' => collect($type['locations'] ?? [])
+                        ->filter(fn ($location) => is_array($location) && ! empty($location['kind']))
+                        ->map(fn (array $location) => [
+                            'kind' => $location['kind'],
+                            'label' => $this->locationLabel($location),
+                            'asks_invitee' => in_array($location['kind'], self::INVITEE_LOCATION_KINDS, true),
+                        ])
+                        ->values()
+                        ->all(),
                 ])
                 ->values()
                 ->all();
@@ -167,13 +345,14 @@ class CalendlyService
 
     /**
      * The event type's open slots on $data['date'] - a day in the viewer's
-     * zone - leaving out those the host or the attendee already have an FCH
+     * zone - leaving out those the caller or the attendee already have an FCH
      * meeting in (Calendly does not know about those).
      */
     public function availableTimes(User $caller, array $data): array
     {
-        $connection = $this->client->connection();
-        $type = $this->eventType($data['event_type_uri']);
+        $client = $this->clientFor($caller);
+        $client->connection();
+        $type = $this->eventType($caller, $data['event_type_uri']);
         $zone = AppointmentTime::zone($data['timezone'] ?? null) ?? AppointmentTime::viewerZone();
 
         $dayStart = Carbon::parse($data['date'], $zone)->startOfDay();
@@ -184,14 +363,17 @@ class CalendlyService
             return [];
         }
 
-        $slots = $this->client->get('event_type_available_times', [
+        $slots = $client->get('event_type_available_times', [
             'event_type' => $type['uri'],
             'start_time' => $from->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
             'end_time' => $dayEnd->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
         ])['collection'] ?? [];
 
-        $attendeeId = $this->isHost($caller, $connection) ? ($data['assigned_for'] ?? null) : $caller->id;
-        $busy = $this->busyTimes([(int) $connection->connected_by, (int) $attendeeId], $dayStart, $dayEnd);
+        // A borrower meets the partner's connected user; the team member meets the person they pick.
+        $people = $this->isPartnerTeam($caller)
+            ? [(int) $caller->id, (int) ($data['assigned_for'] ?? 0)]
+            : [(int) $caller->id, (int) $client->connection()->connected_by];
+        $busy = $this->busyTimes($people, $dayStart, $dayEnd);
         $minutes = max(1, $type['duration']);
 
         return collect($slots)
@@ -209,17 +391,31 @@ class CalendlyService
             ->all();
     }
 
-    /** Books the slot in Calendly and returns the appointment it is kept as. */
+    /**
+     * Books the slot in the caller's partner's Calendly: the team invites the
+     * person it picked; a borrower books with the partner, as the invitee.
+     */
     public function book(User $caller, array $data): Appointment
     {
-        $connection = $this->client->connection();
-        $attendee = $this->inviteeFor($caller, $connection, $data['assigned_for'] ?? null);
-        $type = $this->eventType($data['event_type_uri']);
+        $client = $this->clientFor($caller);
+        $connection = $client->connection();
+        $isTeam = $this->isPartnerTeam($caller);
+        $attendee = $isTeam ? $this->attendeeFor($caller, $data['assigned_for'] ?? null) : $caller;
+        if (! $isTeam && ! $this->appointmentService->canBookWith($caller, (int) $connection->connected_by)) {
+            throw CalendlyException::forbidden();
+        }
+        // The event type asked for, else the account's active one (Add Appointment never asks).
+        $type = filled($data['event_type_uri'] ?? null)
+            ? $this->eventType($caller, $data['event_type_uri'])
+            : ($this->eventTypes($caller)[0] ?? throw ValidationException::withMessages(['start_time' => __('calendly.no_event_types')]));
         $zone = AppointmentTime::zone($data['timezone'] ?? null) ?? 'UTC';
+        // A wall time ("2026-11-18 15:00:00") is read in the chosen zone; one with an offset or Z as given.
+        $start = Carbon::parse($data['start_time'], $zone)->utc()->startOfMinute();
+        $this->ensureOpenInCalendly($caller, $type, $start, $zone, $data['assigned_for'] ?? null);
 
         $body = [
             'event_type' => $type['uri'],
-            'start_time' => Carbon::parse($data['start_time'])->utc()->format('Y-m-d\TH:i:s\Z'),
+            'start_time' => $start->format('Y-m-d\TH:i:s\Z'),
             'invitee' => [
                 'name' => $attendee->name ?: $attendee->email,
                 'email' => $attendee->email,
@@ -227,23 +423,66 @@ class CalendlyService
             ],
         ];
 
-        $location = $type['locations'][0] ?? null;
+        $location = $this->chosenLocation($type, $data['location_kind'] ?? null);
         if (is_array($location) && ! empty($location['kind'])) {
+            // The invitee's answer (e.g. the number to call), else the event type's own place
+            // (an in-person address, a custom place, the number to call for an inbound call).
+            $asksInvitee = in_array($location['kind'], self::INVITEE_LOCATION_KINDS, true);
+            $where = $asksInvitee
+                ? trim((string) ($data['location'] ?? ''))
+                : ($location['location'] ?? $location['phone_number'] ?? null);
+            // A phone call to the invitee: their number from FCH unless one was typed.
+            if ($location['kind'] === 'outbound_call' && $where === '') {
+                $where = (string) app(SmsRecipient::class)->numberFor($attendee);
+                if ($where === '') {
+                    throw ValidationException::withMessages(['location' => __('calendly.phone_missing', ['name' => $attendee->name ?: $attendee->email])]);
+                }
+            }
+            if ($asksInvitee && $where === '') {
+                throw ValidationException::withMessages(['location' => __('calendly.location_required')]);
+            }
+            // Calendly calls this number: digits (7-15), optionally + and spaces, dashes, dots or brackets.
+            if ($location['kind'] === 'outbound_call' && ! $this->isPhoneNumber($where)) {
+                throw ValidationException::withMessages(['location' => __('calendly.phone_invalid')]);
+            }
+
             $body['location'] = array_filter([
                 'kind' => $location['kind'],
-                'location' => $location['location'] ?? null,
+                'location' => $where,
             ]);
         }
 
-        $invitee = $this->client->post('invitees', $body)['resource'] ?? [];
-        $event = $this->client->get($invitee['event'])['resource'] ?? [];
+        // Calendly names the meeting after its event type and takes no other name, so
+        // the FCH title (and description) go in its first free-text question - shown
+        // in the meeting's details and Calendly's emails.
+        $question = $type['text_questions'][0] ?? null;
+        $notes = trim(implode("\n\n", array_filter([
+            trim((string) ($data['subject'] ?? '')),
+            trim(html_entity_decode(strip_tags((string) ($data['description'] ?? '')), ENT_QUOTES | ENT_HTML5)),
+        ])));
+        if ($question && $notes !== '') {
+            $body['questions_and_answers'] = [[
+                'question' => $question,
+                'answer' => mb_substr($notes, 0, 1000),
+                'position' => 0,
+            ]];
+        }
 
-        $appointment = $this->sync->upsert($event, $invitee);
+        $invitee = $client->post('invitees', $body)['resource'] ?? [];
+        $event = $client->get($invitee['event'])['resource'] ?? [];
+
+        $appointment = $this->sync->upsert($connection, $event, $invitee);
         if (! $appointment) {
             throw new CalendlyException(__('calendly.refused'), 502);
         }
 
+        // The team's booking: by the caller, with the person picked. A borrower's: with the
+        // partner's connected user (as synced), the borrower the invitee.
         $appointment->update(array_filter([
+            'scheduled_by' => $isTeam ? $caller->id : $connection->connected_by,
+            'assigned_for' => $attendee->id,
+            'entity_type' => $attendee->entity_type,
+            'entity_id' => $attendee->entity_id,
             'subject' => $data['subject'] ?? null,
             'description' => $data['description'] ?? null,
             'meeting_type' => $data['meeting_type'] ?? null,
@@ -254,25 +493,89 @@ class CalendlyService
         return $appointment->fresh(['scheduledBy', 'assignedFor.entity']);
     }
 
-    /** A webhook delivery: false when its signature does not hold. */
-    public function handleWebhook(string $body, ?string $signature): bool
+    /**
+     * A webhook delivery for one connection: false when the connection is
+     * unknown or the signature does not hold with its own signing key.
+     */
+    public function handleWebhook(int|string $connectionId, string $body, ?string $signature): bool
     {
-        if (! CalendlyWebhookSignature::isValid($signature, $body, config('services.calendly.webhook_signing_key'), now()->timestamp)) {
+        $connection = CalendlyConnection::find($connectionId);
+
+        if (! $connection || blank($connection->webhook_signing_key)
+            || ! CalendlyWebhookSignature::isValid($signature, $body, $connection->webhook_signing_key, now()->timestamp)) {
             return false;
         }
 
         $delivery = json_decode($body, true);
-        if (is_array($delivery)) {
-            $this->sync->handleWebhook($delivery);
+        if (is_array($delivery) && $connection->isActive()) {
+            $this->sync->handleWebhook($connection, $delivery);
         }
 
         return true;
     }
 
-    /** One of the account's active event types; refused when it is not. */
-    private function eventType(string $uri): array
+    /** The caller's partner's Calendly (none while FCH's Calendly app is not set up). */
+    private function clientFor(User $user): CalendlyClient
     {
-        $type = collect($this->eventTypes())->firstWhere('uri', $uri);
+        return $this->client->forConnection(CalendlyConnection::forUser($user));
+    }
+
+    /** One of a partner's team (host, WLP, certified) - not a borrower. */
+    private function isPartnerTeam(User $user): bool
+    {
+        return (bool) $user->partner_id && ! CalendlyConnection::isBorrower($user);
+    }
+
+    /**
+     * Back to the partner portal (a WLP's own domain when it has one): the
+     * Appointments page, where the account connects its Calendly; the
+     * partner's Configuration tab for the host connecting it on a partner's
+     * behalf (through the API).
+     */
+    private function backToPortal(?User $user, ?CalendlyConnection $connection, string $result): string
+    {
+        $forAnother = $user && $connection && (int) $connection->partner_id !== (int) $user->partner_id;
+        $path = $forAnother
+            ? '/partners/'.$connection->partner_id.'?tab=configuration&calendly='.$result
+            : '/appointments?calendly='.$result;
+        $url = $user ? $this->portalUrls->url($user, $path) : rtrim((string) config('app.frontend_partner_url'), '/').$path;
+
+        // An address without its scheme (localhost:5174) would be read as a path on the API.
+        return preg_match('#^https?://#i', $url) ? $url : 'http://'.ltrim($url, '/');
+    }
+
+    /** One of the caller's partner's active event types; refused when it is not. */
+    /**
+     * The picked time must be one Calendly offers for the event type that day
+     * (and not taken in FCH): refused otherwise, saying which times are open,
+     * before anything is sent to Calendly.
+     */
+    private function ensureOpenInCalendly(User $caller, array $type, Carbon $start, string $zone, mixed $assignedFor): void
+    {
+        $local = $start->copy()->setTimezone($zone);
+        $open = $this->availableTimes($caller, array_filter([
+            'event_type_uri' => $type['uri'],
+            'date' => $local->toDateString(),
+            'timezone' => $zone,
+            'assigned_for' => $assignedFor,
+        ]));
+
+        if (collect($open)->contains('start_time', $start->format('Y-m-d\TH:i:s\Z'))) {
+            return;
+        }
+
+        $times = collect($open)->pluck('label');
+        throw ValidationException::withMessages(['start_time' => $times->isEmpty()
+            ? __('calendly.no_open_times', ['date' => $local->format('M j, Y')])
+            : __('calendly.time_not_open', [
+                'time' => $local->format('g:i A'),
+                'times' => $times->take(12)->implode(', ').($times->count() > 12 ? ', …' : ''),
+            ])]);
+    }
+
+    private function eventType(User $caller, string $uri): array
+    {
+        $type = collect($this->eventTypes($caller))->firstWhere('uri', $uri);
 
         if (! $type) {
             throw ValidationException::withMessages(['event_type_uri' => __('calendly.unknown_event_type')]);
@@ -281,17 +584,9 @@ class CalendlyService
         return $type;
     }
 
-    /** Who the Calendly invitee is: the person the host picked, or the caller booking with the host. */
-    private function inviteeFor(User $caller, CalendlyConnection $connection, $assignedFor): User
+    /** The person the caller invites: one they may book with (O20). */
+    private function attendeeFor(User $caller, $assignedFor): User
     {
-        if (! $this->isHost($caller, $connection)) {
-            if (! $this->mayBookWithHost($caller, $connection)) {
-                throw CalendlyException::forbidden();
-            }
-
-            return $caller;
-        }
-
         if (empty($assignedFor)) {
             throw ValidationException::withMessages(['assigned_for' => __('calendly.attendee_required')]);
         }
@@ -301,17 +596,6 @@ class CalendlyService
         }
 
         return User::findOrFail($assignedFor);
-    }
-
-    private function isHost(User $user, CalendlyConnection $connection): bool
-    {
-        return (int) $connection->connected_by === (int) $user->id;
-    }
-
-    private function mayBookWithHost(User $user, CalendlyConnection $connection): bool
-    {
-        return $this->isHost($user, $connection)
-            || $this->appointmentService->canBookWith($user, (int) $connection->connected_by);
     }
 
     /**
@@ -339,8 +623,45 @@ class CalendlyService
             });
     }
 
+    /**
+     * The place picked from the event type's options (its first when none was
+     * picked); one it does not offer is refused before Calendly is asked.
+     */
+    private function chosenLocation(array $type, ?string $kind): ?array
+    {
+        $locations = array_values(array_filter($type['locations'] ?? [], fn ($location) => is_array($location) && ! empty($location['kind'])));
+
+        if (blank($kind)) {
+            return $locations[0] ?? null;
+        }
+
+        $chosen = collect($locations)->firstWhere('kind', $kind);
+        if (! $chosen) {
+            throw ValidationException::withMessages(['location_kind' => __('calendly.location_kind_invalid')]);
+        }
+
+        return $chosen;
+    }
+
+    private function locationLabel(array $location): string
+    {
+        $label = self::LOCATION_LABELS[$location['kind']] ?? ucfirst(str_replace('_', ' ', (string) $location['kind']));
+
+        return $location['kind'] === 'physical' && filled($location['location'] ?? null)
+            ? $label.': '.$location['location']
+            : $label;
+    }
+
+    private function isPhoneNumber(?string $value): bool
+    {
+        $digits = preg_replace('/\D/', '', (string) $value);
+
+        return preg_match('/^\+?[\d\s().\-]+$/', (string) $value) === 1
+            && strlen($digits) >= 7 && strlen($digits) <= 15;
+    }
+
     private function eventTypesCacheKey(CalendlyConnection $connection): string
     {
-        return 'calendly:event-types:'.$connection->id.':'.md5($connection->calendly_user_uri);
+        return 'calendly:event-types:'.$connection->id.':'.md5((string) $connection->calendly_user_uri);
     }
 }
