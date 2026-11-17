@@ -38,6 +38,15 @@ return [
     'no_sign_needed' => 'No signature required at this time.',
     'log_check_sign_need_error' => 'AgreementService@checkSignNeed: :error',
 
+    // Agreement Builder › Save as Template.
+    'saved_template' => [
+        'retrieved' => 'Saved templates retrieved successfully',
+        'saved' => 'Template saved',
+        'deleted' => 'Template deleted',
+        'name_taken' => 'You already have a template with this name.',
+        'partner_host_only' => 'Only the platform owner can save a partner agreement template.',
+    ],
+
     // {{signer.commission_table}} - the signing partner's commission tiers.
     'commission' => [
         'field_label' => "Partner's commission tiers",

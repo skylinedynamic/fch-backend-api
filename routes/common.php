@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSavedTemplateController;
 use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
@@ -578,6 +579,14 @@ Route::prefix('v1')->group(function () {
                 Route::post('/preview-values', [AgreementTemplateController::class, 'previewValues']);
                 Route::post('/merge-fields', [AgreementTemplateController::class, 'mergeFields']);
                 Route::post('/update-status/{id}', [AgreementTemplateController::class, 'updateStatus']);
+
+                // Agreement Builder › Save as Template, listed in Templates.
+                Route::prefix('saved')->controller(AgreementSavedTemplateController::class)->group(function () {
+                    Route::get('/', 'index');
+                    Route::post('/', 'store');
+                    Route::get('/{id}', 'show')->whereNumber('id');
+                    Route::delete('/{id}', 'destroy')->whereNumber('id');
+                });
             });
 
             // Agreement signing

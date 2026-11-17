@@ -14,7 +14,7 @@ use App\Services\FCH\Common\ManageAgreement\AgreementService;
 use App\Services\FCH\Partner\PartnerConfigurationChangeRecorder;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\ManageAgreement\AgreementMergeFields;
-use App\Traits\ResolvesConfigPartner;
+use App\Traits\ResolvesAgreementOwner;
 use Illuminate\Http\Request;
 
 /**
@@ -23,10 +23,7 @@ use Illuminate\Http\Request;
  */
 class AgreementTemplateController extends Controller
 {
-    use ResolvesConfigPartner;
-
-    /** Who may name another partner's agreements: a host user holding it. */
-    private const ON_BEHALF_PERMISSION = 'manage partner configuration';
+    use ResolvesAgreementOwner;
 
     protected $agreementService;
 
@@ -40,7 +37,7 @@ class AgreementTemplateController extends Controller
      */
     public function index(Request $request)
     {
-        $partnerId = $this->templateOwnerId($request);
+        $partnerId = $this->agreementOwnerId($request);
 
         try {
             $agreements = $this->agreementService->getTemplates($partnerId);
@@ -59,7 +56,7 @@ class AgreementTemplateController extends Controller
      */
     public function store(AgreementTemplateStoreRequest $request, $id = null)
     {
-        $partnerId = $this->templateOwnerId($request);
+        $partnerId = $this->agreementOwnerId($request);
 
         try {
             $agreement = $this->agreementService->storeTemplate($request->except('partner_id'), $partnerId, $id);
@@ -84,7 +81,7 @@ class AgreementTemplateController extends Controller
      */
     public function show(AgreementTemplateShowRequest $request)
     {
-        $partnerId = $this->templateOwnerId($request);
+        $partnerId = $this->agreementOwnerId($request);
 
         try {
             $agreement = $this->agreementService->showTemplate($partnerId, $request->slug);
@@ -104,7 +101,7 @@ class AgreementTemplateController extends Controller
      */
     public function previewValues(Request $request)
     {
-        $partner = Partner::find($this->templateOwnerId($request));
+        $partner = Partner::find($this->agreementOwnerId($request));
 
         return ApiResponse::success((new AgreementMergeFields())->ownerValues($partner), __('agreement.retrieved_successfully'));
     }
@@ -128,7 +125,7 @@ class AgreementTemplateController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
-        $partnerId = $this->templateOwnerId($request);
+        $partnerId = $this->agreementOwnerId($request);
 
         try {
             $agreement = $this->agreementService->updateTemplateStatus($id, $partnerId, $request->is_active);
@@ -146,26 +143,5 @@ class AgreementTemplateController extends Controller
             new AgreementTemplateResource($agreement),
             __('agreement.status_updated_successfully')
         );
-    }
-
-    /**
-     * Whose templates these are. A partner's agreement is what its borrowers
-     * sign, so unlike the other settings endpoints naming another partner is
-     * checked here: only a host user with the on-behalf permission may.
-     * Resolved outside the actions' try blocks so a 403/404 is not turned
-     * into a server error.
-     */
-    private function templateOwnerId(Request $request): int
-    {
-        if ($this->namesConfigPartner($request)) {
-            $user = $request->user();
-            abort_unless(
-                $user?->partner?->is_host && $user->can(self::ON_BEHALF_PERMISSION),
-                403,
-                __('partner.configuration_forbidden')
-            );
-        }
-
-        return (int) $this->configPartnerId($request);
     }
 }
