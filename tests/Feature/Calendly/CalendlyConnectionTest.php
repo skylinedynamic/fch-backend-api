@@ -121,7 +121,7 @@ class CalendlyConnectionTest extends TestCase
         sort($scopes);
 
         $this->assertSame([
-            'availability:read', 'event_types:read', 'event_types:write', 'scheduled_events:read', 'scheduled_events:write',
+            'availability:read', 'event_types:read', 'scheduled_events:read', 'scheduled_events:write',
             'users:read', 'webhooks:read', 'webhooks:write',
         ], $scopes);
     }
@@ -185,19 +185,112 @@ class CalendlyConnectionTest extends TestCase
         $this->assertTrue(CalendlyConnection::where('partner_id', $this->host->partner_id)->sole()->isActive());
     }
 
+    /** A borrower connects their own Calendly through their partner's Calendly app - no keys to type. */
     #[Test]
-    public function borrowers_never_connect_sync_or_disconnect(): void
+    public function a_borrower_connects_their_own_calendly_through_their_partners_app(): void
     {
-        $this->connectCalendly($this->host);
+        config(['app.frontend_borrower_url' => 'https://borrower.example.test']);
+        $partners = $this->connectCalendly($this->host);
+        $url = $this->connectUrlAsBorrower();
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $this->assertSame('test-client-id', $query['client_id']);
+        $own = CalendlyConnection::whereNotNull('borrower_id')->sole();
+        $this->assertSame((int) $this->borrowerUser->entity_id, (int) $own->borrower_id);
+        $this->assertSame((int) $this->host->partner_id, (int) $own->partner_id);
+        $this->assertSame('test-client-secret', $own->client_secret);
+        $this->assertTrue($partners->fresh()->isActive());
+
+        $this->fakeCalendlyForCallback([], "{$this->calendlyApi}/users/BORROWERUSER");
+        $this->get('/api/v1/calendly/callback?code=AUTH-CODE&state='.urlencode($query['state']))
+            ->assertRedirect('https://borrower.example.test/appointment?calendly=connected');
+
+        $this->assertTrue($own->fresh()->isActive());
+        $this->assertSame(2, CalendlyConnection::count());
+        $this->getJson('/api/v1/common/calendly/status')->assertOk()
+            ->assertJsonPath('data.connected', true)
+            ->assertJsonPath('data.is_host', true)
+            ->assertJsonPath('data.can_sync', true)
+            ->assertJsonPath('data.books_with_partner', false);
+    }
+
+    #[Test]
+    public function a_borrower_cannot_connect_until_their_partner_has_saved_its_app_keys(): void
+    {
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->getJson('/api/v1/common/calendly/status')->assertOk()
+            ->assertJsonPath('data.configured', false)
+            ->assertJsonPath('data.can_manage', false);
+        $this->postJson('/api/v1/common/calendly/connect')->assertStatus(422)->assertJsonValidationErrors('client_id');
+
+        $this->assertSame(0, CalendlyConnection::count());
+    }
+
+    #[Test]
+    public function a_borrower_disconnects_only_their_own_calendly(): void
+    {
+        $partners = $this->connectCalendly($this->host);
+        $own = $this->connectCalendly($this->borrowerUser, ['borrower_id' => $this->borrowerUser->entity_id, 'calendly_user_uri' => "{$this->calendlyApi}/users/BORROWERUSER"]);
         Http::fake();
         $this->actingAsUser($this->borrowerUser);
 
-        $this->postJson('/api/v1/common/calendly/connect')->assertForbidden();
-        $this->postJson('/api/v1/common/calendly/sync')->assertForbidden();
-        $this->deleteJson('/api/v1/common/calendly/connection')->assertForbidden();
+        $this->deleteJson('/api/v1/common/calendly/connection')->assertOk();
+
+        $this->assertFalse($own->fresh()->isActive());
+        $this->assertTrue($partners->fresh()->isActive());
+    }
+
+    /** Not connected themselves: their partner's Calendly, Connected, with Sync now - and Connect your own. */
+    #[Test]
+    public function a_borrower_without_their_own_books_with_their_partners_and_can_sync_it(): void
+    {
+        $this->connectCalendly($this->host, ['last_synced_at' => now()->subHour()]);
+        Http::fake([
+            "{$this->calendlyApi}/scheduled_events?*" => Http::response(['collection' => [], 'pagination' => ['next_page_token' => null]]),
+        ]);
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->getJson('/api/v1/common/calendly/status')->assertOk()
+            ->assertJsonPath('data.connected', false)
+            ->assertJsonPath('data.configured', true)
+            ->assertJsonPath('data.can_manage', true)
+            ->assertJsonPath('data.can_book', true)
+            ->assertJsonPath('data.books_with_partner', true)
+            ->assertJsonPath('data.partner_name', 'Host Calendly')
+            ->assertJsonPath('data.is_host', false)
+            ->assertJsonPath('data.can_sync', true);
+        $this->postJson('/api/v1/common/calendly/sync')->assertOk();
+
+        Http::assertSent(fn (Request $request) => str_starts_with($request->url(), "{$this->calendlyApi}/scheduled_events"));
+    }
+
+    /** A partner switching to another Calendly app: its borrowers' sign-ins (made with the old one) end too. */
+    #[Test]
+    public function a_new_partner_app_signs_its_borrowers_out_and_gives_them_the_new_keys(): void
+    {
+        $this->connectCalendly($this->host);
+        $own = $this->connectCalendly($this->borrowerUser, ['borrower_id' => $this->borrowerUser->entity_id, 'calendly_user_uri' => "{$this->calendlyApi}/users/BORROWERUSER"]);
+        Http::fake();
+
+        $this->saveCalendlyKeys($this->host, ['client_id' => 'other-app', 'client_secret' => 'other-secret']);
+
+        $own->refresh();
+        $this->assertFalse($own->isActive());
+        $this->assertSame('other-app', $own->client_id);
+        $this->assertSame('other-secret', $own->client_secret);
+    }
+
+    #[Test]
+    public function a_borrower_cannot_sync_another_partners_calendly(): void
+    {
+        $this->connectCalendly($this->partnerAdmin);
+        Http::fake();
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['partner_id' => $this->partnerAdmin->partner_id])->assertForbidden();
 
         Http::assertNothingSent();
-        $this->assertTrue(CalendlyConnection::sole()->isActive());
     }
 
     /**
@@ -322,11 +415,12 @@ class CalendlyConnectionTest extends TestCase
         $this->assertStringNotContainsString('access-token-1', $teamView->getContent());
         $this->assertStringNotContainsString($this->calendlySigningKey, $teamView->getContent());
 
-        // The host's borrower books with the host's Calendly, but does not manage it.
+        // The host's borrower, with no Calendly of their own, books with the host's
+        // (as the invitee); "connected" is their own, which they may connect.
         $this->actingAsUser($this->borrowerUser);
         $this->getJson('/api/v1/common/calendly/status')->assertOk()
-            ->assertJsonPath('data.connected', true)
-            ->assertJsonPath('data.can_manage', false)
+            ->assertJsonPath('data.connected', false)
+            ->assertJsonPath('data.books_with_partner', true)
             ->assertJsonPath('data.is_host', false)
             ->assertJsonPath('data.can_book', true)
             ->assertJsonPath('data.email', null);
@@ -544,6 +638,13 @@ class CalendlyConnectionTest extends TestCase
         $connection->refresh();
         $this->assertSame("{$this->calendlyApi}/webhook_subscriptions/WH-NEW", $connection->webhook_subscription_uri);
         $this->assertTrue($connection->isActive());
+    }
+
+    private function connectUrlAsBorrower(): string
+    {
+        $this->actingAsUser($this->borrowerUser);
+
+        return $this->postJson('/api/v1/common/calendly/connect')->assertOk()->json('data.url');
     }
 
     private function stateOf(string $url): string

@@ -31,6 +31,7 @@ class CalendlyConnection extends Model
 
     protected $fillable = [
         'partner_id',
+        'borrower_id',
         'client_id',
         'client_secret',
         'webhook_signing_key',
@@ -74,16 +75,41 @@ class CalendlyConnection extends Model
         return filled($this->client_id) && filled($this->client_secret);
     }
 
-    /** A borrower's login - they book with their partner's Calendly, they do not manage one. */
+    /** A borrower's login - books with their own Calendly once connected, else their partner's. */
     public static function isBorrower(User $user): bool
     {
         return $user->entity_type === Borrower::class || $user->user_type === User::BORROWER;
     }
 
-    /** The Calendly a login uses: their partner's (a borrower's partner's, for a borrower). */
+    /** The partner's own Calendly (the host's, a WLP's, a certified partner's) - not a borrower's. */
+    public static function forPartner(?int $partnerId): ?self
+    {
+        return $partnerId ? static::where('partner_id', $partnerId)->whereNull('borrower_id')->first() : null;
+    }
+
+    /** A borrower login's own Calendly, connected or not; null for anyone else. */
+    public static function ownedByBorrower(User $user): ?self
+    {
+        return self::isBorrower($user) && $user->entity_id
+            ? static::where('borrower_id', $user->entity_id)->first()
+            : null;
+    }
+
+    /**
+     * The Calendly a login books with and reads: their partner's for its team;
+     * for a borrower, their own once signed in, else their partner's.
+     */
     public static function forUser(User $user): ?self
     {
-        return $user->partner_id ? static::where('partner_id', $user->partner_id)->first() : null;
+        $own = self::ownedByBorrower($user);
+
+        return $own?->isActive() ? $own : self::forPartner($user->partner_id);
+    }
+
+    /** A borrower's own Calendly (not their partner's). */
+    public function isBorrowers(): bool
+    {
+        return $this->borrower_id !== null;
     }
 
     public function connectedBy(): BelongsTo
@@ -105,6 +131,11 @@ class CalendlyConnection extends Model
     /** The host's own Calendly: its meetings may be with anyone, as the host's are. */
     public function isHosts(): bool
     {
+        // A borrower's own is never the host's, whoever their partner is.
+        if ($this->isBorrowers()) {
+            return false;
+        }
+
         // Asked, not lazy-loaded: the hourly sync holds many connections at once.
         return (bool) Partner::whereKey($this->partner_id)->value('is_host');
     }
@@ -127,9 +158,16 @@ class CalendlyConnection extends Model
         return self::isPartnerAccount($user) && (bool) Partner::whereKey($user->partner_id)->value('is_host');
     }
 
-    /** This partner's own account, or the host account - may configure it. */
+    /**
+     * May connect and disconnect it: a borrower's own, that borrower; a
+     * partner's, its own account or the host account.
+     */
     public function isManagedBy(User $user): bool
     {
+        if ($this->isBorrowers()) {
+            return self::isBorrower($user) && (int) $user->entity_id === (int) $this->borrower_id;
+        }
+
         return self::isPartnerAccount($user)
             && ((int) $user->partner_id === (int) $this->partner_id || self::isHostAccount($user));
     }

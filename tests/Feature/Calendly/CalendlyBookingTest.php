@@ -56,9 +56,9 @@ class CalendlyBookingTest extends TestCase
     }
 
     /** Calendly accepting a booking at $this->slot for $email. */
-    private function fakeBooking(string $email, string $name, array $extra = []): array
+    private function fakeBooking(string $email, string $name, array $extra = [], array $eventOverrides = []): array
     {
-        $event = $this->calendlyEvent('EVBOOK', $this->slot);
+        $event = $this->calendlyEvent('EVBOOK', $this->slot, $eventOverrides);
         $invitee = $this->calendlyInvitee($event, $email, $name);
 
         Http::fake($extra + [
@@ -250,6 +250,33 @@ class CalendlyBookingTest extends TestCase
 
         Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
             && ! isset($request['questions_and_answers']));
+    }
+
+    /** A borrower with their own Calendly books in it, inviting the advisor they picked. */
+    #[Test]
+    public function a_borrower_with_their_own_calendly_books_in_it_inviting_who_they_pick(): void
+    {
+        $this->connectCalendly($this->host);
+        $own = $this->connectCalendly($this->borrowerUser, [
+            'borrower_id' => $this->borrowerUser->entity_id,
+            'calendly_user_uri' => "{$this->calendlyApi}/users/BORROWERUSER",
+            'access_token' => 'borrower-access-token',
+        ]);
+        // The meeting is on the borrower's own Calendly user.
+        $this->fakeBooking($this->host->email, $this->host->name, [], ['event_memberships' => [
+            ['user' => "{$this->calendlyApi}/users/BORROWERUSER", 'user_email' => $this->borrowerUser->email, 'user_name' => $this->borrowerUser->name],
+        ]]);
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['assigned_for' => $this->host->id]))->assertOk();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request->hasHeader('Authorization', 'Bearer borrower-access-token')
+            && $request['invitee']['email'] === $this->host->email);
+        $appointment = Appointment::sole();
+        $this->assertSame($this->borrowerUser->id, (int) $appointment->scheduled_by);
+        $this->assertSame($this->host->id, (int) $appointment->assigned_for);
+        $this->assertSame($own->id, (int) $appointment->calendly_connection_id);
     }
 
     /** A borrower books with their partner's Calendly (here the host's), as the invitee - picking nobody. */

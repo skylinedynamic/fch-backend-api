@@ -5,6 +5,7 @@ return [
     'settings_retrieved' => 'Calendly settings retrieved.',
     'settings_saved' => 'Calendly settings saved.',
     'client_secret_required' => 'Enter the Client Secret of your Calendly OAuth app.',
+    'partner_keys_required' => 'Calendly is not set up by your advisor yet - ask them to add their Calendly app keys first.',
     'keys_required' => 'Save your Calendly Client ID and Client Secret in Settings > Calendly first.',
     'connect_url' => 'Calendly authorization link created.',
     'disconnected' => 'Calendly disconnected.',

@@ -73,7 +73,7 @@ return [
         // the OAuth app in Calendly's developer console. Each :read is asked
         // for as well as its :write - a token with only scheduled_events:write
         // was refused GET /scheduled_events ("Insufficient scope").
-        'scopes' => env('CALENDLY_SCOPES', 'users:read event_types:read event_types:write availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write'),
+        'scopes' => env('CALENDLY_SCOPES', 'users:read event_types:read availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write'),
     ],
 
     'microbilt' => [

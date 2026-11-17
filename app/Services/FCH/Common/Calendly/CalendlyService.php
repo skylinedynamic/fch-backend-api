@@ -78,9 +78,15 @@ class CalendlyService
     /** The login's partner's Calendly: whether it is on, and what this login may do with it. */
     public function status(User $user): array
     {
+        if (CalendlyConnection::isBorrower($user)) {
+            return $this->borrowerStatus($user);
+        }
+
         $connection = CalendlyConnection::forUser($user);
         $connected = (bool) $connection?->isActive();
         $isTeam = $this->isPartnerTeam($user);
+        // The partner's team, and its borrowers (their calendar shows its meetings with them).
+        $canSync = $connected && $this->maySync($user);
 
         return [
             // The partner's own Calendly app keys are saved (Settings > Calendly).
@@ -88,9 +94,9 @@ class CalendlyService
             'connected' => $connected,
             'needs_reconnect' => $connection?->status === CalendlyConnection::STATUS_RECONNECT,
             // Only the partner's own account (host, WLP, certified) configures it - in
-            // Settings > Calendly; its staff may sync it; borrowers do neither.
+            // Settings > Calendly; its staff and its borrowers may sync it.
             'can_manage' => CalendlyConnection::isPartnerAccount($user),
-            'can_sync' => $connected && $isTeam,
+            'can_sync' => $canSync,
             // The team books *for* someone it picks; a borrower is the invitee themselves.
             'is_host' => $connected && $isTeam,
             'can_book' => $connected,
@@ -99,7 +105,44 @@ class CalendlyService
             'scheduling_url' => $connection?->scheduling_url,
             'connected_by' => $connected && $isTeam ? $connection->connectedBy?->name : null,
             'webhooks_active' => $isTeam && (bool) $connection?->webhook_subscription_uri,
-            'last_synced_at' => $isTeam ? $connection?->last_synced_at?->toIso8601String() : null,
+            'last_synced_at' => $canSync ? $connection?->last_synced_at?->toIso8601String() : null,
+        ];
+    }
+
+    /**
+     * A borrower's Appointments page. Their own Calendly - connected, or which
+     * they may connect through their partner's Calendly app - and the one they
+     * book with: their own once connected, else their partner's (as the invitee).
+     */
+    private function borrowerStatus(User $user): array
+    {
+        $own = CalendlyConnection::ownedByBorrower($user);
+        $partners = CalendlyConnection::forPartner($user->partner_id);
+        $ownConnected = (bool) $own?->isActive();
+        $booking = $ownConnected ? $own : $partners;
+        $bookingConnected = (bool) $booking?->isActive();
+
+        return [
+            // The partner's Calendly app is set up: the borrower may connect through it.
+            'configured' => (bool) $partners?->hasKeys(),
+            // Their own Calendly is signed in.
+            'connected' => $ownConnected,
+            'needs_reconnect' => $own?->status === CalendlyConnection::STATUS_RECONNECT,
+            'can_manage' => (bool) $partners?->hasKeys() || (bool) $own,
+            'can_sync' => $bookingConnected,
+            // Booking into their own, they invite the person they pick; with the partner's they are the invitee.
+            'is_host' => $ownConnected,
+            'can_book' => $bookingConnected,
+            'books_with_partner' => ! $ownConnected && $bookingConnected,
+            'partner_connected' => (bool) $partners?->isActive(),
+            // Whose Calendly they book with until they connect their own (the advisor's account name).
+            'partner_name' => $partners?->isActive() ? $partners->name : null,
+            'name' => $own?->name,
+            'email' => $own?->email,
+            'scheduling_url' => $booking?->scheduling_url,
+            'connected_by' => null,
+            'webhooks_active' => $ownConnected && (bool) $own->webhook_subscription_uri,
+            'last_synced_at' => $booking?->last_synced_at?->toIso8601String(),
         ];
     }
 
@@ -113,7 +156,7 @@ class CalendlyService
     public function settings(User $user, ?int $partnerId = null): array
     {
         $partnerId = $this->managedPartnerId($user, $partnerId);
-        $connection = CalendlyConnection::where('partner_id', $partnerId)->first();
+        $connection = CalendlyConnection::forPartner($partnerId);
         $connected = (bool) $connection?->isActive();
 
         return [
@@ -145,14 +188,15 @@ class CalendlyService
     public function saveSettings(User $user, ?int $partnerId, array $keys): array
     {
         $partnerId = $this->managedPartnerId($user, $partnerId);
-        $connection = CalendlyConnection::firstOrNew(['partner_id' => $partnerId]);
+        $connection = CalendlyConnection::forPartner($partnerId) ?? new CalendlyConnection(['partner_id' => $partnerId]);
 
         $secret = trim((string) ($keys['client_secret'] ?? ''));
         if ($secret === '' && blank($connection->client_secret)) {
             throw ValidationException::withMessages(['client_secret' => __('calendly.client_secret_required')]);
         }
 
-        if ($connection->exists && filled($connection->client_id) && $connection->client_id !== $keys['client_id'] && $connection->isActive()) {
+        $appChanged = $connection->exists && filled($connection->client_id) && $connection->client_id !== $keys['client_id'];
+        if ($appChanged && $connection->isActive()) {
             $this->oauth->disconnect($connection);
             $connection->refresh();
         }
@@ -175,14 +219,28 @@ class CalendlyService
             $this->oauth->resubscribeWebhooks($connection);
         }
 
+        // Its borrowers sign in through the same app: they get its keys, and
+        // another app ends their sign-in (made with the old one) too.
+        CalendlyConnection::where('partner_id', $partnerId)->whereNotNull('borrower_id')->get()
+            ->each(function (CalendlyConnection $borrowers) use ($appChanged, $connection) {
+                if ($appChanged && $borrowers->isActive()) {
+                    $this->oauth->disconnect($borrowers);
+                }
+                $borrowers->update(['client_id' => $connection->client_id, 'client_secret' => $connection->client_secret]);
+            });
+
         return $this->settings($user, $partnerId);
     }
 
-    /** The Calendly sign-in link for a partner, with its own saved app keys. */
+    /**
+     * The Calendly sign-in link: for a partner, with its own saved app keys;
+     * for a borrower, their own Calendly through their partner's app.
+     */
     public function connect(User $user, ?int $partnerId = null): string
     {
-        $partnerId = $this->managedPartnerId($user, $partnerId);
-        $connection = CalendlyConnection::where('partner_id', $partnerId)->first();
+        $connection = CalendlyConnection::isBorrower($user)
+            ? $this->borrowersOwnFor($user)
+            : CalendlyConnection::forPartner($this->managedPartnerId($user, $partnerId));
 
         if (! $connection?->hasKeys()) {
             throw ValidationException::withMessages(['client_id' => __('calendly.keys_required')]);
@@ -232,8 +290,9 @@ class CalendlyService
 
     public function disconnect(User $user, ?int $partnerId = null): void
     {
-        $partnerId = $this->managedPartnerId($user, $partnerId);
-        $connection = CalendlyConnection::where('partner_id', $partnerId)->first();
+        $connection = CalendlyConnection::isBorrower($user)
+            ? CalendlyConnection::ownedByBorrower($user)
+            : CalendlyConnection::forPartner($this->managedPartnerId($user, $partnerId));
         if ($connection) {
             Cache::forget($this->eventTypesCacheKey($connection));
         }
@@ -244,15 +303,49 @@ class CalendlyService
     /**
      * Brings in a partner's Calendly meetings from a week back to two months
      * ahead, and lists its event types afresh - one just made shows. The
-     * partner's team syncs its own; the host account may sync a partner's.
+     * partner's team syncs its own; a borrower the one they book with (their
+     * own once connected, else their partner's); the host account any partner's.
      */
     public function syncNow(User $user, ?int $partnerId = null): int
     {
+        if (CalendlyConnection::isBorrower($user)) {
+            if ($partnerId && (int) $partnerId !== (int) $user->partner_id) {
+                throw CalendlyException::forbidden();
+            }
+
+            return $this->syncConnection(CalendlyConnection::forUser($user));
+        }
+
         $partnerId = $partnerId && (int) $partnerId !== (int) $user->partner_id
             ? $this->managedPartnerId($user, $partnerId)
-            : ($this->isPartnerTeam($user) ? (int) $user->partner_id : throw CalendlyException::forbidden());
+            : ($this->maySync($user) ? (int) $user->partner_id : throw CalendlyException::forbidden());
 
-        return $this->syncConnection(CalendlyConnection::where('partner_id', $partnerId)->first());
+        return $this->syncConnection(CalendlyConnection::forPartner($partnerId));
+    }
+
+    /**
+     * A borrower's own connection, made (or brought up to date) to sign in
+     * through their partner's Calendly app - null while the partner has not
+     * saved its app keys.
+     */
+    private function borrowersOwnFor(User $user): ?CalendlyConnection
+    {
+        $partners = CalendlyConnection::forPartner($user->partner_id);
+        if (! $partners?->hasKeys() || ! $user->entity_id) {
+            throw ValidationException::withMessages(['client_id' => __('calendly.partner_keys_required')]);
+        }
+
+        $own = CalendlyConnection::firstOrNew(['borrower_id' => $user->entity_id]);
+        $own->fill([
+            'partner_id' => $user->partner_id,
+            'client_id' => $partners->client_id,
+            'client_secret' => $partners->client_secret,
+        ]);
+        $own->connected_by ??= $user->id;
+        $own->status ??= CalendlyConnection::STATUS_PENDING;
+        $own->save();
+
+        return $own;
     }
 
     /**
@@ -370,7 +463,7 @@ class CalendlyService
         ])['collection'] ?? [];
 
         // A borrower meets the partner's connected user; the team member meets the person they pick.
-        $people = $this->isPartnerTeam($caller)
+        $people = $this->hostsWith($caller, $client->connection())
             ? [(int) $caller->id, (int) ($data['assigned_for'] ?? 0)]
             : [(int) $caller->id, (int) $client->connection()->connected_by];
         $busy = $this->busyTimes($people, $dayStart, $dayEnd);
@@ -399,7 +492,8 @@ class CalendlyService
     {
         $client = $this->clientFor($caller);
         $connection = $client->connection();
-        $isTeam = $this->isPartnerTeam($caller);
+        // The caller owns the Calendly (the partner team, or a borrower in their own): they invite who they pick.
+        $isTeam = $this->hostsWith($caller, $connection);
         $attendee = $isTeam ? $this->attendeeFor($caller, $data['assigned_for'] ?? null) : $caller;
         if (! $isTeam && ! $this->appointmentService->canBookWith($caller, (int) $connection->connected_by)) {
             throw CalendlyException::forbidden();
@@ -527,17 +621,37 @@ class CalendlyService
     }
 
     /**
-     * Back to the partner portal (a WLP's own domain when it has one): the
-     * Appointments page, where the account connects its Calendly; the
-     * partner's Configuration tab for the host connecting it on a partner's
-     * behalf (through the API).
+     * The caller books in their own Calendly - the partner's team in its
+     * partner's, a borrower in their own - and so invites the person they
+     * pick; a borrower booking with their partner's is the invitee.
+     */
+    private function hostsWith(User $caller, CalendlyConnection $connection): bool
+    {
+        return $connection->isBorrowers()
+            ? CalendlyConnection::isBorrower($caller) && (int) $caller->entity_id === (int) $connection->borrower_id
+            : $this->isPartnerTeam($caller);
+    }
+
+    /** Brings in their partner's Calendly meetings: its team, and its borrowers. */
+    private function maySync(User $user): bool
+    {
+        return (bool) $user->partner_id;
+    }
+
+    /**
+     * Back to the portal (a WLP's own domain when it has one): the
+     * Appointments page, where the account connects its Calendly - the borrower
+     * portal's /appointment for a borrower; the partner's Configuration tab for
+     * the host connecting it on a partner's behalf (through the API).
      */
     private function backToPortal(?User $user, ?CalendlyConnection $connection, string $result): string
     {
         $forAnother = $user && $connection && (int) $connection->partner_id !== (int) $user->partner_id;
-        $path = $forAnother
-            ? '/partners/'.$connection->partner_id.'?tab=configuration&calendly='.$result
-            : '/appointments?calendly='.$result;
+        $path = match (true) {
+            $forAnother => '/partners/'.$connection->partner_id.'?tab=configuration&calendly='.$result,
+            $user && CalendlyConnection::isBorrower($user) => '/appointment?calendly='.$result,
+            default => '/appointments?calendly='.$result,
+        };
         $url = $user ? $this->portalUrls->url($user, $path) : rtrim((string) config('app.frontend_partner_url'), '/').$path;
 
         // An address without its scheme (localhost:5174) would be read as a path on the API.
