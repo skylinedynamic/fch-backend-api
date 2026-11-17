@@ -84,6 +84,26 @@ class AgreementImageStorageTest extends TestCase
     }
 
     #[Test]
+    public function an_agreement_saved_as_a_template_keeps_its_logo_on_disk_and_reads_back_unchanged(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $json = json_encode(['blocks' => [['type' => 'logo', 'logoSrc' => $this->logo()]], 'pagePad' => 80], JSON_UNESCAPED_SLASHES);
+
+        $id = $this->postJson('/api/v1/common/agreement-templates/saved', [
+            'slug' => 'borrower', 'name' => 'With logo', 'template_json' => $json,
+        ])->assertOk()->json('data.id');
+
+        $row = DB::table('agreement_saved_templates')->find($id);
+        $this->assertStringNotContainsString('base64', $row->template_json);
+        $this->assertStringContainsString($this->reference(), $row->template_json);
+        $this->assertCount(1, Storage::disk('local')->allFiles('agreement-images'));
+
+        $this->getJson("/api/v1/common/agreement-templates/saved/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.template_json', $json);
+    }
+
+    #[Test]
     public function the_agreement_a_borrower_is_asked_to_sign_carries_its_images(): void
     {
         AgreementTemplate::create([

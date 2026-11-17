@@ -54,6 +54,8 @@ class SaveCommissionAndCreditRequestAdminApiTest extends TestCase
     #[Test]
     public function the_commission_is_split_between_host_and_partner(): void
     {
+        // The partner's share is its commission tier for the deal (Partner profile › Commissions).
+        \App\Models\Partner\PartnerCommissionTier::create(['partner_id' => $this->partner->id, 'min_count' => 0, 'max_count' => null, 'percentage' => 60, 'sort_order' => 0]);
         $application = $this->application();
         $this->actingAsUser($this->reviewer);
 

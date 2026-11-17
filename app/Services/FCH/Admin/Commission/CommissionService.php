@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Services\FCH\Common\Commission\CommissionPayoutService;
+use App\Services\FCH\Common\Commission\CommissionSplitCalculator;
 use App\Services\FCH\Common\Commission\CommissionViewer;
 use Illuminate\Support\Facades\Auth;
 
@@ -22,7 +23,11 @@ class CommissionService
 {
     use PaginatesApi;
     /**
-     * Save commission data for a funding application.
+     * Save commission data for a funding application. The admin / partner
+     * split is never typed: a partner client's deal in one of the partner's
+     * commission tiers takes it from that tier (CommissionSplitCalculator);
+     * otherwise (no tier for the deal, or a host client) the admin keeps the
+     * whole success fee. A split sent with the request is ignored.
      */
     public function saveCommission(array $data)
     {
@@ -51,15 +56,20 @@ class CommissionService
                 : ($fundingApplication->requested_amount ?? 0);
 
             $totalCommission = $data['total_commission'];
-            $adminCommission = $data['admin_commission'];
-            $partnerCommission = $data['partner_commission'] ?? 0;
 
             $totalCommissionAmount = ($baseAmount * $totalCommission) / 100;
             
-            if ($partnerCommission > 0) {
-                $partnerCommissionAmount = ($totalCommissionAmount * $partnerCommission) / 100;
-                $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
+            $tierShare = app(CommissionSplitCalculator::class)->tierShareFor($fundingApplication);
+
+            if ($tierShare) {
+                $split = CommissionSplitCalculator::split($totalCommissionAmount, $tierShare['type'], $tierShare['percentage'], $tierShare['amount']);
+                $adminCommission = $split['admin_commission'];
+                $partnerCommission = $split['partner_commission'];
+                $adminCommissionAmount = $split['admin_commission_amount'];
+                $partnerCommissionAmount = $split['partner_commission_amount'];
             } else {
+                // No tier for this deal (or a host client): the split can't be
+                // typed, so the admin keeps the whole success fee.
                 $adminCommission = 100;
                 $adminCommissionAmount = $totalCommissionAmount;
                 $partnerCommission = 0;
@@ -74,6 +84,8 @@ class CommissionService
                 'total_commission' => $totalCommission,
                 'admin_commission' => $adminCommission,
                 'partner_commission' => $partnerCommission,
+                'partner_commission_type' => $tierShare['type'] ?? null,
+                'partner_commission_flat_amount' => $tierShare['amount'] ?? null,
                 'total_commission_amount' => $totalCommissionAmount,
                 'admin_commission_amount' => $adminCommissionAmount,
                 'partner_commission_amount' => $partnerCommissionAmount,
@@ -85,8 +97,8 @@ class CommissionService
             
             Log::info('✅ ' . __('application.commission_saved_successfully'), [
                 'funding_application_id' => $fundingApplication->id,
-                'admin_commission' => $data['admin_commission'],
-                'partner_commission' => $data['partner_commission'] ?? null,
+                'admin_commission' => $adminCommission,
+                'partner_commission' => $partnerCommission,
             ]);
             
             return ApiResponse::success(

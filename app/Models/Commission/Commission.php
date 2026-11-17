@@ -21,6 +21,10 @@ class Commission extends Model
         'total_commission',
         'admin_commission',
         'partner_commission',
+        // How the partner's share was set: PartnerCommissionTier::TYPE_* from its
+        // tier, or null when typed by hand; a flat tier keeps its exact amount.
+        'partner_commission_type',
+        'partner_commission_flat_amount',
         'total_commission_amount',
         'admin_commission_amount',
         'partner_commission_amount',
@@ -42,6 +46,7 @@ class Commission extends Model
         'total_commission_amount' => 'decimal:2',
         'admin_commission_amount' => 'decimal:2',
         'partner_commission_amount' => 'decimal:2',
+        'partner_commission_flat_amount' => 'decimal:2',
         'conversion_rate' => 'decimal:2',
         'payout_date' => 'date',
     ];

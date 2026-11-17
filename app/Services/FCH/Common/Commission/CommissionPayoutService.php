@@ -7,6 +7,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
 use App\Models\Commission\CommissionPayout;
 use App\Models\Compensation\CompensationSetting;
+use App\Models\Partner\PartnerCommissionTier;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
@@ -261,6 +262,8 @@ class CommissionPayoutService
     {
         $partner = $commission->partner;
         $amount = (float) $commission->partner_commission_amount;
+        // From the partner's Flat Amount tier: a fixed $, not a % of the total.
+        $flat = $commission->partner_commission_type === PartnerCommissionTier::TYPE_FLAT;
 
         return [
             'payee' => $partner ? [
@@ -271,8 +274,8 @@ class CommissionPayoutService
             ] : null,
             'paid_by' => null,
             'service' => null,
-            'payout_type' => CompensationSetting::PAYOUT_TYPE_COMMISSION,
-            'rate' => round((float) $commission->partner_commission, 2),
+            'payout_type' => $flat ? CompensationSetting::PAYOUT_TYPE_FLAT_AMOUNT : CompensationSetting::PAYOUT_TYPE_COMMISSION,
+            'rate' => $flat ? null : round((float) $commission->partner_commission, 2),
             'base_label' => self::BASE_TOTAL_COMMISSION,
             'base_amount' => round((float) $commission->total_commission_amount, 2),
             'amount' => $partner && $amount > 0 ? round($amount, 2) : null,
