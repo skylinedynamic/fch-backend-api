@@ -22,7 +22,6 @@ return [
     'signed_url_minutes' => (int) env('FILES_SIGNED_URL_MINUTES', 60),
 
     // Folder (on the public disk today) => the private disk it moves to.
-    // files:move-to-private only moves a folder listed here.
     // Stay public: logos, site-settings, blogs, seo-settings, vendors,
     // credit-accounts, contacts, users, employees, and partners/ (branding in
     // partners/{id}/settings and /site, profile pictures) - shown on login

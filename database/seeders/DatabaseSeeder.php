@@ -104,6 +104,3 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 }
-
-
-            // sudo php artisan db:seed --class=LenderCodeSeeder
