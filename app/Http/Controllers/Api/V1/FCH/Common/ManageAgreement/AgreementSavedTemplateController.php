@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementSavedTemplateIndexRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementSavedTemplateStoreRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementSavedTemplateUpdateRequest;
 use App\Http\Resources\FCH\Common\ManageAgreement\AgreementSavedTemplateResource;
 use App\Services\FCH\Common\ManageAgreement\AgreementSavedTemplateService;
 use App\Traits\ResolvesAgreementOwner;
@@ -52,6 +53,15 @@ class AgreementSavedTemplateController extends Controller
             (new AgreementSavedTemplateResource($this->templates->find($partnerId, $id)))->withBlocks(),
             __('agreement.saved_template.retrieved')
         );
+    }
+
+    public function update(AgreementSavedTemplateUpdateRequest $request, int $id)
+    {
+        $partnerId = $this->agreementOwnerId($request);
+
+        $template = $this->templates->update($partnerId, $id, $request->validated());
+
+        return ApiResponse::success(new AgreementSavedTemplateResource($template), __('agreement.saved_template.updated'));
     }
 
     public function destroy(Request $request, int $id)

@@ -212,5 +212,109 @@ class AgreementSavedTemplateTest extends TestCase
     {
         $this->getJson(self::URL . '?slug=borrower')->assertUnauthorized();
         $this->save()->assertUnauthorized();
+        $this->putJson(self::URL . '/1', ['name' => 'Renamed'])->assertUnauthorized();
+    }
+
+    // ── Editing a saved template: rename it, or replace its agreement ──
+
+    private const NEW_JSON = '{"blocks":[{"id":"b1","type":"text","content":"Revised terms"}],"pagePad":64,"docBg":"#ffffff"}';
+
+    #[Test]
+    public function a_partner_renames_its_template_and_keeps_its_agreement(): void
+    {
+        $this->signIn($this->partner);
+        $id = $this->save()->assertOk()->json('data.id');
+
+        $this->putJson(self::URL . "/{$id}", ['name' => '  Long form '])->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.name', 'Long form');
+
+        $template = AgreementSavedTemplate::find($id);
+        $this->assertSame('Long form', $template->name);
+        $this->assertSame(self::JSON, $template->template_json);
+    }
+
+    #[Test]
+    public function a_partner_replaces_its_templates_agreement_and_keeps_its_name(): void
+    {
+        $this->signIn($this->partner);
+        $id = $this->save()->assertOk()->json('data.id');
+
+        $this->putJson(self::URL . "/{$id}", ['template_json' => self::NEW_JSON])->assertOk()
+            ->assertJsonPath('data.name', 'Short form');
+
+        $this->getJson(self::URL . "/{$id}")->assertOk()->assertJsonPath('data.template_json', self::NEW_JSON);
+    }
+
+    #[Test]
+    public function a_template_is_renamed_and_replaced_at_once(): void
+    {
+        $this->signIn($this->partner);
+        $id = $this->save()->assertOk()->json('data.id');
+
+        $this->putJson(self::URL . "/{$id}", ['name' => 'Long form', 'template_json' => self::NEW_JSON])->assertOk();
+
+        $template = AgreementSavedTemplate::find($id);
+        $this->assertSame('Long form', $template->name);
+        $this->assertSame(self::NEW_JSON, $template->template_json);
+        // Its type never changes.
+        $this->assertSame('borrower', $template->slug);
+    }
+
+    #[Test]
+    public function a_template_keeps_its_own_name_but_not_another_ones(): void
+    {
+        $this->signIn($this->partner);
+        $id = $this->save(['name' => 'Short form'])->assertOk()->json('data.id');
+        $this->save(['name' => 'Long form'])->assertOk();
+
+        // Its own name, in another case: fine.
+        $this->putJson(self::URL . "/{$id}", ['name' => 'SHORT FORM'])->assertOk();
+        // Another template's name: refused.
+        $this->putJson(self::URL . "/{$id}", ['name' => 'long form'])->assertStatus(422)->assertJsonValidationErrors('name');
+
+        $this->assertSame('SHORT FORM', AgreementSavedTemplate::find($id)->name);
+    }
+
+    #[Test]
+    public function an_edit_needs_a_name_or_an_agreement(): void
+    {
+        $this->signIn($this->partner);
+        $id = $this->save()->assertOk()->json('data.id');
+
+        $this->putJson(self::URL . "/{$id}", [])->assertStatus(422)->assertJsonValidationErrors(['name', 'template_json']);
+        $this->putJson(self::URL . "/{$id}", ['name' => ''])->assertStatus(422)->assertJsonValidationErrors('name');
+        $this->putJson(self::URL . "/{$id}", ['name' => str_repeat('a', AgreementSavedTemplate::NAME_MAX + 1)])
+            ->assertStatus(422)->assertJsonValidationErrors('name');
+        $this->putJson(self::URL . "/{$id}", ['template_json' => 'not json'])->assertStatus(422)->assertJsonValidationErrors('template_json');
+
+        $this->assertSame('Short form', AgreementSavedTemplate::find($id)->name);
+    }
+
+    #[Test]
+    public function a_partner_cannot_edit_another_partners_template(): void
+    {
+        $this->signIn($this->host);
+        $id = $this->save()->assertOk()->json('data.id');
+
+        $this->signIn($this->partner);
+        $this->putJson(self::URL . "/{$id}", ['name' => 'Taken over'])->assertNotFound();
+
+        $this->assertSame('Short form', AgreementSavedTemplate::find($id)->name);
+    }
+
+    #[Test]
+    public function the_host_edits_a_partners_template_from_its_configuration(): void
+    {
+        $this->signIn($this->partner);
+        $id = $this->save()->assertOk()->json('data.id');
+
+        $this->signIn($this->host);
+        $this->putJson(self::URL . "/{$id}", ['name' => 'Renamed', 'partner_id' => $this->partner->id])->assertForbidden();
+
+        $this->signIn($this->host, ['manage partner configuration']);
+        $this->putJson(self::URL . "/{$id}", ['name' => 'Renamed', 'partner_id' => $this->partner->id])->assertOk();
+
+        $this->assertSame('Renamed', AgreementSavedTemplate::find($id)->name);
     }
 }

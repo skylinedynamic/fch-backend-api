@@ -42,6 +42,7 @@ return [
     'saved_template' => [
         'retrieved' => 'Saved templates retrieved successfully',
         'saved' => 'Template saved',
+        'updated' => 'Template updated',
         'deleted' => 'Template deleted',
         'name_taken' => 'You already have a template with this name.',
         'partner_host_only' => 'Only the platform owner can save a partner agreement template.',
