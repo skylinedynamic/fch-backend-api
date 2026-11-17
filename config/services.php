@@ -35,6 +35,14 @@ return [
         'region' => null,
     ],
 
+    // One-way messages from a bot (the owner's short summary). The bot token comes
+    // from @BotFather; the chat id from `php artisan telegram:chat-ids`.
+    'telegram' => [
+        'api_url' => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'owner_chat_id' => env('TELEGRAM_OWNER_CHAT_ID'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

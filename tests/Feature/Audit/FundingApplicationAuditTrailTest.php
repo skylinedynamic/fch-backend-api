@@ -566,7 +566,7 @@ class FundingApplicationAuditTrailTest extends TestCase
 
     /**
      * An imported event names its file by hash only. Once the signed copy is
-     * in the audit folder (audit:move-signed-copies), it hands out from there.
+     * in the audit folder, it hands out from there.
      */
     #[Test]
     public function an_imported_events_file_hands_out_from_the_audit_folder_by_its_hash(): void

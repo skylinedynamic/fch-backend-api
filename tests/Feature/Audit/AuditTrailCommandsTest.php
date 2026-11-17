@@ -14,8 +14,8 @@ use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
 /**
- * The audit trail's commands - verify, the daily seal, purging the old
- * download copies - and the import of the old download history.
+ * The audit trail's commands - verify and the daily seal - and the import
+ * of the old download history.
  */
 class AuditTrailCommandsTest extends TestCase
 {
@@ -83,27 +83,6 @@ class AuditTrailCommandsTest extends TestCase
             'last_event_id' => $last->id,
             'last_hash' => $last->hash,
         ]], $seal['applications']);
-    }
-
-    #[Test]
-    public function purging_deletes_the_download_copies_and_never_the_signed_ones(): void
-    {
-        $disk = Storage::disk('public');
-        $disk->put('funding-applications/7/downloads/Funding_Application_FUND-0000077.pdf', 'copy');
-        $disk->put('funding-applications/7/downloads/Funding_Documents_FUND-0000077.zip', 'copy');
-        $disk->put('storage/funding-applications/7/downloads/Signature_Certificate_FUND-0000077.pdf', 'copy');
-        $disk->put('funding-applications/7/signed/v1-cert/application.pdf', 'signed');
-        $disk->put('funding-applications/7/signed/v1-cert/signature-certificate.pdf', 'signed');
-
-        $this->artisan('funding-applications:purge-download-copies', ['--dry-run' => true])->assertSuccessful();
-        $this->assertTrue($disk->exists('funding-applications/7/downloads/Funding_Application_FUND-0000077.pdf'));
-
-        $this->artisan('funding-applications:purge-download-copies')->assertSuccessful();
-
-        $this->assertFalse($disk->exists('funding-applications/7/downloads'));
-        $this->assertFalse($disk->exists('storage'));
-        $this->assertSame('signed', $disk->get('funding-applications/7/signed/v1-cert/application.pdf'));
-        $this->assertSame('signed', $disk->get('funding-applications/7/signed/v1-cert/signature-certificate.pdf'));
     }
 
     /**

@@ -379,6 +379,12 @@ class FundingApplicationDocumentService
     /**
      * Get branding data (colors, company details, logo base64) for PDFs
      */
+    /** The host's brand, for a document of the host's that is not about one application. */
+    public static function getHostBranding(): array
+    {
+        return self::getCompanyBrandingInfo(null);
+    }
+
     public static function getBrandingData($application)
     {
         if ($application && ($application->relationLoaded('borrower') === false || !$application->borrower || !$application->borrower->first_name)) {

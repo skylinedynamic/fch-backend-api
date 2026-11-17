@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerReportSettingsController;
+use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerSummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -175,6 +177,13 @@ Route::prefix('v1')->group(function () {
         Route::prefix('common')->middleware('partner-portal')->group(function () {
 
             Route::get('dashboard', [DashboardController::class, 'index']);
+            // The host owner's business summary - the host's team only, and of
+            // it the owner (checked in FetchOwnerSummary).
+            Route::get('owner-summary', [OwnerSummaryController::class, 'show'])->middleware('host-partner');
+            Route::get('owner-summary/export', [OwnerSummaryController::class, 'export'])->middleware('host-partner');
+            Route::get('owner-summary/report-settings', [OwnerReportSettingsController::class, 'show'])->middleware('host-partner');
+            Route::put('owner-summary/report-settings', [OwnerReportSettingsController::class, 'update'])->middleware('host-partner');
+
             Route::get('refresh-user', [CommonController::class, 'refreshUser']);
             Route::get('partner-theme', [CommonController::class, 'getTheme']);
 
@@ -284,7 +293,8 @@ Route::prefix('v1')->group(function () {
             //Request Application
             Route::prefix('request-application')->group(function () {
                 Route::post('pre-qualification', [RequestApplicationController::class, 'getPreQualification']);
-                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
+                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
+                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
                 Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
                 Route::post('pre-qualification/{id}/run-ai', [RequestApplicationController::class, 'runAiPreQualification']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
@@ -639,25 +649,25 @@ Route::prefix('v1')->group(function () {
             });
 
 
-                    // V1 Reminder routes
-                Route::prefix('reminders')->group(function () {
-                    Route::post('/fetch-reminders', [ReminderController::class, 'index']);
-                    Route::get('/due', [ReminderController::class, 'getDue']);
-                    Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
-                    Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
-                    Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
-                    Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
-                    Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
-                });
+            // V1 Reminder routes
+            Route::prefix('reminders')->group(function () {
+                Route::post('/fetch-reminders', [ReminderController::class, 'index']);
+                Route::get('/due', [ReminderController::class, 'getDue']);
+                Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
+                Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
+                Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
+                Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
+                Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+            });
 
-                // In-app notification inbox (bell + notifications page)
-                Route::prefix('notifications')->group(function () {
-                    Route::get('/', [NotificationInboxController::class, 'index']);
-                    Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
-                    Route::post('/read-all', [NotificationInboxController::class, 'markAllRead']);
-                    Route::post('/{id}/read', [NotificationInboxController::class, 'markRead']);
-                    Route::delete('/{id}', [NotificationInboxController::class, 'destroy']);
-                });
+            // In-app notification inbox (bell + notifications page)
+            Route::prefix('notifications')->group(function () {
+                Route::get('/', [NotificationInboxController::class, 'index']);
+                Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
+                Route::post('/read-all', [NotificationInboxController::class, 'markAllRead']);
+                Route::post('/{id}/read', [NotificationInboxController::class, 'markRead']);
+                Route::delete('/{id}', [NotificationInboxController::class, 'destroy']);
+            });
 
 
         });

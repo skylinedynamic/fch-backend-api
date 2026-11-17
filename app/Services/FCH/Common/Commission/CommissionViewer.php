@@ -156,6 +156,17 @@ final class CommissionViewer
         return $summary;
     }
 
+    /**
+     * What is still to be paid out on the deals in $query, and on how many -
+     * the same amount the Pay button would pay (see expectedPayout()).
+     *
+     * @return array{0: float, 1: int}
+     */
+    public function payoutsDue(Builder $query): array
+    {
+        return $this->expectedPayout($this->scope($query));
+    }
+
     private function fundedAmount(Builder $query): float
     {
         return round((float) FundingApplication::withTrashed()
@@ -188,7 +199,7 @@ final class CommissionViewer
             ->where('payment_status', '!=', Commission::PAYMENT_STATUS_PAID)
             ->whereDoesntHave('payout')
             ->whereHas('fundingApplication', fn ($q) => $q->where('status', FundingApplication::CLOSED_COMPLETED))
-            ->with(['borrower' => fn ($q) => $q->withTrashed(), 'borrower.partner', 'borrower.assignedUser', 'partner', 'fundingApplication', 'payout'])
+            ->with(['borrower' => fn ($q) => $q->withTrashed(), 'borrower.partner', 'borrower.assignedUser.entity', 'partner', 'fundingApplication', 'payout'])
             ->get()
             ->map(fn (Commission $commission) => (float) ($payouts->forCommission($commission)['amount'] ?? 0))
             ->filter(fn (float $amount) => $amount > 0);
