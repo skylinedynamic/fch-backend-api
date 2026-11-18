@@ -22,6 +22,7 @@ use App\Mail\Appointment\AppointmentNotification;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\Global\Microsoft\MicrosoftCalendarService;
 use App\Services\Global\Calendly\CalendlyClient;
+use App\Services\FCH\Common\Calendly\CalendlyService;
 use App\Models\Calendly\CalendlyConnection;
 use Illuminate\Validation\ValidationException;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
@@ -164,7 +165,11 @@ class AppointmentService
      */
     public function update(Appointment $appointment, array $data): Appointment
     {
-        $this->refuseCalendlyTimeChange($appointment, $data);
+        // A Calendly meeting's new title or time is made in Calendly first (it replaces
+        // the meeting there); if Calendly refuses, nothing changes here either.
+        if ($appointment->isFromCalendly()) {
+            $data = array_merge($data, app(CalendlyService::class)->moveMeeting($appointment, $data));
+        }
         $this->resolveEntityAndUser($data);
 
         DB::beginTransaction();
@@ -297,24 +302,20 @@ class AppointmentService
             return;
         }
 
-        $this->calendlyClient->forConnection($connection)->post($appointment->calendly_event_uri . '/cancellation', [
-            'reason' => __('calendly.cancel_reason'),
-        ]);
-    }
-
-    /** A Calendly meeting's time is Calendly's: it is moved with its Reschedule link, not edited here. */
-    protected function refuseCalendlyTimeChange(Appointment $appointment, array $data): void
-    {
-        if (!$appointment->isFromCalendly()) {
-            return;
-        }
-
-        $dateChanged = isset($data['appointment_date'])
-            && !Carbon::parse($data['appointment_date'], 'UTC')->equalTo(Carbon::parse($appointment->appointment_date, 'UTC'));
-        $lengthChanged = isset($data['duration_minutes']) && (int) $data['duration_minutes'] !== (int) $appointment->duration_minutes;
-
-        if ($dateChanged || $lengthChanged) {
-            throw ValidationException::withMessages(['appointment_date' => __('calendly.reschedule_in_calendly')]);
+        try {
+            $this->calendlyClient->forConnection($connection)->post($appointment->calendly_event_uri . '/cancellation', [
+                'reason' => __('calendly.cancel_reason'),
+            ]);
+        } catch (\App\Services\Global\Calendly\CalendlyException $e) {
+            // Gone from Calendly already (404), or on another Calendly account than the one
+            // now connected (403): nothing this connection can cancel - done in FCH only.
+            if (!in_array($e->calendlyStatus(), [403, 404], true)) {
+                throw $e;
+            }
+            Log::warning('[CALENDLY] Cancelled in FCH only - not on the connected Calendly account', [
+                'appointment_id' => $appointment->id,
+                'status' => $e->calendlyStatus(),
+            ]);
         }
     }
 

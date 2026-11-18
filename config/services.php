@@ -70,10 +70,11 @@ return [
         'auth_url' => env('CALENDLY_AUTH_URL', 'https://auth.calendly.com'),
         'api_url' => env('CALENDLY_API_URL', 'https://api.calendly.com'),
         // OAuth scopes asked for when connecting - each must also be ticked on
+        // (event_types:write: a meeting named after the FCH appointment title)
         // the OAuth app in Calendly's developer console. Each :read is asked
         // for as well as its :write - a token with only scheduled_events:write
         // was refused GET /scheduled_events ("Insufficient scope").
-        'scopes' => env('CALENDLY_SCOPES', 'users:read event_types:read availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write'),
+        'scopes' => env('CALENDLY_SCOPES', 'users:read event_types:read event_types:write availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write'),
     ],
 
     'microbilt' => [

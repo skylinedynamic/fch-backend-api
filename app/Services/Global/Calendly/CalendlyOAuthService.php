@@ -40,7 +40,14 @@ class CalendlyOAuthService
     public function authorizeUrl(User $user, CalendlyConnection $connection): string
     {
         $state = Str::random(64);
-        Cache::put(self::STATE_CACHE_PREFIX.$state, ['user_id' => $user->id, 'connection_id' => $connection->id], now()->addMinutes(self::STATE_TTL_MINUTES));
+        // PKCE (RFC 7636): a Calendly app made as a public/PKCE app refuses the sign-in without
+        // it ("unknown client", "Missing required parameter: code_verifier"); others accept it too.
+        $verifier = Str::random(96);
+        Cache::put(self::STATE_CACHE_PREFIX.$state, [
+            'user_id' => $user->id,
+            'connection_id' => $connection->id,
+            'code_verifier' => $verifier,
+        ], now()->addMinutes(self::STATE_TTL_MINUTES));
 
         return rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/authorize?'.http_build_query([
             'client_id' => $connection->client_id,
@@ -49,7 +56,15 @@ class CalendlyOAuthService
             // Calendly grants only what is asked for here (space-separated).
             'scope' => trim((string) config('services.calendly.scopes')),
             'state' => $state,
+            'code_challenge' => self::codeChallenge($verifier),
+            'code_challenge_method' => 'S256',
         ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    /** PKCE S256: base64url(sha256(verifier)), without padding. */
+    public static function codeChallenge(string $verifier): string
+    {
+        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
     }
 
     public function redirectUri(): string
@@ -67,7 +82,7 @@ class CalendlyOAuthService
      * The user and connection the state was issued for - once; null for an
      * unknown, expired or used state, or one whose connection is gone.
      *
-     * @return array{0: User, 1: CalendlyConnection}|null
+     * @return array{0: User, 1: CalendlyConnection, 2: ?string}|null  the user, the connection, the PKCE code verifier
      */
     public function consumeState(?string $state): ?array
     {
@@ -79,20 +94,23 @@ class CalendlyOAuthService
         $user = is_array($issued) ? User::find($issued['user_id'] ?? null) : null;
         $connection = is_array($issued) ? CalendlyConnection::find($issued['connection_id'] ?? null) : null;
 
-        return $user && $connection && $connection->isManagedBy($user) ? [$user, $connection] : null;
+        return $user && $connection && $connection->isManagedBy($user)
+            ? [$user, $connection, $issued['code_verifier'] ?? null]
+            : null;
     }
 
-    /** Swaps the code for tokens and signs the partner's connection in. */
-    public function connect(User $user, CalendlyConnection $connection, string $code): CalendlyConnection
+    /** Swaps the code (with its PKCE verifier) for tokens and signs the connection in. */
+    public function connect(User $user, CalendlyConnection $connection, string $code, ?string $codeVerifier = null): CalendlyConnection
     {
         $tokens = Http::asForm()->acceptJson()->timeout(20)
-            ->post(rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/token', [
+            ->post(rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/token', array_filter([
                 'grant_type' => 'authorization_code',
                 'code' => $code,
                 'redirect_uri' => $this->redirectUri(),
                 'client_id' => $connection->client_id,
                 'client_secret' => $connection->client_secret,
-            ]);
+                'code_verifier' => $codeVerifier,
+            ]));
 
         if ($tokens->failed() || ! $tokens->json('access_token')) {
             Log::warning('[CALENDLY] Authorization code refused', ['status' => $tokens->status(), 'error' => $tokens->json('error')]);

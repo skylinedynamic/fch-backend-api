@@ -7,10 +7,13 @@ use App\Models\Appointment\AppointmentDetail;
 use App\Models\Calendly\CalendlyConnection;
 use App\Models\User\User;
 use App\Services\FCH\Common\Appointment\AppointmentService;
+use App\Services\FCH\Common\Calendly\CalendlyService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -100,6 +103,13 @@ class CalendlySyncService
             try {
                 $event = $client->get($appointment->calendly_event_uri)['resource'] ?? null;
             } catch (CalendlyException $e) {
+                // On another Calendly account (this connection was signed in again with a
+                // different one): not this connection's to read or remove - left as it is.
+                if ($e->calendlyStatus() === 403) {
+                    Log::info('[CALENDLY] Skipped a meeting of another Calendly account', ['appointment_id' => $appointment->id, 'connection_id' => $connection->id]);
+
+                    continue;
+                }
                 if ($e->calendlyStatus() !== 404) {
                     throw $e;
                 }
@@ -180,6 +190,11 @@ class CalendlySyncService
                 return $existing;
             }
             $existing->restore();
+        }
+
+        // Cancelled by FCH replacing it (new title or time): the appointment moves to the new meeting.
+        if ($cancelled && Cache::has(CalendlyService::MOVING_CACHE_PREFIX.$event['uri'])) {
+            return $existing;
         }
 
         // Cancelled in Calendly: off the FCH calendar too; never added when first seen cancelled.

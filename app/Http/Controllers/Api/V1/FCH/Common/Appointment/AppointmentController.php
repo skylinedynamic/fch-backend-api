@@ -58,8 +58,15 @@ class AppointmentController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
         $appointment = $this->ownAppointment()->findOrFail($id);
-        $updated = $this->appointmentService->update($appointment, $request->validated());
-    
+
+        try {
+            // A Calendly meeting's new title or time is made in Calendly first.
+            $updated = $this->appointmentService->update($appointment, $request->validated());
+        } catch (CalendlyException $e) {
+            // Calendly refused, so nothing changes here either.
+            return ApiResponse::error($e->getMessage(), $e->httpStatus());
+        }
+
         return ApiResponse::success(new AppointmentResource($updated), __('appointment.updated_synced'));
     }
 

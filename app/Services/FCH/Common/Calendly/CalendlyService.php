@@ -18,6 +18,8 @@ use App\Services\Global\Calendly\CalendlyWebhookSignature;
 use App\Services\Global\Common\PortalUrlResolver;
 use App\Support\Appointment\AppointmentTime;
 use Carbon\Carbon;
+use App\Services\Global\Calendly\CalendlyEventMapper;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -265,18 +267,21 @@ class CalendlyService
             return $this->backToPortal(null, null, 'error');
         }
 
-        [$user, $connection] = $issued;
+        [$user, $connection, $codeVerifier] = $issued;
 
         if ($error || ! $code) {
             return $this->backToPortal($user, $connection, 'error');
         }
 
         try {
-            $connection = $this->oauth->connect($user, $connection, $code);
+            $connection = $this->oauth->connect($user, $connection, $code, $codeVerifier);
         } catch (Throwable $e) {
             Log::warning('[CALENDLY] Connecting failed', ['user_id' => $user->id, 'connection_id' => $connection->id, 'error' => $e->getMessage()]);
 
-            return $this->backToPortal($user, $connection, 'error');
+            // The portal says why: that Calendly account is connected in FCH already.
+            $inUse = $e instanceof CalendlyException && $e->getMessage() === __('calendly.account_in_use');
+
+            return $this->backToPortal($user, $connection, $inUse ? 'in_use' : 'error');
         }
 
         try {
@@ -391,7 +396,12 @@ class CalendlyService
     /** The partner's active event types (Calendly's Free plan has one). */
     public function eventTypes(User $user): array
     {
-        $client = $this->clientFor($user);
+        return $this->eventTypesOf($this->clientFor($user));
+    }
+
+    /** The active event types of the Calendly the client is for (cached briefly). */
+    private function eventTypesOf(CalendlyClient $client): array
+    {
         $connection = $client->connection();
 
         return Cache::remember($this->eventTypesCacheKey($connection), self::EVENT_TYPES_CACHE_SECONDS, function () use ($client, $connection) {
@@ -466,7 +476,12 @@ class CalendlyService
         $people = $this->hostsWith($caller, $client->connection())
             ? [(int) $caller->id, (int) ($data['assigned_for'] ?? 0)]
             : [(int) $caller->id, (int) $client->connection()->connected_by];
-        $busy = $this->busyTimes($people, $dayStart, $dayEnd);
+        $busy = $this->busyTimes($people, $dayStart, $dayEnd, ((int) ($data['except_appointment_id'] ?? 0)) ?: null);
+        // The person invited may have a Calendly of their own (their meetings and the calendars
+        // connected to it): busy there is busy here too.
+        if ($this->hostsWith($caller, $client->connection()) && ! empty($data['assigned_for'])) {
+            $busy = $busy->toBase()->merge($this->calendlyBusyOf(User::find((int) $data['assigned_for']), $client->connection(), $from, $dayEnd));
+        }
         $minutes = max(1, $type['duration']);
 
         return collect($slots)
@@ -562,7 +577,10 @@ class CalendlyService
             ]];
         }
 
-        $invitee = $client->post('invitees', $body)['resource'] ?? [];
+        // Named after the FCH title when Calendly allows it (a one-off meeting);
+        // else on the event type, its name the event type's.
+        $invitee = $this->bookUnderTitle($client, $connection, $type, $body, $data, $zone, $start)
+            ?? ($client->post('invitees', $body)['resource'] ?? []);
         $event = $client->get($invitee['event'])['resource'] ?? [];
 
         $appointment = $this->sync->upsert($connection, $event, $invitee);
@@ -659,6 +677,305 @@ class CalendlyService
     }
 
     /** One of the caller's partner's active event types; refused when it is not. */
+    /** Cache key marking a Calendly meeting FCH is replacing: its cancellation must not remove the appointment. */
+    public const MOVING_CACHE_PREFIX = 'calendly:moving:';
+
+    /**
+     * An upcoming Calendly meeting whose title or time is changed in FCH,
+     * changed in Calendly too. Calendly cannot edit a booked meeting, so it is
+     * replaced: the new time is checked first (open in Calendly, free in FCH),
+     * the old meeting cancelled, and a new one booked - named after the new
+     * title, for the same person and place. Should that booking fail, the old
+     * meeting is booked again and the change refused. Returns the appointment
+     * columns the new meeting brings (empty when nothing goes to Calendly).
+     *
+     * @param  array  $data  the FCH update: appointment_date (UTC), subject
+     */
+    public function moveMeeting(Appointment $appointment, array $data, bool $evenIfUnchanged = false): array
+    {
+        $oldStart = Carbon::parse($appointment->appointment_date, 'UTC')->startOfMinute();
+        $newStart = isset($data['appointment_date']) ? Carbon::parse($data['appointment_date'], 'UTC')->startOfMinute() : $oldStart->copy();
+        $oldTitle = (string) $appointment->subject;
+        $newTitle = trim((string) ($data['subject'] ?? $oldTitle));
+        $timeChanged = ! $newStart->equalTo($oldStart);
+
+        // Nothing for Calendly (unless asked to book it again, e.g. under its FCH title);
+        // or a past or cancelled meeting, which it no longer changes.
+        if ((! $evenIfUnchanged && ! $timeChanged && $newTitle === $oldTitle) || ! $appointment->isFromCalendly() || ! $appointment->isCancellable()) {
+            return [];
+        }
+
+        $connection = CalendlyConnection::find($appointment->calendly_connection_id);
+        if (! $connection?->isActive()) {
+            throw ValidationException::withMessages(['appointment_date' => __('calendly.move_not_connected')]);
+        }
+
+        $client = $this->client->forConnection($connection);
+        try {
+            $event = $client->get($appointment->calendly_event_uri)['resource'] ?? [];
+        } catch (CalendlyException $e) {
+            // On another Calendly account than the one now connected (403), or gone (404):
+            // this connection cannot change it - the change is made in FCH only.
+            if (! in_array($e->calendlyStatus(), [403, 404], true)) {
+                throw $e;
+            }
+            Log::warning('[CALENDLY] Changed in FCH only - not on the connected Calendly account', ['appointment_id' => $appointment->id, 'status' => $e->calendlyStatus()]);
+
+            return [];
+        }
+        $invitee = $appointment->calendly_invitee_uri
+            ? ($client->get($appointment->calendly_invitee_uri)['resource'] ?? [])
+            : ($client->get($appointment->calendly_event_uri.'/invitees', ['count' => 1])['collection'][0] ?? []);
+        if (empty($invitee['email'])) {
+            throw new CalendlyException(__('calendly.refused'), 502);
+        }
+
+        $zone = AppointmentTime::zone($invitee['timezone'] ?? null) ?? AppointmentTime::zone($appointment->timezone) ?? ($connection->timezone ?: 'UTC');
+        $type = $this->eventTypesOf($client)[0] ?? throw ValidationException::withMessages(['appointment_date' => __('calendly.no_event_types')]);
+
+        if ($timeChanged) {
+            $this->ensureOpenForMove($client, $type, $appointment, $newStart, $zone);
+        }
+
+        // The same person and place as the meeting replaced.
+        $body = [
+            'event_type' => $type['uri'],
+            'invitee' => [
+                'name' => $invitee['name'] ?? $invitee['email'],
+                'email' => $invitee['email'],
+                'timezone' => $zone,
+            ],
+        ];
+        $kind = $this->chosenLocation($type, null)['kind'] ?? null;
+        $where = trim((string) ($event['location']['location'] ?? ''));
+        if ($kind && in_array($kind, self::INVITEE_LOCATION_KINDS, true) && $where !== '') {
+            $body['location'] = ['kind' => $kind, 'location' => $where];
+        }
+        $description = (string) ($data['description'] ?? $appointment->description ?? '');
+        $book = function (Carbon $start, string $title) use ($client, $connection, $type, $body, $zone, $description): array {
+            $at = $body + ['start_time' => $start->format('Y-m-d\TH:i:s\Z')];
+
+            return $this->bookUnderTitle($client, $connection, $type, $at, ['subject' => $title, 'description' => $description], $zone, $start)
+                ?? ($client->post('invitees', $at)['resource'] ?? []);
+        };
+
+        // Its cancellation (webhook, sync) must not take the appointment off FCH.
+        Cache::put(self::MOVING_CACHE_PREFIX.$appointment->calendly_event_uri, true, now()->addMinutes(15));
+        $client->post($appointment->calendly_event_uri.'/cancellation', ['reason' => __('calendly.moved_reason')]);
+
+        try {
+            $newInvitee = $book($newStart, $newTitle);
+        } catch (Throwable $e) {
+            Log::warning('[CALENDLY] Changed meeting not booked - booking the old one again', ['appointment_id' => $appointment->id, 'error' => $e->getMessage()]);
+            try {
+                $restored = $book($oldStart, $oldTitle);
+                $restoredEvent = $client->get($restored['event'])['resource'] ?? [];
+                $appointment->update(Arr::except(CalendlyEventMapper::attributes($restoredEvent, $restored, $zone), ['subject', 'status']));
+            } catch (Throwable $restore) {
+                Log::error('[CALENDLY] Old meeting could not be booked again', ['appointment_id' => $appointment->id, 'error' => $restore->getMessage()]);
+            }
+
+            throw $e instanceof CalendlyException || $e instanceof ValidationException ? $e : new CalendlyException(__('calendly.refused'), 502);
+        }
+
+        $newEvent = $client->get($newInvitee['event'])['resource'] ?? [];
+
+        return array_merge(
+            Arr::except(CalendlyEventMapper::attributes($newEvent, $newInvitee, $zone), ['subject', 'status']),
+            ['subject' => $newTitle],
+        );
+    }
+
+    /**
+     * An upcoming Calendly meeting's name in Calendly - to compare with its FCH
+     * title. Null when its Calendly is not connected (it cannot be read).
+     */
+    public function calendlyNameOf(Appointment $appointment): ?string
+    {
+        $connection = CalendlyConnection::find($appointment->calendly_connection_id);
+        if (! $connection?->isActive() || ! $appointment->isFromCalendly()) {
+            return null;
+        }
+
+        return $this->client->forConnection($connection)->get($appointment->calendly_event_uri)['resource']['name'] ?? null;
+    }
+
+    /**
+     * Gives an upcoming Calendly meeting its FCH title in Calendly: booked
+     * again, same time and person, named after the title (Calendly cannot
+     * rename a booked meeting). The appointment moves to the new meeting.
+     */
+    public function retitleInCalendly(Appointment $appointment): Appointment
+    {
+        $changes = $this->moveMeeting($appointment, [], true);
+        if ($changes !== []) {
+            $appointment->update(Arr::except($changes, ['subject']));
+        }
+
+        return $appointment->fresh();
+    }
+
+    /**
+     * A new time for a Calendly meeting: one its Calendly offers that day, and
+     * no other FCH meeting of either person then (the meeting itself aside).
+     */
+    private function ensureOpenForMove(CalendlyClient $client, array $type, Appointment $appointment, Carbon $start, string $zone): void
+    {
+        $local = $start->copy()->setTimezone($zone);
+        $dayStart = $local->copy()->startOfDay();
+        $dayEnd = $local->copy()->endOfDay();
+        $from = $dayStart->copy()->max(now()->addMinute()->setTimezone($zone));
+
+        $slots = $from->gte($dayEnd) ? [] : ($client->get('event_type_available_times', [
+            'event_type' => $type['uri'],
+            'start_time' => $from->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'end_time' => $dayEnd->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+        ])['collection'] ?? []);
+
+        $open = collect($slots)
+            ->filter(fn (array $slot) => ($slot['status'] ?? 'available') === 'available' && ! empty($slot['start_time']))
+            ->map(fn (array $slot) => Carbon::parse($slot['start_time'])->utc());
+
+        $minutes = max(1, (int) $type['duration']);
+        $end = $start->copy()->addMinutes($minutes);
+        $taken = Appointment::query()
+            ->whereKeyNot($appointment->id)
+            ->whereIn('status', self::SLOT_HOLDING_STATUSES)
+            ->where(fn ($q) => $q->whereIn('scheduled_by', array_filter([$appointment->scheduled_by, $appointment->assigned_for]))
+                ->orWhereIn('assigned_for', array_filter([$appointment->scheduled_by, $appointment->assigned_for])))
+            ->whereBetween('appointment_date', [$start->copy()->subDay()->format(AppointmentTime::STORED_FORMAT), $end->format(AppointmentTime::STORED_FORMAT)])
+            ->get(['appointment_date', 'duration_minutes'])
+            ->contains(function (Appointment $other) use ($start, $end) {
+                $otherStart = Carbon::parse($other->appointment_date, 'UTC');
+
+                return $otherStart->lt($end) && $start->lt($otherStart->copy()->addMinutes(max(1, (int) $other->duration_minutes)));
+            });
+
+        // Busy in the people's own Calendly (other than this one): taken too.
+        if (! $taken) {
+            $taken = collect([$appointment->scheduled_by, $appointment->assigned_for])
+                ->filter()
+                ->unique()
+                ->flatMap(fn ($id) => $this->calendlyBusyOf(User::find((int) $id), $client->connection(), $start, $end))
+                ->contains(fn (array $period) => $period[0]->lt($end) && $start->lt($period[1]));
+        }
+
+        if (! $taken && $open->contains(fn (Carbon $slot) => $slot->equalTo($start))) {
+            return;
+        }
+
+        $labels = $open->map(fn (Carbon $slot) => $slot->copy()->setTimezone($zone)->format('g:i A'));
+        throw ValidationException::withMessages(['appointment_date' => $labels->isEmpty()
+            ? __('calendly.no_open_times', ['date' => $local->format('M j, Y')])
+            : __('calendly.time_not_open', [
+                'time' => $local->format('g:i A'),
+                'times' => $labels->take(12)->implode(', ').($labels->count() > 12 ? ', …' : ''),
+            ])]);
+    }
+
+    /**
+     * Books the meeting under the FCH appointment title: Calendly names a
+     * meeting after its event type, so a one-off meeting type named with the
+     * title (same length, day and place) is made and the invitee booked on it.
+     * Needs the event_types:write scope. Null - the caller books on the event
+     * type instead - when there is no title, or Calendly refuses (4xx: no such
+     * scope, plan, place...). Any other failure is thrown: the booking may have
+     * been made, so booking again could make it twice.
+     */
+    private function bookUnderTitle(CalendlyClient $client, CalendlyConnection $connection, array $type, array $body, array $data, string $zone, Carbon $start): ?array
+    {
+        $title = trim((string) ($data['subject'] ?? ''));
+        if ($title === '' || blank($connection->calendly_user_uri)) {
+            return null;
+        }
+
+        $day = $start->copy()->setTimezone($zone);
+        $makeOneOff = fn (?array $location) => $client->post('one_off_event_types', array_filter([
+            'name' => mb_strimwidth($title, 0, 55, '…'),
+            'host' => $connection->calendly_user_uri,
+            'duration' => max(1, (int) $type['duration']),
+            'timezone' => $zone,
+            'date_setting' => [
+                'type' => 'date_range',
+                'start_date' => $day->toDateString(),
+                'end_date' => $day->copy()->addDay()->toDateString(),
+            ],
+            'location' => $location,
+        ]))['resource']['uri'] ?? null;
+
+        // It has none of the event type's questions; the place goes as the one-off takes it.
+        $named = $body;
+        unset($named['location'], $named['questions_and_answers']);
+        $notes = trim(html_entity_decode(strip_tags((string) ($data['description'] ?? '')), ENT_QUOTES | ENT_HTML5));
+        [$location, $answer] = $this->oneOffLocation($body['location'] ?? null, $notes);
+
+        try {
+            try {
+                $oneOff = $makeOneOff($location);
+                if (! $oneOff) {
+                    return null;
+                }
+
+                return $client->post('invitees', array_filter(array_merge($named, ['event_type' => $oneOff, 'location' => $answer])))['resource'] ?? null;
+            } catch (CalendlyException $e) {
+                // A place Calendly will not book a one-off with: the title still goes, without the place.
+                if ($location === null || $e->calendlyStatus() !== 400) {
+                    throw $e;
+                }
+                Log::info('[CALENDLY] Named meeting booked without its place - Calendly refused it', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+                $oneOff = $makeOneOff(null);
+                if (! $oneOff) {
+                    return null;
+                }
+
+                return $client->post('invitees', array_merge($named, ['event_type' => $oneOff]))['resource'] ?? null;
+            }
+        } catch (CalendlyException $e) {
+            $status = $e->calendlyStatus();
+            if ($status === null || $status < 400 || $status >= 500 || $status === 429) {
+                throw $e;
+            }
+
+            Log::info('[CALENDLY] Booked on the event type - Calendly refused a meeting named after the title', [
+                'connection_id' => $connection->id,
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * The event type's place for a one-off meeting type: [its location
+     * setting, the invitee's answer when booking]. Its kinds are fewer, and
+     * Calendly will not book a one-off with a "custom" or "ask invitee" place
+     * ("invalid location choice") - a call we make (or a place the invitee
+     * gives) goes as a "physical" place written out ("Phone call: <number>"),
+     * which both people see as the location; the FCH description goes with it
+     * as its additional info (a one-off has no questions to answer it in).
+     *
+     * @return array{0: ?array, 1: ?array}
+     */
+    private function oneOffLocation(?array $location, string $notes = ''): array
+    {
+        $kind = $location['kind'] ?? null;
+        $where = trim((string) ($location['location'] ?? ''));
+        $info = $notes !== '' ? ['additional_info' => mb_substr($notes, 0, 1000)] : [];
+
+        return match ($kind) {
+            null => [null, null],
+            'outbound_call' => $where !== ''
+                ? [['kind' => 'physical', 'location' => 'Phone call: '.$where] + $info, null]
+                : [null, null],
+            'ask_invitee', 'custom' => $where !== '' ? [['kind' => 'physical', 'location' => $where] + $info, null] : [null, null],
+            'physical' => $where !== '' ? [['kind' => 'physical', 'location' => $where] + $info, null] : [null, null],
+            'inbound_call' => $where !== '' ? [['kind' => 'inbound_call', 'phone_number' => $where], null] : [null, null],
+            'zoom_conference', 'google_conference', 'microsoft_teams_conference', 'webex_conference', 'gotomeeting_conference' => [['kind' => $kind], null],
+            default => [null, null],
+        };
+    }
+
     /**
      * The picked time must be one Calendly offers for the event type that day
      * (and not taken in FCH): refused otherwise, saying which times are open,
@@ -717,12 +1034,59 @@ class CalendlyService
      *
      * @return Collection<int, array{0: Carbon, 1: Carbon}>
      */
-    private function busyTimes(array $people, Carbon $dayStart, Carbon $dayEnd): Collection
+    /**
+     * When a person has a Calendly of their own (a borrower's, or their partner's)
+     * other than the one being booked: its busy times from $from to $to - their
+     * Calendly meetings and the calendars connected to it (Calendly's
+     * user_busy_times, availability:read). Empty when they have none, or when
+     * Calendly cannot be asked (logged; FCH's own meetings are still checked).
+     *
+     * @return Collection<int, array{0: Carbon, 1: Carbon}>
+     */
+    private function calendlyBusyOf(?User $person, CalendlyConnection $booking, Carbon $from, Carbon $to): Collection
+    {
+        if (! $person) {
+            return collect();
+        }
+
+        $theirs = CalendlyConnection::isBorrower($person)
+            ? CalendlyConnection::ownedByBorrower($person)
+            : CalendlyConnection::forPartner($person->partner_id);
+        if (! $theirs?->isActive() || (int) $theirs->id === (int) $booking->id || blank($theirs->calendly_user_uri)) {
+            return collect();
+        }
+
+        $start = $from->copy()->max(now()->addMinute());
+        if ($start->gte($to)) {
+            return collect();
+        }
+
+        try {
+            $busy = $this->client->forConnection($theirs)->get('user_busy_times', [
+                'user' => $theirs->calendly_user_uri,
+                'start_time' => $start->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'end_time' => $to->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+            ])['collection'] ?? [];
+        } catch (Throwable $e) {
+            Log::warning('[CALENDLY] Invitee\'s own Calendly busy times not read', ['user_id' => $person->id, 'connection_id' => $theirs->id, 'error' => $e->getMessage()]);
+
+            return collect();
+        }
+
+        return collect($busy)
+            ->filter(fn ($period) => is_array($period) && ! empty($period['start_time']) && ! empty($period['end_time']))
+            ->map(fn (array $period) => [Carbon::parse($period['start_time'])->utc(), Carbon::parse($period['end_time'])->utc()])
+            ->values();
+    }
+
+    private function busyTimes(array $people, Carbon $dayStart, Carbon $dayEnd, ?int $exceptAppointmentId = null): Collection
     {
         $people = array_values(array_filter($people));
 
         return Appointment::query()
             ->whereIn('status', self::SLOT_HOLDING_STATUSES)
+            // The meeting being edited does not hold its own time.
+            ->when($exceptAppointmentId, fn ($q, $id) => $q->whereKeyNot($id))
             ->where(fn ($q) => $q->whereIn('scheduled_by', $people)->orWhereIn('assigned_for', $people))
             // A wide window in SQL, the exact overlap in PHP - no database-specific date arithmetic.
             ->whereBetween('appointment_date', [

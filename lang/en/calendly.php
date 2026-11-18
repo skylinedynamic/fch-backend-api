@@ -18,7 +18,7 @@ return [
 
     'not_connected' => 'Calendly is not connected for your partner yet. Connect it on the Appointments page first.',
     'not_configured' => 'Calendly is not set up for this partner yet - save its Client ID and Client Secret in Settings > Calendly.',
-    'account_in_use' => 'This Calendly account is already connected to another partner in FCH. Use a different Calendly account.',
+    'account_in_use' => 'This Calendly account is already connected in FCH (to another partner or a borrower). Disconnect it there first, or use a different Calendly account.',
     'needs_reconnect' => 'Your Calendly connection has expired. Connect Calendly again on the Appointments page.',
     'authorization_failed' => 'Calendly could not be connected. Please try again.',
     'cannot_book_with_host' => 'Only the host, WLP or certified partner account itself can connect or disconnect Calendly.',
@@ -37,4 +37,6 @@ return [
     'reschedule_in_calendly' => 'This meeting was booked in Calendly - use its Reschedule link to change the time.',
     'rescheduled_remark' => 'Rescheduled in Calendly.',
     'cancel_reason' => 'Cancelled in the FCH portal.',
+    'moved_reason' => 'Changed in the FCH portal - a new invitation follows with the new title or time.',
+    'move_not_connected' => 'This meeting is in Calendly, which is not connected right now - connect Calendly again to change its title or time.',
 ];

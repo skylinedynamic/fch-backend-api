@@ -69,6 +69,8 @@ class CalendlyBookingTest extends TestCase
             ]]),
             "{$this->calendlyApi}/invitees" => Http::response(['resource' => $invitee], 201),
             "{$this->calendlyApi}/scheduled_events/EVBOOK" => Http::response(['resource' => $event]),
+            // No event_types:write by default: the meeting is booked on the event type.
+            "{$this->calendlyApi}/one_off_event_types" => Http::response(['title' => 'Permission Denied', 'message' => 'Insufficient scope'], 403),
         ]);
 
         return [$event, $invitee];
@@ -178,6 +180,49 @@ class CalendlyBookingTest extends TestCase
             && $request['event_type'] === $this->calendlyEventTypeUri);
     }
 
+    /**
+     * The person invited has a Calendly of their own: a time busy there (a meeting
+     * in it, or on a calendar connected to it) is not offered - asked of their
+     * Calendly (user_busy_times), with their own sign-in.
+     */
+    #[Test]
+    public function a_time_busy_in_the_invited_persons_own_calendly_is_not_offered(): void
+    {
+        $this->connectCalendly($this->host);
+        $this->connectCalendly($this->borrowerUser, [
+            'borrower_id' => $this->borrowerUser->entity_id,
+            'calendly_user_uri' => "{$this->calendlyApi}/users/BORROWERUSER",
+            'access_token' => 'borrower-access-token',
+        ]);
+        $busy = now()->addDays(3)->setTime(16, 0)->utc();
+        Http::fake([
+            "{$this->calendlyApi}/event_types?*" => Http::response(['collection' => [$this->calendlyEventType()], 'pagination' => ['next_page_token' => null]]),
+            "{$this->calendlyApi}/event_type_available_times?*" => Http::response(['collection' => [
+                ['status' => 'available', 'start_time' => $this->slot->format('Y-m-d\TH:i:s\Z'), 'invitees_remaining' => 1],
+                ['status' => 'available', 'start_time' => $busy->format('Y-m-d\TH:i:s\Z'), 'invitees_remaining' => 1],
+            ]]),
+            // The borrower's own Calendly: busy 16:00-16:30 (e.g. a meeting on their Google calendar).
+            "{$this->calendlyApi}/user_busy_times?*" => Http::response(['collection' => [
+                ['type' => 'external', 'start_time' => $busy->format('Y-m-d\TH:i:s\Z'), 'end_time' => $busy->copy()->addMinutes(30)->format('Y-m-d\TH:i:s\Z')],
+            ]]),
+        ]);
+        $this->actingAsUser($this->host);
+
+        $r = $this->postJson('/api/v1/common/calendly/available-times', [
+            'event_type_uri' => $this->calendlyEventTypeUri,
+            'date' => $this->slot->copy()->setTimezone('America/Chicago')->format('Y-m-d'),
+            'timezone' => 'America/Chicago',
+            'assigned_for' => $this->borrowerUser->id,
+        ]);
+        $r->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.start_time', $this->slot->format('Y-m-d\TH:i:s\Z'));
+
+        Http::assertSent(fn (Request $request) => str_starts_with($request->url(), "{$this->calendlyApi}/user_busy_times")
+            && $request['user'] === "{$this->calendlyApi}/users/BORROWERUSER"
+            && $request->hasHeader('Authorization', 'Bearer borrower-access-token'));
+    }
+
     #[Test]
     public function the_host_books_a_slot_in_its_own_calendly_and_it_is_made_in_calendly(): void
     {
@@ -237,6 +282,104 @@ class CalendlyBookingTest extends TestCase
                 'position' => 0,
             ]]);
         $this->assertSame('Funding review', Appointment::sole()->subject);
+    }
+
+    /**
+     * With event_types:write, the meeting is named after the FCH title: a
+     * one-off meeting type with that name (same length and day) is made and
+     * the invitee booked on it.
+     */
+    #[Test]
+    public function the_meeting_is_named_after_the_appointment_title_in_calendly(): void
+    {
+        $this->connectCalendly($this->host);
+        $oneOff = "{$this->calendlyApi}/event_types/ONEOFF1";
+        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
+            "{$this->calendlyApi}/one_off_event_types" => Http::response(['resource' => ['uri' => $oneOff]], 201),
+        ]);
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk()
+            ->assertJsonPath('data.subject', 'Funding review');
+
+        $day = $this->slot->copy()->setTimezone('America/Chicago');
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types"
+            && $request['name'] === 'Funding review'
+            && $request['host'] === $this->calendlyUserUri
+            && $request['duration'] === 30
+            && $request['date_setting'] === ['type' => 'date_range', 'start_date' => $day->toDateString(), 'end_date' => $day->copy()->addDay()->toDateString()]
+            && $request['location'] === ['kind' => 'google_conference']);
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === $oneOff
+            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z')
+            && ! isset($request['questions_and_answers']));
+        Http::assertNotSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === $this->calendlyEventTypeUri);
+    }
+
+    /**
+     * A phone-call event type: Calendly will not book a one-off with "custom" or
+     * "ask invitee" places, so the call is written out as its place, with the FCH
+     * description as the place's additional info - both shown in Calendly.
+     */
+    #[Test]
+    public function a_named_phone_call_meeting_shows_the_number_and_description_in_calendly(): void
+    {
+        Borrower::whereKey($this->borrowerUser->entity_id)->update(['phone_number' => '3125550199', 'country_code' => '+1']);
+        $this->connectCalendly($this->host);
+        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
+            "{$this->calendlyApi}/event_types?*" => Http::response(['collection' => [
+                $this->calendlyEventType(['locations' => [['kind' => 'outbound_call']]]),
+            ], 'pagination' => ['next_page_token' => null]]),
+            "{$this->calendlyApi}/one_off_event_types" => Http::response(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF9"]], 201),
+        ]);
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['description' => '<p>Bring the statements</p>']))->assertOk();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types"
+            && $request['name'] === 'Funding review'
+            && $request['location'] === ['kind' => 'physical', 'location' => 'Phone call: +13125550199', 'additional_info' => 'Bring the statements']);
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === "{$this->calendlyApi}/event_types/ONEOFF9"
+            && ! isset($request['location']));
+    }
+
+    /** Calendly refusing the named meeting (no event_types:write, plan...): booked on the event type as before. */
+    #[Test]
+    public function a_refused_named_meeting_is_booked_on_the_event_type_instead(): void
+    {
+        $this->connectCalendly($this->host);
+        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
+            "{$this->calendlyApi}/one_off_event_types" => Http::response(['title' => 'Permission Denied', 'message' => 'Insufficient scope'], 403),
+        ]);
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === $this->calendlyEventTypeUri);
+        $this->assertSame(1, Appointment::count());
+    }
+
+    /** Calendly failing (not refusing) mid-way: not booked again on the event type - it may already be booked. */
+    #[Test]
+    public function a_calendly_failure_while_naming_the_meeting_is_not_booked_twice(): void
+    {
+        $this->connectCalendly($this->host);
+        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
+            "{$this->calendlyApi}/one_off_event_types" => Http::response(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF1"]], 201),
+            "{$this->calendlyApi}/invitees" => Http::response(['message' => 'Down'], 500),
+        ]);
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertStatus(502);
+
+        // Event types, open times, the named meeting type, its one booking - nothing more.
+        Http::assertSentCount(4);
+        Http::assertNotSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === $this->calendlyEventTypeUri);
+        $this->assertSame(0, Appointment::count());
     }
 
     #[Test]
@@ -673,31 +816,245 @@ class CalendlyBookingTest extends TestCase
         $this->assertSame(Appointment::STATUS_CONFIRMED, Appointment::find($id)->status);
     }
 
-    #[Test]
-    public function a_calendly_meetings_time_is_changed_by_rescheduling_in_calendly_not_by_editing(): void
+    /**
+     * A booked Calendly meeting plus the Calendly answers for changing it in
+     * FCH: the old meeting and its invitee, the open times of $newSlot's day,
+     * its cancellation, and the new meeting (EVNEW) booked in its place.
+     *
+     * @return array{int, array<string, mixed>} the appointment id and the edit form
+     */
+    private function bookedMeetingToChange(Carbon $newSlot, array $overrides = []): array
     {
         $this->connectCalendly($this->host);
-        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower');
+        $old = $this->calendlyEvent('EVBOOK', $this->slot);
+        $oldInvitee = $this->calendlyInvitee($old, $this->borrowerUser->email, 'Jane Borrower');
+        $new = $this->calendlyEvent('EVNEW', $newSlot);
+        $newInvitee = $this->calendlyInvitee($new, $this->borrowerUser->email, 'Jane Borrower');
+
+        Http::fake($overrides + [
+            "{$this->calendlyApi}/event_types?*" => Http::response(['collection' => [$this->calendlyEventType()], 'pagination' => ['next_page_token' => null]]),
+            "{$this->calendlyApi}/event_type_available_times?*" => Http::response(['collection' => [
+                ['status' => 'available', 'start_time' => $this->slot->format('Y-m-d\TH:i:s\Z'), 'invitees_remaining' => 1],
+                ['status' => 'available', 'start_time' => $newSlot->format('Y-m-d\TH:i:s\Z'), 'invitees_remaining' => 1],
+            ]]),
+            "{$this->calendlyApi}/one_off_event_types" => Http::response(['title' => 'Permission Denied'], 403),
+            "{$this->calendlyApi}/invitees" => Http::sequence()
+                ->push(['resource' => $oldInvitee], 201)
+                ->push(['resource' => $newInvitee], 201),
+            "{$this->calendlyApi}/scheduled_events/EVBOOK/cancellation" => Http::response(['resource' => ['canceled_by' => 'FCH']], 201),
+            "{$oldInvitee['uri']}" => Http::response(['resource' => $oldInvitee]),
+            "{$this->calendlyApi}/scheduled_events/EVBOOK" => Http::response(['resource' => $old]),
+            "{$this->calendlyApi}/scheduled_events/EVNEW" => Http::response(['resource' => $new]),
+        ]);
         $this->actingAsUser($this->host);
-        $id = $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['assigned_for' => $this->borrowerUser->id]))->json('data.id');
+        $id = $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['assigned_for' => $this->borrowerUser->id]))->assertOk()->json('data.id');
 
         // The edit form sends the whole meeting back, as the portals do.
-        $form = [
+        return [$id, [
             'subject' => 'Funding review',
             'appointment_date' => $this->slot->format('Y-m-d H:i:s'),
             'timezone' => 'UTC',
             'duration_minutes' => 30,
             'meeting_type' => Appointment::MEETING_TYPE_BUSINESS_REVIEW,
             'assigned_for' => $this->borrowerUser->id,
-        ];
+        ]];
+    }
 
-        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, [
-            'appointment_date' => now()->addDays(9)->format('Y-m-d H:i:s'),
-        ]))->assertStatus(422)->assertJsonValidationErrors('appointment_date');
-        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['duration_minutes' => 60]))
+    /** A new time in FCH: the meeting is replaced in Calendly - the old one cancelled, a new one at the new time. */
+    #[Test]
+    public function changing_a_calendly_meetings_time_in_fch_moves_it_in_calendly(): void
+    {
+        $newSlot = $this->slot->copy()->addHours(2);
+        [$id, $form] = $this->bookedMeetingToChange($newSlot);
+
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['appointment_date' => $newSlot->format('Y-m-d H:i:s')]))
+            ->assertOk();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/scheduled_events/EVBOOK/cancellation");
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['start_time'] === $newSlot->format('Y-m-d\TH:i:s\Z')
+            && $request['invitee']['email'] === $this->borrowerUser->email);
+        // The same appointment, now the new meeting - no duplicate.
+        $this->assertSame(1, Appointment::count());
+        $appointment = Appointment::find($id);
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVNEW", $appointment->calendly_event_uri);
+        $this->assertSame($newSlot->format('Y-m-d H:i:s'), $appointment->appointment_date);
+        $this->assertSame('Funding review', $appointment->subject);
+    }
+
+    /** A new title in FCH: the meeting is replaced in Calendly, named with it (a one-off meeting), same time. */
+    #[Test]
+    public function changing_a_calendly_meetings_title_in_fch_renames_it_in_calendly(): void
+    {
+        [$id, $form] = $this->bookedMeetingToChange($this->slot, [
+            "{$this->calendlyApi}/one_off_event_types" => Http::sequence()
+                ->push(['title' => 'Permission Denied'], 403)
+                ->push(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF2"]], 201),
+        ]);
+
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['subject' => 'Renamed review']))->assertOk();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/scheduled_events/EVBOOK/cancellation");
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types"
+            && $request['name'] === 'Renamed review');
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === "{$this->calendlyApi}/event_types/ONEOFF2"
+            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z'));
+        $this->assertSame(1, Appointment::count());
+        $this->assertSame('Renamed review', Appointment::find($id)->subject);
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVNEW", Appointment::find($id)->calendly_event_uri);
+    }
+
+    #[Test]
+    public function a_new_time_not_open_in_calendly_is_refused_and_nothing_is_cancelled(): void
+    {
+        [$id, $form] = $this->bookedMeetingToChange($this->slot->copy()->addHours(2));
+
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['appointment_date' => $this->slot->copy()->addHours(5)->format('Y-m-d H:i:s')]))
             ->assertStatus(422)->assertJsonValidationErrors('appointment_date');
 
-        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['subject' => 'Renamed']))->assertOk();
-        $this->assertSame('Renamed', Appointment::find($id)->subject);
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/cancellation'));
+        $this->assertSame($this->slot->format('Y-m-d H:i:s'), Appointment::find($id)->appointment_date);
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVBOOK", Appointment::find($id)->calendly_event_uri);
+    }
+
+    /** The new meeting refused after the old one was cancelled: the old one is booked again, the change refused. */
+    #[Test]
+    public function a_failed_replacement_books_the_old_meeting_again(): void
+    {
+        $newSlot = $this->slot->copy()->addHours(2);
+        $restored = $this->calendlyEvent('EVBACK', $this->slot);
+        $restoredInvitee = $this->calendlyInvitee($restored, $this->borrowerUser->email, 'Jane Borrower');
+        $old = $this->calendlyEvent('EVBOOK', $this->slot);
+        [$id, $form] = $this->bookedMeetingToChange($newSlot, [
+            "{$this->calendlyApi}/invitees" => Http::sequence()
+                ->push(['resource' => $this->calendlyInvitee($old, $this->borrowerUser->email, 'Jane Borrower')], 201)
+                ->push(['title' => 'Invalid Argument', 'message' => 'The start time is no longer available.'], 400)
+                ->push(['resource' => $restoredInvitee], 201),
+            "{$this->calendlyApi}/scheduled_events/EVBACK" => Http::response(['resource' => $restored]),
+        ]);
+
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['appointment_date' => $newSlot->format('Y-m-d H:i:s')]))
+            ->assertStatus(422);
+
+        $appointment = Appointment::find($id);
+        // Still one appointment, at the old time, on the meeting booked again.
+        $this->assertSame(1, Appointment::count());
+        $this->assertSame($this->slot->format('Y-m-d H:i:s'), $appointment->appointment_date);
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVBACK", $appointment->calendly_event_uri);
+    }
+
+    /** Only the description or type changed: nothing to do in Calendly. */
+    #[Test]
+    public function changing_other_fields_of_a_calendly_meeting_does_not_touch_calendly(): void
+    {
+        [$id, $form] = $this->bookedMeetingToChange($this->slot->copy()->addHours(2));
+
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['description' => 'Bring the statements']))->assertOk();
+
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/cancellation'));
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVBOOK", Appointment::find($id)->calendly_event_uri);
+    }
+
+    /** The old meeting's cancellation (webhook) while FCH replaces it does not take the appointment off. */
+    #[Test]
+    public function the_replaced_meetings_cancellation_does_not_remove_the_appointment(): void
+    {
+        $newSlot = $this->slot->copy()->addHours(2);
+        [$id, $form] = $this->bookedMeetingToChange($newSlot);
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['appointment_date' => $newSlot->format('Y-m-d H:i:s')]))->assertOk();
+
+        $old = $this->calendlyEvent('EVBOOK', $this->slot, ['status' => 'canceled']);
+        $body = json_encode($this->calendlyWebhook('invitee.canceled', $old, array_merge($this->calendlyInvitee($old, $this->borrowerUser->email, 'Jane Borrower'), ['status' => 'canceled'])));
+        $connection = \App\Models\Calendly\CalendlyConnection::firstOrFail();
+        $this->call('POST', "/api/v1/calendly/webhook/{$connection->id}", [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_CALENDLY_WEBHOOK_SIGNATURE' => $this->calendlySignature($body),
+        ], $body)->assertOk();
+
+        $this->assertNotNull(Appointment::find($id));
+        $this->assertSame(Appointment::STATUS_CONFIRMED, Appointment::find($id)->status);
+    }
+
+    /**
+     * The connection signed in again with another Calendly account: its old
+     * meetings are not readable (403). Syncing skips them, deleting one
+     * deletes it in FCH, editing one saves in FCH - none of it fails.
+     */
+    #[Test]
+    public function meetings_of_a_previous_calendly_account_neither_break_sync_nor_block_delete_or_edit(): void
+    {
+        $connection = $this->connectCalendly($this->host);
+        // A meeting brought in while this connection was signed in to another Calendly account.
+        $old = "{$this->calendlyApi}/scheduled_events/EVOLD";
+        $appointment = Appointment::create([
+            'appointment_code' => 'APP-0900', 'source' => Appointment::SOURCE_CALENDLY, 'subject' => 'Old account meeting',
+            'appointment_date' => $this->slot->format('Y-m-d H:i:s'), 'timezone' => 'UTC', 'duration_minutes' => 30,
+            'status' => Appointment::STATUS_CONFIRMED, 'scheduled_by' => $this->host->id, 'assigned_for' => $this->borrowerUser->id,
+            'calendly_event_uri' => $old, 'calendly_connection_id' => $connection->id,
+        ]);
+        $id = $appointment->id;
+        $denied = Http::response(['title' => 'Permission Denied', 'message' => 'You are not allowed to view this event'], 403);
+        Http::fake([
+            "{$this->calendlyApi}/scheduled_events?*" => Http::response(['collection' => [], 'pagination' => ['next_page_token' => null]]),
+            "{$old}/cancellation" => $denied,
+            $old => $denied,
+        ]);
+        $this->actingAsUser($this->host);
+        $form = [
+            'subject' => 'Old account meeting', 'appointment_date' => $this->slot->format('Y-m-d H:i:s'), 'timezone' => 'UTC',
+            'duration_minutes' => 30, 'meeting_type' => Appointment::MEETING_TYPE_BUSINESS_REVIEW, 'assigned_for' => $this->borrowerUser->id,
+        ];
+
+        $this->postJson('/api/v1/common/calendly/sync')->assertOk();
+        $this->assertSame(Appointment::STATUS_CONFIRMED, Appointment::find($id)->status);
+
+        $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['subject' => 'Renamed in FCH']))->assertOk();
+        $this->assertSame('Renamed in FCH', Appointment::find($id)->subject);
+
+        $this->deleteJson("/api/v1/common/appointments/{$id}")->assertOk();
+        $this->assertNull(Appointment::find($id));
+    }
+
+    /** calendly:retitle --dry-run: lists a meeting whose Calendly name is not its FCH title, changes nothing. */
+    #[Test]
+    public function retitle_dry_run_lists_meetings_whose_calendly_name_differs_and_changes_nothing(): void
+    {
+        [$id] = $this->bookedMeetingToChange($this->slot->copy()->addHours(2));
+
+        $this->artisan('calendly:retitle', ['--dry-run' => true])
+            ->expectsOutputToContain('Upcoming Calendly meetings to give their FCH title: 1')
+            ->assertSuccessful();
+
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/cancellation'));
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVBOOK", Appointment::find($id)->calendly_event_uri);
+    }
+
+    /** calendly:retitle: the meeting is booked again under its FCH title, same time; the old one cancelled. */
+    #[Test]
+    public function retitle_books_an_old_meeting_again_under_its_fch_title(): void
+    {
+        $renamed = $this->calendlyEvent('EVNEW', $this->slot, ['name' => 'Funding review']);
+        [$id] = $this->bookedMeetingToChange($this->slot, [
+            "{$this->calendlyApi}/one_off_event_types" => Http::sequence()
+                ->push(['title' => 'Permission Denied'], 403)
+                ->push(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF3"]], 201),
+            "{$this->calendlyApi}/scheduled_events/EVNEW" => Http::response(['resource' => $renamed]),
+        ]);
+
+        $this->artisan('calendly:retitle', ['--force' => true])
+            ->expectsOutputToContain('Calendly name now "Funding review" - YES, same title')
+            ->assertSuccessful();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/scheduled_events/EVBOOK/cancellation");
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types" && $request['name'] === 'Funding review');
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === "{$this->calendlyApi}/event_types/ONEOFF3"
+            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z'));
+        $appointment = Appointment::find($id);
+        $this->assertSame(1, Appointment::count());
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVNEW", $appointment->calendly_event_uri);
+        $this->assertSame($this->slot->format('Y-m-d H:i:s'), $appointment->appointment_date);
+        $this->assertSame('Funding review', $appointment->subject);
     }
 }

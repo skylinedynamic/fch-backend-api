@@ -20,6 +20,8 @@ class CalendlyAvailableTimesRequest extends BaseApiRequest
             'timezone' => 'nullable|string|timezone:all',
             // The person the host is booking with, so their FCH meetings are left out too.
             'assigned_for' => 'nullable|integer|exists:users,id',
+            // Editing a meeting: its own time does not count as taken.
+            'except_appointment_id' => 'nullable|integer',
         ];
     }
 }

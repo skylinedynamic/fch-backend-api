@@ -121,7 +121,7 @@ class CalendlyConnectionTest extends TestCase
         sort($scopes);
 
         $this->assertSame([
-            'availability:read', 'event_types:read', 'scheduled_events:read', 'scheduled_events:write',
+            'availability:read', 'event_types:read', 'event_types:write', 'scheduled_events:read', 'scheduled_events:write',
             'users:read', 'webhooks:read', 'webhooks:write',
         ], $scopes);
     }
@@ -151,6 +151,30 @@ class CalendlyConnectionTest extends TestCase
             && $request['url'] === "https://api.example.test/api/v1/calendly/webhook/{$connection->id}"
             && $request['signing_key'] === $connection->webhook_signing_key
             && $request['events'] === ['invitee.created', 'invitee.canceled']);
+    }
+
+    /**
+     * PKCE: a Calendly app made as a PKCE app refuses a sign-in without it
+     * ("unknown client" / "Missing required parameter: code_verifier"). The
+     * link carries the S256 challenge; the token request the matching verifier.
+     */
+    #[Test]
+    public function the_sign_in_uses_pkce_so_pkce_calendly_apps_connect(): void
+    {
+        $url = $this->connectUrl();
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $this->assertSame('S256', $query['code_challenge_method'] ?? null);
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $query['code_challenge'] ?? '');
+
+        $this->fakeCalendlyForCallback();
+        $this->get('/api/v1/calendly/callback?code=AUTH-CODE&state='.urlencode($query['state']))
+            ->assertRedirect('https://partner.example.test/appointments?calendly=connected');
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyAuth}/oauth/token"
+            && $request['grant_type'] === 'authorization_code'
+            && is_string($request['code_verifier'] ?? null)
+            && \App\Services\Global\Calendly\CalendlyOAuthService::codeChallenge($request['code_verifier']) === $query['code_challenge']);
     }
 
     #[Test]
@@ -348,7 +372,7 @@ class CalendlyConnectionTest extends TestCase
         $this->fakeCalendlyForCallback();
 
         $this->get('/api/v1/calendly/callback?code=AUTH-CODE&state='.urlencode($state))
-            ->assertRedirect('https://partner.example.test/appointments?calendly=error');
+            ->assertRedirect('https://partner.example.test/appointments?calendly=in_use');
 
         $this->assertFalse(CalendlyConnection::where('partner_id', $this->partnerAdmin->partner_id)->sole()->isActive());
     }
