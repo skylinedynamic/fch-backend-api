@@ -7,6 +7,7 @@ return [
     'name_string' => 'The role name must be a string.',
     'name_max' => 'The role name may not be greater than 50 characters.',
     'name_unique' => 'The role name already exists.',
+    'name_reserved' => 'Developer is a reserved role name. Please choose another name.',
     'description_required' => 'The role description is required.',
     'description_string' => 'The role description must be a string.',
     'description_max' => 'The role description may not be greater than 255 characters.',

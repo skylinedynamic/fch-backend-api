@@ -11,6 +11,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use App\Support\Files\Folder;
 use Tests\Support\InteractsWithPortalUsers;
 use Tests\TestCase;
 
@@ -50,11 +51,12 @@ class UploadSizeAndProfilePictureTest extends TestCase
         );
     }
 
-    private function upload(UploadedFile $file)
+    /** Into the partner's own folder (public: pictures only), or a client's (private: documents too). */
+    private function upload(UploadedFile $file, bool $private = false)
     {
         return $this->postJson('/api/v1/filemanager/upload', [
-            'entity_type' => 'partners',
-            'entity_id' => $this->partner->id,
+            'entity_type' => $private ? Folder::BORROWERS : Folder::PARTNERS,
+            'entity_id' => $private ? $this->makeBorrower($this->partner)->id : $this->partner->id,
             'path' => '/',
             'file' => $file,
         ]);
@@ -102,7 +104,7 @@ class UploadSizeAndProfilePictureTest extends TestCase
     #[Test]
     public function a_document_over_20_mb_is_refused_and_a_real_image_is_stored(): void
     {
-        $this->upload(UploadedFile::fake()->create('statement.pdf', 20 * 1024 + 1, 'application/pdf'))
+        $this->upload(UploadedFile::fake()->create('statement.pdf', 20 * 1024 + 1, 'application/pdf'), private: true)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['file' => __('uploads.too_large', ['size' => 20])]);
 

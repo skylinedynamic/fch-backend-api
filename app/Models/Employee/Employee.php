@@ -65,6 +65,19 @@ class Employee extends Model
     }
 
     /**
+     * Leaves out the employees whose login holds the Developer role unless
+     * $viewer holds it too (see User::scopeHideDevelopersFrom).
+     */
+    public function scopeHideDevelopersFrom($query, ?User $viewer)
+    {
+        if ($viewer?->isDeveloper()) {
+            return $query;
+        }
+
+        return $query->whereDoesntHave('user.roles', fn ($q) => $q->where('code', \App\Models\Common\Role::CODE_DEVELOPER));
+    }
+
+    /**
      * 🔹 Relationship: compensation rows — one for Hourly/Salary, one per
      * applicable service for Per Deal.
      */

@@ -112,6 +112,9 @@ class ActivityLog extends Activity
     /** The host changed the partner's Email, SMS, Branding or Payment settings (Partner profile › Configuration). */
     const LOG_TYPE_PARTNER_CONFIGURATION_UPDATE = 'partner_configuration_update';
 
+    /** The host added, changed or removed the partner's commission (Partner profile › Commissions). */
+    const LOG_TYPE_PARTNER_COMMISSION_UPDATE = 'partner_commission_update';
+
     const LOG_TYPE_PARTNER_DELETE = 'partner_delete';
 
     const LOG_TYPE_EMAIL_SENT = 'email_sent';

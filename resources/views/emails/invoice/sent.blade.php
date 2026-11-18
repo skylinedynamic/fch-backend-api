@@ -74,21 +74,28 @@
         {{-- Action Section --}}
         <div class="box-primary"
             style="background-color: #f0f7ff; border: 1px solid #e0effe; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">
+            @php($invoicesUrl = $invoice->is_partner_paying
+                ? concatUrl(getPartnerDomain($invoice->partner_id), 'invoices', config('app.frontend_partner_url'))
+                : concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices'))
             @if ($invoice->status === 'Paid')
                 <p style="line-height: 1.5; margin-bottom: 24px;">You can securely access and view your paid invoice in the
                     Invoices section.</p>
-                <a href="{{ concatUrl($invoice->is_partner_paying ? getPartnerDomain($invoice->partner_id) : getBorrowerDomain($invoice->partner_id), 'invoices', $invoice->is_partner_paying ? config('app.frontend_partner_url') : config('app.frontend_borrower_url')) }}" class="btn"
+                @if (!empty($invoicesUrl))
+                <a href="{{ $invoicesUrl }}" class="btn"
                     style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View
                     Invoice</a>
+                @endif
                 <p style="color: #64748b; font-size: 13px; margin-top: 24px; margin-bottom: 0;">Invoice Status: <strong
                         style="color: #28a745;">Paid</strong></p>
             @else
                 <p style="line-height: 1.5; margin-bottom: 24px;">You can securely view and pay your invoice online through
                     the Invoice section.</p>
-                <a href="{{ concatUrl($invoice->is_partner_paying ? getPartnerDomain($invoice->partner_id) : getBorrowerDomain($invoice->partner_id), 'invoices', $invoice->is_partner_paying ? config('app.frontend_partner_url') : config('app.frontend_borrower_url')) }}" class="btn"
+                @if (!empty($invoicesUrl))
+                <a href="{{ $invoicesUrl }}" class="btn"
                     style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View
                     & Pay
                     Invoice</a>
+                @endif
                 <p style="color: #64748b; font-size: 13px; margin-top: 24px; margin-bottom: 0;">Invoice Status:
                     <strong>{{ $invoice->status ?? 'Pending Payment' }}</strong>
                 </p>

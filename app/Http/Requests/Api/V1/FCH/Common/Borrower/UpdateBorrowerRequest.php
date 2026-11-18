@@ -111,9 +111,16 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_start_date'   => ['nullable', new NotFutureDate()], // BUG-007
 
             // ── Other ───────────────────────────────────────────────────────
-            'partner_id'       => ['nullable', 'integer', 'exists:partners,id'],
+            // A client's partner is fixed once created - by no one, not even the
+            // host (R3-BUG-024). Its own partner_id (the edit form sends it) passes.
+            'partner_id'       => ['nullable', 'integer', function ($attribute, $value, $fail) use ($borrower) {
+                if ($borrower && (int) $value !== (int) $borrower->partner_id) {
+                    $fail(__('borrower_validation.partner_id_locked'));
+                }
+            }],
             'status'           => ['nullable', 'string', 'max:255'],
-            'current_tier'     => ['nullable'],
+            // No current_tier: a client's tier moves only by verifying its
+            // tasks, never by an edit (R3-BUG-035). Not validated, so not saved.
             'assign_id'        => ['nullable', 'integer', 'exists:users,id', new PartnerTeamMember($this->clientPartner($borrower), $borrower?->assign_id, __('borrower_validation.assign_id_not_in_team'))],
             'notes'            => ['nullable', 'string'],
             // The client_info_version the form loaded - a save from an older copy is refused (R2 BUG-065).
@@ -121,7 +128,14 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'additional_data'  => ['nullable', 'json'],
             'fico_score'       => ['nullable', new FicoScore()],
             'paydex_score'     => ['nullable', new BusinessCreditScore()],
-            'is_free_trail'    => ['nullable', 'boolean'],
+            // Free → paid only: a paid client is never moved to the free plan
+            // (the form doesn't offer it; doing it through the API left an
+            // enrollment invoice that could never be paid - R3-BUG-027).
+            'is_free_trail'    => ['nullable', 'boolean', function ($attribute, $value, $fail) use ($borrower, $wasFreeTrial, $isFreeTrialInput) {
+                if ($borrower && !$wasFreeTrial && $isFreeTrialInput) {
+                    $fail(__('borrower_validation.paid_to_free_not_allowed'));
+                }
+            }],
             'free_trail_end_date' => ['nullable'],
 
             // ── Enrollment sub-object (only required when migrating off free trial) ──
@@ -153,17 +167,11 @@ class UpdateBorrowerRequest extends BaseApiRequest
     }
 
     /**
-     * The partner the client is filed under after this save: its own, or the
-     * one the host moves it to.
+     * The partner the client is filed under: its own - a client's partner never
+     * changes on an edit (R3-BUG-024).
      */
     private function clientPartner(?Borrower $borrower): ?Partner
     {
-        $partnerId = $this->integer('partner_id');
-
-        if ($partnerId && $this->user()?->partner?->is_host) {
-            return Partner::find($partnerId);
-        }
-
         return $borrower?->partner ?? $this->user()?->partner;
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Permission;
 use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
 use App\Http\Controllers\Api\V1\Global\Account\EmailChangeConfirmationController;
 use App\Http\Controllers\Api\V1\Global\Account\EmailChangeLinkController;
@@ -8,6 +9,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerReportSettingsController;
+use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerSummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -33,6 +36,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSavedTemplateController;
 use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
@@ -174,6 +178,13 @@ Route::prefix('v1')->group(function () {
         Route::prefix('common')->middleware('partner-portal')->group(function () {
 
             Route::get('dashboard', [DashboardController::class, 'index']);
+            // The host owner's business summary - the host's team only, and of
+            // it the owner (checked in FetchOwnerSummary).
+            Route::get('owner-summary', [OwnerSummaryController::class, 'show'])->middleware('host-partner');
+            Route::get('owner-summary/export', [OwnerSummaryController::class, 'export'])->middleware('host-partner');
+            Route::get('owner-summary/report-settings', [OwnerReportSettingsController::class, 'show'])->middleware('host-partner');
+            Route::put('owner-summary/report-settings', [OwnerReportSettingsController::class, 'update'])->middleware('host-partner');
+
             Route::get('refresh-user', [CommonController::class, 'refreshUser']);
             Route::get('partner-theme', [CommonController::class, 'getTheme']);
 
@@ -249,9 +260,9 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
 
             Route::post('borrowers/archive', [BorrowerController::class, 'archive'])
-                ->middleware('permission:update clients');
+                ->middleware(Permission::UpdateClients->middleware());
             Route::post('borrowers/unarchive', [BorrowerController::class, 'unarchive'])
-                ->middleware('permission:update clients');
+                ->middleware(Permission::UpdateClients->middleware());
 
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);
@@ -283,7 +294,8 @@ Route::prefix('v1')->group(function () {
             //Request Application
             Route::prefix('request-application')->group(function () {
                 Route::post('pre-qualification', [RequestApplicationController::class, 'getPreQualification']);
-                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
+                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
+                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
                 Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
                 Route::post('pre-qualification/{id}/run-ai', [RequestApplicationController::class, 'runAiPreQualification']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
@@ -432,6 +444,8 @@ Route::prefix('v1')->group(function () {
             Route::post('leads/details', [LeadController::class, 'storeDetails']);
             Route::post('leads/{id}/details', [LeadController::class, 'updateDetails']);
             Route::post('leads/{id}/contact-info', [LeadController::class, 'updateContactInfo']);
+            // Anyone who can open the lead may reveal; each reveal is logged (R3-BUG-004).
+            Route::post('leads/{id}/reveal', [LeadController::class, 'reveal']);
 
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
 
@@ -549,7 +563,7 @@ Route::prefix('v1')->group(function () {
                     Route::post('/{mailConfiguration}/verify', 'verify')->whereNumber('mailConfiguration')->middleware('throttle:20,1');
                 });
 
-                Route::middleware('permission:update email configuration settings')
+                Route::middleware(Permission::UpdateEmailConfigurationSettings->middleware())
                     ->controller(MailConfigurationController::class)
                     ->group(function () {
                         Route::get('/', 'index');
@@ -563,7 +577,7 @@ Route::prefix('v1')->group(function () {
 
             // SMS Configuration (host and white-label partners)
             Route::prefix('sms-configuration')
-                ->middleware('permission:update sms configuration settings')
+                ->middleware(Permission::UpdateSmsConfigurationSettings->middleware())
                 ->group(function () {
                     Route::get('/', [SmsConfigurationController::class, 'index']);
                     Route::post('/', [SmsConfigurationController::class, 'store']);
@@ -576,7 +590,17 @@ Route::prefix('v1')->group(function () {
                 Route::post('/save/{id?}', [AgreementTemplateController::class, 'store']);
                 Route::post('/show', [AgreementTemplateController::class, 'show']);
                 Route::post('/preview-values', [AgreementTemplateController::class, 'previewValues']);
+                Route::post('/merge-fields', [AgreementTemplateController::class, 'mergeFields']);
                 Route::post('/update-status/{id}', [AgreementTemplateController::class, 'updateStatus']);
+
+                // Agreement Builder › Save as Template, listed in Templates.
+                Route::prefix('saved')->controller(AgreementSavedTemplateController::class)->group(function () {
+                    Route::get('/', 'index');
+                    Route::post('/', 'store');
+                    Route::get('/{id}', 'show')->whereNumber('id');
+                    Route::put('/{id}', 'update')->whereNumber('id');
+                    Route::delete('/{id}', 'destroy')->whereNumber('id');
+                });
             });
 
             // Agreement signing
@@ -603,58 +627,58 @@ Route::prefix('v1')->group(function () {
                 // on, so a role without them is refused here too and not only
                 // hidden from the menu.
                 Route::get('config', [EmbedFormController::class, 'getConfig'])
-                    ->middleware('permission:view configuration');
+                    ->middleware(Permission::ViewConfiguration->middleware());
                 Route::put('config', [EmbedFormController::class, 'updateConfig'])
-                    ->middleware('permission:update configuration');
+                    ->middleware(Permission::UpdateConfiguration->middleware());
                 Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey'])
-                    ->middleware('permission:update configuration');
+                    ->middleware(Permission::UpdateConfiguration->middleware());
 
                 Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions'])
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
                 // Applications not yet converted only; see EmbedFormService::deleteSubmissions().
                 // No role permission for now (product decision); the controller
                 // still limits a partner to their own applications.
                 Route::post('submissions/delete', [EmbedFormController::class, 'deleteSubmissions']);
                 Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission'])
                     ->whereNumber('id')
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
                 // The panel offers the status dropdown to anyone who can open an
                 // application, so this follows the same permission.
                 Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus'])
                     ->whereNumber('id')
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
                 Route::get('submissions/{id}/conversion-preview', [EmbedFormController::class, 'conversionPreview'])
                     ->whereNumber('id')
-                    ->middleware('permission:convert application');
+                    ->middleware(Permission::ConvertApplication->middleware());
                 Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower'])
                     ->whereNumber('id')
-                    ->middleware('permission:convert application');
+                    ->middleware(Permission::ConvertApplication->middleware());
 
                 Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment'])
                     ->whereNumber('id')
-                    ->middleware('permission:view application');
+                    ->middleware(Permission::ViewApplication->middleware());
             });
 
 
-                    // V1 Reminder routes
-                Route::prefix('reminders')->group(function () {
-                    Route::post('/fetch-reminders', [ReminderController::class, 'index']);
-                    Route::get('/due', [ReminderController::class, 'getDue']);
-                    Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
-                    Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
-                    Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
-                    Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
-                    Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
-                });
+            // V1 Reminder routes
+            Route::prefix('reminders')->group(function () {
+                Route::post('/fetch-reminders', [ReminderController::class, 'index']);
+                Route::get('/due', [ReminderController::class, 'getDue']);
+                Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
+                Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
+                Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
+                Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
+                Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+            });
 
-                // In-app notification inbox (bell + notifications page)
-                Route::prefix('notifications')->group(function () {
-                    Route::get('/', [NotificationInboxController::class, 'index']);
-                    Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
-                    Route::post('/read-all', [NotificationInboxController::class, 'markAllRead']);
-                    Route::post('/{id}/read', [NotificationInboxController::class, 'markRead']);
-                    Route::delete('/{id}', [NotificationInboxController::class, 'destroy']);
-                });
+            // In-app notification inbox (bell + notifications page)
+            Route::prefix('notifications')->group(function () {
+                Route::get('/', [NotificationInboxController::class, 'index']);
+                Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
+                Route::post('/read-all', [NotificationInboxController::class, 'markAllRead']);
+                Route::post('/{id}/read', [NotificationInboxController::class, 'markRead']);
+                Route::delete('/{id}', [NotificationInboxController::class, 'destroy']);
+            });
 
 
         });

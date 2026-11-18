@@ -10,6 +10,7 @@ use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\User\User;
+use App\Enums\Permission as PermissionName;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -50,8 +51,10 @@ class PartnerInvoicesAndPaymentsTest extends TestCase
         $this->host = $this->makeHostPartner();
         $this->partner = $this->makeWhiteLabelPartner();
         $this->otherPartner = $this->makeCertifiedPartner();
-        $this->hostAdmin = $this->makePartnerAdmin($this->host);
-        $this->partnerAdmin = $this->makePartnerAdmin($this->partner);
+        // Admins hold 'can approve payment' through their role; approving and
+        // rejecting a payment checks it on the API too (R3-BUG-037).
+        $this->hostAdmin = $this->makePartnerAdmin($this->host, [PermissionName::ApprovePayment->value]);
+        $this->partnerAdmin = $this->makePartnerAdmin($this->partner, [PermissionName::ApprovePayment->value]);
         $this->partnerBorrower = $this->makeBorrowerUser($this->partner);
         $this->hostBorrower = $this->makeBorrowerUser($this->host);
     }
@@ -296,9 +299,51 @@ class PartnerInvoicesAndPaymentsTest extends TestCase
         $payment = $this->manualPayment($this->borrowerInvoice($this->partnerBorrower));
         $this->actingAsUser($this->partnerBorrower);
 
-        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")->assertStatus(422);
+        // Refused before anything else now: a client holds no approval permission (R3-BUG-037).
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")->assertForbidden();
 
         $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+    }
+
+    /**
+     * R3-BUG-037: a partner's staff user without 'can approve payment' approved
+     * a client's Cash payment through the API (200, enrollment marked paid) -
+     * the permission was only checked by the portal hiding the button.
+     */
+    #[Test]
+    public function staff_without_the_approval_permission_cannot_approve_or_reject_a_payment(): void
+    {
+        $payment = $this->manualPayment($this->borrowerInvoice($this->partnerBorrower));
+        $this->actingAsUser($this->makeStaffUser($this->partner, [PermissionName::ViewPayments->value, PermissionName::ViewInvoices->value]));
+
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve", ['note' => 'x'])->assertForbidden();
+        $this->postJson("/api/v1/common/payments/{$payment->id}/reject", ['reason' => 'x'])->assertForbidden();
+
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+        $this->assertSame(Invoice::STATUS_PROCESSING, $payment->invoice->fresh()->status);
+    }
+
+    #[Test]
+    public function a_partner_owner_without_the_approval_permission_cannot_approve_either(): void
+    {
+        // The portal shows the Approve button by the same permission list.
+        $payment = $this->manualPayment($this->borrowerInvoice($this->partnerBorrower));
+        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")->assertForbidden();
+
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+    }
+
+    #[Test]
+    public function staff_with_the_approval_permission_can_approve(): void
+    {
+        $payment = $this->manualPayment($this->borrowerInvoice($this->partnerBorrower));
+        $this->actingAsUser($this->makeStaffUser($this->partner, [PermissionName::ApprovePayment->value]));
+
+        $this->postJson("/api/v1/common/payments/{$payment->id}/approve")->assertOk();
+
+        $this->assertSame(Payment::STATUS_SUCCEEDED, $payment->fresh()->status);
     }
 
     #[Test]
@@ -364,7 +409,8 @@ class PartnerInvoicesAndPaymentsTest extends TestCase
     #[Test]
     public function a_certified_partner_cannot_approve_the_borrower_fee_it_owes_the_host(): void
     {
-        $certifiedAdmin = $this->makePartnerAdmin($this->otherPartner);
+        // Holding the approval permission: what refuses it here is whose fee it is.
+        $certifiedAdmin = $this->makePartnerAdmin($this->otherPartner, [PermissionName::ApprovePayment->value]);
         $borrower = $this->makeBorrowerUser($this->otherPartner);
         $payment = $this->manualPayment($this->borrowerFeeInvoice($this->otherPartner, $borrower));
         $this->actingAsUser($certifiedAdmin);

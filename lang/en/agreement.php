@@ -37,4 +37,47 @@ return [
     'verification_error' => 'An error occurred during verification: :error',
     'no_sign_needed' => 'No signature required at this time.',
     'log_check_sign_need_error' => 'AgreementService@checkSignNeed: :error',
+
+    // {{signer.enrollment_table}} - the amounts set for the signer when they enrolled.
+    'enrollment' => [
+        'group' => 'Signer: Enrollment',
+        'field_label' => 'Enrollment Details',
+        'item' => 'Item',
+        'amount' => 'Amount',
+        'rows' => [
+            'type' => 'Enrollment type',
+            'total_amount' => 'Total enrollment amount',
+            'down_payment' => 'Down payment',
+            'subscription_amount' => 'Subscription amount',
+            'monthly_subscription' => 'Monthly subscription',
+            'installment_months' => 'Installment months',
+            'platform_fee' => 'Platform fee',
+            'per_user_seat_fee' => 'Per user seat fee',
+            'free_seat_count' => 'Free seat count',
+            'client_activation_fee' => 'Client activation fee',
+        ],
+        'may_vary' => ':amount (it may vary per borrower)',
+        'none' => 'No enrollment found.',
+        'example' => 'Example: :type',
+    ],
+
+    // Agreement Builder › Save as Template.
+    'saved_template' => [
+        'retrieved' => 'Saved templates retrieved successfully',
+        'saved' => 'Template saved',
+        'updated' => 'Template updated',
+        'deleted' => 'Template deleted',
+        'name_taken' => 'You already have a template with this name.',
+        'partner_host_only' => 'Only the platform owner can save a partner agreement template.',
+    ],
+
+    // {{signer.commission_table}} - the signing partner's commission tiers.
+    'commission' => [
+        'field_label' => "Partner's commission tiers",
+        'from' => 'From (funded deals)',
+        'to' => 'To',
+        'commission' => 'Commission',
+        'and_up' => 'and up',
+        'none' => 'No commission is set.',
+    ],
 ];

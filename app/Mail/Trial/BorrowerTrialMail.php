@@ -40,7 +40,7 @@ class BorrowerTrialMail extends Mailable implements SendsImmediately
     public function content(): Content
     {
         $user = $this->mailData['user'];
-        $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login', config('app.frontend_borrower_url'));
+        $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login');
 
         $rawEndDate = $this->mailData['trial_end_date'] ?? null;
         $trialEndDate = $rawEndDate ? normalizeDate($rawEndDate) : null;

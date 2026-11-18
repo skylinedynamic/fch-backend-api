@@ -2,6 +2,7 @@
 
 namespace App\Services\Global\Common;
 
+use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Http\Request;
@@ -67,6 +68,26 @@ class PortalIsolationService
         $borrowerPortal = $this->normalizeDomain($reserved['base_reserved_borrower_portal'] ?? '');
 
 
+        // --- A client signs in only on its partner's client portal (R3-BUG-032):
+        // its borrower_domain whenever there is one (Active Custom URL plays no
+        // part), else the reserved borrower portal for the host's and a
+        // Certified partner's clients - the rule of
+        // Partner::borrowerPortalDomain(), which its emails link by. Never a
+        // partner portal domain.
+        if ($user->entity_type === Borrower::class) {
+            if (!$userPartner) {
+                return false;
+            }
+
+            if (filled($userPartner->borrower_domain)) {
+                return $domain === $this->normalizeDomain((string) $userPartner->borrower_domain);
+            }
+
+            $usesHostPortal = $isUserHost || $userPartner->partner_type === Partner::PARTNER_TYPE_CERTIFIED;
+
+            return $usesHostPortal && $borrowerPortal !== '' && $domain === $borrowerPortal;
+        }
+
         // --- Check 1: Reserved partner portal only can access the host partner ---
         if ($domain == $partnerPortal && $isUserHost) {
             return true;
@@ -78,7 +99,7 @@ class PortalIsolationService
             if($isUserHost){
                 return true;
             }
-            
+
             $isCertifiedWithNoDomain = $userPartner
                 && $userPartner->partner_type === Partner::PARTNER_TYPE_CERTIFIED
                 && empty($userPartner->borrower_domain);

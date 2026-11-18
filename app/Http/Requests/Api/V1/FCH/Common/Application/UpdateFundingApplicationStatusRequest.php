@@ -19,6 +19,8 @@ class UpdateFundingApplicationStatusRequest extends BaseApiRequest
             'funding_application_id' => ['required', 'integer', 'exists:funding_applications,id'],
             'status'                 => ['required', Rule::in(FundingApplication::STATUS)],
             'status_note'            => ['nullable', 'string', 'max:10000'],
+            // Off unless ticked: the note stays with the team (R3-BUG-016).
+            'status_note_visible_to_client' => ['sometimes', 'boolean'],
             'funded_amount'          => ['nullable', 'numeric', 'min:0'],
             // The status the page was showing - a change made from an older one is refused (R2 BUG-037).
             'expected_status'        => ['nullable', 'string', 'max:255'],
@@ -42,6 +44,7 @@ class UpdateFundingApplicationStatusRequest extends BaseApiRequest
 
             'status_note.string' => __('application.status_note_string'),
             'status_note.max' => __('application.status_note_max'),
+            'status_note_visible_to_client.boolean' => __('application.status_note_visible_boolean'),
         ];
     }
 }

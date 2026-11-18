@@ -380,6 +380,43 @@ class ActivityLogService
      *
      * @return array{sentence: string, change: array{label: string, from: string, to: string}}
      */
+    /**
+     * A field changed on a record, with both values: the sentence for the
+     * entry's description, e.g. "First Name changed from Johnathan to
+     * Jonathan", and its {label, from, to} row for "Show changes". A sensitive
+     * field (SSN, EIN, date of birth, account number) gives only "SSN was
+     * updated" and no row - its values are never written. Empty to empty
+     * (null to "") is no change: no sentence and no row.
+     *
+     * @return array{sentence: string|null, change: array{label: string, from: string, to: string}|null}
+     */
+    public function describeFieldChange(string $field, mixed $from, mixed $to, ?string $label = null): array
+    {
+        $isEmpty = static fn (mixed $value): bool => $value === null || $value === '';
+        if ($isEmpty($from) && $isEmpty($to)) {
+            return ['sentence' => null, 'change' => null];
+        }
+
+        if (ActivityLog::isSensitiveField($field)) {
+            return [
+                'sentence' => __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]),
+                'change' => null,
+            ];
+        }
+
+        $label ??= ucwords(str_replace('_', ' ', $field));
+        $show = static function (mixed $value): string {
+            if (is_array($value)) {
+                $value = json_encode($value);
+            }
+
+            return $value === null || (string) $value === '' ? __('activity_log.field_empty_value') : (string) $value;
+        };
+        $change = ['label' => $label, 'from' => $show($from), 'to' => $show($to)];
+
+        return ['sentence' => __('activity_log.field_changed', $change), 'change' => $change];
+    }
+
     public function describeOwnerChange(string $label, mixed $fromId, mixed $toId): array
     {
         // Someone since removed is still named; only a row that is gone entirely falls back to the id.

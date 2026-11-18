@@ -14,6 +14,7 @@ use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
 use App\Rules\BusinessEin;
 use App\Rules\SafeUpload;
+use App\Rules\DomainNotClaimed;
 
 class StorePartnerRequest extends BaseApiRequest
 {
@@ -90,14 +91,19 @@ class StorePartnerRequest extends BaseApiRequest
                 'max:50',
                 'regex:/^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/',
                 Rule::notIn(Partner::RESTRICTED_DOMAINS),
+                // The full domain is not the host's or any partner's, on either portal (R3-BUG-020).
                 function ($attribute, $value, $fail) use ($baseUrl) {
-                    $fullDomain = $value . '.' . $baseUrl;
-                    if (Partner::where('partner_domain', $fullDomain)->whereNull('deleted_at')->exists()) {
-                        $fail(__('partner.validation.partner_domain.unique'));
+                    if (is_string($value)) {
+                        (new DomainNotClaimed('partner_domain'))->validate($attribute, $value . '.' . $baseUrl, $fail);
                     }
                 },
             ],
-            'borrower_domain' => ['nullable', 'string', 'max:255'],
+            'borrower_domain' => [
+                'nullable',
+                'string',
+                'max:255',
+                new DomainNotClaimed('borrower_domain', null, is_string($this->input('partner_domain')) ? $this->input('partner_domain') . '.' . $baseUrl : null),
+            ],
             'is_free_trail' => ['nullable', 'boolean'],
             'free_trail_end_date' => [$isFreeTrial ? 'required' : 'nullable', 'date_format:Y-m-d', $isFreeTrial ? 'after_or_equal:today' : 'nullable'],
 

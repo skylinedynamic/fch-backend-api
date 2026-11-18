@@ -56,6 +56,15 @@ class PartnerAdminApiTest extends TestCase
         ], $overrides);
     }
 
+    /**
+     * The edit form's payload for a partner on a paid plan: the add payload
+     * without the free trial - a paid partner can't be put on one (R3-BUG-027).
+     */
+    private function editPartnerPayload(array $overrides = []): array
+    {
+        return array_merge($this->newPartnerPayload(['is_free_trail' => false, 'free_trail_end_date' => null]), $overrides);
+    }
+
     #[Test]
     public function a_partners_phone_zip_and_tax_id_are_checked_against_the_shared_formats(): void
     {
@@ -183,7 +192,7 @@ class PartnerAdminApiTest extends TestCase
 
         $this->getJson("/api/v1/admin/partners-details/{$partner->id}")->assertOk()->assertJsonPath('data.id', $partner->id);
 
-        $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->newPartnerPayload([
+        $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->editPartnerPayload([
             'full_name' => 'New Name',
             'company_name' => $partner->company_name,
             'email' => $partner->email,
@@ -202,7 +211,7 @@ class PartnerAdminApiTest extends TestCase
         $this->makePartnerAdmin($partner);
         $this->actingAsUser($this->hostAdmin);
 
-        $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->newPartnerPayload([
+        $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->editPartnerPayload([
             'company_name' => $partner->company_name,
             'email' => $partner->email,
             'address_line_1' => '',
@@ -226,7 +235,7 @@ class PartnerAdminApiTest extends TestCase
 
     private function editPartnerEmail(Partner $partner, string $email)
     {
-        return $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->newPartnerPayload([
+        return $this->putJson("/api/v1/admin/partners/{$partner->id}", $this->editPartnerPayload([
             'full_name' => $partner->full_name,
             'company_name' => $partner->company_name,
             'email' => $email,

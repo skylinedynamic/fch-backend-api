@@ -22,6 +22,9 @@ use App\Support\Files\Folder;
  * for byte, and its record points there. A record whose file is missing is
  * reported and left alone; a file no record points to is reported and kept.
  * Re-running picks up where it stopped. Run with --dry-run first.
+ *
+ * It writes the copies flat; run audit:organize-files after it to move them
+ * under their application and version.
  */
 class MoveSignedCopiesToAudit extends Command
 {

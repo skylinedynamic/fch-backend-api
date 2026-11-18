@@ -21,6 +21,10 @@ class Commission extends Model
         'total_commission',
         'admin_commission',
         'partner_commission',
+        // How the partner's share was set: PartnerCommissionTier::TYPE_* from its
+        // tier, or null when typed by hand; a flat tier keeps its exact amount.
+        'partner_commission_type',
+        'partner_commission_flat_amount',
         'total_commission_amount',
         'admin_commission_amount',
         'partner_commission_amount',
@@ -42,6 +46,7 @@ class Commission extends Model
         'total_commission_amount' => 'decimal:2',
         'admin_commission_amount' => 'decimal:2',
         'partner_commission_amount' => 'decimal:2',
+        'partner_commission_flat_amount' => 'decimal:2',
         'conversion_rate' => 'decimal:2',
         'payout_date' => 'date',
     ];
@@ -86,6 +91,22 @@ class Commission extends Model
         });
     }
 
+
+    /**
+     * Past Draft: set going by the close (Processing) or settled. Its rates and
+     * amounts are fixed from then on - save-commission refuses it (R3-BUG-011).
+     */
+    public function isPastDraft(): bool
+    {
+        return $this->commission_status !== self::STATUS_DRAFT;
+    }
+
+    /** Paid out: never reset or recomputed, however the application is closed again (R3-BUG-011). */
+    public function isPaidOut(): bool
+    {
+        return $this->commission_status === self::STATUS_COMPLETED
+            || $this->payment_status === self::PAYMENT_STATUS_PAID;
+    }
 
     public function borrower()
     {

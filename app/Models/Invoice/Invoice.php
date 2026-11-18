@@ -83,12 +83,6 @@ class Invoice extends Model
     const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';
     const INVOICE_TYPE_BORROWER_FEE = 'borrower_fee';
 
-    /**
-     * Shows Pay Now to a partner user for the partner's own invoices (BUG-202).
-     * Checked by the panel only; the API lets the partner's staff pay either
-     * way. Seeded by PayInvoicePermissionSeeder.
-     */
-    const PERMISSION_PAY = 'Pay Invoice';
     const INVOICE_TYPE_USER_SEAT = 'user_seat';
     const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
 

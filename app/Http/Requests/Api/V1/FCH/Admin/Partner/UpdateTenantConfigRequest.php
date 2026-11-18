@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
+use App\Rules\DomainNotClaimed;
 use Illuminate\Validation\Rule;
 
 class UpdateTenantConfigRequest extends BaseApiRequest
@@ -55,25 +56,9 @@ class UpdateTenantConfigRequest extends BaseApiRequest
         // otherwise the user's own - never entity_id, which for a staff user is
         // their employee id (see TenantConfigController).
         $partnerId = $this->route('id') ?: auth()->user()->partner_id;
-        $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
-        $restrictedDomains = array_map(function ($keyword) use ($baseUrl) {
-            return $keyword . '.' . $baseUrl;
-        }, Partner::RESTRICTED_DOMAINS);
-
-        $notTaken = fn (string $column) => function ($attribute, $value, $fail) use ($column, $partnerId, $restrictedDomains) {
-            if (in_array($value, $restrictedDomains)) {
-                $fail(__("partner.validation.{$column}.unique"));
-                return;
-            }
-
-            $query = Partner::where($column, $value)->whereNull('deleted_at');
-            if ($partnerId) {
-                $query->where('id', '!=', $partnerId);
-            }
-            if ($query->exists()) {
-                $fail(__("partner.validation.{$column}.unique"));
-            }
-        };
+        // Neither portal domain may be the host's, another partner's (on either
+        // portal), or this partner's other one (R3-BUG-020).
+        $notTaken = fn (string $column, ?string $other) => new DomainNotClaimed($column, $partnerId ? (int) $partnerId : null, $other);
 
         return [
             'active_custom_url' => ['required', 'boolean'],
@@ -84,7 +69,7 @@ class UpdateTenantConfigRequest extends BaseApiRequest
                 'max:255',
                 'bail',
                 'regex:' . self::HOST_NAME,
-                $notTaken('partner_domain'),
+                $notTaken('partner_domain', null),
             ],
             // Optional even with the custom domain on.
             'borrower_domain' => [
@@ -93,7 +78,9 @@ class UpdateTenantConfigRequest extends BaseApiRequest
                 'max:255',
                 'bail',
                 'regex:' . self::HOST_NAME,
-                $notTaken('borrower_domain'),
+                $notTaken('borrower_domain', $this->has('partner_domain')
+                    ? $this->input('partner_domain')
+                    : Partner::whereKey($partnerId)->value('partner_domain')),
             ],
         ];
     }

@@ -42,11 +42,11 @@ class CreditProfileUpdatedMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $profileUrl = concatUrl(
-            $this->borrowerPartnerId ? getBorrowerDomain($this->borrowerPartnerId) : null,
-            'profile?tab=3',
-            config('app.frontend_borrower_url')
-        );
+        // The client's own portal, or no button: a White-Label partner's
+        // client is never sent to the host's portal (R3-BUG-032).
+        $profileUrl = $this->borrowerPartnerId
+            ? concatUrl(getBorrowerDomain($this->borrowerPartnerId), 'profile?tab=3')
+            : concatUrl(null, 'profile?tab=3', config('app.frontend_borrower_url'));
 
         return new Content(
             view: 'emails.borrower.credit_profile_updated',

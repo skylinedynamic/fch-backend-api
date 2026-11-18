@@ -4,7 +4,9 @@ namespace App\Services\FCH\Common\Contact;
 
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Contact\ContactResource;
+use App\Exceptions\ContactInUseException;
 use App\Models\Contact\Contact;
+use App\Models\Lead\Lead;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
@@ -192,6 +194,16 @@ class ContactService
      */
     public function delete(Contact $contact): bool
     {
+        // A lead's Referral Contact is kept: say on which leads (R3-BUG-017).
+        $leads = $this->leadsReferredBy([$contact->id]);
+        if ($leads->isNotEmpty()) {
+            $names = $leads->map(fn (Lead $lead) => $this->leadName($lead));
+            throw new ContactInUseException(
+                trans_choice('contact.delete_blocked_referral', $leads->count(), ['count' => $leads->count(), 'leads' => $names->implode(', ')]),
+                ['leads' => $leads->map(fn (Lead $lead) => ['id' => $lead->id, 'name' => $this->leadName($lead)])->values()->all()]
+            );
+        }
+
         try {
             if ($contact->image) {
                 $this->deleteFile($contact->getRawOriginal('image'), Disk::UPLOADS);
@@ -229,6 +241,20 @@ class ContactService
 
         // Get contacts to delete their images
         $contacts = Contact::whereIn('id', $ids)->where('partner_id', auth()->user()->partner_id)->get();
+
+        // If any is a lead's Referral Contact, none is deleted (R3-BUG-017).
+        $leadCounts = $this->leadsReferredBy($contacts->pluck('id')->all())->countBy('referral_partner_id');
+        if ($leadCounts->isNotEmpty()) {
+            $inUse = $contacts->filter(fn (Contact $c) => $leadCounts->has($c->id))->values();
+            throw new ContactInUseException(
+                __('contact.delete_blocked_referral_named', ['names' => $inUse->map(fn (Contact $c) => $this->contactName($c))->implode(', ')]),
+                ['contacts' => $inUse->map(fn (Contact $c) => [
+                    'id' => $c->id,
+                    'name' => $this->contactName($c),
+                    'lead_count' => $leadCounts->get($c->id),
+                ])->all()]
+            );
+        }
         foreach ($contacts as $contact) {
             if ($contact->image) {
                 $this->deleteFile($contact->getRawOriginal('image'), Disk::UPLOADS);
@@ -240,6 +266,24 @@ class ContactService
             ->delete();
 
         return true;
+    }
+
+    /** The leads (not deleted) that have one of these contacts as their Referral Contact. */
+    private function leadsReferredBy(array $contactIds)
+    {
+        return Lead::whereIn('referral_partner_id', $contactIds)
+            ->orderBy('id')
+            ->get(['id', 'referral_partner_id', 'contact_person', 'company_name']);
+    }
+
+    private function leadName(Lead $lead): string
+    {
+        return $lead->contact_person ?: ($lead->company_name ?: "#{$lead->id}");
+    }
+
+    private function contactName(Contact $contact): string
+    {
+        return trim("{$contact->first_name} {$contact->last_name}") ?: "#{$contact->id}";
     }
 
     protected function uploadContactImage(Contact $contact, UploadedFile $file)

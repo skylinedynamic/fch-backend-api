@@ -36,7 +36,8 @@ class FundingApplicationDocumentService
      *
      * Every signing is a new version of the application - 1, 2, 3 - and both
      * PDFs, the application as signed and the certificate for it, are kept in
-     * the audit folder by their SHA-256 (audit/files/{sha256}.pdf), recorded
+     * the audit folder under the application and version, named by their SHA-256
+     * (audit/applications/{id}/v{n}/{application|certificate}-{sha256}.pdf), recorded
      * in the application's audit trail. A later edit and re-signing adds the
      * next version; nothing already signed is ever overwritten. The signature record carries the version, the SHA-256 of the
      * signed application PDF, both paths, and who the application was for and
@@ -56,7 +57,7 @@ class FundingApplicationDocumentService
 
             // The application as signed.
             $appPdfBinary = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData))->output();
-            $appCopy = $trail->keepContents($appPdfBinary, 'pdf');
+            $appCopy = $trail->keepSignedCopy($appPdfBinary, $application->id, $version, FundingApplicationAuditEvent::FILE_APPLICATION_PDF);
             $appSha256 = $appCopy['hash'];
             $appPdfPath = $appCopy['path'];
 
@@ -81,7 +82,7 @@ class FundingApplicationDocumentService
             // The certificate for that signed version.
             $templateData = SignatureCertificateService::getTemplateData($application, $brandingData, $signatureData);
             $certPdfBinary = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData))->output();
-            $certCopy = $trail->keepContents($certPdfBinary, 'pdf');
+            $certCopy = $trail->keepSignedCopy($certPdfBinary, $application->id, $version, FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE);
             $this->recordSignedCopy($application, FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE, $certCopy, (string) $version, $certId);
 
             $signatureData['certificate_path'] = $certCopy['path'];
@@ -318,7 +319,7 @@ class FundingApplicationDocumentService
      * A copy kept as signed, in the audit trail - counted to number the next
      * signed version.
      *
-     * @param  array{hash: string, path: string}  $copy  where keepContents() put it
+     * @param  array{hash: string, path: string}  $copy  where keepSignedCopy() put it
      */
     private function recordSignedCopy(FundingApplication $application, string $fileType, array $copy, string $version, string $certId): void
     {
@@ -335,7 +336,7 @@ class FundingApplicationDocumentService
      * A download in the application's audit trail: what was handed out (its
      * SHA-256), whether a password protected it - never the password - and
      * the browser it went to. No copy of the file is kept: the application as
-     * signed is already kept under signed/, and a copy per download was
+     * signed is already kept in the audit folder, and a copy per download was
      * overwritten by the next one.
      */
     private function recordDownload(FundingApplication $application, string $fileType, string $sha256, ?string $password, array $brandingData): void
@@ -378,6 +379,12 @@ class FundingApplicationDocumentService
     /**
      * Get branding data (colors, company details, logo base64) for PDFs
      */
+    /** The host's brand, for a document of the host's that is not about one application. */
+    public static function getHostBranding(): array
+    {
+        return self::getCompanyBrandingInfo(null);
+    }
+
     public static function getBrandingData($application)
     {
         if ($application && ($application->relationLoaded('borrower') === false || !$application->borrower || !$application->borrower->first_name)) {

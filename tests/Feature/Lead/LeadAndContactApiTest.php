@@ -161,7 +161,8 @@ class LeadAndContactApiTest extends TestCase
 
     /**
      * A lead's SSN is the full number, as on a client's profile, kept
-     * encrypted - it used to be the last four digits only, in plain text.
+     * encrypted - it used to be the last four digits only, in plain text. The
+     * lead's details carry it masked (R3-BUG-004); see LeadSensitiveFieldRevealTest.
      */
     #[Test]
     public function a_leads_ssn_is_the_full_number_kept_encrypted(): void
@@ -175,7 +176,7 @@ class LeadAndContactApiTest extends TestCase
         $this->assertStringNotContainsString('6789', (string) $lead->fresh()->getRawOriginal('ssn_encrypted'));
         $this->getJson("/api/v1/common/leads/{$lead->id}")
             ->assertOk()
-            ->assertJsonPath('data.ssn', '123456789')
+            ->assertJsonPath('data.ssn', '***-**-6789')
             ->assertJsonMissingPath('data.ssn_last_4');
     }
 
@@ -294,6 +295,23 @@ class LeadAndContactApiTest extends TestCase
         $this->postJson('/api/v1/common/contacts', ['first_name' => 'Rae', 'email' => 'rae@example.test', 'mobile_number' => '(124) 982-7457'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['mobile_number' => __('embed_form.phone_invalid')]);
+    }
+
+    /** R3-BUG-018: an unformatted mobile was answered with the raw key "contact.mobile_number_invalid". */
+    #[Test]
+    public function an_unformatted_contact_mobile_gets_a_readable_message_on_add_and_edit(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $expected = 'Enter a valid 10-digit US mobile number, e.g. (555) 234-5678.';
+
+        $this->postJson('/api/v1/common/contacts', ['first_name' => 'Rae', 'last_name' => 'Ray', 'email' => 'rae@example.test', 'mobile_number' => '2025550199'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['mobile_number' => $expected]);
+
+        $contact = $this->contactOf($this->partner);
+        $this->putJson("/api/v1/common/contacts/{$contact->id}", ['first_name' => 'Rae', 'email' => 'rae@example.test', 'mobile_number' => '2025550199'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['mobile_number' => $expected]);
     }
 
     #[Test]

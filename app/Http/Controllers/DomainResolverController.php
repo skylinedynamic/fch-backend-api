@@ -66,9 +66,9 @@ class DomainResolverController extends Controller
                 ]);
             }
 
-            // Check borrower domain — only if active_custom_url is enabled
+            // Check borrower domain — whenever it is set. active_custom_url is
+            // the switch for the partner's own custom domain only (R3-BUG-032).
             $borrower = Partner::where('borrower_domain', $domain)
-                ->where('active_custom_url', true)
                 ->select('id')
                 ->first();
 
@@ -138,12 +138,12 @@ class DomainResolverController extends Controller
             return response('OK', 200);
         }
 
-        // Custom domain — only allow SSL if active_custom_url is enabled
+        // Custom domain — only with active_custom_url on. A borrower domain
+        // whenever it is set: the switch is for partner_domain only (R3-BUG-032).
         $exists = Partner::where('partner_domain', $domain)
             ->where('active_custom_url', true)
             ->exists()
             || Partner::where('borrower_domain', $domain)
-            ->where('active_custom_url', true)
             ->exists();
 
         if (!$exists) {

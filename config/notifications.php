@@ -897,6 +897,13 @@ return [
             'channels' => ['mail'],
         ],
 
+        // To the addresses in the owner's Report settings, not to a login.
+        'owner_summary.weekly_report' => [
+            'name' => 'Weekly owner report',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
     ],
 
 ];

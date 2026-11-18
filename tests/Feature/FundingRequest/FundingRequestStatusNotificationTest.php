@@ -69,10 +69,15 @@ class FundingRequestStatusNotificationTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        // A request is approved only with a lender assigned (R3-BUG-028).
+        $lenderId = DB::table('lenders')->insertGetId(['name' => 'Assigned Lender', 'status' => 'Active', 'created_at' => now(), 'updated_at' => now()]);
+
         $this->requestId = DB::table('funding_requests')->insertGetId([
             'partner_id' => $partnerId,
             'borrower_id' => $borrowerId,
             'funding_sequence_id' => $sequenceId,
+            'assign_lender' => $lenderId,
+            'lender_ids' => json_encode([$lenderId]),
             'status' => FundingRequest::STATUS_PENDING,
             'created_at' => now(),
             'updated_at' => now(),

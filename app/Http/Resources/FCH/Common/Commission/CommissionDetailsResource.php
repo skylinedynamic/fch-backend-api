@@ -31,10 +31,15 @@ class CommissionDetailsResource extends JsonResource
             'total_commission' => $this->when($owner, $this->total_commission),
             'admin_commission' => $this->when($host, $this->admin_commission),
             'partner_commission' => $this->when($owner, $this->partner_commission),
+            // How the partner's share was set: PartnerCommissionTier::TYPE_FLAT
+            // (a fixed $, shown without a %), TYPE_PERCENTAGE, or null (none / older).
+            'partner_commission_type' => $this->when($owner, $this->partner_commission_type),
             'total_commission_amount' => $this->when($owner, $this->total_commission_amount),
             'admin_commission_amount' => $this->when($host, $this->admin_commission_amount),
             'partner_commission_amount' => $this->when($owner, $this->partner_commission_amount),
-            'commission_note' => $this->note,
+            // The commission's own note, else the one typed in Make Payment - it
+            // is kept on the payout's invoice (and emailed to the payee).
+            'commission_note' => $this->note ?: $this->payout?->invoice?->note,
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,
             'conversion_rate' => $this->conversion_rate, 

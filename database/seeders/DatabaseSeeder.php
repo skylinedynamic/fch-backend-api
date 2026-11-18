@@ -101,9 +101,13 @@ class DatabaseSeeder extends Seeder
             SubscriptionSeatsSeeder::class,
             TaskReminderPermissionSeeder::class,
             SmsConfigurationPermissionSeeder::class,
+            BusinessInsightsPermissionSeeder::class, // Developer role only - last, so no earlier seeder hands it out
         ]);
     }
 }
 
 
-            // sudo php artisan db:seed --class=LenderCodeSeeder
+// sudo php artisan audit:organize-files --dry-run
+// sudo php artisan audit:organize-files
+// sudo php artisan audit:verify
+// sudo php artisan db:seed --class=BusinessInsightsPermissionSeeder

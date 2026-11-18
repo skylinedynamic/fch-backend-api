@@ -37,6 +37,18 @@ class ScheduleTest extends TestCase
         'backup:clean' => '0 5 * * *',
         // The day's seal of the funding application audit trail.
         'audit:seal' => '55 23 * * *',
+        // Sundays at 10:00 Eastern.
+        'owner-summary:send-weekly-report' => '0 10 * * 0',
+        // The short Telegram summary: last week on Sundays, last month on the 1st, 10:00 Eastern.
+        'owner-summary:send-telegram-summary week' => '0 10 * * 0',
+        'owner-summary:send-telegram-summary month' => '0 10 1 * *',
+    ];
+
+    /** Promised at a local time, so it stays there when the clocks change. */
+    private const OWN_TIMEZONE = [
+        'owner-summary:send-weekly-report' => 'America/New_York',
+        'owner-summary:send-telegram-summary week' => 'America/New_York',
+        'owner-summary:send-telegram-summary month' => 'America/New_York',
     ];
 
     /** @return array<string, Event> keyed by the command line after "artisan" */
@@ -59,7 +71,7 @@ class ScheduleTest extends TestCase
 
         $this->assertSame(self::EXPECTED, array_map(fn (Event $event) => $event->expression, $events));
         foreach ($events as $command => $event) {
-            $this->assertSame(config('app.scheduler_timezone', config('app.timezone')), $event->timezone, $command);
+            $this->assertSame(self::OWN_TIMEZONE[$command] ?? config('app.scheduler_timezone', config('app.timezone')), $event->timezone, $command);
         }
     }
 

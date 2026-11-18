@@ -45,6 +45,7 @@ class CommonService
 
         return User::query()
             ->teamOf($partner)
+            ->hideDevelopersFrom($user)
             ->select('id', 'name', 'email', 'phone_number', 'status', 'entity_type', 'entity_id')
             ->orderBy('name', 'asc')
             ->get()

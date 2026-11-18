@@ -47,7 +47,7 @@ class FundingApplicationSubmittedMail extends Mailable implements ShouldQueue
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
-        $this->dynamicData['applicationUrl'] = concatUrl(getBorrowerDomain($this->mailPartnerId), 'fund-application/' . $this->application->funding_request_id, config('app.frontend_borrower_url'));
+        $this->dynamicData['applicationUrl'] = concatUrl(getBorrowerDomain($this->mailPartnerId), 'fund-application/' . $this->application->funding_request_id);
 
         return new Envelope(
             subject: 'Funding Application Successfully Submitted',

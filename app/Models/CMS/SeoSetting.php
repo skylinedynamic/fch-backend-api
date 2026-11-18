@@ -8,7 +8,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class SeoSetting extends Model
 {
     use SoftDeletes;
-    
+
+    /** Longest SEO title the CMS accepts (R3-BUG-015). */
+    public const META_TITLE_MAX_LENGTH = 120;
+
     protected $fillable = [
         'partner_id',
         'page_name',

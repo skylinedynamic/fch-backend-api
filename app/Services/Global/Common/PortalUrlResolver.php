@@ -30,7 +30,7 @@ class PortalUrlResolver
         return concatUrl($this->domain($user), $path);
     }
 
-    private function domain(User $user): string
+    private function domain(User $user): ?string
     {
         // The record behind the login decides, not its user_type.
         $isBorrower = $user->entity_type === Borrower::class;
@@ -41,12 +41,14 @@ class PortalUrlResolver
             return $fallback;
         }
 
+        // A client: its partner's client portal, or none - a White-Label
+        // partner's client is never sent to the host's portal (R3-BUG-032).
+        if ($isBorrower) {
+            return $partner->borrowerPortalDomain();
+        }
+
         $isWhiteLabel = $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL;
         $customDomain = fn (?string $domain) => $isWhiteLabel && $partner->active_custom_url && filled($domain) ? $domain : null;
-
-        if ($isBorrower) {
-            return $customDomain($partner->borrower_domain) ?? $fallback;
-        }
 
         return $customDomain($partner->partner_domain)
             ?? (filled($partner->partner_subdomain) ? $partner->partner_subdomain : $fallback);

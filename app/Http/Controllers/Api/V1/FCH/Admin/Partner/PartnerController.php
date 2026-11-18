@@ -15,6 +15,7 @@ use App\Http\Resources\FCH\Partner\PartnerDetailsResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerCommissionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
 use App\Mail\AccountCreateNotificationMail;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\ArchivePartnerRequest;
@@ -208,6 +209,27 @@ class PartnerController extends Controller
         } catch (Throwable $e) {
             return ApiResponse::error(__('partner.error.status_agent_update_failed'), 500);
         }
+    }
+
+    /**
+     * Partner profile › Commissions: set the partner's Funding commission
+     * tiers - its share (%) of the success fee by funded-deal count. The
+     * funding application's commission split opens at the tier for that deal.
+     */
+    public function updateCommission(UpdatePartnerCommissionRequest $request, int $id)
+    {
+        $partner = $this->partnerService->findById($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        $partner = $this->partnerService->updateCommission($partner, $request->validated('tiers'));
+
+        return ApiResponse::success(
+            $this->partnerService->commissionOf($partner),
+            __('partner.success.commission_updated')
+        );
     }
 
     /**

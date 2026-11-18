@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Enums\Permission;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Partner\PartnerConfigurationChangeRecorder;
 use Illuminate\Http\Request;
@@ -11,28 +12,46 @@ use Illuminate\Http\Request;
  *
  * The Email, SMS, Branding and Payment settings endpoints serve the signed-in
  * user's own partner. The host also edits them for another partner, from the
- * partner profile's Configuration tab, by naming it with `partner_id`. Who may
- * do that is decided by the admin panel (`manage partner configuration`); it is
- * not checked here.
+ * partner profile's Configuration tab, by naming it with `partner_id`.
+ *
+ * Only a host user holding Permission::ManagePartnerConfiguration may name
+ * another partner; anyone else gets 403 (R3-BUG-001 - hiding the tab in the
+ * admin panel was the only check, so a partner could read and change another
+ * partner's gateways, mailboxes and keys by adding `partner_id`).
  */
 trait ResolvesConfigPartner
 {
     /**
-     * The partner named by `partner_id` (404 when it does not exist), otherwise
-     * the caller's own (null when it has none).
+     * The partner named by `partner_id`, otherwise the caller's own (null when
+     * it has none). Naming another partner without the right is 403 - checked
+     * before the 404 for an unknown partner, so the answer does not tell a
+     * partner which ids exist.
      */
     protected function configPartnerId(Request $request): ?int
     {
-        if (!$this->namesConfigPartner($request)) {
-            $own = $request->user()?->partner_id;
+        $own = $request->user()?->partner_id;
 
+        if (!$this->namesConfigPartner($request)) {
             return $own ? (int) $own : null;
         }
 
         $partnerId = (int) $request->input('partner_id');
+
+        if ($partnerId !== (int) $own) {
+            abort_unless($this->mayManageOtherPartners($request), 403, __('partner.configuration_forbidden'));
+        }
+
         abort_unless(Partner::whereKey($partnerId)->exists(), 404, __('partner.partner_not_found'));
 
         return $partnerId;
+    }
+
+    /** A host user holding the on-behalf permission. */
+    protected function mayManageOtherPartners(Request $request): bool
+    {
+        $user = $request->user();
+
+        return (bool) ($user?->partner?->is_host && $user->can(Permission::ManagePartnerConfiguration->value));
     }
 
     /** Whether the request names another partner at all. */

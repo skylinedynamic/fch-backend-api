@@ -421,7 +421,8 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : null;
-            $borrowerData['free_trail_end_date'] = isset($data['free_trail_end_date']) ? normalizeDate($data['free_trail_end_date']) : null;
+            // A client's Limited Free Plan has no end date (decision 2026-11-15).
+            $borrowerData['free_trail_end_date'] = null;
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -465,7 +466,8 @@ class BorrowerService
 
                 // ── FREE TRIAL PATH ───────────────────────────────────────────────────────
                 if (!empty($data['is_free_trail']) && $data['is_free_trail']) {
-                    $trialEndDate = $data['free_trail_end_date'] ?? null;
+                    // No end date on a client's free plan (decision 2026-11-15).
+                    $trialEndDate = null;
 
                     $this->activityLogService->logModelEvent(
                         $borrower,
@@ -558,6 +560,10 @@ class BorrowerService
                 $data['business_logo'] = $upload['path'];
             }
             $exceptFields = [
+                // A client's partner is fixed once created (R3-BUG-024).
+                'partner_id',
+                // The tier moves only by verifying tasks (R3-BUG-035).
+                'current_tier',
                 'enrollment',
                 'enrollment_payment',
                 'enrollment_amount',
@@ -576,11 +582,9 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
-            // free_trail_end_date is a DATE column and is now serialised verbatim
-            // through toDateOnly(), so a reposted value round-trips unchanged.
-            if (isset($borrowerData['free_trail_end_date'])) {
-                $borrowerData['free_trail_end_date'] = normalizeDate($borrowerData['free_trail_end_date']);
-            }
+            // A client's Limited Free Plan has no end date (decision 2026-11-15):
+            // whatever is sent, none is kept.
+            $borrowerData['free_trail_end_date'] = null;
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -654,16 +658,15 @@ class BorrowerService
                         continue;
                     }
 
-                    // An SSN or date of birth is recorded as changed, never repeated
-                    if (ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => ActivityLog::fieldLabel($field)]);
+                    // Both values; an SSN or date of birth only as "was updated"
+                    $described = $this->activityLogService->describeFieldChange($field, $borrower->getPrevious()[$field] ?? null, $newValue);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = ucwords(str_replace('_', ' ', $field));
-                    $val = (string) $newValue;
-                    $val = $val === '' ? __('borrower.empty_value') : $val;
-                    $changedFields[] = __('borrower.field_updated', ['field' => $name, 'value' => $val]);
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
+                    }
                 }
 
                 if ($transitionMsg) {
@@ -814,11 +817,16 @@ class BorrowerService
         }
         
         $changedFields = [];
+        $extraProps = [];
         foreach ($changes as $field => $newValue) {
-            $name = ucwords(str_replace('_', ' ', $field));
-            $val = (string) $newValue;
-            $val = $val === '' ? 'empty' : $val;
-            $changedFields[] = "{$name} was updated to {$val}";
+            $described = $this->activityLogService->describeFieldChange($field, $borrower->getPrevious()[$field] ?? null, $newValue);
+            if ($described['sentence'] === null) {
+                continue;
+            }
+            $changedFields[] = $described['sentence'];
+            if ($described['change']) {
+                $extraProps['changes'][$field] = $described['change'];
+            }
         }
 
         if ($bankAccountsChanged) {
@@ -830,7 +838,7 @@ class BorrowerService
             $this->activityLogService->logModelEvent(
                 $borrower,
                 ActivityLog::LOG_TYPE_BORROWER_UPDATE,
-                [],
+                $extraProps,
                 null,
                 $customDescription
             );
@@ -1129,6 +1137,7 @@ class BorrowerService
         }
 
         $users = $query
+            ->hideDevelopersFrom($authUser)
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Payment;
 
+use App\Enums\Permission as PermissionName;
 use App\Models\Common\Permission;
 use App\Models\Common\Role;
-use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Database\Seeders\PayInvoicePermissionSeeder;
@@ -43,12 +43,12 @@ class PayInvoicePermissionSeederTest extends TestCase
     {
         $this->seed(PayInvoicePermissionSeeder::class);
 
-        $permission = Permission::where('name', Invoice::PERMISSION_PAY)->where('guard_name', 'api')->sole();
+        $permission = Permission::where('name', PermissionName::PayInvoice->value)->where('guard_name', 'api')->sole();
         $this->assertSame('invoices', $permission->module);
         $this->assertSame(0, (int) $permission->is_host);
         $this->assertSame(1, (int) $permission->is_certified);
 
-        $this->assertContains(Invoice::PERMISSION_PAY, collect(config('permissions.invoices.permissions'))->pluck('name'));
+        $this->assertContains(PermissionName::PayInvoice->value, collect(config('permissions.invoices.permissions'))->pluck('name'));
     }
 
     #[Test]
@@ -64,17 +64,17 @@ class PayInvoicePermissionSeederTest extends TestCase
 
         $this->seed(PayInvoicePermissionSeeder::class);
 
-        $this->assertTrue($admin->fresh()->hasPermissionTo(Invoice::PERMISSION_PAY));
-        $this->assertFalse($sales->fresh()->hasPermissionTo(Invoice::PERMISSION_PAY), 'not a static role');
+        $this->assertTrue($admin->fresh()->hasPermissionTo(PermissionName::PayInvoice->value));
+        $this->assertFalse($sales->fresh()->hasPermissionTo(PermissionName::PayInvoice->value), 'not a static role');
 
         // Users carry their own copy of their role's permissions in this app.
         foreach ([$owner, $staff] as $user) {
             $this->assertTrue(DB::table('model_has_permissions')
                 ->join('permissions', 'permissions.id', '=', 'model_has_permissions.permission_id')
-                ->where('model_id', $user->id)->where('permissions.name', Invoice::PERMISSION_PAY)->exists());
+                ->where('model_id', $user->id)->where('permissions.name', PermissionName::PayInvoice->value)->exists());
             $this->assertSame(1, (int) $user->fresh()->is_refresh);
         }
-        $this->assertFalse($salesUser->fresh()->getDirectPermissions()->contains('name', Invoice::PERMISSION_PAY));
+        $this->assertFalse($salesUser->fresh()->getDirectPermissions()->contains('name', PermissionName::PayInvoice->value));
         $this->assertSame(0, (int) $salesUser->fresh()->is_refresh);
     }
 
@@ -88,7 +88,7 @@ class PayInvoicePermissionSeederTest extends TestCase
         $this->seed(PayInvoicePermissionSeeder::class);
         $this->seed(PayInvoicePermissionSeeder::class);
 
-        $this->assertSame(1, Permission::where('name', Invoice::PERMISSION_PAY)->count());
-        $this->assertSame(1, $role->fresh()->permissions()->where('name', Invoice::PERMISSION_PAY)->count());
+        $this->assertSame(1, Permission::where('name', PermissionName::PayInvoice->value)->count());
+        $this->assertSame(1, $role->fresh()->permissions()->where('name', PermissionName::PayInvoice->value)->count());
     }
 }

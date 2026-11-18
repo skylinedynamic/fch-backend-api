@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\Funding;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\MoneyAmount;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 
@@ -29,7 +30,8 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'funding_request_id' => 'nullable|integer',
             'funding_sequence_id' => 'required|exists:funding_sequencings,id',
             'funding_type' => 'nullable|string|max:255',
-            'requested_amount' => 'required|numeric|min:0',
+            // A plain amount, not "5e4" (R3-BUG-022).
+            'requested_amount' => ['required', 'numeric', 'min:0', new MoneyAmount],
             'use_of_funds' => 'nullable|string|max:255',
             'documents_uploaded' => 'nullable|array',
             'documents_uploaded.*' => 'nullable|string',

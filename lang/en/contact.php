@@ -20,7 +20,10 @@ return [
     'city_required' => 'City is required.',
     'company_name_required' => 'Company name is required.',
     'mobile_number_required' => 'Mobile number is required.',
+    'mobile_number_invalid' => 'Enter a valid 10-digit US mobile number, e.g. (555) 234-5678.',
     'email_required' => 'Email address is required.',
     'email_taken' => 'The email address has already been taken.',
     'multiple_delete_failed' => 'Failed to delete selected contacts.',
+    'delete_blocked_referral' => '{1} This contact is the Referral Contact on 1 lead (:leads). Choose another Referral Contact there first.|[2,*] This contact is the Referral Contact on :count leads (:leads). Choose another Referral Contact there first.',
+    'delete_blocked_referral_named' => 'Some selected contacts are the Referral Contact on a lead and cannot be deleted: :names. Unselect them to delete the others, or choose another Referral Contact on those leads.',
 ];

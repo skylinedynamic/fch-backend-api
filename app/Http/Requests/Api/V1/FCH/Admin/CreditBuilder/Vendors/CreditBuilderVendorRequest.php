@@ -3,6 +3,10 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\Vendors;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\CreditBuilder\CreditBuilderVendor;
+use App\Support\Files\Disk;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Validator;
 
 class CreditBuilderVendorRequest extends BaseApiRequest
 {
@@ -33,7 +37,10 @@ class CreditBuilderVendorRequest extends BaseApiRequest
             'general_url' => 'required|string',
             'affiliate_url' => 'nullable|string',
             // A path in the File Manager's storage (vendors/uline.png), not an upload.
-            'logo' => ['nullable', 'string', 'max:255', 'regex:/^[\w\-\/ ]+\.(jpe?g|png|gif|svg|webp)$/i', 'not_regex:/\.\./'],
+            // Any name a picture has there - spaces, (1), extra dots (R3-BUG-012) -
+            // as long as it is a picture; never a URL, an absolute path, a
+            // backslash or a step up (..).
+            'logo' => ['nullable', 'string', 'max:255', 'regex:/\.(jpe?g|png|gif|svg|webp)$/i', 'not_regex:#(\.\.|://|\\\\|^/)#'],
         ];
     }
 
@@ -55,5 +62,28 @@ class CreditBuilderVendorRequest extends BaseApiRequest
             'logo.regex' => __('credit_builder.validation_vendor_logo'),
             'logo.not_regex' => __('credit_builder.validation_vendor_logo'),
         ];
+    }
+
+    /**
+     * A new logo has to be a file the File Manager holds (R3-BUG-012: any path
+     * was taken). The logo a vendor already has is not checked again, so one
+     * whose file is gone (seeded, or removed) still saves.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $logo = $this->input('logo');
+            if (!is_string($logo) || $logo === '' || $validator->errors()->has('logo')) {
+                return;
+            }
+
+            $current = $this->route('id')
+                ? CreditBuilderVendor::whereKey($this->route('id'))->value('logo')
+                : null;
+
+            if ($logo !== $current && !Storage::disk(Disk::UPLOADS)->exists($logo)) {
+                $validator->errors()->add('logo', __('credit_builder.validation_vendor_logo_missing'));
+            }
+        });
     }
 }

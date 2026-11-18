@@ -10,6 +10,7 @@ use App\Services\Global\General\LenderProductCategoryService;
 use App\Services\FCH\Common\Scoring\CreditScoreService;
 use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Support\EmbedForm\EmbedFormDisplay;
@@ -30,9 +31,10 @@ class EmbedFormPageController extends Controller
 
     public function show(Request $request, string $key)
     {
+        // Looked up by key alone: a form switched off is paused, not gone, and
+        // says so below (R3-BUG-014). Only a key no form has is a 404.
         $config = EmbedFormConfig::with('partner')
             ->where('public_key', $key)
-            ->where('is_active', true)
             ->first();
 
         if (!$config) {
@@ -72,6 +74,18 @@ class EmbedFormPageController extends Controller
         // matches the form to the site around it.
         $primaryColor = $display->primaryColor() ?? $branding['primary_color'] ?? '#0d6efd';
         $secondaryColor = $branding['secondary_color'] ?? '#198754';
+
+        // Switched off: the partner's name and logo and a short message, nothing
+        // to fill in. Framed by the same rule, so it shows inside the iframe too.
+        if (!$config->is_active) {
+            return $this->framed(response()->view('embed-form.inactive', [
+                'config' => $config,
+                'partnerName' => $partnerName,
+                'logoUrl' => $logoUrl,
+                'faviconUrl' => $faviconUrl,
+                'primaryColor' => $primaryColor,
+            ]), $config);
+        }
 
         $response = response()->view('embed-form.index', [
             'config' => $config,
@@ -116,8 +130,15 @@ class EmbedFormPageController extends Controller
             'postalCodeLength' => UsPostalCode::length(),
         ]);
 
-        // Only the Allowed Domains may show this page in an iframe; the
-        // browser enforces it (BUG-092). No list: unrestricted.
+        return $this->framed($response, $config);
+    }
+
+    /**
+     * Only the Allowed Domains may show this page in an iframe; the browser
+     * enforces it (BUG-092). No list: unrestricted.
+     */
+    private function framed(Response $response, EmbedFormConfig $config): Response
+    {
         $frameAncestors = app(EmbedFormService::class)->frameAncestors($config);
         if ($frameAncestors) {
             $response->headers->set('Content-Security-Policy', "frame-ancestors {$frameAncestors}");

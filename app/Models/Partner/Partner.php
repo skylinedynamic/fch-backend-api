@@ -49,6 +49,7 @@ class Partner extends Model
         'is_host',
         'has_sign',
         'agreement_required',
+        'commission',
         'full_name',
         'company_name',
         'email',
@@ -92,6 +93,7 @@ class Partner extends Model
         'archived_at' => 'datetime',
         'has_sign' => 'boolean',
         'agreement_required' => 'boolean',
+        'commission' => 'decimal:2',
         'active_custom_url' => 'boolean',
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',
@@ -293,6 +295,46 @@ class Partner extends Model
     }
 
     /**
+     * Whether this partner's free trial has run out (R3-BUG-026): on a free
+     * trial with an end date that is before today, in the caller's timezone.
+     * The end date itself is still a trial day - the same boundary as the
+     * Partners list's "Expired" filter and the partner portal's lock. The host
+     * is never on a trial.
+     */
+    public function freeTrialExpired(): bool
+    {
+        if ((int) ($this->is_host ?? 0) === 1 || !$this->is_free_trail || !$this->free_trail_end_date) {
+            return false;
+        }
+
+        return $this->free_trail_end_date->toDateString() < todayInRequestTimezone();
+    }
+
+    /**
+     * The client portal this partner's clients sign in on and are linked to
+     * (R3-BUG-032), or null when they have none:
+     * - its own borrower_domain whenever it has one. Active Custom URL plays no
+     *   part: it is the switch for the partner's own custom domain only.
+     * - otherwise the host's shared client portal, but only for the host's and
+     *   a Certified partner's clients.
+     * - a White-Label partner's clients never get the host's portal: null.
+     *
+     * Sign-in (PortalIsolationService) accepts a client on exactly this domain.
+     */
+    public function borrowerPortalDomain(): ?string
+    {
+        if (filled($this->borrower_domain)) {
+            return $this->borrower_domain;
+        }
+
+        if ($this->is_host || $this->partner_type === self::PARTNER_TYPE_CERTIFIED) {
+            return config('app.frontend_borrower_url') ?: null;
+        }
+
+        return null;
+    }
+
+    /**
      * The partners the host manages: everyone but the host's own record. Used by
      * the partner count cards (dashboard and Partners list) so they agree.
      */
@@ -376,6 +418,13 @@ class Partner extends Model
     /** Seats a partner gets when neither its subscription nor Plan & Fee says. */
     public const DEFAULT_USER_SEATS = 3;
 
+    /**
+     * The range of a partner's commission - its share (%) of the success fee.
+     * The commission split keeps at least 1% for the admin, so 99% at most.
+     */
+    public const COMMISSION_MIN = 0;
+    public const COMMISSION_MAX = 99;
+
     /** Logins that take a seat: the partner's own and its employees'. */
     public function usedUserSeats(): int
     {
@@ -450,6 +499,12 @@ class Partner extends Model
     public function commissions(): HasMany
     {
         return $this->hasMany(Commission::class, 'partner_id');
+    }
+
+    /** Partner profile › Commissions: its Funding commission count tiers, in order. */
+    public function commissionTiers(): HasMany
+    {
+        return $this->hasMany(PartnerCommissionTier::class)->orderBy('sort_order')->orderBy('min_count');
     }
 
     public function fundingApplications()

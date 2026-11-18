@@ -32,10 +32,23 @@ class FundingApplicationAuditTrail
 
     /** The audit folder on the uploads disk: private (config/files.php private_folders). */
     public const FOLDER = Folder::AUDIT;
-    /** Kept files, one per content hash: files/{sha256}.{ext}. */
+    /**
+     * Signed copies, under their application and the version signed:
+     * applications/{id}/v{n}/{application|certificate}-{sha256}.pdf.
+     */
+    public const APPLICATIONS_FOLDER = self::FOLDER . '/applications';
+    /** The version folder of a copy recorded without a version. */
+    public const UNVERSIONED_FOLDER = 'unversioned';
+    /**
+     * Kept files, one per content hash: files/{sha256}.{ext}. Where every
+     * signed copy was kept before APPLICATIONS_FOLDER; those stay here.
+     */
     public const FILES_FOLDER = self::FOLDER . '/files';
     /** The daily seals: seals/{Y-m-d}.json. */
     public const SEALS_FOLDER = self::FOLDER . '/seals';
+
+    /** @var array<int, list<string>> each application's kept copies, by filesOf() */
+    private array $applicationFiles = [];
 
     /** The columns a hash covers, in this order. */
     private const HASHED = [
@@ -245,9 +258,46 @@ class FundingApplicationAuditTrail
     }
 
     /**
-     * Where an event's file is in the audit folder: its own path, or - for an
-     * event that names it by hash only (imported) - the signed copy kept as
-     * {sha256}.pdf. Null when the folder does not hold it.
+     * Keep a signed copy under its application and the version signed,
+     * applications/{id}/v{n}/{application|certificate}-{sha256}.{ext}, once.
+     * The hash is in the name, so an existing copy is never overwritten and
+     * changed bytes can never pass for it. Throws when it cannot be written.
+     *
+     * @return array{hash: string, path: string}
+     */
+    public function keepSignedCopy(string $contents, int $applicationId, string|int|null $version, string $fileType, string $extension = 'pdf'): array
+    {
+        $hash = hash('sha256', $contents);
+        $kept = $this->keptCopyPath($applicationId, $version, $fileType, $hash, $extension);
+
+        $audit = Storage::disk(Disk::UPLOADS);
+        if (!$audit->exists($kept) && !$audit->put($kept, $contents)) {
+            throw new RuntimeException(__('audit.write_failed', ['path' => $kept]));
+        }
+        unset($this->applicationFiles[$applicationId]);
+
+        return ['hash' => $hash, 'path' => $kept];
+    }
+
+    /** Where keepSignedCopy() keeps a copy. */
+    public function keptCopyPath(int $applicationId, string|int|null $version, ?string $fileType, string $hash, string $extension = 'pdf'): string
+    {
+        $version = preg_replace('/[^A-Za-z0-9._-]/', '', (string) $version);
+        $versionFolder = $version !== '' ? "v{$version}" : self::UNVERSIONED_FOLDER;
+        $name = FundingApplicationAuditEvent::FILE_NAMES[$fileType] ?? FundingApplicationAuditEvent::FILE_NAME_OTHER;
+        $extension = strtolower($extension);
+
+        return self::APPLICATIONS_FOLDER . "/{$applicationId}/{$versionFolder}/{$name}-{$hash}" . ($extension !== '' ? ".{$extension}" : '');
+    }
+
+    /**
+     * Where an event's file is in the audit folder, or null when the folder
+     * does not hold it. In this order:
+     * 1. the event's own path;
+     * 2. for an event that names its file by hash only (a download, an
+     *    imported event), the copy with that hash under the event's own
+     *    application - never another application's;
+     * 3. the copy kept flat as files/{sha256}.pdf, before APPLICATIONS_FOLDER.
      */
     public function storedFile(FundingApplicationAuditEvent $event): ?string
     {
@@ -257,18 +307,36 @@ class FundingApplicationAuditTrail
         }
 
         $disk = Storage::disk(Disk::UPLOADS);
-        $candidates = array_filter([
-            $event->file_path,
-            $event->file_hash ? self::FILES_FOLDER . "/{$event->file_hash}.pdf" : null,
-        ]);
+        if ($event->file_path && $disk->exists($event->file_path)) {
+            return $event->file_path;
+        }
 
-        foreach ($candidates as $path) {
-            if ($disk->exists($path)) {
+        $hash = (string) $event->file_hash;
+        if ($hash === '') {
+            return null;
+        }
+
+        foreach ($this->filesOf((int) $event->funding_application_id) as $path) {
+            if (str_contains(basename($path), "-{$hash}.")) {
                 return $path;
             }
         }
 
-        return null;
+        $flat = self::FILES_FOLDER . "/{$hash}.pdf";
+
+        return $disk->exists($flat) ? $flat : null;
+    }
+
+    /**
+     * The copies kept under an application, read once per request (the trail
+     * is bound scoped) - a trail page asks for many events' files.
+     *
+     * @return list<string>
+     */
+    private function filesOf(int $applicationId): array
+    {
+        return $this->applicationFiles[$applicationId]
+            ??= Storage::disk(Disk::UPLOADS)->allFiles(self::APPLICATIONS_FOLDER . "/{$applicationId}");
     }
 
     private function value(mixed $value, string $field): ?string

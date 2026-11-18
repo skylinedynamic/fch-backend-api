@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPhoneNumber;
+use App\Rules\AssignableRole;
 
 class UpdateUserRequest extends BaseApiRequest
 {
@@ -23,7 +24,7 @@ class UpdateUserRequest extends BaseApiRequest
             // Optional, but a real US number when given.
             'phone_number'     => ['nullable', 'string', new UsPhoneNumber(), Rule::unique('users', 'phone_number')->ignore($this->user->id)->whereNull('deleted_at')],
             'user_id'          => ['nullable', 'string', 'max:255'],
-            'role_id'          => ['required'],
+            'role_id'          => ['required', new AssignableRole($this->user(), __('user.role_not_found'))],
             'status'           => ['required'],
             'change_password'  => ['nullable'],
         ];

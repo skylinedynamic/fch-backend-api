@@ -46,6 +46,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             \App\Services\Borrower\CapitalAccess\ScoreConfigurationCache::class
         );
+
+        // One audit trail per request (or job): it remembers which copies
+        // each application holds while a trail page looks up its files.
+        $this->app->scoped(\App\Services\Audit\FundingApplicationAuditTrail::class);
     }
 
     /**

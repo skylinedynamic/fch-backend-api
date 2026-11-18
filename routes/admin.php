@@ -36,6 +36,10 @@ Route::prefix('v1/admin')
         Route::post('partners', [PartnerController::class, 'store']);
         Route::put('partners/{id}', [PartnerController::class, 'update'])->whereNumber('id');
         Route::get('partners-details/{id}', [PartnerController::class, 'details'])->whereNumber('id');
+        // Partner profile › Commissions: the partner's share of the success fee.
+        // No permission middleware yet - permissions are to be added later.
+        Route::put('partners/{id}/commission', [PartnerController::class, 'updateCommission'])
+            ->whereNumber('id');
 
         // The profile's Status & Agent tab, saved apart from the partner's details.
         Route::get('partners/{id}/status-agent', [PartnerController::class, 'statusAgent'])->whereNumber('id');

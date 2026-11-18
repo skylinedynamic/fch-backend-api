@@ -27,6 +27,32 @@ class LeadService
 {
     use PaginatesApi;
 
+    /** The numbers a lead's details carry masked, which revealField() gives in full. */
+    public const REVEALABLE_FIELDS = ['ssn', 'business_ein'];
+
+    /**
+     * A lead's number that its details only carry masked, in full (R3-BUG-004,
+     * as BUG-014 for clients). Every reveal is logged on the lead - who looked,
+     * never the number.
+     *
+     * @param  string  $field  one of REVEALABLE_FIELDS
+     */
+    public function revealField(Lead $lead, string $field): ?string
+    {
+        $label = \App\Models\ActivityLog\ActivityLog::fieldLabel($field);
+
+        $this->activityLogService->logSystemEvent(
+            Lead::class,
+            $lead->id,
+            $lead->partner_id,
+            null,
+            "{$label} Viewed",
+            "The full {$label} was viewed.",
+        );
+
+        return $lead->{$field} ?: null;
+    }
+
     public function __construct(
         protected BorrowerService $borrowerService,
         protected PartnerService $partnerService,
@@ -296,16 +322,15 @@ class LeadService
                         continue;
                     }
 
-                    // An EIN is recorded as changed, never repeated
-                    if (\App\Models\ActivityLog\ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => \App\Models\ActivityLog\ActivityLog::fieldLabel($field)]);
+                    // Both values; an EIN only as "was updated"
+                    $described = $this->activityLogService->describeFieldChange($field, $lead->getPrevious()[$field] ?? null, $newValue);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = ucwords(str_replace('_', ' ', $field));
-                    $val = (string) $newValue;
-                    $val = $val === '' ? 'empty' : $val;
-                    $changedFields[] = "{$name} was updated to {$val}";
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
+                    }
                 }
                 $fieldsList = implode(', ', $changedFields);
                 $customDescription = "{$fieldsList}.";
@@ -362,16 +387,15 @@ class LeadService
 
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
-                    // An EIN is recorded as changed, never repeated
-                    if (\App\Models\ActivityLog\ActivityLog::isSensitiveField($field)) {
-                        $changedFields[] = __('activity_log.sensitive_field_updated', ['field' => \App\Models\ActivityLog\ActivityLog::fieldLabel($field)]);
+                    // Both values; an EIN only as "was updated"
+                    $described = $this->activityLogService->describeFieldChange($field, $lead->getPrevious()[$field] ?? null, $newValue);
+                    if ($described['sentence'] === null) {
                         continue;
                     }
-
-                    $name = ucwords(str_replace('_', ' ', $field));
-                    $val = (string) $newValue;
-                    $val = $val === '' ? 'empty' : $val;
-                    $changedFields[] = "{$name} was updated to {$val}";
+                    $changedFields[] = $described['sentence'];
+                    if ($described['change']) {
+                        $extraProps['changes'][$field] = $described['change'];
+                    }
                 }
                 $fieldsList = implode(', ', $changedFields);
                 $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
@@ -560,11 +584,9 @@ class LeadService
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
                 'is_free_trail' => $data['is_free_trail'] ?? null,
-                'free_trail_end_date' => $data['free_trail_end_date'] ?? (
-                    (($data['is_free_trail'] ?? null) == 1 || ($data['is_free_trail'] ?? null) === true || ($data['is_free_trail'] ?? null) === 'true')
-                    ? now()->addDays(30)->toDateString()
-                    : null
-                ),
+                // A client's Limited Free Plan has no end date (decision 2026-11-15);
+                // a partner's free trial still gets one below.
+                'free_trail_end_date' => null,
                 'installment_down_payment' => $data['installment_down_payment'] ?? ($data['down_payment'] ?? null),
                 'installment_months' => $data['installment_months'] ?? ($data['months'] ?? null),
                 'installment_monthly_amount' => $data['installment_monthly_amount'] ?? ($data['monthly_amount'] ?? null),

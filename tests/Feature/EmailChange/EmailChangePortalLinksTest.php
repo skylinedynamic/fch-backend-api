@@ -83,6 +83,30 @@ class EmailChangePortalLinksTest extends TestCase
         $this->assertStringContainsString('signature=', $confirm);
     }
 
+    /**
+     * R3-BUG-032: a White-Label partner's client with no borrower domain has no
+     * portal - never the host's. Its emails carry no link and show no button,
+     * rather than a host-portal link or a bare "?expires=..." one.
+     */
+    #[Test]
+    public function a_white_label_client_without_a_borrower_domain_gets_no_link_and_no_button(): void
+    {
+        $partner = $this->makeWhiteLabelPartner(['partner_subdomain' => 'nodomain.fourcornerfunding.com']);
+        $client = $this->makeBorrowerUser($partner);
+        $this->requestChange($client);
+
+        $this->assertSame('', $this->sentUrl(EmailChangeConfirmationMail::class, 'confirmationUrl'));
+        $this->assertSame('', $this->sentUrl(EmailChangeRequestedMail::class, 'cancelUrl'));
+
+        Mail::assertSent(EmailChangeConfirmationMail::class, function ($mail) {
+            $html = $mail->render();
+            $this->assertStringNotContainsString('app.example.com', $html);
+            $this->assertDoesNotMatchRegularExpression('/href=["\']\s*["\']/', $html);
+
+            return true;
+        });
+    }
+
     #[Test]
     public function a_white_label_partners_own_login_gets_links_on_its_partner_domain(): void
     {

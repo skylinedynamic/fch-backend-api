@@ -201,13 +201,7 @@ class UserService
 
     public function getAll()
     {
-        $query = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles', 'entity'])->orderBy('id', 'desc');
-
-        if (!Auth::user()->hasRole('Developer')) {
-            $query->whereDoesntHave('roles', function ($q) {
-                $q->where('code', 'developer');
-            });
-        }
+        $query = User::query()->where('partner_id', Auth::user()->partner_id)->hideDevelopersFrom(Auth::user())->with(['roles', 'entity'])->orderBy('id', 'desc');
 
         $users = $query->get();
         return ApiResponse::success(UserResource::collection($users), __('user.user_list_retrieved'));
@@ -240,11 +234,8 @@ class UserService
                 }
             ]);
 
-        if (!Auth::user()->hasRole('Developer')) {
-            $query->whereDoesntHave('roles', function ($q) {
-                $q->where('code', 'developer');
-            });
-        }
+        $query->hideDevelopersFrom(Auth::user());
+
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
@@ -365,7 +356,7 @@ class UserService
      */
     public function update(User $user, array $data, ?int $roleId = null): User
     {
-        if ($user->hasRole('Developer') && !Auth::user()->hasRole('Developer')) {
+        if ($user->isDeveloper() && !Auth::user()->isDeveloper()) {
             throw new \Exception(__('user.not_authorized_to_update_developer'));
         }
 
@@ -439,7 +430,7 @@ class UserService
         try {
             $authUser = auth()->user();
 
-            $role = Role::where('partner_id', $authUser->partner_id)->findOrFail($roleId);
+            $role = Role::assignableBy($authUser)->findOrFail($roleId);
             $user->syncRoles([$role->id]);
 
             $permissionIds = $role->permissions->pluck('id');
@@ -479,7 +470,7 @@ class UserService
 
         foreach ($users as $user) {
             // Check if user is a developer and auth user is not
-            if (!auth()->user()->hasRole('Developer') && $user->hasRole('Developer')) {
+            if (!auth()->user()->isDeveloper() && $user->isDeveloper()) {
                 continue;
             }
             $this->delete($user);

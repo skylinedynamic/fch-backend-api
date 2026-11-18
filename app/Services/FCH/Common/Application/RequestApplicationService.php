@@ -16,8 +16,10 @@ use App\Models\Common\AppConfiguration;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerCommissionTier;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Commission\CommissionSplitCalculator;
 use App\Services\FCH\Common\Application\SignatureCertificateService;
 use App\Services\FCH\Common\FundingRequest\FundingRequestService;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
@@ -538,12 +540,22 @@ class RequestApplicationService
 
         // The exact change already applied - same status, same note - is a
         // repeat (a double-click), not a second change to log.
+        $noteVisible = (bool) ($data['status_note_visible_to_client'] ?? false);
         $isRepeat = $oldStatus === $data['status']
-            && (!isset($data['status_note']) || $data['status_note'] === $application->status_note)
+            && (!isset($data['status_note'])
+                || ($data['status_note'] === $application->status_note && $noteVisible === (bool) $application->status_note_visible_to_client))
             && ($data['status'] !== FundingApplication::CLOSED_COMPLETED
                 || (float) ($data['funded_amount'] ?? 0) === (float) $application->total_funded_amount);
         if ($isRepeat) {
             return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
+        }
+
+        // Once closed, the funded amount - and the commission worked out on it -
+        // is fixed: closing again with another amount is refused (R3-BUG-011).
+        if ($oldStatus === FundingApplication::CLOSED_COMPLETED
+            && $data['status'] === FundingApplication::CLOSED_COMPLETED
+            && (float) ($data['funded_amount'] ?? $application->total_funded_amount) !== (float) $application->total_funded_amount) {
+            return ApiResponse::error(__('application.funded_amount_locked'), 422);
         }
 
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
@@ -554,61 +566,43 @@ class RequestApplicationService
 
         $application->status = $data['status'];
         if (isset($data['status_note'])) {
+            $application->status_note_visible_to_client = $noteVisible;
             $application->status_note = $data['status_note'];
         }
         $application->save();
 
         if ($oldStatus !== $data['status'] || isset($data['status_note'])) {
-            $oldStatusFormatted = ucwords(str_replace('_', ' ', $oldStatus));
-            $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
-            
-            if ($oldStatus === $data['status']) {
-                $title = __('application.activity_note_updated_title');
-                $description = __('application.activity_note_updated_description');
-            } else {
-                $title = __('application.activity_status_changed_title', ['from' => $oldStatusFormatted, 'to' => $newStatusFormatted]);
-                $description = __('application.activity_status_changed_description', ['to' => $newStatusFormatted]);
-            }
-
-            if (isset($data['status_note'])) {
-                $description .= "\n" . __('application.activity_status_note', ['note' => $data['status_note']]);
-            }
-
-            app(ActivityLogService::class)->logSystemEvent(
-                FundingApplication::class,
-                $application->id,
-                $application->partner_id,
-                $application->borrower_id,
-                $title,
-                $description,
-                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
-                ['visible_to_borrower' => true, 'visible_to_partner' => true],
-                ActivityLog::VISIBILITY_EVERYONE
-            );
+            $this->logFundingApplicationStatusChange($application, $oldStatus, $data['status'], $data['status_note'] ?? null, $noteVisible);
         }
 
         if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
             $commission = Commission::where('funding_application_id', $application->id)->first();
-            if ($commission) {
+            // A commission already paid out is never reset or recomputed (R3-BUG-011).
+            if ($commission && !$commission->isPaidOut()) {
                 // Ensure we use the correct base amount
                 $baseAmount = $application->total_funded_amount;
                 $totalCommissionAmount = ($baseAmount * $commission->total_commission) / 100;
                 
-                $adminCommissionAmount = $totalCommissionAmount;
-                $partnerCommissionAmount = 0;
+                // A flat tier's share stays its exact $ at the final funded amount
+                // (its % follows); otherwise the saved % of the success fee.
+                $flat = $commission->partner_commission_type === PartnerCommissionTier::TYPE_FLAT;
+                $split = CommissionSplitCalculator::split(
+                    (float) $totalCommissionAmount,
+                    $commission->partner_commission_type,
+                    (float) $commission->partner_commission,
+                    $flat ? (float) $commission->partner_commission_flat_amount : null
+                );
 
-                if ($commission->partner_commission > 0) {
-                    $partnerCommissionAmount = ($totalCommissionAmount * $commission->partner_commission) / 100;
-                    $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
-                }
-
-                $commission->update([
+                $commission->update(array_merge([
                     'total_commission_amount' => $totalCommissionAmount,
-                    'admin_commission_amount' => $adminCommissionAmount,
-                    'partner_commission_amount' => $partnerCommissionAmount,
+                    'admin_commission_amount' => $split['admin_commission_amount'],
+                    'partner_commission_amount' => $split['partner_commission_amount'],
                     'commission_status' => Commission::STATUS_PROCESSING,
                     'payment_status' => Commission::PAYMENT_STATUS_UNPAID,
-                ]);
+                ], $flat ? [
+                    'partner_commission' => $split['partner_commission'],
+                    'admin_commission' => $split['admin_commission'],
+                ] : []));
             }
         }
 
@@ -655,4 +649,56 @@ class RequestApplicationService
         ]);
     }
 
+    /**
+     * The status change, for everyone who follows the application. Its note
+     * goes with it only when the team marked it "Visible to client"; otherwise
+     * the note is a separate entry for the team that wrote it - the host's team
+     * (internal), or the partner's team and the host (partner) (R3-BUG-016).
+     */
+    private function logFundingApplicationStatusChange(FundingApplication $application, string $oldStatus, string $newStatus, ?string $note, bool $noteVisible): void
+    {
+        $log = app(ActivityLogService::class);
+        $statusChanged = $oldStatus !== $newStatus;
+        $noteText = $note !== null ? __('application.activity_status_note', ['note' => $note]) : null;
+
+        if ($statusChanged || ($noteText !== null && $noteVisible)) {
+            if ($statusChanged) {
+                $title = __('application.activity_status_changed_title', [
+                    'from' => ucwords(str_replace('_', ' ', $oldStatus)),
+                    'to' => ucwords(str_replace('_', ' ', $newStatus)),
+                ]);
+                $description = __('application.activity_status_changed_description', ['to' => ucwords(str_replace('_', ' ', $newStatus))]);
+            } else {
+                $title = __('application.activity_note_updated_title');
+                $description = __('application.activity_note_updated_description');
+            }
+
+            $log->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                $title,
+                $description . ($noteText !== null && $noteVisible ? "\n" . $noteText : ''),
+                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
+                ['visible_to_borrower' => true, 'visible_to_partner' => true],
+                ActivityLog::VISIBILITY_EVERYONE
+            );
+        }
+
+        if ($noteText !== null && !$noteVisible) {
+            $isHost = ActivityLog::isHostUser(Auth::user());
+            $log->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                __('application.activity_internal_note_title'),
+                $noteText,
+                ActivityLog::LOG_TYPE_FUNDING_APPLICATION_STATUS_UPDATE,
+                ['visible_to_borrower' => false, 'visible_to_partner' => !$isHost],
+                $isHost ? ActivityLog::VISIBILITY_INTERNAL : ActivityLog::VISIBILITY_PARTNER
+            );
+        }
+    }
 }

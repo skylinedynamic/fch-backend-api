@@ -1,0 +1,107 @@
+<?php
+
+/** A busy week, in OwnerSummaryService::summary()'s shape. */
+return [
+    'period' => [
+        'key' => 'last_week',
+        'timezone' => 'America/New_York',
+        'from' => '2026-11-01',
+        'to' => '2026-11-07',
+        'previous_from' => '2026-10-25',
+        'previous_to' => '2026-10-31',
+    ],
+    'environment' => 'production',
+    'kpis' => [
+        'cash_collected' => ['current' => 14300, 'previous' => 11000],
+        'outstanding' => ['amount' => 9400, 'invoices' => 12],
+        'funded' => [
+            'amount' => 2310000,
+            'deals' => 6,
+            'previous_amount' => 2960000,
+            'previous_deals' => 8,
+            'host' => ['amount' => 1310000, 'deals' => 4],
+            'partners' => ['amount' => 1000000, 'deals' => 2],
+        ],
+        'new_clients' => ['current' => 23, 'previous' => 19],
+        'new_leads' => ['current' => 41, 'previous' => 0, 'host' => 15, 'partners' => 26],
+        'active_partners' => ['current' => 18, 'total' => 26],
+        'partners' => ['total' => 26, 'active' => 22, 'new' => 3],
+        'clients' => ['total' => 410, 'active' => 380, 'new' => 21, 'host' => 150, 'partners' => 260],
+        'lead_conversion' => [
+            'host' => ['leads' => 15, 'funded' => 3],
+            'partners' => ['leads' => 26, 'funded' => 2],
+        ],
+    ],
+    'cash_by_stream' => [
+        ['stream' => 'partner_enrollment', 'amount' => 6000, 'payments' => 3],
+        ['stream' => 'platform_fee', 'amount' => 4200, 'payments' => 14],
+        ['stream' => 'user_seat', 'amount' => 600, 'payments' => 8],
+        ['stream' => 'borrower_fee', 'amount' => 1500, 'payments' => 30],
+        ['stream' => 'client_enrollment', 'amount' => 2000, 'payments' => 4],
+    ],
+    'receivables' => [
+        'unpaid_recent' => ['amount' => 5200, 'invoices' => 7],
+        'unpaid_over_30_days' => ['amount' => 3200, 'invoices' => 4],
+        'failed' => ['amount' => 1000, 'invoices' => 1],
+    ],
+    'commissions' => [
+        'host_share_booked' => 110000,
+        'partner_share' => 40000,
+        'paid_to_partners' => 12000,
+        'paid_to_staff' => 3000,
+        'payouts_due' => 28000,
+    ],
+    'attention' => [
+        'unpaid_over_30_days' => ['amount' => 3200, 'invoices' => 4],
+        'failed_invoices' => ['amount' => 1000, 'invoices' => 1],
+        'partners_owing' => 3,
+        'suspended_partners' => 0,
+        'failed_payments' => 2,
+        'disputed_payments' => 1,
+        'manual_payments_to_approve' => 2,
+        'payouts_due' => ['amount' => 31000, 'deals' => 5],
+        'unreviewed_embedded_applications' => 6,
+        'pending_prequalifications' => 4,
+        'trials_ending' => ['partners' => 1, 'clients' => 2],
+        'stalled_deals' => 12,
+        'stalled_requested' => 840000,
+    ],
+    'pipeline' => [
+        'open' => ['count' => 40, 'requested' => 5200000],
+        'groups' => [
+            ['key' => 'intake', 'statuses' => ['Submitted', 'Documents Pending'], 'count' => 20, 'requested' => 2000000],
+            ['key' => 'underwriting', 'statuses' => ['Underwriting Review'], 'count' => 10, 'requested' => 1500000],
+            ['key' => 'with_lender', 'statuses' => ['Lender Reviewing'], 'count' => 5, 'requested' => 1000000],
+            ['key' => 'on_hold', 'statuses' => ['On Hold'], 'count' => 0, 'requested' => 0],
+        ],
+        'activity' => ['intake' => 9, 'underwriting' => 7, 'with_lender' => 3, 'on_hold' => 0, 'funded' => 6],
+        'median_days_to_fund' => 20,
+    ],
+    'stalled_deals' => [
+        ['id' => 4, 'application_number' => 'FUND-000044', 'client' => 'Acme & Sons LLC', 'partner' => 'Partner One', 'status' => 'Underwriting Review', 'requested_amount' => 30000, 'days_in_status' => 45],
+        ['id' => 5, 'application_number' => null, 'client' => null, 'partner' => null, 'status' => 'Submitted', 'requested_amount' => 90000, 'days_in_status' => 20],
+    ],
+    'lead_sources' => [
+        'leads' => [
+            ['source' => 'Website', 'count' => 10],
+            ['source' => 'Referral Partner', 'count' => 30],
+            ['source' => 'Cold Outreach', 'count' => 0],
+            ['source' => 'not_set', 'count' => 1],
+        ],
+        'prequalifications' => 9,
+        'embedded_applications' => 5,
+    ],
+    'partners' => ['total' => 26, 'white_label' => 15, 'certified' => 11, 'new' => 2, 'on_trial' => 4, 'suspended' => 1],
+    'top_partners' => [
+        ['id' => 1, 'company_name' => 'Partner One', 'partner_type' => 'White Label', 'leads' => 12, 'funded_deals' => 3, 'funded_amount' => 1200000, 'commission_share' => 40000, 'commission_paid' => 12000],
+        ['id' => 2, 'company_name' => 'Partner Two', 'partner_type' => 'Certified Partner', 'leads' => 4, 'funded_deals' => 1, 'funded_amount' => 300000, 'commission_share' => 9000, 'commission_paid' => 0],
+    ],
+    'monthly' => [
+        ['month' => '2026-06', 'funded' => 1120000, 'cash' => 38200],
+        ['month' => '2026-07', 'funded' => 1380000, 'cash' => 41000],
+        ['month' => '2026-08', 'funded' => 1540000, 'cash' => 44900],
+        ['month' => '2026-09', 'funded' => 0, 'cash' => 47300],
+        ['month' => '2026-10', 'funded' => 1960000, 'cash' => 50600],
+        ['month' => '2026-11', 'funded' => 2310000, 'cash' => 33000],
+    ],
+];

@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\Global\FileManager;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\SafeUpload;
+use App\Support\Files\FileManagerFolders;
+use App\Support\Files\Folder;
 
 class UploadFileRequest extends BaseApiRequest
 {
@@ -14,13 +16,18 @@ class UploadFileRequest extends BaseApiRequest
 
     public function rules(): array
     {
+        // A public folder is served from /storage without signing in: pictures
+        // only (an SVG is stripped of its scripts). Documents go to a private one.
+        $folder = (string) $this->input('entity_type');
+        $type = FileManagerFolders::isPublic($folder) ? SafeUpload::image() : SafeUpload::document();
+
         $rules = [
-            'file' => ['required', 'file', SafeUpload::document()],
+            'file' => ['required', 'file', $type],
             'path' => ['required', 'string'],
             'entity_type' => ['required', 'string'],
         ];
 
-        if ($this->input('entity_type') === 'credit-accounts') {
+        if ($folder === Folder::CREDIT_ACCOUNTS) {
             $rules['entity_id'] = ['nullable'];
         } else {
             $rules['entity_id'] = ['required', 'integer'];

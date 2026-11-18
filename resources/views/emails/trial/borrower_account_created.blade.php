@@ -105,18 +105,20 @@
         </table>
 
         {{-- Login Button --}}
+        @if (!empty($loginUrl))
         <div class="box-primary"
             style="background-color: #f0f7ff; border: 1px solid #e0effe; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">
             <p class="section-label mb-3"
                 style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
                 Access Your Portal:</p>
-            <a href="{{ concatUrl(getBorrowerDomain($partner_id), 'login', config('app.frontend_borrower_url')) }}" class="btn"
+            <a href="{{ $loginUrl }}" class="btn"
                 style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Go
                 to Client Portal</a>
             <p style="color: #64748b; font-size: 12px; margin-top: 16px; margin-bottom: 0; line-height: 1.5;">
                 For security reasons, please change your password after your first login.
             </p>
         </div>
+        @endif
 
         {{-- Note --}}
         <div class="box-note"

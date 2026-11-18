@@ -19,6 +19,18 @@ return [
     'separator' => '; ',
     'export_file' => 'audit-trail-application-:id.:ext',
 
+    'organize' => [
+        'dry_run' => 'Dry run: nothing is copied, changed or deleted.',
+        'would_move' => 'Would move :path to :to',
+        'moved' => 'Moved :path to :to',
+        'missing' => 'Not in the audit folder, left as recorded: :path',
+        'mismatch' => 'Does not match its hash, kept where it is: :path',
+        'conflict' => 'A different file is already at :path; the original is kept.',
+        'left' => 'Nothing names this file, kept: :path',
+        'done' => ':copied copy(ies) in place, :removed flat file(s) removed, :failed kept for a mismatch.',
+        'done_dry_run' => 'Would write :copied copy(ies) and remove :removed flat file(s); :failed would be kept for a mismatch.',
+    ],
+
     'events' => [
         'created' => 'Application created',
         'updated' => 'Application updated',

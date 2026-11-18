@@ -81,8 +81,11 @@ return [
             'host' => 'Enter a valid domain, e.g. admin.example.com.',
             'portal_required' => 'Enter the partner portal domain.',
         ],
+        'paid_to_trial_not_allowed' => 'A partner on a paid plan cannot be put back on the free trial.',
+        'domain_lookalike' => 'This domain is too close to the Four Corner Funding name and cannot be used. Choose a domain of your own.',
         'borrower_domain' => [
             'unique' => 'This borrower domain is already taken. Please choose a different one.',
+            'same_as_partner' => 'The borrower portal needs its own domain, different from the partner portal domain.',
             'host' => 'Enter a valid domain, e.g. app.example.com.',
         ],
         'first_reg_date' => [
@@ -141,6 +144,19 @@ return [
         'monthly_platform_fee_numeric' => 'Monthly platform fee must be a number.',
         'monthly_platform_fee_gt' => 'Monthly platform fee must be greater than 0.',
         'monthly_platform_fee_regex' => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
+        'commission' => [
+            'required_tiers' => 'The commission is required: add at least one tier.',
+            'required' => 'Enter the commission (%) for this tier.',
+            'numeric' => 'Commission must be a number.',
+            'min' => 'Commission must be at least 0%.',
+            'max' => 'Commission must be at most 99%. The admin keeps at least 1% of the success fee.',
+            'host' => 'The host partner has no commission: the admin keeps the whole success fee on its clients.',
+            'type' => 'Choose a commission type: Percentage or Flat Amount.',
+            'amount_required' => 'Enter the commission amount ($) for this tier.',
+            'amount_numeric' => 'Commission amount must be a number.',
+            'amount_min' => 'Commission amount must be at least $0.',
+            'amount_max' => 'Commission amount must be at most $99,999,999.99.',
+        ],
     ],
 
     /*
@@ -162,7 +178,19 @@ return [
         'document_deleted' => 'Document deleted successfully.',
         'tenant_config_retrieved' => 'Tenant configuration retrieved successfully.',
         'tenant_config_updated' => 'Tenant configuration updated successfully.',
+        'commission_updated' => 'Partner commission updated successfully.',
         'status_agent_updated' => 'Status and agent updated successfully.',
+    ],
+
+    /*
+    | Activity log entries (Partner profile › Activity)
+    */
+    'activity' => [
+        'commission_label' => 'Commission',
+        'commission_added' => 'Commission added',
+        'commission_updated' => 'Commission updated',
+        'commission_added_description' => ':user set the commission to :to.',
+        'commission_updated_description' => ':user changed the commission from :from to :to.',
     ],
 
     'error' => [
@@ -173,6 +201,7 @@ return [
         'unarchive_failed' => 'Could not restore the selected partner(s). Please try again.',
         'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
         'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
+        'commission_update_failed' => 'Could not update the partner commission. Please try again.',
         'status_agent_update_failed' => 'Could not update the status and agent. Please try again.',
         'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
         'delete_blocked' => "This partner has related records and cannot be deleted. Please change the partner's status instead.",
@@ -223,6 +252,7 @@ return [
     'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
     'default_enrollment_type' => 'Paid Enrollment',
     'trial_end_date' => 'Trial End Date',
+    'name_label' => 'Name',
     'field_updated' => ':field was updated to :value',
     'empty_value' => 'empty',
 

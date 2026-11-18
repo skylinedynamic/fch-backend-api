@@ -1672,9 +1672,6 @@ class EmbedFormService
      * borrowers/{borrower}/, the row holding just its name. Its own copy, so
      * deleting it from one place leaves the other. If the row cannot be
      * written, the copy is removed again.
-     *
-     * Also used by embed-form:relocate-converted-documents for submissions
-     * converted before conversions did this.
      */
     public function addToClientDocuments(
         string $source,

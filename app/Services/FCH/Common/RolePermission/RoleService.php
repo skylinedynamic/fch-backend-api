@@ -39,8 +39,8 @@ class RoleService
             ->with(['permissions'])
             ->withCount('users');
 
-        if (!Auth::user()->hasRole('Developer')) {
-            $query->where('code', '!=', 'developer');
+        if (!Auth::user()->isDeveloper()) {
+            $query->where('code', '!=', Role::CODE_DEVELOPER);
         }
 
         $roles = $query->get();
@@ -55,8 +55,8 @@ class RoleService
             ->with(['permissions'])
             ->withCount('users');
 
-        if (!Auth::user()->hasRole('Developer')) {
-            $query->where('code', '!=', 'developer');
+        if (!Auth::user()->isDeveloper()) {
+            $query->where('code', '!=', Role::CODE_DEVELOPER);
         }
         $paginator = $this->paginateBuilder($query, $request);
         return $this->respondWithPaginationResource($paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
@@ -84,7 +84,10 @@ class RoleService
             ]);
 
             if (!empty($permissionIds)) {
-                $permissions = app(PermissionService::class)->assignableQuery(Auth::user())
+                // The new role is the caller's partner's: developer-only
+                // permissions only when that is the host (and the caller a Developer).
+                $permissionService = app(PermissionService::class);
+                $permissions = $permissionService->grantableQuery(Auth::user(), $permissionService->isHostPartner($role->partner_id))
                     ->whereIn('id', $permissionIds)
                     ->get();
                 if ($permissions->isNotEmpty()) {
@@ -111,7 +114,7 @@ class RoleService
 
     public function update(Role $role, array $data)
     {
-        if ($role->code === 'developer' && !Auth::user()->hasRole('Developer')) {
+        if ($role->isDeveloper() && !Auth::user()->isDeveloper()) {
             throw ApiResponse::error(__('role_permission.not_authorized_to_update_developer_role'), 403);
         }
 
@@ -121,9 +124,12 @@ class RoleService
                 'description' => $data['description'] ?? $role->description,
             ]);
             $permissionIds = $data['permission_ids'] ?? [];
-            $permissions = app(PermissionService::class)->assignableQuery(Auth::user())
+            $permissionService = app(PermissionService::class);
+            $granted = $permissionService->grantableQuery(Auth::user(), $permissionService->isHostPartner($role->partner_id))
                 ->whereIn('id', $permissionIds)
                 ->get();
+            // Someone who cannot see the developer-only ones keeps those the role has.
+            $permissions = $permissionService->keepingDeveloperOnly(Auth::user(), $granted, $role->permissions()->get());
 
             $role->syncPermissions($permissions);
 
@@ -156,8 +162,8 @@ class RoleService
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
 
-        if (!Auth::user()->hasRole('Developer')) {
-            $hasDeveloper = $roles->firstWhere('code', 'developer');
+        if (!Auth::user()->isDeveloper()) {
+            $hasDeveloper = $roles->firstWhere('code', Role::CODE_DEVELOPER);
             if ($hasDeveloper) {
                  return ApiResponse::error(__('role_permission.not_authorized_to_delete_developer_role'), 403);
             }

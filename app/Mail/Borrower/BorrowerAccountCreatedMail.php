@@ -48,11 +48,10 @@ class BorrowerAccountCreatedMail extends Mailable implements SendsImmediately
         $logoUrl = $branding['logoUrl'];
 
         $user = $this->mailData['user'];
-        // No fallback passed here on purpose: when getBorrowerDomain() returns
-        // null (a non-host, non-Certified partner with no borrower_domain — see
-        // its docblock), the partner has no domain a borrower can actually log
-        // in through, so $loginUrl comes back empty and the template omits the
-        // button rather than link to a login the isolation check would reject.
+        // No fallback on purpose: getBorrowerDomain() is null for a White-Label
+        // partner with no borrower_domain - its clients have no portal, never
+        // the host's (R3-BUG-032) - so $loginUrl is empty and the template
+        // omits the button.
         $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login');
 
         return new Content(

@@ -187,6 +187,32 @@ class CommissionViewerTest extends TestCase
         $this->assertEquals(2500, $stats['payouts_due_amount']);
     }
 
+    /**
+     * Regression: with two different staff members owed, the list failed with
+     * "Attempted to lazy load [entity] on model [User]" - working out each
+     * payout reads the assignee's linked employee, which was not eager-loaded.
+     */
+    #[Test]
+    public function the_host_owners_list_adds_up_payouts_due_to_different_staff_members(): void
+    {
+        $secondStaff = $this->makeStaffUser($this->host);
+        CompensationSetting::create([
+            'partner_id' => $this->host->id,
+            'entity_type' => \App\Models\Employee\Employee::class,
+            'entity_id' => $secondStaff->entity_id,
+            'paid_by' => CompensationSetting::PAID_BY_PER_DEAL,
+            'service' => CommissionPayoutService::SERVICE_FUNDING,
+            'payout_type' => CompensationSetting::PAYOUT_TYPE_COMMISSION,
+            'amount' => 10,
+        ]);
+        $this->deal($this->host, $secondStaff, 50000, funded: true, partnerRate: 0);
+
+        $stats = $this->list($this->hostOwner)->json('statistics');
+
+        // 2,500 as before, plus 10% of the second staff member's 5,000.
+        $this->assertEquals(3000, $stats['payouts_due_amount']);
+    }
+
     #[Test]
     public function host_staff_see_only_their_clients_deals_and_their_own_payout(): void
     {

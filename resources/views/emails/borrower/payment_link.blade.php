@@ -35,6 +35,7 @@
     </div>
 </div>
 
+    @if (!empty($paymentLink))
     <div class="btn-container" style="margin: 30px 0; text-align: center;">
         <p class="highlight" style="color: #1e3a8a; font-weight: 700; margin-bottom: 20px; font-size: 14px;">Please complete
             your payment to finalize your account setup.</p>
@@ -42,4 +43,5 @@
             style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Pay
             ${{ number_format($amount, 2) }} & Setup Account</a>
     </div>
+    @endif
 @endsection

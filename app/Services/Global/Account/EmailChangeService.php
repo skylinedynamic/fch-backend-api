@@ -333,9 +333,17 @@ class EmailChangeService
      */
     private function portalLink(User $user, string $action, DateTimeInterface $expires, string $hash): string
     {
+        $page = app(PortalUrlResolver::class)->url($user, "email-change/{$action}/{$user->id}/{$hash}");
+
+        // A White-Label partner's client with no borrower domain has no portal
+        // to open the page on, so no link (R3-BUG-032) - the email shows no button.
+        if ($page === '') {
+            return '';
+        }
+
         $signed = URL::temporarySignedRoute("email-change.link.{$action}", $expires, ['user' => $user->id, 'hash' => $hash], absolute: false);
 
-        return app(PortalUrlResolver::class)->url($user, "email-change/{$action}/{$user->id}/{$hash}") . '?' . parse_url($signed, PHP_URL_QUERY);
+        return $page . '?' . parse_url($signed, PHP_URL_QUERY);
     }
 
     /**

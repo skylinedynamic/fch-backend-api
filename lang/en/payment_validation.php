@@ -31,4 +31,9 @@ return [
     'note_required' => 'The approval note is required.',
     'note_string' => 'The approval note must be a string.',
     'note_max' => 'The approval note cannot exceed 1000 characters.',
+    'rejection_reason_required' => 'Please give a reason for rejecting the payment.',
+    'rejection_reason_string' => 'The rejection reason must be text.',
+    'rejection_reason_max' => 'The rejection reason cannot exceed 1000 characters.',
+    'bank_detail_id_integer' => 'The selected bank account is invalid.',
+    'bank_detail_id_exists' => 'The selected bank account was not found.',
 ];

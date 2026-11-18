@@ -2,16 +2,18 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Payment;
 
+use App\Enums\Permission;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RejectPayment extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Rejecting is the other half of the same decision: only a user holding
+     * Permission::ApprovePayment, as the portal's Reject button (R3-BUG-037).
      */
     public function authorize(): bool
     {
-        return true;
+        return (bool) $this->user()?->checkPermissionTo(Permission::ApprovePayment->value, 'api');
     }
 
     /**

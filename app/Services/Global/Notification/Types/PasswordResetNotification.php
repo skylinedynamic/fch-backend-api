@@ -107,12 +107,11 @@ class PasswordResetNotification implements NotificationTypeInterface
         return match ($userType) {
             User::ADMIN => getPartnerDomain($partnerId),
             User::PARTNER =>getPartnerDomain($partnerId),
-            // getBorrowerDomain() can now return null for a non-host, non-Certified
-            // partner with no borrower_domain configured (see its docblock) — the
-            // ?? here keeps this method's non-nullable string contract intact and
-            // preserves the prior fallback behavior for password reset, which is
-            // out of scope for the welcome-email fix this null was introduced for.
-            User::BORROWER => getBorrowerDomain($partnerId) ?? config('app.frontend_borrower_url'),
+            // Never the host's portal for a White-Label partner's client (R3-BUG-032).
+            // A reset is only sent from a portal the user may sign in on
+            // (AuthController::forgot), so a client reaching here has a portal and
+            // getBorrowerDomain() is not null; '' keeps the string contract.
+            User::BORROWER => getBorrowerDomain($partnerId) ?? '',
         };
     }
 

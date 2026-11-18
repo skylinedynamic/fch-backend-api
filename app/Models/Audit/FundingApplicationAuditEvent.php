@@ -61,6 +61,14 @@ class FundingApplicationAuditEvent extends Model
     public const FILE_SIGNATURE_CERTIFICATE = 'signature_certificate';
     public const FILE_APPLICATION_ZIP = 'application_zip';
 
+    /** The kind part of a kept signed copy's name: applications/{id}/v{n}/{name}-{sha256}.pdf. */
+    public const FILE_NAMES = [
+        self::FILE_APPLICATION_PDF => 'application',
+        self::FILE_SIGNATURE_CERTIFICATE => 'certificate',
+    ];
+    /** The name part of a kept copy of any other kind. */
+    public const FILE_NAME_OTHER = 'file';
+
     public $timestamps = false;
 
     protected $table = 'funding_application_audit_events';

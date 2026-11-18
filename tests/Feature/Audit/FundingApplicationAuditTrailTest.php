@@ -566,7 +566,7 @@ class FundingApplicationAuditTrailTest extends TestCase
 
     /**
      * An imported event names its file by hash only. Once the signed copy is
-     * in the audit folder (audit:move-signed-copies), it hands out from there.
+     * in the audit folder, it hands out from there.
      */
     #[Test]
     public function an_imported_events_file_hands_out_from_the_audit_folder_by_its_hash(): void
@@ -586,6 +586,67 @@ class FundingApplicationAuditTrailTest extends TestCase
         $row = collect($this->getJson($this->trailUrl())->assertOk()->json('data'))->firstWhere('id', $event->id);
         $this->assertTrue($row['file']['downloadable']);
         $this->assertSame('%PDF signed long ago', $this->get($this->trailUrl(null, "/{$event->id}/file"))->assertOk()->streamedContent());
+    }
+
+    /**
+     * A download names what it handed out by hash only. When that is a signed
+     * copy kept under its application (applications/{id}/v{n}/...), the
+     * download's file is found there by its hash.
+     */
+    #[Test]
+    public function a_downloads_file_hands_out_from_its_applications_folder_by_its_hash(): void
+    {
+        $kept = app(FundingApplicationAuditTrail::class)->keepSignedCopy('%PDF as signed', $this->application->id, '1', FundingApplicationAuditEvent::FILE_APPLICATION_PDF);
+        $event = app(FundingApplicationAuditTrail::class)->append([
+            'funding_application_id' => $this->application->id,
+            'partner_id' => $this->partner->id,
+            'event' => FundingApplicationAuditEvent::EVENT_DOWNLOADED,
+            'context' => ['file_type' => FundingApplicationAuditEvent::FILE_APPLICATION_PDF],
+            'file_hash' => $kept['hash'],
+        ]);
+
+        $this->assertSame($kept['path'], app(FundingApplicationAuditTrail::class)->storedFile($event));
+        $this->actingAsUser($this->partnerAdmin);
+        $this->assertSame('%PDF as signed', $this->get($this->trailUrl(null, "/{$event->id}/file"))->assertOk()->streamedContent());
+    }
+
+    /** The hash is looked for under the event's own application only - never another one's. */
+    #[Test]
+    public function an_event_never_hands_out_another_applications_copy(): void
+    {
+        $otherId = DB::table('funding_applications')->insertGetId([
+            'application_number' => 'FUND-0000102',
+            'borrower_id' => $this->makeBorrower($this->otherPartner)->id,
+            'partner_id' => $this->otherPartner->id,
+            'status' => FundingApplication::SUBMITTED,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $theirs = app(FundingApplicationAuditTrail::class)->keepSignedCopy('%PDF theirs', $otherId, '1', FundingApplicationAuditEvent::FILE_APPLICATION_PDF);
+        $event = app(FundingApplicationAuditTrail::class)->append([
+            'funding_application_id' => $this->application->id,
+            'partner_id' => $this->partner->id,
+            'event' => FundingApplicationAuditEvent::EVENT_DOWNLOADED,
+            'context' => ['file_type' => FundingApplicationAuditEvent::FILE_APPLICATION_PDF],
+            'file_hash' => $theirs['hash'],
+        ]);
+
+        $this->assertNull(app(FundingApplicationAuditTrail::class)->storedFile($event));
+    }
+
+    /** A signed copy is kept once: keeping the same bytes again never rewrites it. */
+    #[Test]
+    public function a_signed_copy_is_never_overwritten(): void
+    {
+        $trail = app(FundingApplicationAuditTrail::class);
+        $first = $trail->keepSignedCopy('%PDF as signed', $this->application->id, '1', FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE);
+        $modified = Storage::disk('uploads')->lastModified($first['path']);
+
+        $again = $trail->keepSignedCopy('%PDF as signed', $this->application->id, '1', FundingApplicationAuditEvent::FILE_SIGNATURE_CERTIFICATE);
+
+        $this->assertSame($first, $again);
+        $this->assertSame("audit/applications/{$this->application->id}/v1/certificate-{$first['hash']}.pdf", $first['path']);
+        $this->assertSame($modified, Storage::disk('uploads')->lastModified($first['path']));
     }
 
     #[Test]

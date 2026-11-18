@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\Concerns\LeadPartnerRules;
 use App\Models\Lead\Lead;
+use Illuminate\Validation\Rule;
 
 class UpdateLeadDetailsRequest extends BaseApiRequest
 {
@@ -28,7 +29,8 @@ class UpdateLeadDetailsRequest extends BaseApiRequest
             'domain' => ['nullable', 'string', 'max:255'],
             'lead_source' => ['nullable', 'string', 'max:255'],
             'lead_source_note' => ['required_if:lead_source,Other', 'string', 'max:255', 'nullable'],
-            'referral_partner_id' => ['required_if:lead_source,Referral Partner', 'nullable', 'exists:contacts,id'],
+            // Not a deleted contact (R3-BUG-017).
+            'referral_partner_id' => ['required_if:lead_source,Referral Partner', 'nullable', Rule::exists('contacts', 'id')->whereNull('deleted_at')],
             'requirement_details' => ['nullable', 'string'],
         ];
     }

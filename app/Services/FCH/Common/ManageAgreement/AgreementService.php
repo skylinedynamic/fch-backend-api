@@ -96,7 +96,7 @@ class AgreementService
                     'id'            => $template->id,
                     'slug'          => $template->slug,
                     // Merge fields ({{signer.name}} ...) filled with this signer's details.
-                    'template_html' => $this->mergeFields->fill($version->template_html, $this->mergeFields->values($user, $template->partner)),
+                    'template_html' => $this->mergeFields->fill($version->template_html, $this->mergeFields->values($user, $template->partner, $template->slug)),
                     // Sent back on submit, so a wording changed meanwhile is not signed unseen.
                     'version_id'    => $version->id,
                     'version'       => $version->version,
@@ -263,7 +263,7 @@ class AgreementService
 
         $evidence = [];
         if (is_array($data['fields'] ?? null)) {
-            $templateHtml = $this->mergeFields->fill($version->template_html ?? '', $this->mergeFields->values($user, $template->partner));
+            $templateHtml = $this->mergeFields->fill($version->template_html ?? '', $this->mergeFields->values($user, $template->partner, $template->slug));
             $fields = array_intersect_key($data['fields'], $this->signedAgreements->fields($templateHtml));
             $contentHtml = $this->signedAgreements->build($templateHtml, $fields, [
                 'Signed by' => trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')) ?: (string) ($user->name ?? ''),

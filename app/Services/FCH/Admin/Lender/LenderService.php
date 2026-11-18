@@ -4,6 +4,7 @@ namespace App\Services\FCH\Admin\Lender;
 
 use App\Exceptions\LenderInUseException;
 use App\Exceptions\LenderProductCategoryInUseException;
+use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
@@ -179,15 +180,21 @@ class LenderService
      * Delete a product category no funding sequence uses. One still in the
      * underwriting logic of a live funding sequence
      * (lender_visibilities.lender_product_category_id) is kept, like a blog
-     * tag still on a post; a deleted sequence no longer counts.
+     * tag still on a post; a deleted sequence no longer counts. So is one a
+     * live sequence has as its own Funding Type (funding_type_id, R3-BUG-010).
      *
      * @throws LenderProductCategoryInUseException
      */
     public function deleteProductCategory(LenderProductCategory $category): void
     {
+        // A live sequence uses the category in its lender rules or as its own
+        // Funding Type (R3-BUG-010); either keeps it, each sequence counted once.
         $sequences = $this->fundingSequencesUsing()
             ->where('lender_product_category_id', $category->id)
-            ->count('lender_visibilities.funding_sequencing_id');
+            ->pluck('lender_visibilities.funding_sequencing_id')
+            ->merge(FundingSequencing::where('funding_type_id', $category->id)->pluck('id'))
+            ->unique()
+            ->count();
 
         if ($sequences > 0) {
             throw new LenderProductCategoryInUseException(__('lender.category_in_use'), [

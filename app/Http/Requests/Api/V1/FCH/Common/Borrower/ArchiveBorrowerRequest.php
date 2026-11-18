@@ -7,7 +7,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 /**
  * The borrower ids to archive or restore.
  *
- * Authorisation is the route's permission middleware ('update clients'); this only
+ * Authorisation is the route's permission middleware (Permission::UpdateClients); this only
  * has to establish that the ids are real, so an unknown id comes back as a 422
  * naming the problem rather than as a silent no-op.
  */

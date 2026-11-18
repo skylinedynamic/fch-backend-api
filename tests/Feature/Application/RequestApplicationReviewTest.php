@@ -192,7 +192,11 @@ class RequestApplicationReviewTest extends TestCase
             ->assertJsonPath('data.total_funded_amount', '50000.00');
     }
 
-    /** A status change, and a note on its own, are written to the activity log. */
+    /**
+     * A status change, and a note on its own, are written to the activity log.
+     * These notes are marked "Visible to client", so they go in the shared
+     * entry (an internal note is FundingApplicationInternalStatusNoteTest).
+     */
     #[Test]
     public function a_status_change_and_a_note_are_logged(): void
     {
@@ -202,11 +206,13 @@ class RequestApplicationReviewTest extends TestCase
             'funding_application_id' => $this->myApplicationId,
             'status' => FundingApplication::UNDERWRITING_REVIEW,
             'status_note' => 'Docs in',
+            'status_note_visible_to_client' => true,
         ])->assertOk();
         $this->postJson($this->url('funding-application/status-update'), [
             'funding_application_id' => $this->myApplicationId,
             'status' => FundingApplication::UNDERWRITING_REVIEW,
             'status_note' => 'Still waiting on bank statements',
+            'status_note_visible_to_client' => true,
         ])->assertOk();
 
         $logs = DB::table('activity_log')
@@ -236,6 +242,7 @@ class RequestApplicationReviewTest extends TestCase
             'funding_application_id' => $this->myApplicationId,
             'status' => FundingApplication::UNDERWRITING_REVIEW,
             'status_note' => 'Docs in',
+            'status_note_visible_to_client' => true,
         ];
 
         $this->postJson($this->url('funding-application/status-update'), $change)->assertOk();

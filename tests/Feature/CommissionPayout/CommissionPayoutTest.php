@@ -194,6 +194,36 @@ class CommissionPayoutTest extends TestCase
         $this->assertEquals(100, $payout['amount']); // 5% of $2,000
     }
 
+    /**
+     * Defect: Commissions page didn't load - "Attempted to lazy load [entity]
+     * on model [User] but lazy loading is disabled." The list's expected
+     * payout read an employee login's linked Employee without loading it.
+     */
+    #[Test]
+    public function the_commission_list_loads_when_an_employee_login_is_assigned_to_a_closed_deal(): void
+    {
+        $employee = Employee::create(['partner_id' => $this->host->id, 'first_name' => 'Sam Seller', 'email' => 'seller@host.test']);
+        $seller = $this->user('seller@host.test', $this->host, [
+            'user_type' => User::EMPLOYEE, 'entity_type' => Employee::class, 'entity_id' => $employee->id,
+        ]);
+        $this->compensate($employee, CompensationSetting::PAID_BY_PER_DEAL, [
+            ['Funding', CompensationSetting::PAYOUT_TYPE_COMMISSION, 5],
+        ]);
+        // Laravel only refuses a lazy load on models fetched with others: two
+        // deals, assigned to two employee logins.
+        $otherEmployee = Employee::create(['partner_id' => $this->host->id, 'first_name' => 'Rae Rep', 'email' => 'rep@host.test']);
+        $rep = $this->user('rep@host.test', $this->host, [
+            'name' => 'Rae Rep', 'user_type' => User::EMPLOYEE, 'entity_type' => Employee::class, 'entity_id' => $otherEmployee->id,
+        ]);
+        $this->commission($this->host, $seller);
+        $this->commission($this->host, $rep);
+        Passport::actingAs($this->admin);
+
+        $this->postJson('/api/v1/common/commissions', ['page' => 1, 'per_page' => 10])
+            ->assertOk()
+            ->assertJsonPath('status', true);
+    }
+
     #[Test]
     public function someone_on_salary_earns_nothing_per_deal(): void
     {
@@ -284,6 +314,47 @@ class CommissionPayoutTest extends TestCase
             ['partner_payment_method' => 'Cash', 'note' => 'Paid in person', 'environment' => PaymentProvider::MODE_PRODUCTION],
             $data
         ));
+    }
+
+    /**
+     * Defect: the note typed in Make Payment was kept on the payout's invoice
+     * (and emailed), but Commission details read only the commission's own
+     * note, so "Commission Notes" said "No notes available" after paying.
+     */
+    #[Test]
+    public function the_payment_note_shows_on_the_commission_details(): void
+    {
+        $commission = $this->commission($this->host, $this->sellerOnTenPercent());
+
+        $this->pay($commission, ['note' => 'Paid by cheque #1042'])->assertOk();
+
+        $this->getJson("/api/v1/common/commissions/{$commission->id}")
+            ->assertOk()
+            ->assertJsonPath('data.commission_note', 'Paid by cheque #1042');
+    }
+
+    #[Test]
+    public function a_note_on_the_commission_itself_still_shows_first(): void
+    {
+        $commission = $this->commission($this->host, $this->sellerOnTenPercent());
+        $commission->update(['note' => 'Set on the commission']);
+
+        $this->pay($commission, ['note' => 'Paid by cheque #1042'])->assertOk();
+
+        $this->getJson("/api/v1/common/commissions/{$commission->id}")
+            ->assertOk()
+            ->assertJsonPath('data.commission_note', 'Set on the commission');
+    }
+
+    #[Test]
+    public function an_unpaid_commission_with_no_note_has_none(): void
+    {
+        $commission = $this->commission($this->host, $this->sellerOnTenPercent());
+        Passport::actingAs($this->admin);
+
+        $this->getJson("/api/v1/common/commissions/{$commission->id}")
+            ->assertOk()
+            ->assertJsonPath('data.commission_note', null);
     }
 
     #[Test]

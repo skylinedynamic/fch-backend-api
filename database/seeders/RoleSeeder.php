@@ -34,11 +34,14 @@ class RoleSeeder extends Seeder
         }
 
         foreach ($partners as $partner) {
-            // Create four roles per partner: Developer, Admin, Manager, Sales
-            $developerRole = Role::updateOrCreate(
-                ['name' => 'Developer', 'guard_name' => 'api', 'partner_id' => $partner->id],
-                ['name' => 'Developer', 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => 'developer','is_static' => true]
-            );
+            // Roles per partner: Admin, Manager, Sales, ... (and Developer for the host only)
+            // The one Developer role is the host's; no other partner gets one.
+            $developerRole = $partner->is_host
+                ? Role::updateOrCreate(
+                    ['name' => Role::NAME_DEVELOPER, 'guard_name' => 'api', 'partner_id' => $partner->id],
+                    ['name' => Role::NAME_DEVELOPER, 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => Role::CODE_DEVELOPER, 'is_static' => true]
+                )
+                : null;
 
             $adminRole = Role::updateOrCreate(
                 ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id],
@@ -95,16 +98,17 @@ class RoleSeeder extends Seeder
             // $salesCount = min($salesCount, $allPerms->count());
             // $salesPerms = $allPerms->shuffle()->take($salesCount);
 
-            // Developer & Admin: all permissions
-            $developerRole->syncPermissions($allPerms);
+            // Developer: all permissions. Admin: all but the developer-only
+            // ones (Business Insights), which no role but Developer holds.
+            $developerRole?->syncPermissions($allPerms);
 
-            $adminRole->syncPermissions($allPerms);
+            $adminRole->syncPermissions($allPerms->reject(fn (Permission $permission) => $permission->is_developer));
 
             // $managerRole->syncPermissions($managerPerms);
             // $salesRole->syncPermissions($salesPerms);
 
             $this->command?->info(
-                "Seeded roles for Partner ID {$partner->id}: Developer (all), Admin (all), Manager (subset), Sales (random)"
+                "Seeded roles for Partner ID {$partner->id}" . ($developerRole ? ": Developer (all)" : "") . ", Admin (all but developer-only)"
             );
         }
 

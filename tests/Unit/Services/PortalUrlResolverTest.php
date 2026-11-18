@@ -12,9 +12,11 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Which portal a login's links open on. A client uses the borrower portal, on
- * its White-Label partner's own borrower domain when that partner runs one;
- * everyone else uses the partner portal - a White-Label partner's custom
+ * Which portal a login's links open on. A client uses its partner's borrower
+ * domain whenever there is one (Active Custom URL is only the switch for the
+ * partner's own custom domain); without one, the host's and a Certified
+ * partner's clients use the shared borrower portal and a White-Label partner's
+ * client gets no link at all - never the host's portal (R3-BUG-032). Everyone else uses the partner portal - a White-Label partner's custom
  * domain or its subdomain, a Certified partner's subdomain, and the shared
  * portals for the host. Locally every link goes to the env portals.
  */
@@ -98,18 +100,31 @@ class PortalUrlResolverTest extends TestCase
     }
 
     #[Test]
-    public function a_white_label_client_uses_the_borrower_portal_when_the_custom_domain_is_off_or_missing(): void
+    public function a_white_label_client_uses_its_borrower_domain_with_the_custom_url_off(): void
     {
-        $this->assertSame(self::BORROWER_PORTAL . '/email-change/confirm/1/abc', $this->url($this->borrower($this->whiteLabel(['active_custom_url' => false]))));
-        $this->assertSame(self::BORROWER_PORTAL . '/email-change/confirm/1/abc', $this->url($this->borrower($this->whiteLabel(['borrower_domain' => null]))));
+        $this->assertSame('https://client.wl.com/email-change/confirm/1/abc', $this->url($this->borrower($this->whiteLabel(['active_custom_url' => false]))));
+    }
+
+    #[Test]
+    public function a_white_label_client_without_a_borrower_domain_gets_no_link_never_the_hosts_portal(): void
+    {
+        $this->assertSame('', $this->url($this->borrower($this->whiteLabel(['borrower_domain' => null]))));
+        $this->assertSame('', $this->url($this->borrower($this->whiteLabel(['borrower_domain' => null, 'active_custom_url' => false]))));
     }
 
     #[Test]
     public function certified_and_host_clients_use_the_borrower_portal(): void
     {
-        $this->assertSame(self::BORROWER_PORTAL . '/email-change/confirm/1/abc', $this->url($this->borrower($this->certified())));
+        $this->assertSame(self::BORROWER_PORTAL . '/email-change/confirm/1/abc', $this->url($this->borrower($this->certified(['borrower_domain' => null]))));
         $this->assertSame(self::BORROWER_PORTAL . '/email-change/confirm/1/abc', $this->url($this->borrower($this->host())));
         $this->assertSame(self::BORROWER_PORTAL . '/email-change/confirm/1/abc', $this->url($this->borrower(null)));
+    }
+
+    #[Test]
+    public function a_certified_client_uses_its_partners_borrower_domain_when_there_is_one(): void
+    {
+        // The same domain sign-in accepts it on (PortalIsolationService).
+        $this->assertSame('https://client.cp.com/email-change/confirm/1/abc', $this->url($this->borrower($this->certified())));
     }
 
     #[Test]
