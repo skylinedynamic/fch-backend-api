@@ -180,9 +180,21 @@ class CalendlySyncService
 
         $attributes = CalendlyEventMapper::attributes($event, $invitee, $connection->timezone ?: 'UTC')
             + ['calendly_connection_id' => $connection->id];
-        $existing = Appointment::withTrashed()->where('calendly_event_uri', $event['uri'])->first();
-
         $cancelled = $attributes['status'] === Appointment::STATUS_CANCELLED;
+
+        // The other person's copy of an FCH meeting (booked in their own Calendly so it
+        // shows there): the meeting is already an appointment - never a second one.
+        $mirrored = Appointment::withTrashed()->where('calendly_mirror_event_uri', $event['uri'])->first();
+        if ($mirrored) {
+            // Cancelled in their Calendly: the copy is gone; the meeting itself stands.
+            if ($cancelled) {
+                $mirrored->update(['calendly_mirror_event_uri' => null, 'calendly_mirror_invitee_uri' => null, 'calendly_mirror_connection_id' => null]);
+            }
+
+            return $mirrored;
+        }
+
+        $existing = Appointment::withTrashed()->where('calendly_event_uri', $event['uri'])->first();
 
         if ($existing?->trashed()) {
             // Deleted in FCH but still on in Calendly: it is still happening, so bring it back.
@@ -212,6 +224,11 @@ class CalendlySyncService
             $existing->update($updates);
 
             return $existing->fresh();
+        }
+
+        // A copy being booked into this account right now (not recorded yet): left to the next sync.
+        if (Cache::has(CalendlyService::MIRRORING_CACHE_PREFIX.$connection->id)) {
+            return null;
         }
 
         try {

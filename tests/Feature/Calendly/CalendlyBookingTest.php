@@ -1057,4 +1057,120 @@ class CalendlyBookingTest extends TestCase
         $this->assertSame($this->slot->format('Y-m-d H:i:s'), $appointment->appointment_date);
         $this->assertSame('Funding review', $appointment->subject);
     }
+
+    /**
+     * Calendly lists a meeting only in its host's account: booked with someone
+     * who has their own Calendly connected, it is booked there too (the booker
+     * its invitee) - one appointment, shown in both people's Calendly. Their
+     * sync does not take the copy in as a second appointment; cancelling the
+     * appointment cancels both.
+     */
+    #[Test]
+    public function a_meeting_with_someone_with_their_own_calendly_is_booked_in_theirs_too(): void
+    {
+        $this->connectCalendly($this->host);
+        $borrowerUri = "{$this->calendlyApi}/users/BORROWERUSER";
+        $borrowersOwn = $this->connectCalendly($this->borrowerUser, [
+            'borrower_id' => $this->borrowerUser->entity_id,
+            'calendly_user_uri' => $borrowerUri,
+            'access_token' => 'borrower-access-token',
+        ]);
+
+        $event = $this->calendlyEvent('EVBOOK', $this->slot);
+        $invitee = $this->calendlyInvitee($event, $this->borrowerUser->email, 'Jane Borrower');
+        $copy = $this->calendlyEvent('EVMIRROR', $this->slot, [
+            'event_type' => "{$this->calendlyApi}/event_types/BET1",
+            'event_memberships' => [['user' => $borrowerUri, 'user_email' => 'borrower@example.test']],
+        ]);
+        $copyInvitee = $this->calendlyInvitee($copy, $this->host->email, $this->host->name);
+        $isBorrowers = fn (Request $request) => $request->hasHeader('Authorization', 'Bearer borrower-access-token');
+
+        Http::fake(function (Request $request) use ($event, $invitee, $copy, $copyInvitee, $isBorrowers) {
+            $url = $request->url();
+            $path = parse_url($url, PHP_URL_PATH);
+
+            return match (true) {
+                $path === '/event_types' => Http::response(['collection' => [$isBorrowers($request)
+                    ? $this->calendlyEventType(['uri' => "{$this->calendlyApi}/event_types/BET1"])
+                    : $this->calendlyEventType()], 'pagination' => ['next_page_token' => null]]),
+                $path === '/event_type_available_times' => Http::response(['collection' => [
+                    ['status' => 'available', 'start_time' => $this->slot->format('Y-m-d\TH:i:s\Z'), 'invitees_remaining' => 1],
+                ]]),
+                $path === '/user_busy_times' => Http::response(['collection' => []]),
+                $path === '/one_off_event_types' => Http::response(['title' => 'Permission Denied', 'message' => 'Insufficient scope'], 403),
+                $path === '/invitees' => Http::response(['resource' => $isBorrowers($request) ? $copyInvitee : $invitee], 201),
+                $path === '/scheduled_events' => Http::response(['collection' => [$copy], 'pagination' => ['next_page_token' => null]]),
+                $path === '/scheduled_events/EVBOOK' => Http::response(['resource' => $event]),
+                $path === '/scheduled_events/EVMIRROR' => Http::response(['resource' => $copy]),
+                $path === '/scheduled_events/EVMIRROR/invitees' => Http::response(['collection' => [$copyInvitee]]),
+                str_ends_with($path, '/cancellation') => Http::response(['resource' => ['canceled_by' => 'FCH']], 201),
+                default => Http::response(['title' => 'Not faked', 'message' => $url], 404),
+            };
+        });
+        $this->actingAsUser($this->host);
+
+        $id = $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk()->json('data.id');
+
+        // Booked in the borrower's own Calendly, with their sign-in, the host the invitee.
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $isBorrowers($request)
+            && $request['event_type'] === "{$this->calendlyApi}/event_types/BET1"
+            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z')
+            && $request['invitee']['email'] === $this->host->email);
+
+        $appointment = Appointment::findOrFail($id);
+        $this->assertSame($event['uri'], $appointment->calendly_event_uri);
+        $this->assertSame($copy['uri'], $appointment->calendly_mirror_event_uri);
+        $this->assertSame($copyInvitee['uri'], $appointment->calendly_mirror_invitee_uri);
+        $this->assertSame($borrowersOwn->id, (int) $appointment->calendly_mirror_connection_id);
+
+        // The borrower's sync sees the copy: still one appointment.
+        app(\App\Services\Global\Calendly\CalendlySyncService::class)->syncRange($borrowersOwn, now()->subDay(), now()->addDays(10));
+        $this->assertSame(1, Appointment::count());
+
+        $this->postJson("/api/v1/common/appointments/{$id}/cancel")->assertOk();
+        Http::assertSent(fn (Request $request) => $request->url() === "{$event['uri']}/cancellation");
+        Http::assertSent(fn (Request $request) => $request->url() === "{$copy['uri']}/cancellation" && $isBorrowers($request));
+    }
+
+    /** Their Calendly refusing the copy does not undo the meeting: it is booked, only without the copy. */
+    #[Test]
+    public function the_meeting_stands_when_the_other_persons_calendly_refuses_the_copy(): void
+    {
+        $this->connectCalendly($this->host);
+        $this->connectCalendly($this->borrowerUser, [
+            'borrower_id' => $this->borrowerUser->entity_id,
+            'calendly_user_uri' => "{$this->calendlyApi}/users/BORROWERUSER",
+            'access_token' => 'borrower-access-token',
+        ]);
+        $event = $this->calendlyEvent('EVBOOK', $this->slot);
+        $invitee = $this->calendlyInvitee($event, $this->borrowerUser->email, 'Jane Borrower');
+
+        Http::fake(function (Request $request) use ($event, $invitee) {
+            $path = parse_url($request->url(), PHP_URL_PATH);
+            $borrowers = $request->hasHeader('Authorization', 'Bearer borrower-access-token');
+
+            return match (true) {
+                $path === '/event_types' => Http::response(['collection' => [$this->calendlyEventType()], 'pagination' => ['next_page_token' => null]]),
+                $path === '/event_type_available_times' => Http::response(['collection' => [
+                    ['status' => 'available', 'start_time' => $this->slot->format('Y-m-d\TH:i:s\Z'), 'invitees_remaining' => 1],
+                ]]),
+                $path === '/user_busy_times' => Http::response(['collection' => []]),
+                $path === '/one_off_event_types' => Http::response(['title' => 'Permission Denied', 'message' => 'Insufficient scope'], 403),
+                // The Free plan's daily limit reached in the borrower's Calendly.
+                $path === '/invitees' => $borrowers
+                    ? Http::response(['title' => 'Too Many Requests', 'message' => 'Limit reached'], 429)
+                    : Http::response(['resource' => $invitee], 201),
+                $path === '/scheduled_events/EVBOOK' => Http::response(['resource' => $event]),
+                default => Http::response(['title' => 'Not faked'], 404),
+            };
+        });
+        $this->actingAsUser($this->host);
+
+        $id = $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk()->json('data.id');
+
+        $appointment = Appointment::findOrFail($id);
+        $this->assertSame($event['uri'], $appointment->calendly_event_uri);
+        $this->assertNull($appointment->calendly_mirror_event_uri);
+    }
 }

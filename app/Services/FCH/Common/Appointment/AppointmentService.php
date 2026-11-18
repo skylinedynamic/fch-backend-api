@@ -294,6 +294,9 @@ class AppointmentService
             return;
         }
 
+        // The other person's copy in their own Calendly goes too (never holds up the cancel).
+        app(CalendlyService::class)->cancelMirror($appointment);
+
         // The Calendly it came from (its owner's own) - not the caller's.
         $connection = CalendlyConnection::find($appointment->calendly_connection_id);
         if (!$connection?->isActive()) {
