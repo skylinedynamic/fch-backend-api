@@ -285,45 +285,52 @@ class CalendlyBookingTest extends TestCase
     }
 
     /**
-     * With event_types:write, the meeting is named after the FCH title: a
-     * one-off meeting type with that name (same length and day) is made and
-     * the invitee booked on it.
+     * The FCH title and description go in the meeting's details in Calendly -
+     * the answer to its event type's question, shown under Details and in
+     * Calendly's emails. Booked on the event type; no one-off meeting is made.
      */
     #[Test]
-    public function the_meeting_is_named_after_the_appointment_title_in_calendly(): void
+    public function the_title_and_description_are_in_the_meetings_details_in_calendly(): void
     {
         $this->connectCalendly($this->host);
-        $oneOff = "{$this->calendlyApi}/event_types/ONEOFF1";
+        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower');
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['description' => '<p>Bring the <b>statements</b> &amp; ID</p>']))->assertOk()
+            ->assertJsonPath('data.subject', 'Funding review');
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request['event_type'] === $this->calendlyEventTypeUri
+            && $request['questions_and_answers'] === [[
+                'question' => 'Please share anything that will help prepare for our meeting.',
+                'answer' => "Funding review\n\nBring the statements & ID",
+                'position' => 0,
+            ]]);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'one_off_event_types'));
+    }
+
+    /** An event type asking no free-text question: booked all the same, without the details. */
+    #[Test]
+    public function an_event_type_with_no_question_is_booked_without_the_details(): void
+    {
+        $this->connectCalendly($this->host);
         $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
-            "{$this->calendlyApi}/one_off_event_types" => Http::response(['resource' => ['uri' => $oneOff]], 201),
+            "{$this->calendlyApi}/event_types?*" => Http::response(['collection' => [
+                $this->calendlyEventType(['custom_questions' => []]),
+            ], 'pagination' => ['next_page_token' => null]]),
         ]);
         $this->actingAsUser($this->host);
 
-        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk()
-            ->assertJsonPath('data.subject', 'Funding review');
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk();
 
-        $day = $this->slot->copy()->setTimezone('America/Chicago');
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types"
-            && $request['name'] === 'Funding review'
-            && $request['host'] === $this->calendlyUserUri
-            && $request['duration'] === 30
-            && $request['date_setting'] === ['type' => 'date_range', 'start_date' => $day->toDateString(), 'end_date' => $day->copy()->addDay()->toDateString()]
-            && $request['location'] === ['kind' => 'google_conference']);
         Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === $oneOff
-            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z')
             && ! isset($request['questions_and_answers']));
-        Http::assertNotSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === $this->calendlyEventTypeUri);
+        $this->assertSame(1, Appointment::count());
     }
 
-    /**
-     * A phone-call event type: Calendly will not book a one-off with "custom" or
-     * "ask invitee" places, so the call is written out as its place, with the FCH
-     * description as the place's additional info - both shown in Calendly.
-     */
+    /** A phone-call event type: the invitee's number from FCH, and the details as its answer. */
     #[Test]
-    public function a_named_phone_call_meeting_shows_the_number_and_description_in_calendly(): void
+    public function a_phone_call_meeting_has_the_number_and_the_details(): void
     {
         Borrower::whereKey($this->borrowerUser->entity_id)->update(['phone_number' => '3125550199', 'country_code' => '+1']);
         $this->connectCalendly($this->host);
@@ -331,68 +338,30 @@ class CalendlyBookingTest extends TestCase
             "{$this->calendlyApi}/event_types?*" => Http::response(['collection' => [
                 $this->calendlyEventType(['locations' => [['kind' => 'outbound_call']]]),
             ], 'pagination' => ['next_page_token' => null]]),
-            "{$this->calendlyApi}/one_off_event_types" => Http::response(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF9"]], 201),
         ]);
         $this->actingAsUser($this->host);
 
-        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['description' => '<p>Bring the statements</p>']))->assertOk();
+        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload(['description' => 'Bring the statements']))->assertOk();
 
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types"
-            && $request['name'] === 'Funding review'
-            && $request['location'] === ['kind' => 'physical', 'location' => 'Phone call: +13125550199', 'additional_info' => 'Bring the statements']);
         Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === "{$this->calendlyApi}/event_types/ONEOFF9"
-            && ! isset($request['location']));
+            && $request['location'] === ['kind' => 'outbound_call', 'location' => '+13125550199']
+            && $request['questions_and_answers'][0]['answer'] === "Funding review\n\nBring the statements");
     }
 
-    /** Calendly refusing the named meeting (no event_types:write, plan...): booked on the event type as before. */
+    /** Calendly failing (not refusing): reported, nothing kept, and booked once only. */
     #[Test]
-    public function a_refused_named_meeting_is_booked_on_the_event_type_instead(): void
+    public function a_calendly_failure_while_booking_is_not_booked_twice(): void
     {
         $this->connectCalendly($this->host);
         $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
-            "{$this->calendlyApi}/one_off_event_types" => Http::response(['title' => 'Permission Denied', 'message' => 'Insufficient scope'], 403),
-        ]);
-        $this->actingAsUser($this->host);
-
-        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk();
-
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === $this->calendlyEventTypeUri);
-        $this->assertSame(1, Appointment::count());
-    }
-
-    /** Calendly failing (not refusing) mid-way: not booked again on the event type - it may already be booked. */
-    #[Test]
-    public function a_calendly_failure_while_naming_the_meeting_is_not_booked_twice(): void
-    {
-        $this->connectCalendly($this->host);
-        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower', [
-            "{$this->calendlyApi}/one_off_event_types" => Http::response(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF1"]], 201),
             "{$this->calendlyApi}/invitees" => Http::response(['message' => 'Down'], 500),
         ]);
         $this->actingAsUser($this->host);
 
         $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertStatus(502);
 
-        // Event types, open times, the named meeting type, its one booking - nothing more.
-        Http::assertSentCount(4);
-        Http::assertNotSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === $this->calendlyEventTypeUri);
+        Http::assertSentCount(3); // event types, open times, the one booking
         $this->assertSame(0, Appointment::count());
-    }
-
-    #[Test]
-    public function an_event_type_without_a_text_question_is_booked_without_answers(): void
-    {
-        $this->connectCalendly($this->host);
-        $this->fakeBooking($this->borrowerUser->email, 'Jane Borrower');
-        $this->actingAsUser($this->host);
-
-        $this->postJson('/api/v1/common/calendly/book', $this->bookingPayload())->assertOk();
-
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && ! isset($request['questions_and_answers']));
     }
 
     /** A borrower with their own Calendly books in it, inviting the advisor they picked. */
@@ -882,24 +851,20 @@ class CalendlyBookingTest extends TestCase
         $this->assertSame('Funding review', $appointment->subject);
     }
 
-    /** A new title in FCH: the meeting is replaced in Calendly, named with it (a one-off meeting), same time. */
+    /** A new title in FCH: the meeting is replaced in Calendly, same time, its details carrying the new title. */
     #[Test]
-    public function changing_a_calendly_meetings_title_in_fch_renames_it_in_calendly(): void
+    public function changing_a_calendly_meetings_title_in_fch_changes_its_details_in_calendly(): void
     {
-        [$id, $form] = $this->bookedMeetingToChange($this->slot, [
-            "{$this->calendlyApi}/one_off_event_types" => Http::sequence()
-                ->push(['title' => 'Permission Denied'], 403)
-                ->push(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF2"]], 201),
-        ]);
+        [$id, $form] = $this->bookedMeetingToChange($this->slot);
 
         $this->putJson("/api/v1/common/appointments/{$id}", array_merge($form, ['subject' => 'Renamed review']))->assertOk();
 
         Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/scheduled_events/EVBOOK/cancellation");
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types"
-            && $request['name'] === 'Renamed review');
         Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === "{$this->calendlyApi}/event_types/ONEOFF2"
-            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z'));
+            && $request['event_type'] === $this->calendlyEventTypeUri
+            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z')
+            && str_starts_with($request['questions_and_answers'][0]['answer'], 'Renamed review'));
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'one_off_event_types'));
         $this->assertSame(1, Appointment::count());
         $this->assertSame('Renamed review', Appointment::find($id)->subject);
         $this->assertSame("{$this->calendlyApi}/scheduled_events/EVNEW", Appointment::find($id)->calendly_event_uri);
@@ -1014,48 +979,6 @@ class CalendlyBookingTest extends TestCase
 
         $this->deleteJson("/api/v1/common/appointments/{$id}")->assertOk();
         $this->assertNull(Appointment::find($id));
-    }
-
-    /** calendly:retitle --dry-run: lists a meeting whose Calendly name is not its FCH title, changes nothing. */
-    #[Test]
-    public function retitle_dry_run_lists_meetings_whose_calendly_name_differs_and_changes_nothing(): void
-    {
-        [$id] = $this->bookedMeetingToChange($this->slot->copy()->addHours(2));
-
-        $this->artisan('calendly:retitle', ['--dry-run' => true])
-            ->expectsOutputToContain('Upcoming Calendly meetings to give their FCH title: 1')
-            ->assertSuccessful();
-
-        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/cancellation'));
-        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVBOOK", Appointment::find($id)->calendly_event_uri);
-    }
-
-    /** calendly:retitle: the meeting is booked again under its FCH title, same time; the old one cancelled. */
-    #[Test]
-    public function retitle_books_an_old_meeting_again_under_its_fch_title(): void
-    {
-        $renamed = $this->calendlyEvent('EVNEW', $this->slot, ['name' => 'Funding review']);
-        [$id] = $this->bookedMeetingToChange($this->slot, [
-            "{$this->calendlyApi}/one_off_event_types" => Http::sequence()
-                ->push(['title' => 'Permission Denied'], 403)
-                ->push(['resource' => ['uri' => "{$this->calendlyApi}/event_types/ONEOFF3"]], 201),
-            "{$this->calendlyApi}/scheduled_events/EVNEW" => Http::response(['resource' => $renamed]),
-        ]);
-
-        $this->artisan('calendly:retitle', ['--force' => true])
-            ->expectsOutputToContain('Calendly name now "Funding review" - YES, same title')
-            ->assertSuccessful();
-
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/scheduled_events/EVBOOK/cancellation");
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/one_off_event_types" && $request['name'] === 'Funding review');
-        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
-            && $request['event_type'] === "{$this->calendlyApi}/event_types/ONEOFF3"
-            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z'));
-        $appointment = Appointment::find($id);
-        $this->assertSame(1, Appointment::count());
-        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVNEW", $appointment->calendly_event_uri);
-        $this->assertSame($this->slot->format('Y-m-d H:i:s'), $appointment->appointment_date);
-        $this->assertSame('Funding review', $appointment->subject);
     }
 
     /**
@@ -1275,7 +1198,9 @@ class CalendlyBookingTest extends TestCase
             && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z'));
         Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
             && $request->hasHeader('Authorization', 'Bearer borrower-access-token')
-            && $request['invitee']['email'] === $this->host->email);
+            && $request['invitee']['email'] === $this->host->email
+            // The copy's details carry the FCH title and description too.
+            && $request['questions_and_answers'][0]['answer'] === "Quarterly review\n\nNumbers");
         // Not brought in from Calendly: push only.
         Http::assertNotSent(fn (Request $request) => str_starts_with($request->url(), "{$this->calendlyApi}/scheduled_events?"));
 
@@ -1380,8 +1305,8 @@ class CalendlyBookingTest extends TestCase
             ->assertJsonPath('data.failed', 1)
             ->assertJsonPath('data.errors.0.appointment_id', $first->id);
 
-        // Event types, the named one-off (refused for scope), then the one refused booking - not the second meeting.
-        Http::assertSentCount(3);
+        // Event types, then the one refused booking - not the second meeting.
+        Http::assertSentCount(2);
     }
 
     /**

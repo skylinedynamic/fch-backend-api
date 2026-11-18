@@ -115,6 +115,14 @@ trait FakesCalendly
             'kind' => 'solo',
             'scheduling_url' => 'https://calendly.com/host/30min',
             'locations' => [['kind' => 'google_conference']],
+            // As a new Calendly event type comes: the FCH title and description are its answer.
+            'custom_questions' => [[
+                'name' => 'Please share anything that will help prepare for our meeting.',
+                'type' => 'text',
+                'position' => 0,
+                'enabled' => true,
+                'required' => false,
+            ]],
         ], $overrides);
     }
 

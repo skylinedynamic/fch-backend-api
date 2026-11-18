@@ -1,0 +1,64 @@
+# Calendly: meetings in both people's Calendly, Pull / Push / Two-way sync, details in Calendly, secrets write-only
+
+**Date:** 2026-11-18
+**Branch:** `feature/calendly-integration` (fch-backend-api, Fch-admin-frontend-react, fch-borrower-react)
+**Author:** arafat-invento (with Claude Code)
+**Follows:** [2026-11-16-calendly-booking-in-add-appointment.md](2026-11-16-calendly-booking-in-add-appointment.md)
+
+## Problem
+Testing live on 2026-11-18 turned up these issues:
+- **The meeting showed in only one Calendly.** Calendly lists a meeting only in its host's account. When a partner booked with a borrower who had connected their own Calendly, the borrower's Calendly stayed empty; they only got the invitation email.
+- **Sync now only pulled.** There was no way to send FCH meetings to Calendly, or to choose which dates to sync.
+- **The description never reached Calendly.** To name the meeting after the FCH title, FCH booked a Calendly *one-off* meeting. One-off meetings have no description field (only in-person or inbound-call locations take `additional_info`), so the description was dropped.
+- **Settings → Calendly showed the Client Secret and Webhook Signing Key in full.** The API returned them decrypted, so they also showed in the browser's network tab and in screenshots.
+- **Meetings stuck on a removed connection.** A borrower who connected Calendly again got a new connection row; their old meetings kept pointing at the deleted one, and every sync logged 403 "Skipped a meeting of another Calendly account".
+- **The Disconnect modal used a party-popper icon.**
+
+## Solution
+- **A copy in the other person's Calendly.** When the person invited has their own Calendly connected, the meeting is also booked there, with the booker as its invitee. Both accounts then host it, so both Calendar pages list it. FCH keeps one appointment.
+  - New columns `calendly_mirror_event_uri` (unique), `calendly_mirror_invitee_uri`, `calendly_mirror_connection_id` (migration `2026_11_18_000001_add_calendly_mirror_columns_to_appointments_table`).
+  - Sync and webhooks recognise the copy and never take it in as a second appointment. A short cache guard (`MIRRORING_CACHE_PREFIX`) covers the moment between booking the copy and recording it.
+  - Cancel and delete cancel both meetings. A new time or title cancels and rebooks the copy too. The other person's copy is skipped quietly if they have no Calendly; their Calendly refusing it never undoes the meeting (it is logged).
+- **Sync now → Pull / Push / Two-way.** Both portals open a modal with one choice, for the dates the calendar shows (Month / Week / Day), else the current month.
+  - `POST /common/calendly/sync` takes `direction` (`pull` | `push` | `both`), `from`, `to` (`Y-m-d`, up to 93 days) and `timezone`. Without `direction` it behaves as before (the page's quiet sync on opening).
+  - **Pull:** Calendly meetings in the dates come into FCH, and upcoming FCH meetings others set with the caller go into the caller's Calendly.
+  - **Push:** upcoming FCH meetings the caller set go into the caller's Calendly and into the other person's own Calendly.
+  - **Two-way:** Pull, then Push.
+  - Only upcoming meetings are sent; nothing is booked twice; a meeting still linked to a deleted connection is booked again in the current accounts. Calendly refusing a meeting is reported by name; a 429 (booking limit) stops the rest.
+  - Push needs the caller's own Calendly: a borrower without one gets Pull only (Push and Two-way disabled), and the host account cannot push into another partner's Calendly (422 `calendly.push_needs_own`).
+- **Title and description in Calendly's meeting details.** All bookings (Add Appointment, reschedule, the copy, Push / Pull) are made on the account's event type. The FCH title and description go in as the answer to its first free-text question, shown in the meeting's Details tab and in Calendly's emails. The meeting's name in Calendly is the event type's name. The one-off booking code and the `calendly:retitle` command are removed.
+- **Secrets are write-only, as on OpenAI Configuration.**
+  - The Client Secret, Webhook Signing Key and both OAuth tokens stay encrypted at rest (Laravel `encrypted` cast, `APP_KEY`).
+  - `GET/POST /common/calendly/settings` no longer returns `client_secret` or `webhook_signing_key`; only `has_client_secret` and `has_webhook_signing_key`.
+  - Settings → Calendly shows a saved secret as a dots stand-in in a password field. Left alone it keeps the saved one; typed over, it replaces it. The Client ID is masked with an eye button, as the OpenAI Agent IDs are.
+- **Disconnect modal** (both portals) shows the Calendly logo instead of the party popper.
+
+## Files changed
+**fch-backend-api**
+- `app/Services/FCH/Common/Calendly/CalendlyService.php`: the copy (`bookMirror`, `moveMirror`, `cancelMirror`, `bookInto`), `syncDirected` and `ensureInCalendly`, `detailsAnswer`, write-only settings; one-off booking and retitle methods removed.
+- `app/Services/Global/Calendly/CalendlySyncService.php`: copies recognised; guard while a copy is booked.
+- `app/Services/FCH/Common/Appointment/AppointmentService.php`: cancelling cancels the copy.
+- `app/Http/Controllers/Api/V1/FCH/Common/Calendly/CalendlyController.php`, `app/Http/Requests/.../CalendlySyncRequest.php` (new): sync direction and dates.
+- `app/Models/Appointment/Appointment.php`, the new migration, `lang/en/calendly.php` (`push_needs_own`).
+- `app/Console/Commands/RetitleCalendlyMeetings.php`: deleted (meetings are no longer named after the title).
+
+**Fch-admin-frontend-react** and **fch-borrower-react**
+- `CalendlySyncModal.tsx` (new, same in both), `modules/calendly/syncDates.ts` (new), Calendly card, Appointments page, `modules/calendly/services.ts` and `types.ts`.
+- Disconnect modal icon: the shared `ConfirmationModal` takes an optional `iconNode`.
+- Admin only: `pages/settings/components/CalendlySettings.tsx` (write-only secrets, masked Client ID).
+
+## Tests
+- **Backend** `Feature/Calendly`: 90 pass. New or rewritten: the copy (booked, synced, cancelled, refused), Pull / Push / Two-way, default month, booking limit, removed connection, details answer (with and without a question, phone call), secrets never in the response and encrypted at rest. The retitle and one-off tests are removed.
+- **Admin**: Calendly card (sync modal), Settings → Calendly (write-only secrets, masked Client ID), Appointment modal.
+- **Borrower**: Calendly card (sync modal; Pull only without their own Calendly).
+- Full-suite results: see the summary sent with this handoff.
+
+## Left open
+- **Run the migration** on each environment.
+- **Meeting length follows the Calendly event type.** Pushing a 60-minute FCH appointment onto a 30-minute event type books 30 minutes.
+- **The event type needs a free-text question** for the details to show (new Calendly event types have one). Without it the meeting is booked without them.
+- **`event_types:write` is no longer used.** It stays in `CALENDLY_SCOPES` so existing apps don't need re-authorising; it can be dropped later.
+- **Calendly's own limits apply:** the booking limit (Free plan, 429), the owner's availability hours, and past times. The sync result names each refused meeting.
+- Webhooks can't reach `localhost`; locally, meetings arrive through sync only.
+- Meetings booked before this change keep their one-off name and have no details in Calendly.
+- The secrets shown in earlier screenshots should be regenerated at developer.calendly.com.
