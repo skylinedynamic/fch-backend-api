@@ -572,25 +572,64 @@ class CalendlyConnectionTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /** Settings > Calendly shows the partner account all three keys, not just whether they are set. */
+    /**
+     * Settings > Calendly shows the partner account its Client ID, and only
+     * that a Client Secret and a Signing Key are saved (their last characters)
+     * - the secrets themselves never leave the server. A new one replaces the
+     * saved one; blank keeps it.
+     */
     #[Test]
     public function the_partner_account_sees_and_changes_its_own_keys_in_settings(): void
     {
-        $this->saveCalendlyKeys($this->partnerAdmin, ['webhook_signing_key' => 'partner-signing-key']);
+        $this->saveCalendlyKeys($this->partnerAdmin, ['client_secret' => 'partner-client-secret-ABCD', 'webhook_signing_key' => 'partner-signing-key-WXYZ']);
 
-        $this->getJson('/api/v1/common/calendly/settings')->assertOk()
+        $response = $this->getJson('/api/v1/common/calendly/settings')->assertOk()
             ->assertJsonPath('data.client_id', 'test-client-id')
-            ->assertJsonPath('data.client_secret', 'test-client-secret')
-            ->assertJsonPath('data.webhook_signing_key', 'partner-signing-key');
+            ->assertJsonPath('data.has_client_secret', true)
+            ->assertJsonPath('data.has_webhook_signing_key', true)
+            ->assertJsonMissingPath('data.client_secret')
+            ->assertJsonMissingPath('data.webhook_signing_key');
+        // Not even a part of them (as OpenAI Configuration's key).
+        foreach (['partner-client-secret', 'partner-signing-key', 'ABCD', 'WXYZ'] as $part) {
+            $this->assertStringNotContainsString($part, $response->getContent());
+        }
 
-        $this->postJson('/api/v1/common/calendly/settings', [
+        $saved = $this->postJson('/api/v1/common/calendly/settings', [
             'client_id' => 'new-client-id',
-            'client_secret' => 'new-client-secret',
-            'webhook_signing_key' => 'new-signing-key',
+            'client_secret' => 'new-client-secret-1234',
+            'webhook_signing_key' => 'new-signing-key-5678',
         ])->assertOk()
-            ->assertJsonPath('data.client_id', 'new-client-id')
-            ->assertJsonPath('data.client_secret', 'new-client-secret')
-            ->assertJsonPath('data.webhook_signing_key', 'new-signing-key');
+            ->assertJsonPath('data.client_id', 'new-client-id');
+        $this->assertStringNotContainsString('new-client-secret', $saved->getContent());
+        $this->assertStringNotContainsString('1234', $saved->getContent());
+
+        $connection = CalendlyConnection::where('partner_id', $this->partnerAdmin->partner_id)->sole();
+        $this->assertSame('new-client-secret-1234', $connection->client_secret);
+        $this->assertSame('new-signing-key-5678', $connection->webhook_signing_key);
+
+        // Blank: the saved secrets stay.
+        $this->postJson('/api/v1/common/calendly/settings', ['client_id' => 'new-client-id', 'client_secret' => '', 'webhook_signing_key' => ''])->assertOk();
+        $this->assertSame('new-client-secret-1234', $connection->fresh()->client_secret);
+        $this->assertSame('new-signing-key-5678', $connection->fresh()->webhook_signing_key);
+    }
+
+    /** At rest the secrets and tokens are encrypted - the database never holds them as written. */
+    #[Test]
+    public function the_secrets_and_tokens_are_stored_encrypted(): void
+    {
+        $this->saveCalendlyKeys($this->partnerAdmin, ['client_secret' => 'plain-client-secret', 'webhook_signing_key' => 'plain-signing-key']);
+        $connection = CalendlyConnection::where('partner_id', $this->partnerAdmin->partner_id)->sole();
+        $connection->update(['access_token' => 'plain-access-token', 'refresh_token' => 'plain-refresh-token']);
+
+        $row = (array) \Illuminate\Support\Facades\DB::table('calendly_connections')->where('id', $connection->id)->first();
+        foreach (['client_secret' => 'plain-client-secret', 'webhook_signing_key' => 'plain-signing-key', 'access_token' => 'plain-access-token', 'refresh_token' => 'plain-refresh-token'] as $column => $plain) {
+            $this->assertNotSame($plain, $row[$column], "{$column} is stored as written");
+            $this->assertStringNotContainsString($plain, (string) $row[$column]);
+            $this->assertSame($plain, \Illuminate\Support\Facades\Crypt::decryptString($row[$column]));
+        }
+        // Never serialised either.
+        $this->assertArrayNotHasKey('client_secret', $connection->toArray());
+        $this->assertArrayNotHasKey('access_token', $connection->toArray());
     }
 
     #[Test]
@@ -602,7 +641,8 @@ class CalendlyConnectionTest extends TestCase
 
         $this->getJson("/api/v1/common/calendly/settings?partner_id={$partnerId}")->assertOk()
             ->assertJsonPath('data.partner_id', (int) $partnerId)
-            ->assertJsonPath('data.client_secret', 'test-client-secret');
+            ->assertJsonPath('data.has_client_secret', true)
+            ->assertJsonMissingPath('data.client_secret');
 
         $this->postJson('/api/v1/common/calendly/settings', [
             'partner_id' => $partnerId,
@@ -652,7 +692,8 @@ class CalendlyConnectionTest extends TestCase
         $this->postJson('/api/v1/common/calendly/settings', [
             'client_id' => 'test-client-id',
             'webhook_signing_key' => 'rotated-signing-key',
-        ])->assertOk()->assertJsonPath('data.webhook_signing_key', 'rotated-signing-key');
+        ])->assertOk()->assertJsonPath('data.has_webhook_signing_key', true)->assertJsonMissingPath('data.webhook_signing_key');
+        $this->assertSame('rotated-signing-key', $connection->fresh()->webhook_signing_key);
 
         Http::assertSent(fn (Request $request) => $request->method() === 'DELETE'
             && $request->url() === "{$this->calendlyApi}/webhook_subscriptions/WH-OLD");

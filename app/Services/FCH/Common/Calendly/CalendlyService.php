@@ -159,10 +159,12 @@ class CalendlyService
 
     /**
      * Settings > Calendly for a partner - the caller's own, or (the host
-     * account) the one named: its saved app keys in full - Client ID, Client
-     * Secret and Webhook Signing Key, so the partner account or the host can
-     * see and change them - what to enter on its Calendly app, and its
-     * connection. Only those two accounts get here (managedPartnerId).
+     * account) the one named: its Client ID, whether a Client Secret and a
+     * Webhook Signing Key are saved - never the secrets, nor any part of them
+     * (stored encrypted and write-only, as OpenAI Configuration's API key: a
+     * new value replaces one, blank keeps it) - what to enter on
+     * its Calendly app, and its connection. Only those two accounts get here
+     * (managedPartnerId).
      */
     public function settings(User $user, ?int $partnerId = null): array
     {
@@ -173,8 +175,6 @@ class CalendlyService
         return [
             'partner_id' => $partnerId,
             'client_id' => $connection?->client_id,
-            'client_secret' => $connection?->client_secret,
-            'webhook_signing_key' => $connection?->webhook_signing_key,
             'has_client_secret' => filled($connection?->client_secret),
             'has_webhook_signing_key' => filled($connection?->webhook_signing_key),
             'configured' => (bool) $connection?->hasKeys(),
