@@ -18,13 +18,13 @@ class AgreementPlanFields
 {
     public const KEY_PREFIX = 'plan.';
 
-    /** Plan groups each agreement may show. */
+    /** Plan groups each agreement may show, in the order the builder lists them. */
     private const GROUPS_BY_AGREEMENT = [
         AgreementTemplate::SLUG_PARTNER => [
             SubscriptionPlan::SUBSCRIPTION_PLAN_PARTNER_ENROLLMENT,
-            SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT,
-            SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE,
             SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_ENROLLMENT,
+            SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE,
+            SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT,
         ],
         AgreementTemplate::SLUG_BORROWER => [
             SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_ENROLLMENT,
