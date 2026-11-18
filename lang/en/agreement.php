@@ -38,6 +38,29 @@ return [
     'no_sign_needed' => 'No signature required at this time.',
     'log_check_sign_need_error' => 'AgreementService@checkSignNeed: :error',
 
+    // {{signer.enrollment_table}} - the amounts set for the signer when they enrolled.
+    'enrollment' => [
+        'group' => 'Signer: Enrollment',
+        'field_label' => 'Enrollment Details',
+        'item' => 'Item',
+        'amount' => 'Amount',
+        'rows' => [
+            'type' => 'Enrollment type',
+            'total_amount' => 'Total enrollment amount',
+            'down_payment' => 'Down payment',
+            'subscription_amount' => 'Subscription amount',
+            'monthly_subscription' => 'Monthly subscription',
+            'installment_months' => 'Installment months',
+            'platform_fee' => 'Platform fee',
+            'per_user_seat_fee' => 'Per user seat fee',
+            'free_seat_count' => 'Free seat count',
+            'client_activation_fee' => 'Client activation fee',
+        ],
+        'may_vary' => ':amount (it may vary per borrower)',
+        'none' => 'No enrollment found.',
+        'example' => 'Example: :type',
+    ],
+
     // Agreement Builder › Save as Template.
     'saved_template' => [
         'retrieved' => 'Saved templates retrieved successfully',

@@ -104,15 +104,34 @@ class AgreementPlanFeeFieldsTest extends TestCase
     }
 
     #[Test]
+    public function the_partner_agreement_lists_the_plan_and_fee_groups_in_order(): void
+    {
+        $fields = $this->fields(AgreementTemplate::SLUG_PARTNER);
+
+        $groups = array_values(array_unique(array_column(
+            array_filter($fields, fn (array $field) => str_starts_with($field['key'], 'plan.')),
+            'group'
+        )));
+        $this->assertSame([
+            'Plan & Fee: Partner enrollment',
+            'Plan & Fee: Borrower enrollment',
+            'Plan & Fee: Client activation fee',
+            'Plan & Fee: User seats',
+        ], $groups);
+    }
+
+    #[Test]
     public function the_borrower_agreement_offers_only_borrower_enrollment(): void
     {
         $fields = $this->fields(AgreementTemplate::SLUG_BORROWER);
 
+        // Of the Plan & Fee price list (the signer's own enrollment values are
+        // pinned in AgreementEnrollmentFieldsTest).
         $this->assertSame([
             'plan.borrower_enrollment.one_time_payment.total_amount',
             'plan.borrower_enrollment.installment.total_amount',
             'plan.borrower_enrollment.installment.installments',
-        ], array_keys($fields));
+        ], array_values(array_filter(array_keys($fields), fn ($key) => str_starts_with($key, 'plan.'))));
         $this->assertSame('Plan & Fee: Borrower enrollment', $fields['plan.borrower_enrollment.installment.total_amount']['group']);
         $this->assertSame('Installment: Total amount', $fields['plan.borrower_enrollment.installment.total_amount']['label']);
     }
