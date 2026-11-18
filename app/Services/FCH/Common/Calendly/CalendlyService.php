@@ -57,6 +57,15 @@ class CalendlyService
         'custom' => 'Custom',
     ];
 
+    /** Sync now, the way picked: Calendly into FCH, FCH into Calendly, or both. */
+    public const SYNC_PULL = 'pull';
+
+    public const SYNC_PUSH = 'push';
+
+    public const SYNC_BOTH = 'both';
+
+    public const SYNC_DIRECTIONS = [self::SYNC_PULL, self::SYNC_PUSH, self::SYNC_BOTH];
+
     private const SYNC_DAYS_BACK = 7;
 
     private const SYNC_DAYS_AHEAD = 60;
@@ -313,19 +322,176 @@ class CalendlyService
      */
     public function syncNow(User $user, ?int $partnerId = null): int
     {
+        return $this->syncConnection($this->connectionToSync($user, $partnerId));
+    }
+
+    /** The Calendly the caller syncs (see syncNow); throws when they may sync none. */
+    private function connectionToSync(User $user, ?int $partnerId): ?CalendlyConnection
+    {
         if (CalendlyConnection::isBorrower($user)) {
             if ($partnerId && (int) $partnerId !== (int) $user->partner_id) {
                 throw CalendlyException::forbidden();
             }
 
-            return $this->syncConnection(CalendlyConnection::forUser($user));
+            return CalendlyConnection::forUser($user);
         }
 
         $partnerId = $partnerId && (int) $partnerId !== (int) $user->partner_id
             ? $this->managedPartnerId($user, $partnerId)
             : ($this->maySync($user) ? (int) $user->partner_id : throw CalendlyException::forbidden());
 
-        return $this->syncConnection(CalendlyConnection::forPartner($partnerId));
+        return CalendlyConnection::forPartner($partnerId);
+    }
+
+    /**
+     * Sync now, the way picked, for the dates the calendar shows (else this month):
+     *  - pull: Calendly's meetings come into FCH, and the meetings others set
+     *    with the caller in FCH go into the caller's Calendly;
+     *  - push: the meetings the caller set in FCH go into Calendly - the
+     *    caller's, and the other person's own Calendly when they have one;
+     *  - both: pull, then push.
+     * Only upcoming meetings go to Calendly (it books nothing in the past).
+     * One Calendly refusing a meeting skips that meeting; the daily booking
+     * limit stops the rest.
+     *
+     * @return array{direction: string, from: string, to: string, pulled: int, pushed: int, failed: int, errors: list<array{appointment_id: int, subject: ?string, message: string}>}
+     */
+    public function syncDirected(User $user, ?int $partnerId, string $direction, ?string $from, ?string $to, ?string $timezone): array
+    {
+        $connection = $this->connectionToSync($user, $partnerId) ?? throw CalendlyException::notConnected();
+        $client = $this->client->forConnection($connection);
+        $client->connection();
+
+        $zone = AppointmentTime::zone($timezone) ?? ($connection->timezone ?: 'UTC');
+        $start = $from ? Carbon::parse($from, $zone)->startOfDay() : now($zone)->startOfMonth();
+        $end = $to ? Carbon::parse($to, $zone)->endOfDay() : $start->copy()->endOfMonth();
+
+        $pulls = in_array($direction, [self::SYNC_PULL, self::SYNC_BOTH], true);
+        $pushes = in_array($direction, [self::SYNC_PUSH, self::SYNC_BOTH], true);
+
+        // FCH meetings go only into the caller's own Calendly - not one the host account configures for another partner.
+        $own = $this->hostsWith($user, $connection) && CalendlyConnection::forUser($user)?->id === $connection->id;
+        if ($pushes && ! $own) {
+            throw ValidationException::withMessages(['direction' => __('calendly.push_needs_own')]);
+        }
+
+        $result = ['direction' => $direction, 'from' => $start->toDateString(), 'to' => $end->toDateString(), 'pulled' => 0, 'pushed' => 0, 'failed' => 0, 'errors' => []];
+
+        if ($pulls) {
+            Cache::forget($this->eventTypesCacheKey($connection));
+            $result['pulled'] = $this->sync->syncRange($connection, $start, $end);
+        }
+
+        if (! $own) {
+            return $result;
+        }
+
+        // Upcoming FCH meetings of the caller's in the dates (Calendly books nothing in the past).
+        $meetings = Appointment::query()
+            ->whereIn('status', self::SLOT_HOLDING_STATUSES)
+            ->whereNotNull('scheduled_by')
+            ->whereNotNull('assigned_for')
+            ->whereColumn('scheduled_by', '!=', 'assigned_for')
+            ->where('appointment_date', '>', now()->addMinute()->utc()->format(AppointmentTime::STORED_FORMAT))
+            ->whereBetween('appointment_date', [$start->copy()->utc()->format(AppointmentTime::STORED_FORMAT), $end->copy()->utc()->format(AppointmentTime::STORED_FORMAT)])
+            ->where(fn ($q) => $q->where('scheduled_by', $user->id)->orWhere('assigned_for', $user->id))
+            ->orderBy('appointment_date')
+            ->get();
+
+        foreach ($meetings as $appointment) {
+            $organiser = (int) $appointment->scheduled_by === (int) $user->id;
+            $other = User::find((int) ($organiser ? $appointment->assigned_for : $appointment->scheduled_by));
+            if (! $other) {
+                continue;
+            }
+
+            try {
+                // Pull: set with the caller by someone else - into the caller's Calendly.
+                if ($pulls && ! $organiser) {
+                    $result['pushed'] += $this->ensureInCalendly($appointment, $connection, $other, $zone);
+                }
+
+                // Push: set by the caller - into the caller's Calendly (the other person
+                // invited), and into the other person's own, the caller invited.
+                if ($pushes && $organiser) {
+                    $result['pushed'] += $this->ensureInCalendly($appointment, $connection, $other, $zone);
+                    if ($theirs = $this->mirrorConnectionFor($other, $connection)) {
+                        $result['pushed'] += $this->ensureInCalendly($appointment->fresh(), $theirs, $user, $zone);
+                    }
+                }
+            } catch (Throwable $e) {
+                $result['failed']++;
+                $result['errors'][] = [
+                    'appointment_id' => $appointment->id,
+                    'subject' => $appointment->subject,
+                    'message' => $e instanceof CalendlyException || $e instanceof ValidationException ? $e->getMessage() : __('calendly.refused'),
+                ];
+                Log::warning('[CALENDLY] Not synced to Calendly', ['appointment_id' => $appointment->id, 'direction' => $direction, 'error' => $e->getMessage()]);
+
+                // Calendly's booking limit (the Free plan's per day): the rest would be refused too.
+                if ($e instanceof CalendlyException && $e->calendlyStatus() === 429) {
+                    break;
+                }
+            }
+        }
+
+        $connection->update(['last_synced_at' => now()]);
+
+        return $result;
+    }
+
+    /**
+     * Puts the appointment in $target's Calendly, $invitee its invitee: as its
+     * Calendly meeting when it has none yet (an FCH-only appointment), else as
+     * the other person's copy. 1 when booked; 0 when it is there already, or
+     * both of its places are taken.
+     */
+    private function ensureInCalendly(Appointment $appointment, CalendlyConnection $target, User $invitee, string $zone): int
+    {
+        if (! $target->isActive() || blank($target->calendly_user_uri)
+            || (int) $appointment->calendly_connection_id === (int) $target->id
+            || (int) $appointment->calendly_mirror_connection_id === (int) $target->id) {
+            return 0;
+        }
+
+        $start = Carbon::parse($appointment->appointment_date, 'UTC')->startOfMinute();
+        $meetingZone = AppointmentTime::zone($appointment->timezone) ?? $zone;
+
+        // Its Calendly meeting is in a connection since removed (e.g. Calendly connected
+        // again as a new connection): no one can reach it any more - its place is free.
+        $primaryGone = $appointment->calendly_event_uri
+            && ! CalendlyConnection::whereKey($appointment->calendly_connection_id)->exists();
+
+        if (! $appointment->calendly_event_uri || $primaryGone) {
+            $this->guarded($target, function () use ($appointment, $target, $invitee, $start, $meetingZone) {
+                $booked = $this->bookInto($target, $invitee, (string) $appointment->subject, (string) $appointment->description, $start, $meetingZone, (int) $appointment->duration_minutes ?: null);
+                $event = $this->client->forConnection($target)->get($booked['event'])['resource'] ?? [];
+                // Recorded while still guarded: never taken in again as an appointment of its own.
+                $appointment->update(array_merge(
+                    Arr::except(CalendlyEventMapper::attributes($event, $booked, $meetingZone), ['subject']),
+                    ['calendly_connection_id' => $target->id],
+                ));
+            });
+
+            return 1;
+        }
+
+        // The other copy's place: taken, unless its connection has been removed too.
+        if ($appointment->calendly_mirror_event_uri
+            && CalendlyConnection::whereKey($appointment->calendly_mirror_connection_id)->exists()) {
+            return 0;
+        }
+
+        $this->guarded($target, function () use ($appointment, $target, $invitee, $start, $meetingZone) {
+            $booked = $this->bookInto($target, $invitee, (string) $appointment->subject, (string) $appointment->description, $start, $meetingZone, (int) $appointment->duration_minutes ?: null);
+            $appointment->update([
+                'calendly_mirror_event_uri' => $booked['event'],
+                'calendly_mirror_invitee_uri' => $booked['uri'] ?? null,
+                'calendly_mirror_connection_id' => $target->id,
+            ]);
+        });
+
+        return 1;
     }
 
     /**
@@ -603,7 +769,7 @@ class CalendlyService
         // Calendly lists a meeting only in its host's account: the person invited, with a
         // Calendly of their own connected, gets it booked there too, the caller its invitee.
         if ($isTeam && ($mirror = $this->mirrorConnectionFor($attendee, $connection))) {
-            $appointment->update($this->bookMirror($mirror, $caller, (string) ($data['subject'] ?? ''), (string) ($data['description'] ?? ''), $start, $zone, $appointment->id));
+            $this->bookMirror($appointment, $mirror, $caller, $start, $zone);
         }
 
         $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_CREATE);
@@ -823,45 +989,73 @@ class CalendlyService
      * Calendly too. The appointment's mirror columns; none when Calendly
      * refuses (the meeting itself stands - it is only logged).
      */
-    private function bookMirror(CalendlyConnection $mirror, User $invitee, string $title, string $description, Carbon $start, string $zone, ?int $appointmentId): array
+    private function bookMirror(Appointment $appointment, CalendlyConnection $mirror, User $invitee, Carbon $start, string $zone, ?string $title = null, ?string $description = null): array
     {
-        $guard = self::MIRRORING_CACHE_PREFIX.$mirror->id;
+        $title ??= (string) $appointment->subject;
+        $description ??= (string) $appointment->description;
+
+        try {
+            return $this->guarded($mirror, function () use ($appointment, $mirror, $invitee, $start, $zone, $title, $description) {
+                $booked = $this->bookInto($mirror, $invitee, $title, $description, $start, $zone, (int) $appointment->duration_minutes ?: null);
+                $columns = [
+                    'calendly_mirror_event_uri' => $booked['event'],
+                    'calendly_mirror_invitee_uri' => $booked['uri'] ?? null,
+                    'calendly_mirror_connection_id' => $mirror->id,
+                ];
+                // Recorded while still guarded: the copy is never taken in as an appointment of its own.
+                $appointment->update($columns);
+
+                return $columns;
+            });
+        } catch (Throwable $e) {
+            Log::warning('[CALENDLY] Not booked in the other person\'s Calendly', ['appointment_id' => $appointment->id, 'connection_id' => $mirror->id, 'error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Books a meeting in $target's Calendly - its host the account's owner,
+     * $invitee the invitee - at $start under $title (a one-off meeting named
+     * after it when Calendly allows, else the account's event type). The
+     * invitee resource; throws when Calendly refuses.
+     */
+    private function bookInto(CalendlyConnection $target, User $invitee, string $title, string $description, Carbon $start, string $zone, ?int $minutes = null): array
+    {
+        $client = $this->client->forConnection($target);
+        $type = $this->eventTypesOf($client)[0] ?? throw new CalendlyException(__('calendly.no_event_types'), 422);
+        if ($minutes) {
+            // The one-off meeting is as long as the FCH appointment.
+            $type['duration'] = $minutes;
+        }
+
+        $body = [
+            'event_type' => $type['uri'],
+            'start_time' => $start->format('Y-m-d\TH:i:s\Z'),
+            'invitee' => [
+                'name' => $invitee->name ?: $invitee->email,
+                'email' => $invitee->email,
+                'timezone' => $zone,
+            ],
+        ];
+        $booked = $this->bookUnderTitle($client, $target, $type, $body, ['subject' => $title, 'description' => $description], $zone, $start)
+            ?? ($client->post('invitees', $body)['resource'] ?? []);
+
+        if (empty($booked['event'])) {
+            throw new CalendlyException(__('calendly.refused'), 502);
+        }
+
+        return $booked;
+    }
+
+    /** Runs $work with new meetings of $target not taken in on their own (see MIRRORING_CACHE_PREFIX). */
+    private function guarded(CalendlyConnection $target, callable $work): mixed
+    {
+        $guard = self::MIRRORING_CACHE_PREFIX.$target->id;
         Cache::put($guard, true, now()->addMinutes(2));
 
         try {
-            $client = $this->client->forConnection($mirror);
-            $type = $this->eventTypesOf($client)[0] ?? null;
-            if (! $type) {
-                Log::warning('[CALENDLY] Not booked in the other person\'s Calendly - it has no active event type', ['appointment_id' => $appointmentId, 'connection_id' => $mirror->id]);
-
-                return [];
-            }
-
-            $body = [
-                'event_type' => $type['uri'],
-                'start_time' => $start->format('Y-m-d\TH:i:s\Z'),
-                'invitee' => [
-                    'name' => $invitee->name ?: $invitee->email,
-                    'email' => $invitee->email,
-                    'timezone' => $zone,
-                ],
-            ];
-            $booked = $this->bookUnderTitle($client, $mirror, $type, $body, ['subject' => $title, 'description' => $description], $zone, $start)
-                ?? ($client->post('invitees', $body)['resource'] ?? []);
-
-            if (empty($booked['event'])) {
-                return [];
-            }
-
-            return [
-                'calendly_mirror_event_uri' => $booked['event'],
-                'calendly_mirror_invitee_uri' => $booked['uri'] ?? null,
-                'calendly_mirror_connection_id' => $mirror->id,
-            ];
-        } catch (Throwable $e) {
-            Log::warning('[CALENDLY] Not booked in the other person\'s Calendly', ['appointment_id' => $appointmentId, 'connection_id' => $mirror->id, 'error' => $e->getMessage()]);
-
-            return [];
+            return $work();
         } finally {
             Cache::forget($guard);
         }
@@ -877,13 +1071,31 @@ class CalendlyService
         $mirror = CalendlyConnection::find($appointment->calendly_mirror_connection_id);
         $this->cancelMirror($appointment, __('calendly.moved_reason'));
         $cleared = ['calendly_mirror_event_uri' => null, 'calendly_mirror_invitee_uri' => null, 'calendly_mirror_connection_id' => null];
-        $invitee = User::find((int) $appointment->scheduled_by);
+        $appointment->update($cleared);
+        $invitee = $mirror ? $this->otherPartyOf($appointment, $mirror) : null;
 
         if (! $mirror?->isActive() || ! $invitee) {
             return $cleared;
         }
 
-        return $this->bookMirror($mirror, $invitee, $title, $description, $start, $zone, $appointment->id) ?: $cleared;
+        // Under the new title and description (the appointment takes them after this).
+        return $this->bookMirror($appointment, $mirror, $invitee, $start, $zone, $title, $description) ?: $cleared;
+    }
+
+    /**
+     * The person on the appointment who does not own $connection - the
+     * invitee of a meeting booked in it. Null when neither can be told apart.
+     */
+    private function otherPartyOf(Appointment $appointment, CalendlyConnection $connection): ?User
+    {
+        $people = collect([$appointment->scheduled_by, $appointment->assigned_for])
+            ->filter()
+            ->unique()
+            ->map(fn ($id) => User::find((int) $id))
+            ->filter();
+
+        return $people->first(fn (User $person) => CalendlyConnection::forUser($person)?->id !== $connection->id)
+            ?? $people->first(fn (User $person) => (int) $person->id !== (int) $connection->connected_by);
     }
 
     /**

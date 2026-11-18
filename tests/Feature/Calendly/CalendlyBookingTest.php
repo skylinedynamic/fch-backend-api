@@ -1173,4 +1173,254 @@ class CalendlyBookingTest extends TestCase
         $this->assertSame($event['uri'], $appointment->calendly_event_uri);
         $this->assertNull($appointment->calendly_mirror_event_uri);
     }
+
+    /** An FCH-only meeting at $this->slot, set by $by with $with. */
+    private function fchMeeting(User $by, User $with, array $overrides = []): Appointment
+    {
+        return Appointment::create(array_merge([
+            'appointment_code' => 'APP-'.random_int(1000, 9999),
+            'subject' => 'Quarterly review',
+            'description' => 'Numbers',
+            'appointment_date' => $this->slot->format('Y-m-d H:i:s'),
+            'timezone' => 'UTC',
+            'duration_minutes' => 30,
+            'status' => Appointment::STATUS_CONFIRMED,
+            'scheduled_by' => $by->id,
+            'assigned_for' => $with->id,
+        ], $overrides));
+    }
+
+    /**
+     * Calendly for the host (access-token-1) and the borrower's own
+     * (borrower-access-token): a booking with either makes a meeting in that
+     * account - EVHOST or EVBORROWER - for whoever was invited.
+     */
+    private function fakeTwoCalendlys(?int $refuseWith = null): void
+    {
+        $borrowerUri = "{$this->calendlyApi}/users/BORROWERUSER";
+        // Each booking is a meeting of its own: the first in each account EVHOST / EVBORROWER, then EVHOST2...
+        $events = [];
+        $made = ['EVHOST' => 0, 'EVBORROWER' => 0];
+
+        Http::fake(function (Request $request) use (&$events, &$made, $borrowerUri, $refuseWith) {
+            $path = parse_url($request->url(), PHP_URL_PATH);
+            $borrowers = $request->hasHeader('Authorization', 'Bearer borrower-access-token');
+
+            if ($path === '/invitees' && ! $refuseWith) {
+                $prefix = $borrowers ? 'EVBORROWER' : 'EVHOST';
+                $id = $prefix.(++$made[$prefix] > 1 ? $made[$prefix] : '');
+                $events[$id] = $this->calendlyEvent($id, Carbon::parse($request['start_time']), $borrowers ? [
+                    'event_type' => "{$this->calendlyApi}/event_types/BET1",
+                    'event_memberships' => [['user' => $borrowerUri, 'user_email' => 'borrower@example.test']],
+                ] : []);
+
+                return Http::response(['resource' => $this->calendlyInvitee($events[$id], $request['invitee']['email'], $request['invitee']['name'])], 201);
+            }
+
+            $eventId = str_starts_with($path, '/scheduled_events/') ? substr($path, strlen('/scheduled_events/')) : null;
+
+            return match (true) {
+                $path === '/event_types' => Http::response(['collection' => [$borrowers
+                    ? $this->calendlyEventType(['uri' => "{$this->calendlyApi}/event_types/BET1"])
+                    : $this->calendlyEventType()], 'pagination' => ['next_page_token' => null]]),
+                $path === '/one_off_event_types' => Http::response(['title' => 'Permission Denied', 'message' => 'Insufficient scope'], 403),
+                $path === '/invitees' => Http::response(['title' => 'Refused', 'message' => 'Refused'], $refuseWith),
+                // Calendly into FCH: nothing booked in Calendly itself in these dates.
+                $path === '/scheduled_events' => Http::response(['collection' => [], 'pagination' => ['next_page_token' => null]]),
+                $eventId !== null && isset($events[$eventId]) => Http::response(['resource' => $events[$eventId]]),
+                default => Http::response(['title' => 'Not faked', 'message' => $request->url()], 404),
+            };
+        });
+    }
+
+    private function connectBorrowersOwn(): \App\Models\Calendly\CalendlyConnection
+    {
+        return $this->connectCalendly($this->borrowerUser, [
+            'borrower_id' => $this->borrowerUser->entity_id,
+            'calendly_user_uri' => "{$this->calendlyApi}/users/BORROWERUSER",
+            'access_token' => 'borrower-access-token',
+        ]);
+    }
+
+    /** The dates the calendar shows: the slot's week. */
+    private function shownDates(): array
+    {
+        return [
+            'from' => $this->slot->copy()->subDays(3)->toDateString(),
+            'to' => $this->slot->copy()->addDays(3)->toDateString(),
+            'timezone' => 'UTC',
+        ];
+    }
+
+    /** Push: a meeting the host set in FCH goes into the host's Calendly and the borrower's own. */
+    #[Test]
+    public function push_puts_the_callers_fch_meetings_in_both_peoples_calendly(): void
+    {
+        $hosts = $this->connectCalendly($this->host);
+        $borrowers = $this->connectBorrowersOwn();
+        $meeting = $this->fchMeeting($this->host, $this->borrowerUser);
+        $this->fakeTwoCalendlys();
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'push'] + $this->shownDates())
+            ->assertOk()
+            ->assertJsonPath('data.pushed', 2)
+            ->assertJsonPath('data.pulled', 0)
+            ->assertJsonPath('data.failed', 0);
+
+        // In the host's Calendly, the borrower invited; in the borrower's, the host.
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && ! $request->hasHeader('Authorization', 'Bearer borrower-access-token')
+            && $request['invitee']['email'] === $this->borrowerUser->email
+            && $request['start_time'] === $this->slot->format('Y-m-d\TH:i:s\Z'));
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request->hasHeader('Authorization', 'Bearer borrower-access-token')
+            && $request['invitee']['email'] === $this->host->email);
+        // Not brought in from Calendly: push only.
+        Http::assertNotSent(fn (Request $request) => str_starts_with($request->url(), "{$this->calendlyApi}/scheduled_events?"));
+
+        $meeting->refresh();
+        $this->assertSame(1, Appointment::count());
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVHOST", $meeting->calendly_event_uri);
+        $this->assertSame($hosts->id, (int) $meeting->calendly_connection_id);
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVBORROWER", $meeting->calendly_mirror_event_uri);
+        $this->assertSame($borrowers->id, (int) $meeting->calendly_mirror_connection_id);
+        // FCH's title stays.
+        $this->assertSame('Quarterly review', $meeting->subject);
+
+        // Pushed again: already in both - nothing booked twice.
+        Http::fake();
+        $this->fakeTwoCalendlys();
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'push'] + $this->shownDates())
+            ->assertOk()->assertJsonPath('data.pushed', 0);
+        Http::assertNotSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees");
+    }
+
+    /** Pull: Calendly's meetings come in, and one the host set with the borrower goes into the borrower's own Calendly. */
+    #[Test]
+    public function pull_brings_calendly_in_and_puts_meetings_set_with_the_caller_in_their_calendly(): void
+    {
+        $this->connectCalendly($this->host);
+        $borrowers = $this->connectBorrowersOwn();
+        $meeting = $this->fchMeeting($this->host, $this->borrowerUser);
+        // Set by someone else with the borrower's... and one the borrower set (not pulled).
+        $own = $this->fchMeeting($this->borrowerUser, $this->host, ['appointment_date' => $this->slot->copy()->addHour()->format('Y-m-d H:i:s')]);
+        $this->fakeTwoCalendlys();
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'pull'] + $this->shownDates())
+            ->assertOk()
+            ->assertJsonPath('data.pushed', 1);
+
+        // Calendly into FCH, with the borrower's own sign-in, for the dates shown.
+        Http::assertSent(fn (Request $request) => str_starts_with($request->url(), "{$this->calendlyApi}/scheduled_events?")
+            && $request->hasHeader('Authorization', 'Bearer borrower-access-token')
+            && str_starts_with((string) $request['min_start_time'], $this->slot->copy()->subDays(3)->toDateString()));
+        // In the borrower's Calendly, the host invited.
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyApi}/invitees"
+            && $request->hasHeader('Authorization', 'Bearer borrower-access-token')
+            && $request['invitee']['email'] === $this->host->email);
+
+        $this->assertSame($borrowers->id, (int) $meeting->fresh()->calendly_connection_id);
+        $this->assertNull($own->fresh()->calendly_event_uri);
+    }
+
+    /** Both: pull and push - the borrower's own meeting goes out, the host's comes in. */
+    #[Test]
+    public function two_way_does_both(): void
+    {
+        $this->connectCalendly($this->host);
+        $this->connectBorrowersOwn();
+        $setWithBorrower = $this->fchMeeting($this->host, $this->borrowerUser);
+        $setByBorrower = $this->fchMeeting($this->borrowerUser, $this->host, ['appointment_date' => $this->slot->copy()->addHour()->format('Y-m-d H:i:s')]);
+        $this->fakeTwoCalendlys();
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'both'] + $this->shownDates())
+            ->assertOk()
+            ->assertJsonPath('data.failed', 0);
+
+        $this->assertNotNull($setWithBorrower->fresh()->calendly_event_uri);
+        // The borrower's own: in their Calendly, and in the host's (the partner's) too.
+        $this->assertNotNull($setByBorrower->fresh()->calendly_event_uri);
+        $this->assertNotNull($setByBorrower->fresh()->calendly_mirror_event_uri);
+    }
+
+    /** No dates given: this month only - a meeting later on is left alone. */
+    #[Test]
+    public function without_dates_the_current_month_is_synced(): void
+    {
+        $this->connectCalendly($this->host);
+        $later = $this->fchMeeting($this->host, $this->borrowerUser, ['appointment_date' => now()->addMonthsNoOverflow(2)->startOfMonth()->addDays(3)->setTime(15, 0)->format('Y-m-d H:i:s')]);
+        $this->fakeTwoCalendlys();
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'push', 'timezone' => 'UTC'])
+            ->assertOk()
+            ->assertJsonPath('data.from', now()->startOfMonth()->toDateString())
+            ->assertJsonPath('data.to', now()->endOfMonth()->toDateString())
+            ->assertJsonPath('data.pushed', 0);
+
+        $this->assertNull($later->fresh()->calendly_event_uri);
+    }
+
+    /** Calendly's booking limit: the meeting is reported, the rest not tried. */
+    #[Test]
+    public function the_booking_limit_stops_the_push_and_says_which_meeting(): void
+    {
+        $this->connectCalendly($this->host);
+        $first = $this->fchMeeting($this->host, $this->borrowerUser);
+        $this->fchMeeting($this->host, $this->borrowerUser, ['appointment_date' => $this->slot->copy()->addHour()->format('Y-m-d H:i:s')]);
+        $this->fakeTwoCalendlys(429);
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'push'] + $this->shownDates())
+            ->assertOk()
+            ->assertJsonPath('data.pushed', 0)
+            ->assertJsonPath('data.failed', 1)
+            ->assertJsonPath('data.errors.0.appointment_id', $first->id);
+
+        // Event types, the named one-off (refused for scope), then the one refused booking - not the second meeting.
+        Http::assertSentCount(3);
+    }
+
+    /**
+     * A meeting whose Calendly copy is in a connection since removed (Calendly
+     * connected again as a new one): no one can reach that copy, so push books
+     * it in both people's current Calendly instead of leaving one out.
+     */
+    #[Test]
+    public function push_replaces_a_copy_in_a_removed_connection(): void
+    {
+        $hosts = $this->connectCalendly($this->host);
+        $borrowers = $this->connectBorrowersOwn();
+        $meeting = $this->fchMeeting($this->host, $this->borrowerUser, [
+            'source' => Appointment::SOURCE_CALENDLY,
+            'calendly_event_uri' => "{$this->calendlyApi}/scheduled_events/EVOLD",
+            'calendly_connection_id' => 999, // removed
+        ]);
+        $this->fakeTwoCalendlys();
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'push'] + $this->shownDates())
+            ->assertOk()
+            ->assertJsonPath('data.pushed', 2)
+            ->assertJsonPath('data.failed', 0);
+
+        $meeting->refresh();
+        $this->assertSame($hosts->id, (int) $meeting->calendly_connection_id);
+        $this->assertSame("{$this->calendlyApi}/scheduled_events/EVHOST", $meeting->calendly_event_uri);
+        $this->assertSame($borrowers->id, (int) $meeting->calendly_mirror_connection_id);
+    }
+
+    #[Test]
+    public function an_unknown_direction_or_a_reversed_range_is_refused(): void
+    {
+        $this->connectCalendly($this->host);
+        $this->actingAsUser($this->host);
+
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'sideways'])->assertStatus(422)->assertJsonValidationErrors('direction');
+        $this->postJson('/api/v1/common/calendly/sync', ['direction' => 'pull', 'from' => '2026-11-10', 'to' => '2026-11-01'])
+            ->assertStatus(422)->assertJsonValidationErrors('to');
+    }
 }

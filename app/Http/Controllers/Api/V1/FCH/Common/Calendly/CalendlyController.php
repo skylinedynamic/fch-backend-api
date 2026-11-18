@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\Calendly\BookCalendlyAppointmentRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Calendly\CalendlyAvailableTimesRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Calendly\CalendlySyncRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Calendly\StoreCalendlySettingsRequest;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\FCH\Common\Calendly\CalendlyService;
@@ -74,9 +75,28 @@ class CalendlyController extends Controller
         });
     }
 
-    public function sync(Request $request): JsonResponse
+    public function sync(CalendlySyncRequest $request): JsonResponse
     {
-        return $this->respond(fn () => ApiResponse::success(['synced' => $this->calendlyService->syncNow($request->user(), $this->partnerId($request))], __('calendly.synced')));
+        $direction = $request->validated('direction');
+
+        // The page's quiet sync on opening (no direction): Calendly's meetings come in.
+        if (! $direction) {
+            return $this->respond(fn () => ApiResponse::success(['synced' => $this->calendlyService->syncNow($request->user(), $this->partnerId($request))], __('calendly.synced')));
+        }
+
+        return $this->respond(function () use ($request, $direction) {
+            $result = $this->calendlyService->syncDirected(
+                $request->user(),
+                $this->partnerId($request),
+                $direction,
+                $request->validated('from'),
+                $request->validated('to'),
+                $request->validated('timezone'),
+            );
+
+            // `synced` as before: everything brought in or sent.
+            return ApiResponse::success(['synced' => $result['pulled'] + $result['pushed']] + $result, __('calendly.synced'));
+        });
     }
 
     /** The partner the host account acts for (Partners > partner > Configuration); none = the caller's own. */

@@ -10,6 +10,7 @@ return [
     'connect_url' => 'Calendly authorization link created.',
     'disconnected' => 'Calendly disconnected.',
     'synced' => 'Calendly meetings synced.',
+    'push_needs_own' => 'Only your own Calendly can take your FCH meetings - connect it first, or choose Pull.',
     'event_types_retrieved' => 'Calendly event types retrieved.',
     'available_times_retrieved' => 'Open Calendly times retrieved.',
     'booked' => 'Meeting booked in Calendly.',
