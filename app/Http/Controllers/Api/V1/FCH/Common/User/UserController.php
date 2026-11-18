@@ -111,7 +111,7 @@ class UserController extends Controller
             return ApiResponse::error(__('user.user_not_found'), 404);
         }
 
-        if ($user->hasRole('Developer') && !Auth::user()->hasRole('Developer')) {
+        if ($user->isDeveloper() && !Auth::user()->isDeveloper()) {
             return ApiResponse::error(__('user.user_not_found'), 404);
         }
 

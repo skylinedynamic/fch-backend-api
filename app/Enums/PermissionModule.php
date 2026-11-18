@@ -34,4 +34,5 @@ enum PermissionModule: string
     case Lenders = 'lenders';
     case Cms = 'cms';
     case EmbeddedLoanApplicationForm = 'enbedded loan application form';
+    case BusinessInsights = 'business insights';
 }

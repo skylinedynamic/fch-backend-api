@@ -49,7 +49,7 @@ class EmployeeService
 
     public function getAll()
     {
-        $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->with(['user'])->orderBy('id', 'desc')->get();
+        $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->hideDevelopersFrom(Auth::user())->with(['user'])->orderBy('id', 'desc')->get();
 
         return ApiResponse::success(EmployeeResource::collection($employees), __('employee.success.retrieved'));
     }
@@ -84,7 +84,7 @@ class EmployeeService
      */
     public function list(int $partnerId, array $filters)
     {
-        $query = Employee::query()->where('partner_id', $partnerId)->with(['user']);
+        $query = Employee::query()->where('partner_id', $partnerId)->hideDevelopersFrom(Auth::user())->with(['user']);
 
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
@@ -458,7 +458,7 @@ class EmployeeService
      */
     protected function assignRoleAndPermissions(User $user, int $roleId): void
     {
-        $role = Role::where('partner_id', auth()->user()->partner_id)->where('id', $roleId)->first();
+        $role = Role::assignableBy(auth()->user())->whereKey($roleId)->firstOrFail();
         // Use assignRole to ensure model_type is set correctly on the pivot
         $user->assignRole($role);
 
@@ -480,6 +480,7 @@ class EmployeeService
     {
         return Employee::where('id', $id)
             ->where('partner_id', Auth::user()->partner_id)
+            ->hideDevelopersFrom(Auth::user())
             ->with('user')
             ->firstOrFail();
     }

@@ -3,6 +3,7 @@
 namespace Tests\Feature\OwnerSummary;
 
 use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerSummaryController;
+use App\Enums\Permission;
 use App\Models\Audit\FundingApplicationAuditEvent;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
@@ -89,7 +90,8 @@ class OwnerSummaryTest extends TestCase
             'is_free_trail' => true,
             'free_trail_end_date' => '2026-11-20',
         ]);
-        $this->owner = $this->makePartnerAdmin($this->host);
+        // Business Insights is the Developer's: it holds the view permission.
+        $this->owner = $this->makePartnerAdmin($this->host, [Permission::ViewBusinessInsights->value]);
 
         $this->seedMoney();
         $this->seedDeals();
@@ -352,15 +354,34 @@ class OwnerSummaryTest extends TestCase
     // ----------------------------------------------------------------- tests
 
     #[Test]
-    public function only_the_host_owner_may_see_it(): void
+    public function only_the_hosts_team_holding_view_business_insights_may_see_it(): void
     {
+        $view = [Permission::ViewBusinessInsights->value];
         $this->getJson('/api/v1/common/owner-summary')->assertUnauthorized();
 
         $this->summary($this->makeStaffUser($this->host))->assertForbidden();
-        $this->summary($this->makePartnerAdmin($this->p1))->assertForbidden();
+        // The host owner itself, without the permission.
+        $this->summary($this->makePartnerAdmin($this->host, [Permission::UpdateCommission->value]))->assertForbidden();
+        // Another partner, even holding it.
+        $this->summary($this->makePartnerAdmin($this->p1, $view))->assertForbidden();
         $this->summary($this->makeBorrowerUser($this->host))->assertForbidden();
 
         $this->summary($this->owner)->assertOk();
+        $this->summary($this->makeDeveloper($this->host, $view))->assertOk();
+        // Host staff a Developer gave the permission to.
+        $this->summary($this->makeStaffUser($this->host, $view))->assertOk();
+    }
+
+    /**
+     * A Developer is usually host staff, whose own commission view covers only
+     * its clients - the summary is still the host's whole book.
+     */
+    #[Test]
+    public function a_developer_sees_the_hosts_whole_book_like_the_owner(): void
+    {
+        $developer = $this->makeDeveloper($this->host, [Permission::ViewBusinessInsights->value]);
+
+        $this->assertSame($this->data(), $this->summary($developer)->assertOk()->json('data'));
     }
 
     #[Test]
@@ -437,17 +458,85 @@ class OwnerSummaryTest extends TestCase
         }
     }
 
+    /**
+     * Everything follows the period picked: what is owed is the invoices
+     * raised in the period that are still unpaid or failed, split by age.
+     * The 80 host-client invoice raised on 09-01 is September's, not November's.
+     */
     #[Test]
-    public function what_is_owed_to_the_host_is_split_by_age_and_failure(): void
+    public function what_is_owed_to_the_host_is_the_periods_invoices_split_by_age_and_failure(): void
     {
         $data = $this->data();
 
-        $this->assertEquals(['amount' => 400, 'invoices' => 3], $data['kpis']['outstanding']);
+        $this->assertEquals(['amount' => 320, 'invoices' => 2], $data['kpis']['outstanding']);
         $this->assertEquals([
             'unpaid_recent' => ['amount' => 120, 'invoices' => 1],
-            'unpaid_over_30_days' => ['amount' => 80, 'invoices' => 1],
+            'unpaid_over_30_days' => ['amount' => 0, 'invoices' => 0],
             'failed' => ['amount' => 200, 'invoices' => 1],
         ], $data['receivables']);
+
+        $september = $this->data(['period' => 'custom', 'from' => '2026-09-01', 'to' => '2026-09-30']);
+        $this->assertEquals(['amount' => 80, 'invoices' => 1], $september['kpis']['outstanding']);
+        $this->assertEquals(['amount' => 80, 'invoices' => 1], $september['receivables']['unpaid_over_30_days']);
+        $this->assertEquals(['amount' => 80, 'invoices' => 1], $september['attention']['unpaid_over_30_days']);
+    }
+
+    /**
+     * Payouts still due are those on deals funded in the period - the same in
+     * Funding Commissions and Needs Attention (and so on the PDF card).
+     */
+    #[Test]
+    public function payouts_due_are_those_on_deals_funded_in_the_period(): void
+    {
+        $october = $this->application($this->p1, FundingApplication::SUBMITTED, 30000, '2026-10-02');
+        $this->moveTo($october, FundingApplication::CLOSED_COMPLETED, '2026-10-20', 30000);
+        $this->commission($october, 2000, 1500);
+        $this->at(self::TODAY);
+
+        $november = $this->data();
+        $this->assertEquals(4000, $november['commissions']['payouts_due']);
+        $this->assertEquals(['amount' => 4000, 'deals' => 1], $november['attention']['payouts_due']);
+
+        $lastMonth = $this->data(['period' => 'last_month']);
+        $this->assertEquals(1500, $lastMonth['commissions']['payouts_due']);
+        $this->assertEquals(['amount' => 1500, 'deals' => 1], $lastMonth['attention']['payouts_due']);
+    }
+
+    /**
+     * What waits on someone counts what came in during the period: manual
+     * payments, embedded-form applications, pre-qualifications, partners
+     * owing on the period's invoices, and free trials ending in it.
+     */
+    #[Test]
+    public function needs_attention_counts_what_came_in_during_the_period(): void
+    {
+        $this->at('2026-10-10 09:00:00');
+        $this->submission($this->host, EmbedFormSubmission::STATUS_NEW);
+        PreQualificationRequest::forceCreate([
+            'partner_id' => $this->host->id,
+            'first_name' => 'Old',
+            'last_name' => 'Request',
+            'email' => 'pq-old-' . uniqid() . '@example.test',
+            'status' => PreQualificationRequest::PENDING,
+        ]);
+        $this->makeWhiteLabelPartner(['is_free_trail' => true, 'free_trail_end_date' => '2026-12-05']);
+        $this->at(self::TODAY);
+
+        $november = $this->data()['attention'];
+        $this->assertSame(1, $november['unreviewed_embedded_applications']);
+        $this->assertSame(1, $november['pending_prequalifications']);
+        $this->assertEquals(['partners' => 1, 'clients' => 0], $november['trials_ending']);
+
+        $october = $this->data(['period' => 'last_month'])['attention'];
+        $this->assertSame(1, $october['unreviewed_embedded_applications']);
+        $this->assertSame(1, $october['pending_prequalifications']);
+        $this->assertSame(0, $october['manual_payments_to_approve']);
+        $this->assertSame(0, $october['partners_owing']);
+        $this->assertEquals(['partners' => 0, 'clients' => 0], $october['trials_ending']);
+
+        // P2's trial ends 11-20, after 1-15 Nov; the new partner's (12-05) after November.
+        $firstHalf = $this->data(['period' => 'custom', 'from' => '2026-11-01', 'to' => '2026-11-15']);
+        $this->assertEquals(['partners' => 0, 'clients' => 0], $firstHalf['attention']['trials_ending']);
     }
 
     #[Test]
@@ -567,7 +656,8 @@ class OwnerSummaryTest extends TestCase
     {
         $attention = $this->data()['attention'];
 
-        $this->assertEquals(['amount' => 80, 'invoices' => 1], $attention['unpaid_over_30_days']);
+        // The 80 unpaid since 09-01 is outside this month.
+        $this->assertEquals(['amount' => 0, 'invoices' => 0], $attention['unpaid_over_30_days']);
         $this->assertEquals(['amount' => 200, 'invoices' => 1], $attention['failed_invoices']);
         $this->assertSame(1, $attention['partners_owing']);
         $this->assertSame(1, $attention['suspended_partners']);

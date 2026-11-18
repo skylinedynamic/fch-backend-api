@@ -2,7 +2,8 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\OwnerSummary;
 
-use App\Services\FCH\Common\Commission\CommissionViewer;
+use App\Enums\Permission;
+use App\Models\User\User;
 use App\Services\FCH\Common\OwnerSummary\OwnerSummaryPeriod;
 use App\Services\FCH\Common\OwnerSummary\OwnerSummaryService;
 use Carbon\CarbonImmutable;
@@ -10,17 +11,33 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * The owner summary is the host's whole book, so only who sees that on the
- * Commissions screen may see it: the host owner (CommissionViewer::HOST_OWNER).
- * The route already admits only the host's team (host-partner middleware).
+ * Business Insights - the owner summary, the host's whole book - is for
+ * whoever holds view business insights, a developer-only permission (only the
+ * Developer role can be given it). The route already admits only the host's
+ * team (host-partner middleware).
  */
 class FetchOwnerSummary extends FormRequest
 {
     public function authorize(): bool
     {
+        return $this->holds(Permission::ViewBusinessInsights);
+    }
+
+    protected function holds(Permission $permission): bool
+    {
         $user = $this->user();
 
-        return $user !== null && CommissionViewer::for($user)->is(CommissionViewer::HOST_OWNER);
+        return $user !== null && $user->checkPermissionTo($permission->value, 'api');
+    }
+
+    /**
+     * Whose book the summary is: always the host's own login (as for the
+     * weekly report), whoever views it - a Developer is usually host staff,
+     * whose commission view would only cover its own clients.
+     */
+    public function owner(): User
+    {
+        return $this->user()->partner?->partnerUser ?? $this->user();
     }
 
     public function rules(): array

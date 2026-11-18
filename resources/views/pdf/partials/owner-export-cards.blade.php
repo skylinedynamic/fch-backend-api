@@ -7,7 +7,7 @@
     $x = fn (string $key, array $replace = []) => __("owner_summary.export.{$key}", $replace);
     [$cash, $funded, $deals, , , $leads] = $summary->kpis();
     $owed = $summary->owed();
-    $commissions = $summary->commissions();
+    $payouts = $summary->payoutsDue();
     $community = $summary->community();
 
     $tones = ['up' => ['pos', '▲'], 'down' => ['neg', '▼']];
@@ -47,7 +47,7 @@
 
 {{-- Receivables & payables --}}
 <div class="section keep">
-    @include('pdf.partials.owner-export-heading', ['no' => null, 'heading' => $x('receivables'), 'sub' => $x('receivables_sub')])
+    @include('pdf.partials.owner-export-heading', ['no' => null, 'heading' => $x('receivables'), 'sub' => $x('receivables_sub', ['when' => $summary->when()])])
     <table class="full">
         <tr>
             <td style="{{ $gap(0, 2) }}">
@@ -60,8 +60,9 @@
             <td style="{{ $gap(1, 2) }}">
                 <div class="card">
                     <div class="label">{{ __('owner_summary.report.payouts_due') }}</div>
-                    <div class="value {{ $isZero($commissions['payouts_due']) ? 'zero' : '' }}">{{ $commissions['payouts_due'] }}</div>
-                    <div class="card-note">{{ ucfirst($x('payouts_note')) }}</div>
+                    {{-- Open right now: every payout still owed, not the period's (BI-BUG-01). --}}
+                    <div class="value {{ $payouts['is_zero'] ? 'zero' : '' }}">{{ $payouts['amount'] }}</div>
+                    <div class="card-note">{{ $payouts['deals'] }} {{ $x('payouts_note') }}</div>
                 </div>
             </td>
         </tr>

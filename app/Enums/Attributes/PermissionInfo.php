@@ -17,12 +17,14 @@ final class PermissionInfo
      * @param  bool  $host  Only the host's roles may hold it.
      * @param  string|null  $key  The config key a seeder looks it up by
      *                            (config('permissions.<module>.permissions.<key>')).
+     * @param  bool  $developer  Only the reserved Developer role may hold it.
      */
     public function __construct(
         public readonly PermissionModule $module,
         public readonly bool $certified,
         public readonly bool $host,
         public readonly ?string $key = null,
+        public readonly bool $developer = false,
     ) {
     }
 }

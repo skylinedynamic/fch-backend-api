@@ -304,6 +304,14 @@ enum Permission: string
     #[PermissionInfo(PermissionModule::EmbeddedLoanApplicationForm, certified: true, host: false)]
     case ConvertApplication = 'convert application';
 
+    // Business insights - the Developer role's alone
+    #[PermissionInfo(PermissionModule::BusinessInsights, certified: false, host: true, developer: true)]
+    case ViewBusinessInsights = 'view business insights';
+    #[PermissionInfo(PermissionModule::BusinessInsights, certified: false, host: true, developer: true)]
+    case ExportBusinessInsights = 'export business insights';
+    #[PermissionInfo(PermissionModule::BusinessInsights, certified: false, host: true, developer: true)]
+    case ManageBusinessInsightsReport = 'manage business insights report';
+
     public function module(): PermissionModule
     {
         return $this->info()->module;
@@ -319,6 +327,12 @@ enum Permission: string
     public function isHost(): bool
     {
         return $this->info()->host;
+    }
+
+    /** Only the reserved Developer role may hold it. */
+    public function isDeveloper(): bool
+    {
+        return $this->info()->developer;
     }
 
     /** The route middleware that requires it. */
@@ -345,6 +359,10 @@ enum Permission: string
                 'is_certified' => (int) $info->certified,
                 'is_host' => (int) $info->host,
             ];
+            // Only where set, so every other entry keeps its long-standing shape.
+            if ($info->developer) {
+                $entry['is_developer'] = 1;
+            }
 
             $list = &$config[$info->module->value]['permissions'];
             if ($info->key !== null) {

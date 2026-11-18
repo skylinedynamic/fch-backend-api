@@ -43,11 +43,13 @@ class PermissionSeeder extends Seeder
                     $permissionName = $permission['name'];
                     $isCertified = $permission['is_certified'] ?? 0;
                     $isHost = $permission['is_host'] ?? 0;
+                    $isDeveloper = $permission['is_developer'] ?? 0;
                 } else {
                     // Backward compatibility with string format
                     $permissionName = $permission;
                     $isCertified = 0;
                     $isHost = 0;
+                    $isDeveloper = 0;
                 }
 
                 $module = $moduleName;
@@ -61,6 +63,7 @@ class PermissionSeeder extends Seeder
                         'module' => $module,
                         'is_host' => $isHost,
                         'is_certified' => $isCertified,
+                        'is_developer' => $isDeveloper,
                     ]
                 );
             }

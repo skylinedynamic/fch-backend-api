@@ -93,7 +93,7 @@ return [
         ],
 
         'attention' => 'Needs Attention',
-        'attention_sub' => 'As of when this report was made',
+        'attention_sub' => 'What came in :when and still waits; suspended partners and stalled deals as of now',
         'attention_items' => [
             'unpaid' => 'Invoices unpaid over :days days',
             'unpaid_sub' => ':amount not paid',
@@ -108,7 +108,7 @@ return [
             'manual' => 'Manual payments to approve',
             'manual_sub' => 'Waiting for review',
             'payouts' => 'Commission payouts due',
-            'payouts_sub' => ':amount owed to partners and staff',
+            'payouts_sub' => ':amount owed to partners and staff on deals funded :when',
             'stalled' => 'Stalled deals',
             'stalled_sub' => 'No status change in :days days',
             'embedded' => 'Embedded-form applications',
@@ -116,7 +116,7 @@ return [
             'prequal' => 'Pre-qualifications pending',
             'prequal_sub' => 'Waiting for a decision',
             'trials' => 'Free trials ending',
-            'trials_sub' => 'within :days days',
+            'trials_sub' => 'with a trial ending :when',
         ],
 
         'cash_sub' => 'Payments that succeeded on invoices billed by :company (commission payouts excluded)',
@@ -135,13 +135,13 @@ return [
         'payouts_due' => 'Payouts still due',
 
         'owed_to' => 'Owed To :company',
-        'owed_sub' => 'Open invoices right now',
+        'owed_sub' => 'Invoices raised :when, still unpaid',
         'unpaid_over' => 'Unpaid over :days days',
         'unpaid_under' => 'Unpaid under :days days',
         'payment_failed' => 'Payment failed',
 
         'pipeline' => 'Open Applications',
-        'pipeline_sub' => 'Where every open funding application stands now',
+        'pipeline_sub' => 'Where every open funding application stands, as of now',
         'open_summary' => ':count open · :amount requested',
         'status_span' => ':first to :last',
         'reached' => 'Reached :stage',
@@ -192,7 +192,7 @@ return [
         'commission_paid' => 'Commission paid',
 
         'stalled' => 'Stalled Deals',
-        'stalled_sub' => 'Open applications with no status change in the last :days days',
+        'stalled_sub' => 'Open applications with no status change in the last :days days, as of now',
         'no_stalled' => 'No stalled deals.',
         'stalled_showing' => 'Showing :shown of :total, longest waiting first',
         'requested_amount' => ':amount requested',
@@ -205,7 +205,7 @@ return [
 
         'definitions_title' => 'How These Numbers Are Counted.',
         'definitions_timezone' => 'Dates and times are in :timezone.',
-        'definitions' => "Funded = Closed (Completed), dated by its funded date. Net Earnings = all succeeded live payments received on invoices :company bills (partner enrollment, platform fees, user seats, borrower fees, its own clients' enrollment), commission payouts not taken off. Owed to us = :company invoices that are unpaid or whose payment failed. Funding commissions are amounts booked on funded deals, not money received. Lead sources are the source chosen on each lead; embedded-form applications and pre-qualification requests are counted separately. Stalled = open with no status change for :days days or more (status history is kept from 3 Nov 2026, so stage counts and days idle before then are incomplete). FCH and Partners split deals and leads by who they belong to. Partners and Clients: Active = Active status, archived ones left out. Active partners (lead in 30 days) = sent a lead in the last 30 days. Lead-To-Funded = client leads from this period that converted and whose client, matched by email, has a funded deal; a client whose email changed after converting is not matched.",
+        'definitions' => "Funded = Closed (Completed), dated by its funded date. Net Earnings = all succeeded live payments received on invoices :company bills (partner enrollment, platform fees, user seats, borrower fees, its own clients' enrollment), commission payouts not taken off. Owed to us = :company invoices raised in the period that are still unpaid or whose payment failed. Every figure follows the period, except suspended partners, stalled deals, open applications and the partner and client totals, which are as of now. Funding commissions are amounts booked on funded deals, not money received. Lead sources are the source chosen on each lead; embedded-form applications and pre-qualification requests are counted separately. Stalled = open with no status change for :days days or more (status history is kept from 3 Nov 2026, so stage counts and days idle before then are incomplete). FCH and Partners split deals and leads by who they belong to. Partners and Clients: Active = Active status, archived ones left out. Active partners (lead in 30 days) = sent a lead in the last 30 days. Lead-To-Funded = client leads from this period that converted and whose client, matched by email, has a funded deal; a client whose email changed after converting is not matched.",
         'definitions_missing' => 'Churn is not shown: the system does not record when a subscription was cancelled.',
 
         // The period in a sentence ("New :when") and as a column heading, by
@@ -254,11 +254,11 @@ return [
         'generated' => 'Generated',
         'net_earnings_sub' => 'Payments received this period, by stream',
         'receivables' => 'Receivables & Payables',
-        'receivables_sub' => 'Open right now, as of this report',
+        'receivables_sub' => 'Raised :when, still unpaid',
         'awaiting_payment' => ':invoices awaiting payment',
         'network_title' => 'Network',
         'all_metrics' => 'Every Metric, Against the Period Before',
-        'network_sub' => 'Partners and clients on the platform',
+        'network_sub' => 'Partners and clients on the platform, as of now',
         'active_word' => 'active',
         'description' => 'Description',
         'statuses' => 'Statuses',
@@ -271,7 +271,7 @@ return [
         'change' => 'Change',
         'breakdown' => 'Breakdown',
         'payouts_note' => 'owed to partners and staff',
-        'cover_note' => 'Prepared from the Business Insights screen. Figures are as of the time generated and follow the definitions in the last section.',
+        'cover_note' => 'Prepared from the Business Insights screen. Figures are for the period shown and follow the definitions in the last section.',
         'period' => 'Period',
         'compared_with' => 'Compared with',
         'payments' => 'Payments',
@@ -291,7 +291,7 @@ return [
         'open' => 'Open',
         'source' => 'Source',
         'outstanding' => 'Outstanding',
-        'nothing_waiting' => 'Nothing is waiting right now.',
+        'nothing_waiting' => 'Nothing from this period is waiting.',
         'trend_measure' => 'Last six months',
         'trend_change' => 'Change',
         'sections' => [
@@ -307,11 +307,11 @@ return [
         'sections_sub' => [
             'glance' => 'The period against the one before it',
             'money' => 'Net earnings by stream, funding commissions and open invoices',
-            'attention' => 'Everything waiting on someone, as of this report',
+            'attention' => 'Everything that came in during the period and still waits on someone',
             'trends' => 'Funded volume and net earnings, month by month',
             'pipeline' => 'Open applications by stage and where leads came from',
             'partners' => 'The network and the partners bringing the most volume',
-            'stalled' => 'Open applications with no status change in :days days or more',
+            'stalled' => 'Open applications with no status change in :days days or more, as of now',
             'definitions' => 'How each number is counted',
         ],
         'stalled_all' => 'all :count listed, longest waiting first',

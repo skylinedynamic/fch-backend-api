@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
+use App\Models\Common\Role;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -88,6 +89,23 @@ trait InteractsWithPortalUsers
         ], $attributes));
 
         return $this->grant($user, $permissions);
+    }
+
+    /**
+     * A login holding the partner's reserved Developer role (created like
+     * RoleSeeder does, if the partner has none yet).
+     */
+    protected function makeDeveloper(Partner $partner, array $permissions = []): User
+    {
+        $role = Role::firstOrCreate(
+            ['code' => Role::CODE_DEVELOPER, 'partner_id' => $partner->id, 'guard_name' => 'api'],
+            ['name' => Role::NAME_DEVELOPER, 'is_static' => true]
+        );
+
+        $user = $this->makeStaffUser($partner, $permissions);
+        $user->assignRole($role);
+
+        return $user;
     }
 
     protected function makeBorrower(Partner $partner, array $attributes = []): Borrower

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\RolePermission;
 
 use Illuminate\Validation\Rule;
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\NotReservedRoleName;
 use Illuminate\Support\Facades\Auth;
 
 class UpdateRoleRequest extends BaseApiRequest
@@ -23,6 +24,7 @@ class UpdateRoleRequest extends BaseApiRequest
                 'required',
                 'string',
                 'max:50',
+                new NotReservedRoleName(),
                 Rule::unique('roles')
                     ->where(fn($query) => $query->where('partner_id', $partnerId))
                     ->ignore($roleId), 

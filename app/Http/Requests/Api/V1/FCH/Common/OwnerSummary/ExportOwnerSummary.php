@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\OwnerSummary;
 
+use App\Enums\Permission;
 use App\Services\FCH\Common\OwnerSummary\OwnerSummaryExportPdf;
 use Illuminate\Validation\Rule;
 
@@ -11,6 +12,12 @@ use Illuminate\Validation\Rule;
  */
 class ExportOwnerSummary extends FetchOwnerSummary
 {
+    /** Seeing the screen is not enough: exporting it takes its own permission. */
+    public function authorize(): bool
+    {
+        return parent::authorize() && $this->holds(Permission::ExportBusinessInsights);
+    }
+
     public function rules(): array
     {
         return parent::rules() + [

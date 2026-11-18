@@ -22,8 +22,8 @@ class UserRoleController extends Controller
             return ApiResponse::notFound(__('user.user_not_found'));
         }
 
-        $partnerId = $request->user()->partner_id;
-        $roles = Role::whereIn('id', $request->role_ids)->where('partner_id', $partnerId)->get();
+        // Own partner's roles only; the Developer role is a Developer's to give.
+        $roles = Role::assignableBy($request->user())->whereIn('id', $request->role_ids)->get();
         $user->syncRoles($roles);
         return response()->json($user->roles);
     }
@@ -41,9 +41,18 @@ class UserRoleController extends Controller
             return ApiResponse::notFound(__('user.user_not_found'));
         }
 
-        $perms = app(PermissionService::class)->assignableQuery($request->user())
+        // A Developer's permissions are the Developer role's, which no one
+        // changes - so neither does anyone change them on the user directly.
+        if ($user->isDeveloper()) {
+            return ApiResponse::error(__('role_permission.role_static_cannot_update'), 403);
+        }
+
+        $permissionService = app(PermissionService::class);
+        $granted = $permissionService->grantableQuery($request->user(), $permissionService->isHostPartner($user->partner_id))
             ->whereIn('id', $request->permission_ids)
             ->get();
+        // Someone who cannot see the developer-only ones keeps those the user has.
+        $perms = $permissionService->keepingDeveloperOnly($request->user(), $granted, $user->permissions()->get());
         $user->syncPermissions($perms);
         return response()->json($user->permissions);
     }

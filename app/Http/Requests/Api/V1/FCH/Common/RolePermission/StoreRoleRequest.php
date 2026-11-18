@@ -7,6 +7,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\NotReservedRoleName;
 
 class StoreRoleRequest extends BaseApiRequest
 {
@@ -28,6 +29,7 @@ class StoreRoleRequest extends BaseApiRequest
                 'required',
                 'string',
                 'max:50',
+                new NotReservedRoleName(),
                 Rule::unique('roles')->where(function ($query) use ($partnerId) {
                     return $query->where('partner_id', $partnerId);
                 }),

@@ -47,6 +47,19 @@ class PermissionEnumTest extends TestCase
         $this->assertSame(PermissionModule::Invoices, Permission::PayInvoice->module());
         $this->assertFalse(Permission::PayInvoice->isHost());
         $this->assertTrue(Permission::PayInvoice->isCertified());
+        $this->assertFalse(Permission::PayInvoice->isDeveloper());
+
+        $this->assertSame(PermissionModule::BusinessInsights, Permission::ViewBusinessInsights->module());
+        $this->assertTrue(Permission::ViewBusinessInsights->isDeveloper());
+    }
+
+    #[Test]
+    public function only_a_developer_only_permission_carries_the_is_developer_flag_in_the_config(): void
+    {
+        $config = config('permissions');
+
+        $this->assertSame(1, $config['business insights']['permissions'][0]['is_developer']);
+        $this->assertArrayNotHasKey('is_developer', $config['leads']['permissions'][0]);
     }
 
     #[Test]

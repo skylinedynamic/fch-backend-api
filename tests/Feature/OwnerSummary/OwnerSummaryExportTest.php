@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\OwnerSummary;
 
+use App\Enums\Permission;
 use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerSummaryController;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Partner\Partner;
@@ -22,7 +23,8 @@ use Tests\TestCase;
  * Business Insights › Export PDF (GET /api/v1/common/owner-summary/export):
  * the summary report (the headline numbers on a page or two) or the details
  * report (every section, every stalled deal), for the period and payments the
- * screen shows. Only the host owner, like the screen itself.
+ * screen shows. For the host's team holding export business insights (and
+ * view business insights, like the screen itself).
  */
 #[CoversClass(OwnerSummaryController::class)]
 #[CoversClass(OwnerSummaryExportPdf::class)]
@@ -43,7 +45,7 @@ class OwnerSummaryExportTest extends TestCase
         Mail::fake();
         Carbon::setTestNow(Carbon::parse('2026-11-15 12:00:00', 'UTC'));
         $this->host = $this->makeHostPartner(['company_name' => 'Four Corner Funding']);
-        $this->owner = $this->makePartnerAdmin($this->host);
+        $this->owner = $this->makePartnerAdmin($this->host, [Permission::ViewBusinessInsights->value, Permission::ExportBusinessInsights->value]);
     }
 
     protected function tearDown(): void
@@ -108,15 +110,21 @@ class OwnerSummaryExportTest extends TestCase
     }
 
     #[Test]
-    public function only_the_host_owner_may_export(): void
+    public function only_the_hosts_team_holding_export_business_insights_may_export(): void
     {
         $this->getJson(self::URL . '?type=summary')->assertUnauthorized();
 
-        $this->actingAsUser($this->makeStaffUser($this->host));
-        $this->getJson(self::URL . '?type=summary')->assertForbidden();
-
-        $this->actingAsUser($this->makePartnerAdmin($this->makeWhiteLabelPartner()));
-        $this->getJson(self::URL . '?type=summary')->assertForbidden();
+        $refused = [
+            $this->makeStaffUser($this->host),
+            $this->makePartnerAdmin($this->host, [Permission::UpdateCommission->value]),
+            // May see the screen, may not export it.
+            $this->makePartnerAdmin($this->host, [Permission::ViewBusinessInsights->value]),
+            $this->makePartnerAdmin($this->makeWhiteLabelPartner(), [Permission::ViewBusinessInsights->value, Permission::ExportBusinessInsights->value]),
+        ];
+        foreach ($refused as $user) {
+            $this->actingAsUser($user);
+            $this->getJson(self::URL . '?type=summary')->assertForbidden();
+        }
     }
 
     #[Test]

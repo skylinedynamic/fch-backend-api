@@ -145,7 +145,11 @@ class UserManagementApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['employee_id']);
 
-        $this->postJson('/api/v1/common/users', $this->newUserPayload(['role_id' => $foreignRole->id]))->assertStatus(400);
+        // Refused by validation now (AssignableRole), under the field.
+        $this->postJson('/api/v1/common/users', $this->newUserPayload(['role_id' => $foreignRole->id]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['role_id']);
+        $this->assertFalse(User::where('partner_id', $this->partner->id)->whereHas('roles', fn ($q) => $q->whereKey($foreignRole->id))->exists());
     }
 
     #[Test]
@@ -330,10 +334,10 @@ class UserManagementApiTest extends TestCase
     #[Test]
     public function a_developer_account_is_hidden_from_everyone_but_developers(): void
     {
-        $developerRole = Role::create(['name' => 'Developer', 'guard_name' => 'api', 'partner_id' => $this->partner->id, 'code' => 'developer']);
-        $developer = $this->makeStaffUser($this->partner);
-        $developer->assignRole($developerRole);
-        $this->actingAsUser($this->partnerAdmin);
+        // The one Developer role is the host's, so it is the host's team that
+        // must not see the account.
+        $developer = $this->makeDeveloper($this->host);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
 
         $this->getJson("/api/v1/common/users/{$developer->id}")->assertNotFound();
         $ids = collect($this->postJson('/api/v1/common/users/fetch-users')->json('data'))->pluck('id');

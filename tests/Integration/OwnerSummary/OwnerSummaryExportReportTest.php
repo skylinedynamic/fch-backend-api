@@ -102,6 +102,28 @@ class OwnerSummaryExportReportTest extends TestCase
         $this->assertStringContainsString('+3', $html);
     }
 
+    /**
+     * BI-BUG-01: the report follows the period picked, so "Receivables &
+     * Payables" says so ("Raised this month, still unpaid"), and its Payouts
+     * still due card is the period's figure with its deal count - the one
+     * Needs Attention shows (attention.payouts_due). Both reports share the card.
+     */
+    #[Test]
+    public function the_receivables_payouts_card_follows_the_period_like_needs_attention(): void
+    {
+        foreach ([OwnerSummaryExportPdf::TYPE_SUMMARY, OwnerSummaryExportPdf::TYPE_DETAILS] as $type) {
+            $html = $this->html($type);
+            $this->assertStringNotContainsString('Open right now', $html, "{$type}: nothing claims to be as of now there");
+            $start = strpos($html, 'Raised this month, still unpaid');
+            $this->assertNotFalse($start, "{$type}: the Receivables & Payables section");
+            $card = substr($html, $start, strpos($html, 'Network', $start) - $start);
+
+            $this->assertStringContainsString('Payouts still due', $card);
+            $this->assertStringContainsString('$31,000', $card, "{$type}: the Needs Attention amount");
+            $this->assertStringContainsString('5 deals', $card, "{$type}: the deals it is owed on");
+        }
+    }
+
     /** Net earnings by stream, with the total collected, in place of the attention list. */
     #[Test]
     public function the_summary_report_shows_net_earnings_by_stream(): void

@@ -11,6 +11,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Models\Employee\Employee;
 use Illuminate\Validation\Rule;
 use App\Rules\UsPhoneNumber;
+use App\Rules\AssignableRole;
 
 class StoreUserRequest extends  BaseApiRequest
 {
@@ -27,7 +28,7 @@ class StoreUserRequest extends  BaseApiRequest
             'user_id'      => ['nullable', 'string', 'max:255'],
             'phone_number' => ['nullable', 'string', new UsPhoneNumber(), Rule::unique('users', 'phone_number')->whereNull('deleted_at')],
             'password'     => ['required', 'string', 'min:6'],
-            'role_id'      => ['required', 'exists:roles,id'],
+            'role_id'      => ['required', new AssignableRole($this->user(), __('user.role_not_found'))],
             'employee_id'  => [
                 'required',
                 // Only this partner's own (non-deleted) employees...

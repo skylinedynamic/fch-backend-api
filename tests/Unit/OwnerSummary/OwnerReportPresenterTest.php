@@ -65,6 +65,22 @@ class OwnerReportPresenterTest extends TestCase
         ], $this->presenter(['kpis' => ['partners' => ['total' => 26], 'clients' => ['total' => 410]]])->community());
     }
 
+    /** BI-BUG-01: the card's payouts and deal count are Needs Attention's (attention.payouts_due). */
+    #[Test]
+    public function it_gives_the_payouts_still_owed_right_now(): void
+    {
+        $presenter = $this->presenter([
+            'commissions' => ['payouts_due' => 2033],
+            'attention' => ['payouts_due' => ['amount' => 8232.5, 'deals' => 7]],
+        ]);
+
+        $this->assertSame(['amount' => '$8,233', 'deals' => '7 deals', 'is_zero' => false], $presenter->payoutsDue());
+        $this->assertSame(
+            ['amount' => '$0', 'deals' => '0 deals', 'is_zero' => true],
+            $this->presenter(['attention' => ['payouts_due' => ['amount' => 0, 'deals' => 0]]])->payoutsDue()
+        );
+    }
+
     #[Test]
     public function it_gives_the_seven_headline_cards(): void
     {
@@ -124,8 +140,8 @@ class OwnerReportPresenterTest extends TestCase
         $this->assertSame('$1,000 where payment failed', $items['Failed invoices']['sub']);
         $this->assertSame(3, $items['Failed or disputed payments']['count']);
         $this->assertSame('2 failed · 1 disputed last week', $items['Failed or disputed payments']['sub']);
-        $this->assertSame('$31,000 owed to partners and staff', $items['Commission payouts due']['sub']);
-        $this->assertSame('1 partner · 2 clients within 14 days', $items['Free trials ending']['sub']);
+        $this->assertSame('$31,000 owed to partners and staff on deals funded last week', $items['Commission payouts due']['sub']);
+        $this->assertSame('1 partner · 2 clients with a trial ending last week', $items['Free trials ending']['sub']);
         $this->assertSame('https://portal.test/commissions', $items['Commission payouts due']['url']);
         $this->assertSame('zero', $items['Suspended partners']['tone']);
         $this->assertSame('red', $items['Failed invoices']['tone']);

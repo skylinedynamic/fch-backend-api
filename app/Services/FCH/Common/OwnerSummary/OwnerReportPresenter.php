@@ -323,6 +323,22 @@ class OwnerReportPresenter
         ];
     }
 
+    /**
+     * Payouts still owed to partners and staff on deals funded in the period,
+     * with how many deals - the Receivables & Payables card (BI-BUG-01). The
+     * same figure, and deal count, as the screen's Needs Attention.
+     */
+    public function payoutsDue(): array
+    {
+        $due = $this->report['attention']['payouts_due'];
+
+        return [
+            'amount' => self::money($due['amount']),
+            'deals' => self::count((int) $due['deals'], 'deal'),
+            'is_zero' => (float) $due['amount'] == 0.0,
+        ];
+    }
+
     public function owed(): array
     {
         $r = $this->report['receivables'];

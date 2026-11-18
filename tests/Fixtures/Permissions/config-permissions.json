@@ -677,5 +677,27 @@
                 "is_host": 0
             }
         ]
+    },
+    "business insights": {
+        "permissions": [
+            {
+                "name": "view business insights",
+                "is_certified": 0,
+                "is_host": 1,
+                "is_developer": 1
+            },
+            {
+                "name": "export business insights",
+                "is_certified": 0,
+                "is_host": 1,
+                "is_developer": 1
+            },
+            {
+                "name": "manage business insights report",
+                "is_certified": 0,
+                "is_host": 1,
+                "is_developer": 1
+            }
+        ]
     }
 }

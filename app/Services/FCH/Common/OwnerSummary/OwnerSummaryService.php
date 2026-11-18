@@ -260,15 +260,21 @@ class OwnerSummaryService
         };
     }
 
+    /**
+     * What is owed to the host on the invoices raised in the period, still
+     * unpaid or failed - like everything else on the screen, the period picked
+     * (not every open invoice). Unpaid ones are split by age as of today.
+     */
     private function receivables(): array
     {
         $agedBefore = $this->period->today->subDays(self::UNPAID_AGE_DAYS)->utc();
-        $owed = fn () => $this->hostInvoices(Invoice::query())->whereIn('invoices.status', self::OWED_STATUSES);
+        $raised = fn () => $this->hostInvoices(Invoice::query())->whereBetween('invoices.created_at', $this->period->between());
+        $owed = fn () => $raised()->whereIn('invoices.status', self::OWED_STATUSES);
 
         return [
             'unpaid_recent' => $this->invoiceTotals($owed()->where('invoices.created_at', '>=', $agedBefore)),
             'unpaid_over_30_days' => $this->invoiceTotals($owed()->where('invoices.created_at', '<', $agedBefore)),
-            'failed' => $this->invoiceTotals($this->hostInvoices(Invoice::query())->where('invoices.status', Invoice::STATUS_FAILED)),
+            'failed' => $this->invoiceTotals($raised()->where('invoices.status', Invoice::STATUS_FAILED)),
         ];
     }
 
@@ -281,9 +287,9 @@ class OwnerSummaryService
     }
 
     /**
-     * The host's share booked on deals funded in the period, and every payout
-     * still due (whenever the deal was funded) - one CommissionViewer, so the
-     * numbers match the Commissions screen.
+     * The host's share booked on deals funded in the period, and the payouts
+     * still due on those deals - one CommissionViewer, so the numbers match
+     * the Commissions screen for the same deals.
      */
     private function commissions(User $owner): array
     {
@@ -291,7 +297,7 @@ class OwnerSummaryService
         $inPeriod = Commission::query()->whereHas('fundingApplication', fn ($q) => $this->fundedQuery($q->withTrashed(), $this->period->from, $this->period->to));
 
         $summary = $viewer->summarize(clone $inPeriod);
-        [$dueAmount, $dueDeals] = $viewer->payoutsDue(Commission::query());
+        [$dueAmount, $dueDeals] = $viewer->payoutsDue(clone $inPeriod);
 
         return [
             'period' => [
@@ -316,17 +322,22 @@ class OwnerSummaryService
             ->where('payments.transaction_date', '<', $end)
             ->count();
 
-        $today = $this->period->today;
+        // Free trials ending on a day of the period.
         $trialEnding = fn (Builder $q) => $q->where('is_free_trail', true)
-            ->whereDate('free_trail_end_date', '>=', $today->toDateString())
-            ->whereDate('free_trail_end_date', '<=', $today->addDays(self::TRIAL_ENDING_DAYS)->toDateString());
+            ->whereDate('free_trail_end_date', '>=', $this->period->from->toDateString())
+            ->whereDate('free_trail_end_date', '<=', $this->period->to->toDateString());
 
+        // Everything here follows the period - what came in during it and
+        // still waits - except suspended partners and stalled deals, which are
+        // how things stand now (no history of either is kept).
         return [
             'unpaid_over_30_days' => $receivables['unpaid_over_30_days'],
             'failed_invoices' => $receivables['failed'],
             'partners_owing' => $this->hostInvoices(Invoice::query())
                 ->where('invoices.entity_type', Partner::class)
                 ->whereIn('invoices.status', [...self::OWED_STATUSES, Invoice::STATUS_FAILED])
+                ->where('invoices.created_at', '>=', $start)
+                ->where('invoices.created_at', '<', $end)
                 ->distinct()
                 ->count('invoices.entity_id'),
             'suspended_partners' => Partner::excludingHost()->where('status', Partner::STATUS_SUSPENDED)->count(),
@@ -335,12 +346,20 @@ class OwnerSummaryService
             // Waiting on someone whatever the environment.
             'manual_payments_to_approve' => $this->hostInvoices(
                 Payment::query()->join('invoices', 'invoices.id', '=', 'payments.invoice_id')->whereNull('invoices.deleted_at')
-            )->where('payments.status', Payment::STATUS_PROCESSING)->count(),
+            )->where('payments.status', Payment::STATUS_PROCESSING)
+                ->where('payments.created_at', '>=', $start)
+                ->where('payments.created_at', '<', $end)
+                ->count(),
             'payouts_due' => $payoutsDue,
             'unreviewed_embedded_applications' => EmbedFormSubmission::where('partner_id', $this->host->id)
                 ->where('status', EmbedFormSubmission::STATUS_NEW)
+                ->where('created_at', '>=', $start)
+                ->where('created_at', '<', $end)
                 ->count(),
-            'pending_prequalifications' => PreQualificationRequest::where('status', PreQualificationRequest::PENDING)->count(),
+            'pending_prequalifications' => PreQualificationRequest::where('status', PreQualificationRequest::PENDING)
+                ->where('created_at', '>=', $start)
+                ->where('created_at', '<', $end)
+                ->count(),
             'trials_ending' => [
                 'partners' => $trialEnding(Partner::excludingHost())->count(),
                 'clients' => $trialEnding(Borrower::where('partner_id', $this->host->id))->count(),

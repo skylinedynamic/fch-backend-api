@@ -12,6 +12,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Rules\DateOfBirth;
 use App\Rules\UsPostalCode;
 use App\Rules\UsPhoneNumber;
+use App\Rules\AssignableRole;
 use App\Rules\SafeUpload;
 
 class StoreEmployeeRequest extends BaseApiRequest
@@ -62,7 +63,7 @@ class StoreEmployeeRequest extends BaseApiRequest
             'country_code'   => ['nullable'],
             'image'          => ['nullable', SafeUpload::image()],
             'create_account' => ['sometimes', 'boolean'],
-            'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
+            'role_id'        => ['required_if:create_account,1', 'nullable', new AssignableRole($this->user(), __('employee.role_exists'))],
             'address'        => ['nullable', 'string', 'max:500'],
             'is_paid'        => ['nullable'],
             'months'         => ['nullable', 'integer', 'min:1'],

@@ -77,23 +77,25 @@ class RoleController extends Controller
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
 
-        if ($role->code === 'developer' && !Auth::user()->hasRole('Developer')) {
+        $viewer = Auth::user();
+
+        if ($role->isDeveloper() && !$viewer->isDeveloper()) {
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
 
-        $role->load(['permissions', 'users.entity']);
+        $role->load([
+            'permissions',
+            'users' => fn ($query) => $query->hideDevelopersFrom($viewer)->with('entity'),
+        ]);
 
         $payload = [
             'id' => $role->id,
             'name' => $role->name,
             'description' => $role->description,
             'is_static' => (bool) $role->is_static,
+            'is_editable' => $role->isEditableBy($viewer),
             'permission' => $role->permissions->pluck('name','id')->unique()->toArray(),
-            'users' => UserResource::collection(
-                $role->users->reject(function ($user) {
-                    return $user->hasRole('Developer') && !Auth::user()->hasRole('Developer');
-                })
-            )->toArray(request()),
+            'users' => UserResource::collection($role->users)->toArray(request()),
         ];
 
         return ApiResponse::success($payload, __('role_permission.role_details'));
@@ -109,14 +111,21 @@ class RoleController extends Controller
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
 
-        // A static (system) role - Admin, Developer - is read-only: stripping
-        // its permissions would pass to everyone holding it, so the only admin
-        // could lock itself out (R2 BUG-011).
-        if ($role->is_static) {
+        // A static (system) role is read-only to everyone but a Developer:
+        // stripping its permissions would pass to everyone holding it, so the
+        // only admin could lock itself out (R2 BUG-011). The Developer role is
+        // fixed for everyone, a Developer included (Role::isEditableBy).
+        if (!$role->isEditableBy(Auth::user())) {
             return ApiResponse::error(__('role_permission.role_static_cannot_update'), 403);
         }
 
-        $updatedRole = $this->roleService->update($role, $request->validated());
+        $data = $request->validated();
+        // A system role keeps its name; a Developer changes what it may do.
+        if ($role->is_static) {
+            $data['name'] = $role->name;
+        }
+
+        $updatedRole = $this->roleService->update($role, $data);
         
         return response()->json([
             'status' => true,

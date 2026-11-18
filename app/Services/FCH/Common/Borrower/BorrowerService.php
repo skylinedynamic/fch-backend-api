@@ -1137,6 +1137,7 @@ class BorrowerService
         }
 
         $users = $query
+            ->hideDevelopersFrom($authUser)
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();

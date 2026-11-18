@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\OwnerSummary;
 
+use App\Enums\Permission;
 use App\Http\Controllers\Api\V1\FCH\Common\OwnerSummary\OwnerReportSettingsController;
 use App\Models\OwnerSummary\OwnerReportSetting;
 use App\Models\Partner\Partner;
@@ -35,7 +36,7 @@ class OwnerReportSettingsTest extends TestCase
         Notification::fake();
 
         $this->host = $this->makeHostPartner();
-        $this->owner = $this->makePartnerAdmin($this->host);
+        $this->owner = $this->makePartnerAdmin($this->host, [Permission::ViewBusinessInsights->value, Permission::ManageBusinessInsightsReport->value]);
     }
 
     private function save(array $payload, ?User $user = null): TestResponse
@@ -46,12 +47,20 @@ class OwnerReportSettingsTest extends TestCase
     }
 
     #[Test]
-    public function only_the_host_owner_may_see_or_change_them(): void
+    public function only_the_hosts_team_holding_manage_business_insights_report_may_see_or_change_them(): void
     {
         $this->getJson(self::URL)->assertUnauthorized();
         $this->putJson(self::URL, [])->assertUnauthorized();
 
-        foreach ([$this->makeStaffUser($this->host), $this->makePartnerAdmin($this->makeWhiteLabelPartner()), $this->makeBorrowerUser($this->host)] as $user) {
+        $refused = [
+            $this->makeStaffUser($this->host),
+            // The host owner, and a viewer of the screen, without the permission.
+            $this->makePartnerAdmin($this->host, [Permission::UpdateCommission->value]),
+            $this->makePartnerAdmin($this->host, [Permission::ViewBusinessInsights->value]),
+            $this->makePartnerAdmin($this->makeWhiteLabelPartner(), [Permission::ManageBusinessInsightsReport->value]),
+            $this->makeBorrowerUser($this->host),
+        ];
+        foreach ($refused as $user) {
             $this->actingAsUser($user);
             $this->getJson(self::URL)->assertForbidden();
             $this->save(['enabled' => true, 'recipients' => ['a@example.test']], $user)->assertForbidden();

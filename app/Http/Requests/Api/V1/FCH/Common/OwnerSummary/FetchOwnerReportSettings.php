@@ -2,17 +2,20 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\OwnerSummary;
 
-use App\Services\FCH\Common\Commission\CommissionViewer;
+use App\Enums\Permission;
 use Illuminate\Foundation\Http\FormRequest;
 
-/** The report is the owner summary by email, so whoever may see that may manage this. */
+/**
+ * The weekly report is Business Insights by email: managing who gets it takes
+ * manage business insights report, a developer-only permission.
+ */
 class FetchOwnerReportSettings extends FormRequest
 {
     public function authorize(): bool
     {
         $user = $this->user();
 
-        return $user !== null && CommissionViewer::for($user)->is(CommissionViewer::HOST_OWNER);
+        return $user !== null && $user->checkPermissionTo(Permission::ManageBusinessInsightsReport->value, 'api');
     }
 
     public function rules(): array

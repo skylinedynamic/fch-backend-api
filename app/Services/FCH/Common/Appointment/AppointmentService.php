@@ -507,7 +507,11 @@ class AppointmentService
      */
     public function getSelectableUsers(array $data)
     {
-        $query = $this->selectableUsersQuery(Auth::user(), $data);
+        // Wrapped: the bookable query has top-level orWhere()s, so a further
+        // condition chained on it would not apply to every branch.
+        $query = User::query()
+            ->whereIn('users.id', $this->selectableUsersQuery(Auth::user(), $data)->select('users.id'))
+            ->hideDevelopersFrom(Auth::user());
 
         $results = $query->with('entity')->get(['id', 'name', 'entity_type', 'entity_id', 'user_type']);
 

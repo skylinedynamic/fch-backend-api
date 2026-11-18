@@ -564,6 +564,30 @@ class User extends Authenticatable implements OAuthenticatable
             ->where('user_type', $partner->is_host ? self::ADMIN : self::PARTNER);
     }
 
+    /** Holds the one reserved Developer role - the host's. */
+    public function isDeveloper(): bool
+    {
+        // roles() is Spatie's base model, so the condition is spelled out
+        // here rather than through Role::scopeTheDeveloperRole.
+        return $this->roles()
+            ->where('roles.code', \App\Models\Common\Role::CODE_DEVELOPER)
+            ->whereIn('roles.partner_id', Partner::where('is_host', true)->select('id'))
+            ->exists();
+    }
+
+    /**
+     * Leaves out the logins holding the Developer role unless $viewer holds it
+     * too: a Developer's account is in no list anyone else can open.
+     */
+    public function scopeHideDevelopersFrom($query, ?User $viewer)
+    {
+        if ($viewer?->isDeveloper()) {
+            return $query;
+        }
+
+        return $query->whereDoesntHave('roles', fn ($q) => $q->where('code', \App\Models\Common\Role::CODE_DEVELOPER));
+    }
+
     /**
      * The logins a user manages on the Users screen: their own partner's team -
      * partner and employee accounts, the set that screen lists - never a
