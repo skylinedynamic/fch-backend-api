@@ -280,7 +280,7 @@ class CalendlyService
             return $this->backToPortal(null, null, 'error');
         }
 
-        [$user, $connection, $codeVerifier] = $issued;
+        [$user, $connection, $codeVerifier, $redirectUri] = $issued + [3 => null];
 
         if ($error || ! $code) {
             // Declined on Calendly's page (Deny), or Calendly sent no code.
@@ -290,7 +290,7 @@ class CalendlyService
         }
 
         try {
-            $connection = $this->oauth->connect($user, $connection, $code, $codeVerifier);
+            $connection = $this->oauth->connect($user, $connection, $code, $codeVerifier, $redirectUri);
         } catch (Throwable $e) {
             Log::warning('[CALENDLY] Connecting failed', ['user_id' => $user->id, 'connection_id' => $connection->id, 'error' => $e->getMessage()]);
 

@@ -154,6 +154,32 @@ class CalendlyConnectionTest extends TestCase
     }
 
     /**
+     * Nothing in .env: the redirect address is this API's own, on the address
+     * it is reached at (127.0.0.1 named localhost) - and the token swap sends
+     * the very address the sign-in link carried. Calendly refuses the swap
+     * when the two differ.
+     */
+    #[Test]
+    public function the_redirect_address_is_the_apis_own_and_the_same_in_both_steps(): void
+    {
+        config(['services.calendly.redirect_uri' => null]);
+        $this->saveCalendlyKeys($this->host);
+        $this->actingAsUser($this->host);
+
+        $url = $this->postJson('http://127.0.0.1:8000/api/v1/common/calendly/connect')->assertOk()->json('data.url');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        // The API reached at 127.0.0.1: the address names it localhost, as Calendly apps register it.
+        $this->assertSame('http://localhost:8000/api/v1/calendly/callback', $query['redirect_uri']);
+
+        $this->fakeCalendlyForCallback();
+        $this->get('http://localhost:8000/api/v1/calendly/callback?code=AUTH-CODE&state='.urlencode($query['state']))->assertRedirect();
+
+        Http::assertSent(fn (Request $request) => $request->url() === "{$this->calendlyAuth}/oauth/token"
+            && $request['redirect_uri'] === 'http://localhost:8000/api/v1/calendly/callback');
+        $this->assertTrue(CalendlyConnection::sole()->isActive());
+    }
+
+    /**
      * PKCE: a Calendly app made as a PKCE app refuses a sign-in without it
      * ("unknown client" / "Missing required parameter: code_verifier"). The
      * link carries the S256 challenge; the token request the matching verifier.

@@ -43,16 +43,20 @@ class CalendlyOAuthService
         // PKCE (RFC 7636): a Calendly app made as a public/PKCE app refuses the sign-in without
         // it ("unknown client", "Missing required parameter: code_verifier"); others accept it too.
         $verifier = Str::random(96);
+        // The exact address sent here is sent again when the code is swapped for tokens:
+        // Calendly refuses the swap if the two differ (e.g. 127.0.0.1 here, localhost there).
+        $redirectUri = $this->redirectUri();
         Cache::put(self::STATE_CACHE_PREFIX.$state, [
             'user_id' => $user->id,
             'connection_id' => $connection->id,
             'code_verifier' => $verifier,
+            'redirect_uri' => $redirectUri,
         ], now()->addMinutes(self::STATE_TTL_MINUTES));
 
         return rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/authorize?'.http_build_query([
             'client_id' => $connection->client_id,
             'response_type' => 'code',
-            'redirect_uri' => $this->redirectUri(),
+            'redirect_uri' => $redirectUri,
             // Calendly grants only what is asked for here (space-separated).
             'scope' => trim((string) config('services.calendly.scopes')),
             'state' => $state,
@@ -67,9 +71,26 @@ class CalendlyOAuthService
         return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
     }
 
+    /**
+     * Where Calendly sends the browser back after sign-in: this API's own
+     * callback, on the address the API is being reached at (local, stage or
+     * live alike) - shown in Settings > Calendly to enter on the Calendly app.
+     */
     public function redirectUri(): string
     {
-        return config('services.calendly.redirect_uri') ?: url('/api/v1/calendly/callback');
+        return config('services.calendly.redirect_uri') ?: self::localhostNamed(url('/api/v1/calendly/callback'));
+    }
+
+    /**
+     * A local address with its name, not its number: 127.0.0.1 is the same
+     * machine as localhost, but Calendly matches the redirect address exactly
+     * and takes http only for localhost - a portal that calls the API at
+     * 127.0.0.1 still signs in with http://localhost:8000/... Any other
+     * address (stage, live) is left as it is.
+     */
+    private static function localhostNamed(string $url): string
+    {
+        return preg_replace('#^(https?://)127\.0\.0\.1(?=[:/])#', '$1localhost', $url) ?? $url;
     }
 
     /** Where Calendly posts this connection's bookings - one address per connection, checked with its own signing key. */
@@ -82,7 +103,7 @@ class CalendlyOAuthService
      * The user and connection the state was issued for - once; null for an
      * unknown, expired or used state, or one whose connection is gone.
      *
-     * @return array{0: User, 1: CalendlyConnection, 2: ?string}|null  the user, the connection, the PKCE code verifier
+     * @return array{0: User, 1: CalendlyConnection, 2: ?string, 3: ?string}|null  the user, the connection, the PKCE code verifier, the redirect address the sign-in was sent with
      */
     public function consumeState(?string $state): ?array
     {
@@ -95,18 +116,19 @@ class CalendlyOAuthService
         $connection = is_array($issued) ? CalendlyConnection::find($issued['connection_id'] ?? null) : null;
 
         return $user && $connection && $connection->isManagedBy($user)
-            ? [$user, $connection, $issued['code_verifier'] ?? null]
+            ? [$user, $connection, $issued['code_verifier'] ?? null, $issued['redirect_uri'] ?? null]
             : null;
     }
 
     /** Swaps the code (with its PKCE verifier) for tokens and signs the connection in. */
-    public function connect(User $user, CalendlyConnection $connection, string $code, ?string $codeVerifier = null): CalendlyConnection
+    public function connect(User $user, CalendlyConnection $connection, string $code, ?string $codeVerifier = null, ?string $redirectUri = null): CalendlyConnection
     {
         $tokens = Http::asForm()->acceptJson()->timeout(20)
             ->post(rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/token', array_filter([
                 'grant_type' => 'authorization_code',
                 'code' => $code,
-                'redirect_uri' => $this->redirectUri(),
+                // The very address the sign-in was sent with (Calendly requires the same).
+                'redirect_uri' => $redirectUri ?: $this->redirectUri(),
                 'client_id' => $connection->client_id,
                 'client_secret' => $connection->client_secret,
                 'code_verifier' => $codeVerifier,
