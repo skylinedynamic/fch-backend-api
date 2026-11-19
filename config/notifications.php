@@ -234,6 +234,19 @@ return [
             'url' => '/leads/{{id}}',
         ],
 
+        // A new client for the partner: +Add Client, or a lead / embedded form
+        // submission converted to one (BorrowerService::store). Emailed to the
+        // partner's Client Notification Recipient, else its own email.
+        'partner.client.created' => [
+            'name' => 'Client created',
+            'category' => 'funding',
+            'icon' => 'ri-user-star-line',
+            'channels' => $bellAndMail,
+            'title' => 'New client',
+            'body' => '{{name}}: {{source}}',
+            'url' => '/clients/{{id}}',
+        ],
+
         // The host converted a partner's lead on that partner's behalf; the
         // borrower is the partner's. Sent from the host.
         'partner.lead.converted_on_behalf' => [

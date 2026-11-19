@@ -40,6 +40,10 @@ Route::prefix('v1/admin')
         // No permission middleware yet - permissions are to be added later.
         Route::put('partners/{id}/commission', [PartnerController::class, 'updateCommission'])
             ->whereNumber('id');
+        // Partner profile › Mail Notification: where its lead / client emails go.
+        // No permission middleware yet, like Commissions.
+        Route::get('partners/{id}/mail-notification', [PartnerController::class, 'mailNotification'])->whereNumber('id');
+        Route::put('partners/{id}/mail-notification', [PartnerController::class, 'updateMailNotification'])->whereNumber('id');
 
         // The profile's Status & Agent tab, saved apart from the partner's details.
         Route::get('partners/{id}/status-agent', [PartnerController::class, 'statusAgent'])->whereNumber('id');

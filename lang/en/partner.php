@@ -180,6 +180,25 @@ return [
         'tenant_config_updated' => 'Tenant configuration updated successfully.',
         'commission_updated' => 'Partner commission updated successfully.',
         'status_agent_updated' => 'Status and agent updated successfully.',
+        'mail_notification_retrieved' => 'Mail notification recipients retrieved successfully.',
+        'mail_notification_updated' => 'Mail notification recipients updated successfully.',
+    ],
+
+    /*
+    | Partner profile › Mail Notification (PartnerNotificationRecipient::TYPES)
+    */
+    'mail_notification' => [
+        'types' => [
+            'leads' => [
+                'label' => 'Lead Notification Recipient',
+                'help' => "Gets the email sent when a lead is created. Leave empty to use the partner's email.",
+            ],
+            'clients' => [
+                'label' => 'Client Notification Recipient',
+                'help' => "Gets the email sent when a client is added or a lead is converted to a client. Leave empty to use the partner's email.",
+            ],
+        ],
+        'unknown_type' => 'Unknown notification type: :types.',
     ],
 
     /*
@@ -191,6 +210,8 @@ return [
         'commission_updated' => 'Commission updated',
         'commission_added_description' => ':user set the commission to :to.',
         'commission_updated_description' => ':user changed the commission from :from to :to.',
+        'mail_notification_updated' => 'Mail notification updated',
+        'mail_notification_updated_description' => ':user changed where lead and client notification emails go.',
     ],
 
     'error' => [
