@@ -16,6 +16,8 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerCommissionRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerMailNotificationRequest;
+use App\Services\FCH\Partner\PartnerNotificationRecipientService;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
 use App\Mail\AccountCreateNotificationMail;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\ArchivePartnerRequest;
@@ -230,6 +232,37 @@ class PartnerController extends Controller
             $this->partnerService->commissionOf($partner),
             __('partner.success.commission_updated')
         );
+    }
+
+    /**
+     * Partner profile › Mail Notification: every notification type with where
+     * its emails go (null - the partner's own email).
+     */
+    public function mailNotification(int $id, PartnerNotificationRecipientService $recipients)
+    {
+        $partner = $this->partnerService->findById($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        return ApiResponse::success($recipients->list($partner), __('partner.success.mail_notification_retrieved'));
+    }
+
+    /**
+     * Save where the partner's notification emails go; returns the full list.
+     */
+    public function updateMailNotification(UpdatePartnerMailNotificationRequest $request, int $id, PartnerNotificationRecipientService $recipients)
+    {
+        $partner = $this->partnerService->findById($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        $recipients->sync($partner, $request->validated('recipients'));
+
+        return ApiResponse::success($recipients->list($partner), __('partner.success.mail_notification_updated'));
     }
 
     /**

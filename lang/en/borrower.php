@@ -230,4 +230,14 @@ return [
         'credit_profile_removed' => 'Credit Profile Data Removed',
         'credit_profile_removed_desc' => "The client's credit profile data and its uploaded report were removed.",
     ],
+
+    // To the client's partner when a client is created (ClientCreatedMail).
+    'client_created_mail' => [
+        'subject' => 'New Client Added',
+        'sources' => [
+            'manual' => 'A new client has been added to your account.',
+            'lead' => 'A lead has been converted to a client.',
+            'embed_form' => 'An embedded form submission has been converted to a client.',
+        ],
+    ],
 ];

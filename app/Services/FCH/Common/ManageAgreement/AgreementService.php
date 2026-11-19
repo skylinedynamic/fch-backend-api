@@ -209,6 +209,43 @@ class AgreementService
         ];
     }
 
+    /**
+     * A partner's / client's Agreement tab › Preview: the active agreement they
+     * would sign (the host's partner agreement for a partner, their own
+     * partner's borrower agreement for a client), filled with their details as
+     * it is shown to them. Null when there is no such user or no active
+     * agreement for them.
+     *
+     * @return array{template_id: int, slug: string, template_html: string, owner_partner_id: int}|null
+     */
+    public function previewFor(int $userId): ?array
+    {
+        $user = User::find($userId);
+        $entity = $user ? $this->signingEntity($user) : null;
+        if (!$entity || ($entity instanceof Partner && $entity->is_host)) {
+            return null;
+        }
+
+        [$ownerId, $slug] = $entity instanceof Partner
+            ? [$this->getHostPartner()?->id, AgreementTemplate::SLUG_PARTNER]
+            : [$entity->partner_id, AgreementTemplate::SLUG_BORROWER];
+
+        $template = $ownerId ? $this->getActiveTemplate((int) $ownerId, $slug) : null;
+        if (!$template) {
+            return null;
+        }
+
+        // The current wording, read as it is - a preview never records a new version (currentVersion()).
+        $html = $template->template_html;
+
+        return [
+            'template_id' => $template->id,
+            'slug' => $template->slug,
+            'template_html' => (string) $this->mergeFields->fill($html, $this->mergeFields->values($user, $template->partner, $template->slug)),
+            'owner_partner_id' => (int) $ownerId,
+        ];
+    }
+
     /** Whether the user's partner or client record is marked as signed (has_sign). */
     public function isMarkedSigned(int $userId): bool
     {

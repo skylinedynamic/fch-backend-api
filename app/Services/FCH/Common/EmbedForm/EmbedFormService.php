@@ -1128,7 +1128,7 @@ class EmbedFormService
                 $borrower = $existingBorrower;
                 $borrowerId = $existingBorrower->id;
             } else {
-                $result = $borrowerService->store($borrowerData);
+                $result = $borrowerService->store($borrowerData, Borrower::CREATED_VIA_EMBED_FORM);
                 $borrower = $result['borrower'] ?? $result;
                 $borrowerId = is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null);
             }

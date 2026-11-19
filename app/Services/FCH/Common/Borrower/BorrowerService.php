@@ -28,6 +28,9 @@ use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Mail\Partner\ClientCreatedMail;
+use App\Models\Partner\PartnerNotificationRecipient;
+use Throwable;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
@@ -377,7 +380,12 @@ class BorrowerService
         }
     }
 
-    public function store(array $data)
+    /**
+     * Create a client. $source says how (Borrower::CREATED_VIA_*): +Add Client,
+     * or a lead / embedded form submission converted to one - it words the
+     * partner's "New Client Added" email, sent once the client is saved.
+     */
+    public function store(array $data, string $source = Borrower::CREATED_VIA_MANUAL)
     {
         DB::beginTransaction();
         try {
@@ -511,6 +519,10 @@ class BorrowerService
             }
             DB::commit();
 
+            // Only once the client is really saved - a conversion may wrap this
+            // in its own transaction, which could still roll back.
+            DB::afterCommit(fn () => $this->notifyPartnerOfNewClient($borrower, $source));
+
             return [
                 'borrower' => $borrower->fresh(),
                 'user' => $userDataResult['user'] ?? null,
@@ -520,6 +532,32 @@ class BorrowerService
             DB::rollBack();
             Log::error('Borrower creation failed', ['error' => $e->getMessage()]);
             throw $e;
+        }
+    }
+
+    /**
+     * Tell the client's partner - in its bell, and by email to its Client
+     * Notification Recipient (Partner profile › Mail Notification), else its
+     * own email - that it has a new client. A failure is logged, never thrown:
+     * the client is already saved.
+     */
+    private function notifyPartnerOfNewClient(Borrower $borrower, string $source): void
+    {
+        try {
+            $partner = $borrower->partner()->first();
+            if (!$partner) {
+                return;
+            }
+
+            $email = $partner->notificationEmail(PartnerNotificationRecipient::TYPE_CLIENTS);
+
+            app(Notifier::class)->send('partner.client.created', $partner, [
+                'id' => $borrower->id,
+                'name' => personName($borrower->first_name, $borrower->middle_name, $borrower->last_name) ?: $borrower->email,
+                'source' => __('borrower.client_created_mail.sources.' . $source),
+            ], mail: $email ? (new ClientCreatedMail($borrower, $source))->to($email) : null);
+        } catch (Throwable $e) {
+            Log::error('Failed to notify the partner of a new client', ['borrower_id' => $borrower->id, 'error' => $e->getMessage()]);
         }
     }
 

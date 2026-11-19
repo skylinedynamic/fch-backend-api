@@ -171,6 +171,15 @@ class Borrower extends Model
             : \Illuminate\Support\Facades\Crypt::encryptString($digits);
     }
 
+    /**
+     * How a client was created (BorrowerService::store), for the partner's
+     * "New Client Added" email (ClientCreatedMail): +Add Client, a lead
+     * converted to a client, or an embedded form submission converted to one.
+     */
+    public const CREATED_VIA_MANUAL = 'manual';
+    public const CREATED_VIA_LEAD = 'lead';
+    public const CREATED_VIA_EMBED_FORM = 'embed_form';
+
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
     const STATUS_SUSPENDED = 'Suspended';

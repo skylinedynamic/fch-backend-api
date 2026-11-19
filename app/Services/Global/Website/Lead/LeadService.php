@@ -5,6 +5,7 @@ namespace App\Services\Global\Website\Lead;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerNotificationRecipient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -58,7 +59,9 @@ class LeadService
                         'is_pre_qualification' => $isPreQualification,
                         'prequalification' => $preQualificationData
                     ];
-                    $email = $hostPartner->email ?: $hostPartner->contact_person_email;
+                    // The host's Lead Notification Recipient (Partner profile ›
+                    // Mail Notification), else its own email, else its contact person's.
+                    $email = $hostPartner->notificationEmail(PartnerNotificationRecipient::TYPE_LEADS) ?: $hostPartner->contact_person_email;
 
                     // Inside the transaction: the bell and a queued email both
                     // wait for the commit, so a rolled-back lead announces nothing.

@@ -159,6 +159,34 @@ class AgreementSignController extends Controller
     }
 
     /**
+     * A partner's / client's Agreement tab › Preview: the active agreement they
+     * have not signed yet, as it is shown to them. The host's team sees anyone's;
+     * a partner's team, only its own clients' borrower agreement.
+     */
+    public function preview(int $userId)
+    {
+        $user = auth()->user();
+        if ($user->entity_type === Borrower::class) {
+            return ApiResponse::notFound(__('agreement.not_found'));
+        }
+
+        $preview = $this->agreementService->previewFor($userId);
+        if ($preview === null) {
+            return ApiResponse::notFound(__('agreement.no_preview_available'));
+        }
+
+        if (!$this->isHostTeam() && $preview['owner_partner_id'] !== (int) $user->partner_id) {
+            return ApiResponse::notFound(__('agreement.not_found'));
+        }
+
+        return ApiResponse::success([
+            'template_id' => $preview['template_id'],
+            'slug' => $preview['slug'],
+            'template_html' => $preview['template_html'],
+        ]);
+    }
+
+    /**
      * Validate whether the current user can access the target agreement.
      */
     private function validateAccess($userId): ?int

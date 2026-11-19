@@ -115,6 +115,9 @@ class ActivityLog extends Activity
     /** The host added, changed or removed the partner's commission (Partner profile › Commissions). */
     const LOG_TYPE_PARTNER_COMMISSION_UPDATE = 'partner_commission_update';
 
+    /** The host changed where the partner's lead / client notification emails go (Partner profile › Mail Notification). */
+    const LOG_TYPE_PARTNER_MAIL_NOTIFICATION_UPDATE = 'partner_mail_notification_update';
+
     const LOG_TYPE_PARTNER_DELETE = 'partner_delete';
 
     const LOG_TYPE_EMAIL_SENT = 'email_sent';

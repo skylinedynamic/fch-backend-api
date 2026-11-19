@@ -495,6 +495,30 @@ class Partner extends Model
         return $this->hasMany(Lead::class, 'partner_id');
     }
 
+    /** Partner profile › Mail Notification: where each type of notification email goes. */
+    public function notificationRecipients(): HasMany
+    {
+        return $this->hasMany(PartnerNotificationRecipient::class, 'partner_id');
+    }
+
+    /**
+     * The address a notification email of this type goes to: the partner's
+     * recipient for it (Mail Notification tab), else the partner's own email.
+     * Reads the loaded relation when there is one.
+     *
+     * @param string $type PartnerNotificationRecipient::TYPE_*
+     */
+    public function notificationEmail(string $type): ?string
+    {
+        $recipients = $this->relationLoaded('notificationRecipients')
+            ? $this->notificationRecipients
+            : $this->notificationRecipients()->get();
+
+        $email = $recipients->firstWhere('type', $type)?->email;
+
+        return $email ?: ($this->email ?: null);
+    }
+
 
     public function commissions(): HasMany
     {

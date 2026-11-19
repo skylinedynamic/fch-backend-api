@@ -10,6 +10,7 @@ use App\Exceptions\LeadConversionRefusedException;
 use App\Exceptions\LeadConvertedException;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerNotificationRecipient;
 use App\Models\User\User;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Partner\PartnerService;
@@ -225,47 +226,27 @@ class LeadService
 
             $lead = Lead::create($data);
 
-            // Send Emails based on Lead Source
+            // The bell as before: the host for a website lead or one the host
+            // adds, the person who added it otherwise. The email goes to the
+            // lead's partner's Lead Notification Recipient (Partner profile ›
+            // Mail Notification), else that partner's own email - the host's
+            // when the lead has no partner.
+            // Catch \Throwable (not \Exception) so a mail failure - e.g. a \TypeError
+            // from a misconfigured mailer - never blocks lead creation.
             $isWebsiteLead = ($lead->lead_source === Lead::LEAD_SOURCE_WEBSITE);
-
-            if (($isWebsiteLead && !Auth::check()) || (Auth::user()->partner->is_host)) {
-                // If it's a website lead, send to host partner (standard website logic)
-                // Catch \Throwable (not \Exception) so a mail failure - e.g. a \TypeError
-                // from a misconfigured mailer - never blocks lead creation.
-                try {
-                    $hostPartner = Partner::where('is_host', true)->first();
-                    if ($hostPartner) {
-                        $details = [
-                            'type' => $isWebsiteLead ? 'website' : 'manual',
-                            'is_pre_qualification' => false,
-                        ];
-                        app(Notifier::class)->send('lead.created', $hostPartner, $this->leadBellData($lead),
-                            mail: $hostPartner->email
-                                ? (new LeadNotificationMail($lead, $details))->to($hostPartner->email)
-                                : null);
-                    }
-                } catch (\Throwable $e) {
-                    Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
-                }
-            } else {
-                // Otherwise, it's a manual/admin-created lead from other sources
-                $recipients = [
-                    Auth::user()->email,
+            try {
+                $hostPartner = Partner::where('is_host', true)->first();
+                $bellTo = (($isWebsiteLead && !Auth::check()) || Auth::user()?->partner?->is_host) ? $hostPartner : Auth::user();
+                $mailTo = ($lead->partner ?? $hostPartner)?->notificationEmail(PartnerNotificationRecipient::TYPE_LEADS);
+                $details = [
+                    'type' => $isWebsiteLead ? 'website' : 'manual',
+                    'is_pre_qualification' => false,
                 ];
 
-                if (!empty($recipients)) {
-                    try {
-                        $details = [
-                            'type' => 'manual',
-                            'is_pre_qualification' => false,
-                        ];
-                        // The person who created it, as before.
-                        app(Notifier::class)->send('lead.created', Auth::user(), $this->leadBellData($lead),
-                            mail: (new LeadNotificationMail($lead, $details))->to($recipients));
-                    } catch (\Throwable $e) {
-                        Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
-                    }
-                }
+                app(Notifier::class)->send('lead.created', $bellTo, $this->leadBellData($lead),
+                    mail: $mailTo ? (new LeadNotificationMail($lead, $details))->to($mailTo) : null);
+            } catch (\Throwable $e) {
+                Log::error('Failed to send lead created notification', ['lead_id' => $lead->id, 'error' => $e->getMessage()]);
             }
 
             // Log Lead Creation
@@ -594,7 +575,7 @@ class LeadService
                 'enrollment' => $enrollmentData,
             ];
 
-            $result = $this->borrowerService->store($borrowerData);
+            $result = $this->borrowerService->store($borrowerData, Borrower::CREATED_VIA_LEAD);
             $borrower = $result['borrower'];
 
             $lead->update([

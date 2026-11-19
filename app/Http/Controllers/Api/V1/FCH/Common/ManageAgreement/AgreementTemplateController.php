@@ -7,6 +7,8 @@ use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateStoreRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateShowRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementMergeFieldsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementPreviewSignersRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ManageAgreement\AgreementPreviewValuesRequest;
 use App\Services\FCH\Common\ManageAgreement\AgreementCommissionFields;
 use App\Services\FCH\Common\ManageAgreement\AgreementEnrollmentFields;
 use App\Services\FCH\Common\ManageAgreement\AgreementPlanFields;
@@ -15,6 +17,7 @@ use App\Services\FCH\Common\ManageAgreement\AgreementService;
 use App\Services\FCH\Partner\PartnerConfigurationChangeRecorder;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\ManageAgreement\AgreementMergeFields;
+use App\Services\FCH\Common\ManageAgreement\AgreementPreviewSigners;
 use App\Traits\ResolvesAgreementOwner;
 use Illuminate\Http\Request;
 
@@ -100,11 +103,42 @@ class AgreementTemplateController extends Controller
      * The template owner's company details, for the builder's preview of the
      * {{owner.*}} merge fields - the values signing fills them with.
      */
-    public function previewValues(Request $request)
+    public function previewValues(AgreementPreviewValuesRequest $request)
     {
         $partner = Partner::find($this->agreementOwnerId($request));
+        $mergeFields = new AgreementMergeFields();
 
-        return ApiResponse::success((new AgreementMergeFields())->ownerValues($partner), __('agreement.retrieved_successfully'));
+        if (!$request->filled('signer_user_id')) {
+            return ApiResponse::success($mergeFields->ownerValues($partner), __('agreement.retrieved_successfully'));
+        }
+
+        // Preview as Partner / Borrower: a partner (partner agreement) or client
+        // (borrower agreement) the viewer may list (AgreementPreviewSigners).
+        $type = $request->validated('type');
+        $signers = new AgreementPreviewSigners();
+        $signer = $signers->find($request->user(), $type, (int) $request->validated('signer_user_id'));
+        if (!$signer) {
+            return ApiResponse::notFound(__('agreement.signer_not_found'));
+        }
+
+        // The owner fields as this signer sees them: a client's own partner, the host for a partner.
+        return ApiResponse::success($mergeFields->values($signer, $signers->ownerFor($signer, $type), $type), __('agreement.retrieved_successfully'));
+    }
+
+    /**
+     * Agreement Builder › Preview as Partner / Borrower: the partners (`type=partner`)
+     * or clients (`type=borrower`) the viewer may preview an agreement as
+     * (AgreementPreviewSigners) - every one for the host's team, a partner's own clients otherwise.
+     */
+    public function previewSigners(AgreementPreviewSignersRequest $request)
+    {
+        // Naming another partner still needs the host's permission, though the list is the viewer's.
+        $this->agreementOwnerId($request);
+
+        return ApiResponse::success(
+            (new AgreementPreviewSigners())->list($request->user(), $request->validated('type'), $request->validated('search')),
+            __('agreement.retrieved_successfully')
+        );
     }
 
     /**
