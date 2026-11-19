@@ -30,6 +30,15 @@ class RejectBorrowersFromPartnerPortal
         'PATCH api/v1/common/appointments/{appointment}',
         'DELETE api/v1/common/appointments/{appointment}',
         'POST api/v1/common/appointments/{id}/cancel',
+        'GET api/v1/common/calendly/status',
+        'GET api/v1/common/calendly/event-types',
+        'POST api/v1/common/calendly/available-times',
+        'POST api/v1/common/calendly/book',
+        // Sync now on the borrower's Appointments page: their partner's Calendly (checked in the service).
+        'POST api/v1/common/calendly/sync',
+        // Their own Calendly: connect (through their partner's Calendly app) and disconnect.
+        'POST api/v1/common/calendly/connect',
+        'DELETE api/v1/common/calendly/connection',
         'GET api/v1/common/refresh-user',
         'GET api/v1/common/partner-payment-providers',
         'GET api/v1/common/borrowers-documents/download/{documentId}',

@@ -127,6 +127,10 @@ Schedule::command('task:reminder-check')
     ->withoutOverlapping(5)
     ->onFailure($onFailure('task:reminder-check'));
 
+// Calendly is not synced on a schedule: an appointment is made from a Calendly
+// meeting only when someone presses Sync now (Pull / Two-way) - never by itself.
+// `php artisan calendly:sync` is still there to run by hand.
+
 /*
 |--------------------------------------------------------------------------
 | Scheduler Health Heartbeat

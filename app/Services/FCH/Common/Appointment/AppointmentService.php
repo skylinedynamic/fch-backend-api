@@ -21,6 +21,10 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Appointment\AppointmentNotification;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\Global\Microsoft\MicrosoftCalendarService;
+use App\Services\Global\Calendly\CalendlyClient;
+use App\Services\FCH\Common\Calendly\CalendlyService;
+use App\Models\Calendly\CalendlyConnection;
+use Illuminate\Validation\ValidationException;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
@@ -34,6 +38,7 @@ class AppointmentService
     public function __construct(
         protected MicrosoftCalendarService $microsoftCalendarService,
         protected ActivityLogService $activityLogService,
+        protected CalendlyClient $calendlyClient,
     ) {
     }
 
@@ -160,6 +165,11 @@ class AppointmentService
      */
     public function update(Appointment $appointment, array $data): Appointment
     {
+        // A Calendly meeting's new title or time is made in Calendly first (it replaces
+        // the meeting there); if Calendly refuses, nothing changes here either.
+        if ($appointment->isFromCalendly()) {
+            $data = array_merge($data, app(CalendlyService::class)->moveMeeting($appointment, $data));
+        }
         $this->resolveEntityAndUser($data);
 
         DB::beginTransaction();
@@ -197,6 +207,9 @@ class AppointmentService
      */
     public function cancel(Appointment $appointment, User $by): Appointment
     {
+        // In Calendly first: if Calendly refuses, the meeting stays as it is here too.
+        $this->cancelInCalendly($appointment);
+
         $appointment->update(['status' => Appointment::STATUS_CANCELLED]);
         $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_UPDATE);
 
@@ -210,6 +223,11 @@ class AppointmentService
      */
     public function delete(Appointment $appointment): bool
     {
+        // An upcoming Calendly meeting is cancelled there before it goes from here.
+        if ($appointment->isCancellable()) {
+            $this->cancelInCalendly($appointment);
+        }
+
         DB::beginTransaction();
         try {
             // Delete from Microsoft 365 if synced (SKIPPED as per requirement)
@@ -258,6 +276,46 @@ class AppointmentService
                 'error' => $e->getMessage()
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Cancels a Calendly meeting in Calendly (so both people get Calendly's
+     * cancellation, and the slot is free again). Nothing to do for an FCH
+     * meeting, one already cancelled, or when Calendly is no longer connected.
+     * Throws CalendlyException when Calendly refuses.
+     */
+    protected function cancelInCalendly(Appointment $appointment): void
+    {
+        if (!$appointment->isFromCalendly() || $appointment->status === Appointment::STATUS_CANCELLED) {
+            return;
+        }
+
+        // The other person's copy in their own Calendly goes too (never holds up the cancel).
+        app(CalendlyService::class)->cancelMirror($appointment);
+
+        // The Calendly it came from (its owner's own) - not the caller's.
+        $connection = CalendlyConnection::find($appointment->calendly_connection_id);
+        if (!$connection?->isActive()) {
+            Log::warning('[CALENDLY] Cancelled in FCH only - its Calendly is not connected', ['appointment_id' => $appointment->id]);
+
+            return;
+        }
+
+        try {
+            $this->calendlyClient->forConnection($connection)->post($appointment->calendly_event_uri . '/cancellation', [
+                'reason' => __('calendly.cancel_reason'),
+            ]);
+        } catch (\App\Services\Global\Calendly\CalendlyException $e) {
+            // Gone from Calendly already (404), or on another Calendly account than the one
+            // now connected (403): nothing this connection can cancel - done in FCH only.
+            if (!in_array($e->calendlyStatus(), [403, 404], true)) {
+                throw $e;
+            }
+            Log::warning('[CALENDLY] Cancelled in FCH only - not on the connected Calendly account', [
+                'appointment_id' => $appointment->id,
+                'status' => $e->calendlyStatus(),
+            ]);
         }
     }
 

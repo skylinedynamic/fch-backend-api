@@ -1,0 +1,273 @@
+<?php
+
+namespace App\Services\Global\Calendly;
+
+use App\Models\Calendly\CalendlyConnection;
+use App\Models\User\User;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
+
+/**
+ * Connecting a partner's Calendly over OAuth 2.0 (authorization code grant)
+ * with that partner's own Calendly OAuth app keys (saved in Settings >
+ * Calendly), and disconnecting it.
+ *
+ * The state sent to Calendly is a random one-time value remembered for the
+ * user and the connection; the callback - a browser arriving from Calendly,
+ * with no API token - is only honoured with that value, once.
+ */
+class CalendlyOAuthService
+{
+    private const STATE_TTL_MINUTES = 15;
+
+    private const STATE_CACHE_PREFIX = 'calendly:oauth-state:';
+
+    public function __construct(
+        private readonly CalendlyClient $client,
+    ) {}
+
+    /** A webhook signing key for the connection: the partner's own, else one FCH makes. */
+    public function ensureSigningKey(CalendlyConnection $connection): void
+    {
+        if (blank($connection->webhook_signing_key)) {
+            $connection->update(['webhook_signing_key' => Str::random(48)]);
+        }
+    }
+
+    public function authorizeUrl(User $user, CalendlyConnection $connection): string
+    {
+        $state = Str::random(64);
+        // PKCE (RFC 7636): a Calendly app made as a public/PKCE app refuses the sign-in without
+        // it ("unknown client", "Missing required parameter: code_verifier"); others accept it too.
+        $verifier = Str::random(96);
+        // The exact address sent here is sent again when the code is swapped for tokens:
+        // Calendly refuses the swap if the two differ (e.g. 127.0.0.1 here, localhost there).
+        $redirectUri = $this->redirectUri();
+        Cache::put(self::STATE_CACHE_PREFIX.$state, [
+            'user_id' => $user->id,
+            'connection_id' => $connection->id,
+            'code_verifier' => $verifier,
+            'redirect_uri' => $redirectUri,
+        ], now()->addMinutes(self::STATE_TTL_MINUTES));
+
+        return rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/authorize?'.http_build_query([
+            'client_id' => $connection->client_id,
+            'response_type' => 'code',
+            'redirect_uri' => $redirectUri,
+            // Calendly grants only what is asked for here (space-separated).
+            'scope' => trim((string) config('services.calendly.scopes')),
+            'state' => $state,
+            'code_challenge' => self::codeChallenge($verifier),
+            'code_challenge_method' => 'S256',
+        ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    /** PKCE S256: base64url(sha256(verifier)), without padding. */
+    public static function codeChallenge(string $verifier): string
+    {
+        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+    }
+
+    /**
+     * Where Calendly sends the browser back after sign-in: this API's own
+     * callback, on the address the API is being reached at (local, stage or
+     * live alike) - shown in Settings > Calendly to enter on the Calendly app.
+     */
+    public function redirectUri(): string
+    {
+        return config('services.calendly.redirect_uri') ?: self::localhostNamed(url('/api/v1/calendly/callback'));
+    }
+
+    /**
+     * A local address with its name, not its number: 127.0.0.1 is the same
+     * machine as localhost, but Calendly matches the redirect address exactly
+     * and takes http only for localhost - a portal that calls the API at
+     * 127.0.0.1 still signs in with http://localhost:8000/... Any other
+     * address (stage, live) is left as it is.
+     */
+    private static function localhostNamed(string $url): string
+    {
+        return preg_replace('#^(https?://)127\.0\.0\.1(?=[:/])#', '$1localhost', $url) ?? $url;
+    }
+
+    /** Where Calendly posts this connection's bookings - one address per connection, checked with its own signing key. */
+    public function webhookUrl(CalendlyConnection $connection): string
+    {
+        return rtrim((string) (config('services.calendly.webhook_url') ?: url('/api/v1/calendly/webhook')), '/').'/'.$connection->id;
+    }
+
+    /**
+     * The user and connection the state was issued for - once; null for an
+     * unknown, expired or used state, or one whose connection is gone.
+     *
+     * @return array{0: User, 1: CalendlyConnection, 2: ?string, 3: ?string}|null  the user, the connection, the PKCE code verifier, the redirect address the sign-in was sent with
+     */
+    public function consumeState(?string $state): ?array
+    {
+        if (! $state) {
+            return null;
+        }
+
+        $issued = Cache::pull(self::STATE_CACHE_PREFIX.$state);
+        $user = is_array($issued) ? User::find($issued['user_id'] ?? null) : null;
+        $connection = is_array($issued) ? CalendlyConnection::find($issued['connection_id'] ?? null) : null;
+
+        return $user && $connection && $connection->isManagedBy($user)
+            ? [$user, $connection, $issued['code_verifier'] ?? null, $issued['redirect_uri'] ?? null]
+            : null;
+    }
+
+    /** Swaps the code (with its PKCE verifier) for tokens and signs the connection in. */
+    public function connect(User $user, CalendlyConnection $connection, string $code, ?string $codeVerifier = null, ?string $redirectUri = null): CalendlyConnection
+    {
+        $tokens = Http::asForm()->acceptJson()->timeout(20)
+            ->post(rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/token', array_filter([
+                'grant_type' => 'authorization_code',
+                'code' => $code,
+                // The very address the sign-in was sent with (Calendly requires the same).
+                'redirect_uri' => $redirectUri ?: $this->redirectUri(),
+                'client_id' => $connection->client_id,
+                'client_secret' => $connection->client_secret,
+                'code_verifier' => $codeVerifier,
+            ]));
+
+        if ($tokens->failed() || ! $tokens->json('access_token')) {
+            Log::warning('[CALENDLY] Authorization code refused', ['status' => $tokens->status(), 'error' => $tokens->json('error')]);
+
+            throw CalendlyException::authorizationFailed();
+        }
+
+        $me = Http::withToken($tokens->json('access_token'))->acceptJson()->timeout(20)
+            ->get($this->client->url('users/me'));
+
+        if ($me->failed()) {
+            throw CalendlyException::fromResponse($me);
+        }
+
+        $account = $me->json('resource') ?? [];
+
+        // One Calendly account belongs to one partner: its meetings would otherwise land twice.
+        if (CalendlyConnection::where('calendly_user_uri', $account['uri'] ?? '')->whereKeyNot($connection->id)->exists()) {
+            throw CalendlyException::accountInUse();
+        }
+
+        $connection->update([
+            'connected_by' => $user->id,
+            'calendly_user_uri' => $account['uri'] ?? null,
+            'calendly_organization_uri' => $account['current_organization'] ?? $tokens->json('organization'),
+            'name' => $account['name'] ?? null,
+            'email' => $account['email'] ?? null,
+            'scheduling_url' => $account['scheduling_url'] ?? null,
+            'timezone' => $account['timezone'] ?? null,
+            'access_token' => $tokens->json('access_token'),
+            'refresh_token' => $tokens->json('refresh_token'),
+            'token_expires_at' => now()->addSeconds((int) ($tokens->json('expires_in') ?: 7200)),
+            'status' => CalendlyConnection::STATUS_ACTIVE,
+        ]);
+
+        $connection->update(['webhook_subscription_uri' => $this->subscribeToWebhooks($connection)]);
+
+        return $connection->fresh();
+    }
+
+    /**
+     * Registers the connection's webhook again - after its signing key was
+     * changed in Settings > Calendly - so Calendly signs deliveries with the
+     * key FCH now checks them against.
+     */
+    public function resubscribeWebhooks(CalendlyConnection $connection): void
+    {
+        if (! $connection->isActive()) {
+            return;
+        }
+
+        if ($connection->webhook_subscription_uri) {
+            try {
+                $this->client->forConnection($connection)->delete($connection->webhook_subscription_uri);
+            } catch (Throwable $e) {
+                Log::warning('[CALENDLY] Old webhook subscription not removed', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        $connection->update(['webhook_subscription_uri' => $this->subscribeToWebhooks($connection)]);
+    }
+
+    /** Stops the webhooks and revokes the token; the meetings already brought in stay. */
+    public function disconnect(?CalendlyConnection $connection): void
+    {
+        if (! $connection) {
+            return;
+        }
+
+        if ($connection->webhook_subscription_uri && $connection->isActive()) {
+            try {
+                $this->client->forConnection($connection)->delete($connection->webhook_subscription_uri);
+            } catch (Throwable $e) {
+                Log::warning('[CALENDLY] Webhook subscription not removed', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        if (filled($connection->refresh_token)) {
+            try {
+                Http::asForm()->acceptJson()->timeout(20)
+                    ->post(rtrim((string) config('services.calendly.auth_url'), '/').'/oauth/revoke', [
+                        'token' => $connection->refresh_token,
+                        'client_id' => $connection->client_id,
+                        'client_secret' => $connection->client_secret,
+                    ]);
+            } catch (Throwable $e) {
+                Log::warning('[CALENDLY] Token not revoked', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        $connection->update([
+            'calendly_user_uri' => null,
+            'access_token' => null,
+            'refresh_token' => null,
+            'token_expires_at' => null,
+            'webhook_subscription_uri' => null,
+            'status' => CalendlyConnection::STATUS_PENDING,
+        ]);
+    }
+
+    /**
+     * Subscribes the account's bookings and cancellations to this connection's
+     * webhook address, signed with its own key; reuses the subscription when
+     * Calendly already has one for it. An address Calendly cannot reach (a
+     * laptop) leaves the account connected without webhooks - the hourly sync
+     * still brings meetings in.
+     */
+    private function subscribeToWebhooks(CalendlyConnection $connection): ?string
+    {
+        $url = $this->webhookUrl($connection);
+        $client = $this->client->forConnection($connection);
+
+        try {
+            return $client->post('webhook_subscriptions', array_filter([
+                'url' => $url,
+                'events' => CalendlySyncService::WEBHOOK_EVENTS,
+                'organization' => $connection->calendly_organization_uri,
+                'user' => $connection->calendly_user_uri,
+                'scope' => 'user',
+                'signing_key' => $connection->webhook_signing_key,
+            ]))['resource']['uri'] ?? null;
+        } catch (CalendlyException $e) {
+            if ($e->calendlyStatus() === 409) {
+                $subscriptions = $client->get('webhook_subscriptions', [
+                    'organization' => $connection->calendly_organization_uri,
+                    'user' => $connection->calendly_user_uri,
+                    'scope' => 'user',
+                ])['collection'] ?? [];
+
+                return collect($subscriptions)->firstWhere('callback_url', $url)['uri'] ?? null;
+            }
+
+            Log::warning('[CALENDLY] Webhook subscription not created', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+}

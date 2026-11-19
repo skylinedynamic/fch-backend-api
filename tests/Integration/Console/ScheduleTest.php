@@ -27,6 +27,7 @@ class ScheduleTest extends TestCase
         'payments:settle-card-authentications' => '*/5 * * * *',
         'funding:application-reminders' => '0 14 * * *',
         'task:reminder-check' => '*/5 * * * *',
+        // Calendly is not on the schedule: it syncs only when someone presses Sync now.
         'scheduler:heartbeat' => '* * * * *',
         'horizon:snapshot' => '*/5 * * * *',
         'logs:prune-months' => '0 3 * * *',

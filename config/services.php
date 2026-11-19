@@ -62,6 +62,28 @@ return [
         'default_scope'  => env('MS_DEFAULT_SCOPE', 'https://graph.microsoft.com/.default'),
     ],
 
+    /*
+     * Calendly - nothing for it in .env. Each partner (host, WLP, certified)
+     * saves its own Client ID, Client Secret and Webhook Signing Key in
+     * Settings > Calendly (calendly_connections). The redirect address is this
+     * API's /api/v1/calendly/callback on the address it is reached at (shown in
+     * Settings > Calendly to enter on the Calendly app), and each connection's
+     * webhooks go to /api/v1/calendly/webhook/{id} likewise. redirect_uri and
+     * webhook_url stay null here (tests may set them).
+     */
+    'calendly' => [
+        'redirect_uri' => null,
+        'webhook_url' => null,
+        'auth_url' => 'https://auth.calendly.com',
+        'api_url' => 'https://api.calendly.com',
+        // OAuth scopes asked for when connecting - each must also be ticked on the
+        // OAuth app in Calendly's developer console (event_types:write: a meeting
+        // named after the appointment title). Each :read is asked for as well as
+        // its :write - a token with only scheduled_events:write was refused GET
+        // /scheduled_events ("Insufficient scope").
+        'scopes' => 'users:read event_types:read event_types:write availability:read scheduled_events:read scheduled_events:write webhooks:read webhooks:write',
+    ],
+
     'microbilt' => [
         'base_url' => env('MICROBILT_BASE_URL', 'https://api.microbilt.com/'), // Default to prod or sandbox URL
         'client_id' => env('MICROBILT_CLIENT_ID'),
