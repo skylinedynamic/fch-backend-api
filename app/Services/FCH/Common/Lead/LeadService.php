@@ -226,25 +226,26 @@ class LeadService
 
             $lead = Lead::create($data);
 
-            // The bell as before: the host for a website lead or one the host
-            // adds, the person who added it otherwise. The email goes to the
-            // lead's partner's Lead Notification Recipient (Partner profile ›
-            // Mail Notification), else that partner's own email - the host's
-            // when the lead has no partner.
+            // The lead's partner (the host when it has none) is told: in its
+            // bell, and by email to its Lead Notification Recipient (Partner
+            // profile › Mail Notification), else its own email. Not when the
+            // partner's own login added the lead: it already knows. Staff adding
+            // one notify their partner, not themselves.
             // Catch \Throwable (not \Exception) so a mail failure - e.g. a \TypeError
             // from a misconfigured mailer - never blocks lead creation.
             $isWebsiteLead = ($lead->lead_source === Lead::LEAD_SOURCE_WEBSITE);
             try {
-                $hostPartner = Partner::where('is_host', true)->first();
-                $bellTo = (($isWebsiteLead && !Auth::check()) || Auth::user()?->partner?->is_host) ? $hostPartner : Auth::user();
-                $mailTo = ($lead->partner ?? $hostPartner)?->notificationEmail(PartnerNotificationRecipient::TYPE_LEADS);
-                $details = [
-                    'type' => $isWebsiteLead ? 'website' : 'manual',
-                    'is_pre_qualification' => false,
-                ];
+                $notifyPartner = $lead->partner ?? Partner::where('is_host', true)->first();
+                if ($notifyPartner && !$notifyPartner->isOwnLogin(Auth::user())) {
+                    $mailTo = $notifyPartner->notificationEmail(PartnerNotificationRecipient::TYPE_LEADS);
+                    $details = [
+                        'type' => $isWebsiteLead ? 'website' : 'manual',
+                        'is_pre_qualification' => false,
+                    ];
 
-                app(Notifier::class)->send('lead.created', $bellTo, $this->leadBellData($lead),
-                    mail: $mailTo ? (new LeadNotificationMail($lead, $details))->to($mailTo) : null);
+                    app(Notifier::class)->send('lead.created', $notifyPartner, $this->leadBellData($lead),
+                        mail: $mailTo ? (new LeadNotificationMail($lead, $details))->to($mailTo) : null);
+                }
             } catch (\Throwable $e) {
                 Log::error('Failed to send lead created notification', ['lead_id' => $lead->id, 'error' => $e->getMessage()]);
             }

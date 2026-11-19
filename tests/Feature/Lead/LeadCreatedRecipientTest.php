@@ -6,6 +6,7 @@ use App\Mail\Lead\LeadNotificationMail;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\Partner\PartnerNotificationRecipient;
+use App\Notifications\DynamicNotification;
 use App\Services\FCH\Common\Lead\LeadService;
 use App\Services\Global\Website\Lead\LeadService as WebsiteLeadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,7 +20,8 @@ use Tests\TestCase;
 /**
  * A new lead is emailed to its partner's Lead Notification Recipient (Partner
  * profile › Mail Notification) - or, with none set, to the partner's own
- * email. Once per lead, whoever created it: the host, a partner, or the website.
+ * email. Once per lead, whoever created it: staff, the host, or the website -
+ * but never when the partner's own login added the lead itself.
  */
 #[CoversClass(LeadService::class)]
 #[CoversClass(WebsiteLeadService::class)]
@@ -77,7 +79,7 @@ class LeadCreatedRecipientTest extends TestCase
     public function a_partners_new_lead_goes_to_its_lead_recipient(): void
     {
         $this->recipient($this->partner, 'leads@acme.test');
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
 
         $this->createLead();
 
@@ -87,7 +89,7 @@ class LeadCreatedRecipientTest extends TestCase
     #[Test]
     public function with_no_recipient_set_it_goes_to_the_partners_own_email(): void
     {
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
 
         $this->createLead();
 
@@ -95,10 +97,10 @@ class LeadCreatedRecipientTest extends TestCase
     }
 
     #[Test]
-    public function a_lead_the_host_creates_goes_to_the_hosts_lead_recipient(): void
+    public function a_lead_host_staff_create_goes_to_the_hosts_lead_recipient(): void
     {
         $this->recipient($this->host, 'host-leads@fch.test');
-        $this->actingAsUser($this->makePartnerAdmin($this->host));
+        $this->actingAsUser($this->makeStaffUser($this->host));
 
         $this->createLead();
 
@@ -127,10 +129,47 @@ class LeadCreatedRecipientTest extends TestCase
     public function another_partners_recipient_is_never_used(): void
     {
         $this->recipient($this->host, 'host-leads@fch.test');
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
 
         $this->createLead();
 
         $this->assertSame([['owner@acme.test']], $this->leadMails());
+    }
+
+    #[Test]
+    public function a_partners_staff_lead_rings_the_partners_bell_not_the_staff_members(): void
+    {
+        $owner = $this->makePartnerAdmin($this->partner);
+        $staff = $this->makeStaffUser($this->partner);
+        $this->actingAsUser($staff);
+
+        $this->createLead();
+
+        Notification::assertSentTo($owner, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'lead.created');
+        Notification::assertNotSentTo($staff, DynamicNotification::class);
+    }
+
+    #[Test]
+    public function a_lead_the_partner_adds_itself_notifies_no_one(): void
+    {
+        $this->recipient($this->partner, 'leads@acme.test');
+        $owner = $this->actingAsUser($this->makePartnerAdmin($this->partner));
+
+        $this->createLead();
+
+        Mail::assertNotQueued(LeadNotificationMail::class);
+        Notification::assertNotSentTo($owner, DynamicNotification::class);
+    }
+
+    #[Test]
+    public function a_lead_the_host_adds_itself_notifies_no_one(): void
+    {
+        $this->recipient($this->host, 'host-leads@fch.test');
+        $host = $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->createLead();
+
+        Mail::assertNotQueued(LeadNotificationMail::class);
+        Notification::assertNotSentTo($host, DynamicNotification::class);
     }
 }

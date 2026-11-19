@@ -24,7 +24,8 @@ use Tests\TestCase;
  * A new client is emailed to its partner's Client Notification Recipient
  * (Partner profile › Mail Notification) - or, with none set, to the partner's
  * own email - once, whichever way the client was made: +Add Client, a lead
- * converted to a client, or an embedded form submission converted to one.
+ * converted to a client, or an embedded form submission converted to one -
+ * but never when the partner's own login added the client itself.
  */
 #[CoversClass(BorrowerService::class)]
 #[CoversClass(ClientCreatedMail::class)]
@@ -91,7 +92,7 @@ class ClientCreatedNotificationTest extends TestCase
     public function add_client_emails_the_partners_client_recipient(): void
     {
         $this->recipient($this->partner, 'clients@acme.test');
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
 
         $client = $this->addClient();
 
@@ -105,7 +106,7 @@ class ClientCreatedNotificationTest extends TestCase
     #[Test]
     public function with_no_client_recipient_it_goes_to_the_partners_own_email(): void
     {
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
 
         $this->addClient();
 
@@ -113,23 +114,58 @@ class ClientCreatedNotificationTest extends TestCase
     }
 
     #[Test]
-    public function the_partner_is_also_told_in_its_bell(): void
+    public function the_partner_is_also_told_in_its_bell_not_the_staff_member(): void
     {
-        $partnerAdmin = $this->makePartnerAdmin($this->partner);
-        $this->actingAsUser($partnerAdmin);
+        $owner = $this->makePartnerAdmin($this->partner);
+        $staff = $this->makeStaffUser($this->partner);
+        $this->actingAsUser($staff);
 
         $client = $this->addClient();
 
-        Notification::assertSentTo($partnerAdmin, DynamicNotification::class, function (DynamicNotification $n) use ($partnerAdmin, $client) {
-            return $n->typeKey === 'partner.client.created' && $n->toArray($partnerAdmin)['url'] === "/clients/{$client->id}";
+        Notification::assertSentTo($owner, DynamicNotification::class, function (DynamicNotification $n) use ($owner, $client) {
+            return $n->typeKey === 'partner.client.created' && $n->toArray($owner)['url'] === "/clients/{$client->id}";
         });
+        Notification::assertNotSentTo($staff, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.client.created');
+    }
+
+    #[Test]
+    public function a_client_the_partner_adds_itself_notifies_no_one(): void
+    {
+        $this->recipient($this->partner, 'clients@acme.test');
+        $owner = $this->actingAsUser($this->makePartnerAdmin($this->partner));
+
+        $this->addClient();
+
+        Mail::assertNotQueued(ClientCreatedMail::class);
+        Notification::assertNotSentTo($owner, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.client.created');
+    }
+
+    #[Test]
+    public function a_client_the_host_adds_itself_notifies_no_one(): void
+    {
+        $this->recipient($this->host, 'host-clients@fch.test');
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->addClient();
+
+        Mail::assertNotQueued(ClientCreatedMail::class);
+    }
+
+    #[Test]
+    public function a_client_the_host_adds_for_a_partner_notifies_that_partner(): void
+    {
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->addClient(['partner_id' => $this->partner->id]);
+
+        $this->assertSame(['owner@acme.test'], $this->to($this->clientMails()[0]));
     }
 
     #[Test]
     public function a_lead_converted_to_a_client_emails_the_client_recipient_once(): void
     {
         $this->recipient($this->partner, 'clients@acme.test');
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
         $lead = Lead::create([
             'partner_id' => $this->partner->id,
             'company_name' => 'Lead Co',
@@ -153,7 +189,7 @@ class ClientCreatedNotificationTest extends TestCase
     public function an_embedded_form_submission_converted_to_a_client_emails_the_client_recipient(): void
     {
         $this->recipient($this->host, 'host-clients@fch.test');
-        $this->actingAsUser($this->makePartnerAdmin($this->host, ['view application', 'convert application']));
+        $this->actingAsUser($this->makeStaffUser($this->host, ['view application', 'convert application']));
         $submission = EmbedFormSubmission::create([
             'submission_uid' => (string) Str::uuid(),
             'partner_id' => $this->host->id,
@@ -176,7 +212,7 @@ class ClientCreatedNotificationTest extends TestCase
     #[Test]
     public function a_client_that_fails_to_save_emails_no_one(): void
     {
-        $this->actingAsUser($this->makePartnerAdmin($this->partner));
+        $this->actingAsUser($this->makeStaffUser($this->partner));
 
         $this->postJson('/api/v1/common/borrowers', ['first_name' => ''])->assertUnprocessable();
 

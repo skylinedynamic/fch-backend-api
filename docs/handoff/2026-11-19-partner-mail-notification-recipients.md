@@ -11,6 +11,7 @@ What was wanted:
 - **Client email:** sent when a client record is created, when a lead is converted to a client, or when +Add Client completes.
 - Each goes to the partner's recipient for it when set (**replacing** the partner's main email), otherwise to the partner's main email.
 - Storage in a **separate table**, so more notification types can be added later.
+- **No email or bell to the creator themselves:** when the partner's own login (host or non-host) adds the lead or client, nothing is sent.
 
 ## Solution
 - **Table `partner_notification_recipients`** (`partner_id`, `type`, `email`; unique on `(partner_id, type)`; cascade on partner delete).
@@ -23,19 +24,21 @@ What was wanted:
   - `UpdatePartnerMailNotificationRequest`: known types only; `nullable|email:rfc|max:255`, errors under `recipients.{type}`.
   - `PartnerNotificationRecipientService` handles list and sync, and logs a "Mail notification updated" internal activity entry with old → new per type.
 - **Lead email:** `lead.created` / `LeadNotificationMail`.
-  - `LeadService::storeDetails`: now sent to `$lead->partner` (or the host when the lead has no partner) via `notificationEmail(TYPE_LEADS)`.
-  - Behaviour change: a lead a non-host partner adds used to email the person who added it; it now goes to the partner's lead recipient or main email. The bell keeps its old recipients.
+  - `LeadService::storeDetails`: the email goes to `$lead->partner` (or the host when the lead has no partner) via `notificationEmail(TYPE_LEADS)`. The bell goes to that partner's own login.
+  - Neither is sent when the creator is that partner's own login (`Partner::isOwnLogin()`, which checks `users.entity_type`/`entity_id` point at the partner). Staff adding a lead notify their partner, not themselves.
+  - Behaviour change: before, the bell and email went to the person who added the lead (or to the host for host-added leads).
   - Website `LeadService::store`: the host's lead recipient, else its email, else its contact person's.
 - **Client email:** new type `partner.client.created` (bell and mail) with new `ClientCreatedMail` ("New Client Added", view `emails.partner.client_created`).
   - Sent from `BorrowerService::store`, the one place +Add Client, lead conversion and embedded-form conversion all create a client.
   - `store()` takes `Borrower::CREATED_VIA_MANUAL` / `CREATED_VIA_LEAD` / `CREATED_VIA_EMBED_FORM`, which sets the wording.
   - It is sent in `DB::afterCommit`, so a rolled-back conversion emails nobody. Failures are logged, not thrown.
-  - It goes to the client's partner's `notificationEmail(TYPE_CLIENTS)`. A non-host partner or its staff adding a client means their own partner's recipient, never the staff member and never the host.
+  - It goes to the client's partner's `notificationEmail(TYPE_CLIENTS)`. When staff add a client, it goes to their partner's recipient, never to the staff member and never to the host. When the host adds a client for partner X, it goes to X.
   - The bell goes to the partner's own login.
+  - Nothing is sent when the creator is that partner's own login (host or non-host).
 
 ## Files changed
 - `database/migrations/2026_11_19_000001_create_partner_notification_recipients_table.php`: new table.
-- `app/Models/Partner/PartnerNotificationRecipient.php` (new); `app/Models/Partner/Partner.php`: relation and `notificationEmail()`.
+- `app/Models/Partner/PartnerNotificationRecipient.php` (new); `app/Models/Partner/Partner.php`: relation, `notificationEmail()`, `isOwnLogin()`.
 - `app/Services/FCH/Partner/PartnerNotificationRecipientService.php` (new): list, sync, activity log.
 - `app/Http/Requests/Api/V1/FCH/Admin/Partner/UpdatePartnerMailNotificationRequest.php` (new).
 - `app/Http/Controllers/Api/V1/FCH/Admin/Partner/PartnerController.php`: `mailNotification`, `updateMailNotification`.
@@ -52,9 +55,9 @@ What was wanted:
 ## Tests
 - New:
   - `tests/Feature/Partner/PartnerMailNotificationApiTest.php` (9);
-  - `tests/Feature/Lead/LeadCreatedRecipientTest.php` (6);
-  - `tests/Feature/Borrower/ClientCreatedNotificationTest.php` (7: +Add Client, fallback, bell, lead conversion, embedded-form conversion, failed save sends nothing, email wording).
-- `php artisan test tests/Feature/Partner tests/Feature/Lead tests/Feature/Borrower tests/Feature/EmbedForm tests/Feature/Notification tests/Feature/Website tests/Integration/Mail`: **1105 passed**.
+  - `tests/Feature/Lead/LeadCreatedRecipientTest.php` (9, including: the partner's or host's own login adding a lead notifies no one; staff ring the partner's bell, not their own);
+  - `tests/Feature/Borrower/ClientCreatedNotificationTest.php` (10: +Add Client, fallback, bell to the partner and not the staff member, the partner or host adding a client itself notifies no one, the host adding for a partner notifies that partner, lead conversion, embedded-form conversion, failed save sends nothing, email wording).
+- `php artisan test tests/Feature/Partner tests/Feature/Lead tests/Feature/Borrower tests/Feature/EmbedForm tests/Feature/Notification tests/Feature/Website tests/Integration/Mail`: **1111 passed**.
 - Migration applied locally (`migrate:status`: Ran).
 
 ## Open items

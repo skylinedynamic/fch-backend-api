@@ -538,14 +538,15 @@ class BorrowerService
     /**
      * Tell the client's partner - in its bell, and by email to its Client
      * Notification Recipient (Partner profile › Mail Notification), else its
-     * own email - that it has a new client. A failure is logged, never thrown:
+     * own email - that it has a new client. Not when the partner's own login
+     * added the client: it already knows. A failure is logged, never thrown:
      * the client is already saved.
      */
     private function notifyPartnerOfNewClient(Borrower $borrower, string $source): void
     {
         try {
             $partner = $borrower->partner()->first();
-            if (!$partner) {
+            if (!$partner || $partner->isOwnLogin(Auth::user())) {
                 return;
             }
 

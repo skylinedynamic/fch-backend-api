@@ -519,6 +519,17 @@ class Partner extends Model
         return $email ?: ($this->email ?: null);
     }
 
+    /**
+     * Whether this user is the partner's own login (not one of its staff). A
+     * partner is not notified of a lead or client it added itself.
+     */
+    public function isOwnLogin(?User $user): bool
+    {
+        return $user !== null
+            && $user->entity_type === $this->getMorphClass()
+            && (int) $user->entity_id === (int) $this->getKey();
+    }
+
 
     public function commissions(): HasMany
     {
