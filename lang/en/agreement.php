@@ -30,6 +30,7 @@ return [
     'required_updated_successfully' => 'Agreement requirement updated successfully',
     'required_update_failed' => 'Failed to update the agreement requirement',
     'signer_not_found' => 'No partner or client found for this user.',
+    'no_preview_available' => 'There is no active agreement for this partner or client to preview.',
     'required_locked_globally' => 'Agreement signing is turned off in Settings › Agreement.',
     'required_locked_template_partner' => 'The partner agreement is turned off in Settings › Agreement.',
     'required_locked_template_borrower' => "This client's partner has their borrower agreement turned off.",

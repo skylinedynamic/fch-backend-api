@@ -217,12 +217,43 @@ class AgreementEnrollmentFields
             return null;
         }
 
-        return Subscription::where('entity_type', $entityType)
+        return $this->enrollments($entityType)
             ->where('entity_id', $signer->entity_id)
-            ->where(fn ($query) => $query->whereNull('current_phase')->orWhere('current_phase', '!=', Subscription::PHASE_USER_SEAT))
-            ->where(fn ($query) => $query->whereNull('enrollment_type')->orWhere('enrollment_type', '!=', Subscription::ENROLLMENT_TYPE_MONTHLY))
             ->latest('id')
             ->first();
+    }
+
+    /**
+     * Each signer's enrollment type (Installment / One Time Payment), from the
+     * same latest enrollment as their enrollment table - for many at once
+     * (Preview as Partner / Borrower lists them). Signers with none are left out.
+     *
+     * @param list<int> $entityIds partner ids for the partner agreement, borrower ids for the borrower one
+     * @return array<int, string> entity id => enrollment type
+     */
+    public function enrollmentTypes(string $agreementType, array $entityIds): array
+    {
+        if (!isset(self::VARIANTS[$agreementType]) || $entityIds === []) {
+            return [];
+        }
+
+        $entityType = $agreementType === AgreementTemplate::SLUG_PARTNER ? Partner::class : Borrower::class;
+
+        return $this->enrollments($entityType)
+            ->whereIn('entity_id', $entityIds)
+            ->orderBy('id')
+            ->get(['id', 'entity_id', 'installment_type'])
+            // Ordered oldest first, so each signer keeps their latest.
+            ->mapWithKeys(fn (Subscription $s) => [(int) $s->entity_id => (int) $s->installment_type === 1 ? self::INSTALLMENT : self::ONE_TIME])
+            ->all();
+    }
+
+    /** Enrollment subscriptions of one entity type: never a user seat, nor a monthly subscription. */
+    private function enrollments(string $entityType)
+    {
+        return Subscription::where('entity_type', $entityType)
+            ->where(fn ($query) => $query->whereNull('current_phase')->orWhere('current_phase', '!=', Subscription::PHASE_USER_SEAT))
+            ->where(fn ($query) => $query->whereNull('enrollment_type')->orWhere('enrollment_type', '!=', Subscription::ENROLLMENT_TYPE_MONTHLY));
     }
 
     /** Plan & Fee's client activation fee, which a partner may set per borrower. */

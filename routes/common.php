@@ -590,6 +590,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/save/{id?}', [AgreementTemplateController::class, 'store']);
                 Route::post('/show', [AgreementTemplateController::class, 'show']);
                 Route::post('/preview-values', [AgreementTemplateController::class, 'previewValues']);
+                Route::get('/preview-signers', [AgreementTemplateController::class, 'previewSigners']);
                 Route::post('/merge-fields', [AgreementTemplateController::class, 'mergeFields']);
                 Route::post('/update-status/{id}', [AgreementTemplateController::class, 'updateStatus']);
 
@@ -608,6 +609,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/check', [AgreementSignController::class, 'checkAgreementSign']);
                 Route::post('/submit', [AgreementSignController::class, 'submitSign']);
                 Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
+                Route::get('/preview/{userId}', [AgreementSignController::class, 'preview'])->whereNumber('userId');
                 Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
                 Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
                 Route::get('/required/{userId}', [AgreementSignController::class, 'requirement'])->whereNumber('userId');
