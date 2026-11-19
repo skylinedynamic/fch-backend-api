@@ -151,6 +151,9 @@ class CalendlyConnectionTest extends TestCase
             && $request['url'] === "https://api.example.test/api/v1/calendly/webhook/{$connection->id}"
             && $request['signing_key'] === $connection->webhook_signing_key
             && $request['events'] === ['invitee.created', 'invitee.canceled']);
+        // Connecting only signs in: Calendly's meetings are not read, no appointment is made.
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/scheduled_events'));
+        $this->assertSame(0, \App\Models\Appointment\Appointment::count());
     }
 
     /**

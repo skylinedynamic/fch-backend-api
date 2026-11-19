@@ -300,11 +300,9 @@ class CalendlyService
             return $this->backToPortal($user, $connection, $inUse ? 'in_use' : 'error');
         }
 
-        try {
-            $this->syncConnection($connection);
-        } catch (Throwable $e) {
-            Log::warning('[CALENDLY] First sync failed', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
-        }
+        // Connecting only signs the account in: no appointment is made from its Calendly
+        // meetings here - they come in when someone syncs (Sync now / Pull).
+        Cache::forget($this->eventTypesCacheKey($connection));
 
         return $this->backToPortal($user, $connection, 'connected');
     }

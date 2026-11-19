@@ -126,14 +126,9 @@ Schedule::command('task:reminder-check')
     ->withoutOverlapping(5)
     ->onFailure($onFailure('task:reminder-check'));
 
-// Catch-up for the company Calendly account: webhooks bring meetings in as they
-// are booked; this picks up any delivery that was lost. Hourly keeps it well
-// inside the Free plan's API rate limit.
-Schedule::command('calendly:sync')
-    ->hourlyAt(15)
-    ->timezone($scheduleTimezone)
-    ->withoutOverlapping(30)
-    ->onFailure($onFailure('calendly:sync'));
+// Calendly is not synced on a schedule: an appointment is made from a Calendly
+// meeting only when someone presses Sync now (Pull / Two-way) - never by itself.
+// `php artisan calendly:sync` is still there to run by hand.
 
 /*
 |--------------------------------------------------------------------------

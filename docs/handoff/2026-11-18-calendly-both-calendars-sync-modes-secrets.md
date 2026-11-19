@@ -31,6 +31,8 @@ Testing live on 2026-11-18 turned up these issues:
   - The Client Secret, Webhook Signing Key and both OAuth tokens stay encrypted at rest (Laravel `encrypted` cast, `APP_KEY`).
   - `GET/POST /common/calendly/settings` no longer returns `client_secret` or `webhook_signing_key`; only `has_client_secret` and `has_webhook_signing_key`.
   - Settings → Calendly shows a saved secret as a dots stand-in in a password field. Left alone it keeps the saved one; typed over, it replaces it. The Client ID is masked with an eye button, as the OpenAI Agent IDs are.
+- **Nothing syncs by itself (2026-11-19).** Connecting only signs the account in - no Calendly meeting is read and no appointment is made. The page-open quiet sync (both portals) and the hourly `calendly:sync` schedule are removed: an appointment is made from a Calendly meeting only when someone presses **Sync now** (Pull / Two-way). `php artisan calendly:sync` still runs by hand.
+- **No Calendly settings in `.env`.** Partner keys are in Settings > Calendly (database); the redirect and webhook addresses are worked out from the API's own address (127.0.0.1 written as localhost), and the redirect address of the sign-in is reused for the token swap.
 - **Disconnect modal** (both portals) shows the Calendly logo instead of the party popper.
 
 ## Files changed
