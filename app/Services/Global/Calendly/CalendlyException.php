@@ -68,7 +68,18 @@ class CalendlyException extends RuntimeException
         $status = $response->status();
 
         if ($status === 429) {
-            return new self(__('calendly.rate_limited'), 429, $status);
+            // When Calendly says when it takes bookings again (Retry-After, or its rate-limit
+            // reset: seconds from now, or a Unix time), the message says it.
+            $wait = self::secondsUntilRetry($response);
+            $minutes = $wait ? (int) ceil($wait / 60) : 0;
+            // Over two hours it reads in hours ("24 hours", not "1440 minutes").
+            $hours = (int) ceil($minutes / 60);
+
+            return new self(match (true) {
+                ! $wait => __('calendly.rate_limited'),
+                $minutes >= 120 => trans_choice('calendly.rate_limited_for_hours', $hours, ['hours' => $hours, 'limit' => $response->header('X-RateLimit-Limit') ?: '?']),
+                default => trans_choice('calendly.rate_limited_for', $minutes, ['minutes' => $minutes]),
+            }, 429, $status);
         }
 
         if ($status >= 500 || $status === 401) {
@@ -80,5 +91,30 @@ class CalendlyException extends RuntimeException
         $message = $response->json('details.0.message') ?: $response->json('message') ?: $response->json('title') ?: __('calendly.refused');
 
         return new self((string) $message, 422, $status);
+    }
+
+    /**
+     * How long until Calendly takes requests again, from its 429's headers:
+     * Retry-After (seconds), or X-RateLimit-Reset (seconds from now, or a Unix
+     * time). Null when it does not say.
+     */
+    public static function secondsUntilRetry(Response $response): ?int
+    {
+        foreach (['Retry-After', 'X-RateLimit-Reset'] as $header) {
+            $value = trim((string) $response->header($header));
+            if ($value === '' || ! is_numeric($value)) {
+                continue;
+            }
+            $seconds = (int) $value;
+            // A Unix time rather than a number of seconds.
+            if ($seconds > 1_000_000_000) {
+                $seconds -= time();
+            }
+            if ($seconds > 0) {
+                return $seconds;
+            }
+        }
+
+        return null;
     }
 }

@@ -273,12 +273,19 @@ class CalendlyService
         $issued = $this->oauth->consumeState($state);
 
         if (! $issued) {
+            // An expired, reused or forged sign-in link: every way back is logged, so a
+            // connect that "did nothing" can be traced.
+            Log::warning('[CALENDLY] Connecting refused - unknown or expired sign-in state');
+
             return $this->backToPortal(null, null, 'error');
         }
 
         [$user, $connection, $codeVerifier] = $issued;
 
         if ($error || ! $code) {
+            // Declined on Calendly's page (Deny), or Calendly sent no code.
+            Log::warning('[CALENDLY] Connecting not completed on Calendly', ['user_id' => $user->id, 'connection_id' => $connection->id, 'error' => $error]);
+
             return $this->backToPortal($user, $connection, 'error');
         }
 
@@ -729,7 +736,10 @@ class CalendlyService
 
         $body += $this->detailsAnswer($type, (string) ($data['subject'] ?? ''), (string) ($data['description'] ?? ''));
 
-        $invitee = $client->post('invitees', $body)['resource'] ?? [];
+        // Named after the FCH title (a one-off meeting); if Calendly refuses that, on the
+        // event type, the title and description in its details.
+        $invitee = $this->bookUnderTitle($client, $connection, $type, $body, $data, $zone, $start)
+            ?? ($client->post('invitees', $body)['resource'] ?? []);
         $event = $client->get($invitee['event'])['resource'] ?? [];
 
         $appointment = $this->sync->upsert($connection, $event, $invitee);
@@ -909,16 +919,22 @@ class CalendlyService
                 'timezone' => $zone,
             ],
         ];
-        $kind = $this->chosenLocation($type, null)['kind'] ?? null;
-        $where = trim((string) ($event['location']['location'] ?? ''));
-        if ($kind && in_array($kind, self::INVITEE_LOCATION_KINDS, true) && $where !== '') {
-            $body['location'] = ['kind' => $kind, 'location' => $where];
+        // The event type's place, always named (Calendly refuses a booking without it): the
+        // one the invitee gave keeps its value; else the event type's own, if any.
+        $place = $this->chosenLocation($type, null);
+        $kind = $place['kind'] ?? null;
+        if ($kind) {
+            $where = in_array($kind, self::INVITEE_LOCATION_KINDS, true)
+                ? trim((string) ($event['location']['location'] ?? ''))
+                : ($place['location'] ?? $place['phone_number'] ?? null);
+            $body['location'] = array_filter(['kind' => $kind, 'location' => $where]);
         }
         $description = (string) ($data['description'] ?? $appointment->description ?? '');
-        $book = function (Carbon $start, string $title) use ($client, $type, $body, $description): array {
+        $book = function (Carbon $start, string $title) use ($client, $connection, $type, $body, $description, $zone): array {
             $at = $body + ['start_time' => $start->format('Y-m-d\TH:i:s\Z')] + $this->detailsAnswer($type, $title, $description);
 
-            return $client->post('invitees', $at)['resource'] ?? [];
+            return $this->bookUnderTitle($client, $connection, $type, $at, ['subject' => $title, 'description' => $description], $zone, $start)
+                ?? ($client->post('invitees', $at)['resource'] ?? []);
         };
 
         // Its cancellation (webhook, sync) must not take the appointment off FCH.
@@ -1017,22 +1033,30 @@ class CalendlyService
             ],
         ] + $this->detailsAnswer($type, $title, $description);
 
-        // A place the invitee gives (Calendly refuses the booking without it): for a call
-        // to them, their number in FCH; else the event type's own place, if any.
+        // Calendly refuses a booking that does not name the event type's place, even its
+        // only one ("invalid location choice"): its kind always, as Add Appointment sends it.
         $location = $this->chosenLocation($type, null);
-        if (in_array($location['kind'] ?? null, self::INVITEE_LOCATION_KINDS, true)) {
-            $where = $location['kind'] === 'outbound_call'
-                ? (string) app(SmsRecipient::class)->numberFor($invitee)
-                : trim((string) ($location['location'] ?? ''));
-            if ($where === '') {
-                throw ValidationException::withMessages(['location' => $location['kind'] === 'outbound_call'
-                    ? __('calendly.phone_missing', ['name' => $invitee->name ?: $invitee->email])
-                    : __('calendly.location_required')]);
+        if (! empty($location['kind'])) {
+            if (in_array($location['kind'], self::INVITEE_LOCATION_KINDS, true)) {
+                // A place the invitee gives: for a call to them, their number in FCH.
+                $where = $location['kind'] === 'outbound_call'
+                    ? (string) app(SmsRecipient::class)->numberFor($invitee)
+                    : trim((string) ($location['location'] ?? ''));
+                if ($where === '') {
+                    throw ValidationException::withMessages(['location' => $location['kind'] === 'outbound_call'
+                        ? __('calendly.phone_missing', ['name' => $invitee->name ?: $invitee->email])
+                        : __('calendly.location_required')]);
+                }
+            } else {
+                // The event type's own place (an address, the number to call), if it has one.
+                $where = $location['location'] ?? $location['phone_number'] ?? null;
             }
-            $body['location'] = ['kind' => $location['kind'], 'location' => $where];
+            $body['location'] = array_filter(['kind' => $location['kind'], 'location' => $where]);
         }
 
-        $booked = $client->post('invitees', $body)['resource'] ?? [];
+        // Named after the FCH title, as every booking; else on the event type with the details.
+        $booked = $this->bookUnderTitle($client, $target, $type, $body, ['subject' => $title, 'description' => $description], $zone, $start)
+            ?? ($client->post('invitees', $body)['resource'] ?? []);
 
         if (empty($booked['event'])) {
             throw new CalendlyException(__('calendly.refused'), 502);
@@ -1202,6 +1226,113 @@ class CalendlyService
                 'times' => $labels->take(12)->implode(', ').($labels->count() > 12 ? ', …' : ''),
             ])]);
     }
+
+    /**
+     * Books the meeting under the FCH appointment title: Calendly names a
+     * meeting after its event type, so a one-off meeting type named with the
+     * title (same length, day and place) is made and the invitee booked on it.
+     * Needs the event_types:write scope. Null - the caller books on the event
+     * type instead - when there is no title, or Calendly refuses (4xx: no such
+     * scope, plan, place...). Any other failure is thrown: the booking may have
+     * been made, so booking again could make it twice.
+     */
+    private function bookUnderTitle(CalendlyClient $client, CalendlyConnection $connection, array $type, array $body, array $data, string $zone, Carbon $start): ?array
+    {
+        $title = trim((string) ($data['subject'] ?? ''));
+        if ($title === '' || blank($connection->calendly_user_uri)) {
+            return null;
+        }
+
+        $day = $start->copy()->setTimezone($zone);
+        $makeOneOff = fn (?array $location) => $client->post('one_off_event_types', array_filter([
+            'name' => mb_strimwidth($title, 0, 55, '…'),
+            'host' => $connection->calendly_user_uri,
+            'duration' => max(1, (int) $type['duration']),
+            'timezone' => $zone,
+            'date_setting' => [
+                'type' => 'date_range',
+                'start_date' => $day->toDateString(),
+                'end_date' => $day->copy()->addDay()->toDateString(),
+            ],
+            'location' => $location,
+        ]))['resource']['uri'] ?? null;
+
+        // It has none of the event type's questions; the place goes as the one-off takes it.
+        $named = $body;
+        unset($named['location'], $named['questions_and_answers']);
+        $notes = trim(html_entity_decode(strip_tags((string) ($data['description'] ?? '')), ENT_QUOTES | ENT_HTML5));
+        [$location, $answer] = $this->oneOffLocation($body['location'] ?? null, $notes);
+        // Calendly refuses a booking that does not name the meeting's place, even its only one
+        // ("invalid location choice"): the one-off's place is named when booking on it.
+        $answer ??= $location ? array_filter(['kind' => $location['kind'], 'location' => $location['location'] ?? $location['phone_number'] ?? null]) : null;
+
+        try {
+            try {
+                $oneOff = $makeOneOff($location);
+                if (! $oneOff) {
+                    return null;
+                }
+
+                return $client->post('invitees', array_filter(array_merge($named, ['event_type' => $oneOff, 'location' => $answer])))['resource'] ?? null;
+            } catch (CalendlyException $e) {
+                // A place Calendly will not book a one-off with: the title still goes, without the place.
+                if ($location === null || $e->calendlyStatus() !== 400) {
+                    throw $e;
+                }
+                Log::info('[CALENDLY] Named meeting booked without its place - Calendly refused it', ['connection_id' => $connection->id, 'error' => $e->getMessage()]);
+                $oneOff = $makeOneOff(null);
+                if (! $oneOff) {
+                    return null;
+                }
+
+                return $client->post('invitees', array_merge($named, ['event_type' => $oneOff]))['resource'] ?? null;
+            }
+        } catch (CalendlyException $e) {
+            $status = $e->calendlyStatus();
+            if ($status === null || $status < 400 || $status >= 500 || $status === 429) {
+                throw $e;
+            }
+
+            Log::info('[CALENDLY] Booked on the event type - Calendly refused a meeting named after the title', [
+                'connection_id' => $connection->id,
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * The event type's place for a one-off meeting type: [its location
+     * setting, the invitee's answer when booking]. Its kinds are fewer, and
+     * Calendly will not book a one-off with a "custom" or "ask invitee" place
+     * ("invalid location choice") - a call we make (or a place the invitee
+     * gives) goes as a "physical" place written out ("Phone call: <number>"),
+     * which both people see as the location; the FCH description goes with it
+     * as its additional info (a one-off has no questions to answer it in).
+     *
+     * @return array{0: ?array, 1: ?array}
+     */
+    private function oneOffLocation(?array $location, string $notes = ''): array
+    {
+        $kind = $location['kind'] ?? null;
+        $where = trim((string) ($location['location'] ?? ''));
+        $info = $notes !== '' ? ['additional_info' => mb_substr($notes, 0, 1000)] : [];
+
+        return match ($kind) {
+            null => [null, null],
+            'outbound_call' => $where !== ''
+                ? [['kind' => 'physical', 'location' => 'Phone call: '.$where] + $info, null]
+                : [null, null],
+            'ask_invitee', 'custom' => $where !== '' ? [['kind' => 'physical', 'location' => $where] + $info, null] : [null, null],
+            'physical' => $where !== '' ? [['kind' => 'physical', 'location' => $where] + $info, null] : [null, null],
+            'inbound_call' => $where !== '' ? [['kind' => 'inbound_call', 'phone_number' => $where], null] : [null, null],
+            'zoom_conference', 'google_conference', 'microsoft_teams_conference', 'webex_conference', 'gotomeeting_conference' => [['kind' => $kind], null],
+            default => [null, null],
+        };
+    }
+
 
     /**
      * The picked time must be one Calendly offers for the event type that day

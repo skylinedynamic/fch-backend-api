@@ -26,7 +26,7 @@ Testing live on 2026-11-18 turned up these issues:
   - **Two-way:** Pull, then Push.
   - Only upcoming meetings are sent; nothing is booked twice; a meeting still linked to a deleted connection is booked again in the current accounts. Calendly refusing a meeting is reported by name; a 429 (booking limit) stops the rest.
   - Push needs the caller's own Calendly: a borrower without one gets Pull only (Push and Two-way disabled), and the host account cannot push into another partner's Calendly (422 `calendly.push_needs_own`).
-- **Title and description in Calendly's meeting details.** All bookings (Add Appointment, reschedule, the copy, Push / Pull) are made on the account's event type. The FCH title and description go in as the answer to its first free-text question, shown in the meeting's Details tab and in Calendly's emails. The meeting's name in Calendly is the event type's name. The one-off booking code and the `calendly:retitle` command are removed.
+- **Meetings named after the FCH title (updated 2026-11-19).** Every booking (Add Appointment, reschedule, the copy, Push / Pull) is a Calendly one-off meeting named after the FCH title, so Calendly's lists show the title. Calendly's one-offs have no description field: the description goes with it only for an in-person or inbound-call place. The booking always names the place (Google Meet etc.) - without it Calendly refuses with "invalid location choice", the cause of the errors on 2026-11-18/19. If Calendly refuses the named meeting (no `event_types:write`, plan, place), it is booked on the event type instead, the title and description in its details (`detailsAnswer`). The `calendly:retitle` command stays removed.
 - **Secrets are write-only, as on OpenAI Configuration.**
   - The Client Secret, Webhook Signing Key and both OAuth tokens stay encrypted at rest (Laravel `encrypted` cast, `APP_KEY`).
   - `GET/POST /common/calendly/settings` no longer returns `client_secret` or `webhook_signing_key`; only `has_client_secret` and `has_webhook_signing_key`.
@@ -56,9 +56,11 @@ Testing live on 2026-11-18 turned up these issues:
 ## Left open
 - **Run the migration** on each environment.
 - **Meeting length follows the Calendly event type.** Pushing a 60-minute FCH appointment onto a 30-minute event type books 30 minutes.
-- **The event type needs a free-text question** for the details to show (new Calendly event types have one). Without it the meeting is booked without them.
-- **`event_types:write` is no longer used.** It stays in `CALENDLY_SCOPES` so existing apps don't need re-authorising; it can be dropped later.
+- **The account needs at least one event type switched on** (its length, place and hours are used), even for named meetings.
+- **`event_types:write` is required** for meetings named after the title; without it every booking falls back to the event type's name.
+- **Calendly's booking limit is 5 per 24 hours on these accounts** (its 429 says `X-RateLimit-Limit: 5`, `Retry-After: 86400`). The message now says so, in hours, and the log keeps Calendly's figures.
+- **Saving a different Client ID signs out the partner and every borrower** connected through the old app; each must connect again.
 - **Calendly's own limits apply:** the booking limit (Free plan, 429), the owner's availability hours, and past times. The sync result names each refused meeting.
 - Webhooks can't reach `localhost`; locally, meetings arrive through sync only.
-- Meetings booked before this change keep their one-off name and have no details in Calendly.
+- Meetings booked between 2026-11-18 and 2026-11-19 on the event type keep that name ("30 Minute Meeting"); their details hold the title.
 - The secrets shown in earlier screenshots should be regenerated at developer.calendly.com.

@@ -125,6 +125,13 @@ class CalendlyClient
                 'refused_parameters' => collect($response->json('details') ?? [])->pluck('parameter')->filter()->values()->all() ?: null,
                 // Names the missing scopes on a 403 "Insufficient scope".
                 'required_scopes' => $response->json('details.required_scopes') ?? $response->json('required_scopes'),
+                // A 429: Calendly's own word on its limit - when it takes requests again, and its message.
+                'retry_after' => $response->status() === 429 ? (CalendlyException::secondsUntilRetry($response) ?? null) : null,
+                'rate_limit' => $response->status() === 429 ? array_filter([
+                    'limit' => $response->header('X-RateLimit-Limit'),
+                    'remaining' => $response->header('X-RateLimit-Remaining'),
+                    'message' => $response->json('message'),
+                ]) ?: null : null,
             ]);
 
             // The token lacks a scope (granted before the scope was asked
